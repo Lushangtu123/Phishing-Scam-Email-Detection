@@ -287,13 +287,29 @@ def main():
     parser.add_argument('--baseline',required=True,type=Path)
     parser.add_argument('--candidate',required=True,type=Path)
     parser.add_argument('--output',type=Path)
+    parser.add_argument('--release-review', type=Path,
+                        help='Opt-in private release gate: bounded independent holdout review JSON')
     args=parser.parse_args()
     try:
+        inputs = [args.baseline, args.candidate] + ([args.release_review] if args.release_review else [])
+        if args.output and any(args.output.resolve() == path.resolve()
+                               or (args.output.exists() and args.output.samefile(path)) for path in inputs):
+            parser.error('Comparison output must not overwrite an input report or release review')
         reports=[]
         for path in (args.baseline,args.candidate):
             if path.stat().st_size > 16_000_000: raise ValueError('Report exceeds 16 MB')
             reports.append(json.loads(path.read_text()))
-        result=compare(*reports)
+        if args.release_review:
+            if args.release_review.stat().st_size > 512_000:
+                raise ValueError('Release review exceeds 512 KB')
+            review = json.loads(args.release_review.read_text())
+            if __package__:
+                from .release_evaluation import compare_release
+            else:
+                from release_evaluation import compare_release
+            result = compare_release(*reports, review)
+        else:
+            result=compare(*reports)
     except (OSError,ValueError):
         parser.error('Cannot read valid bounded report JSON')
     text=json.dumps(result,indent=2,allow_nan=False)+'\n'

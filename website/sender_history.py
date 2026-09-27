@@ -170,23 +170,17 @@ class DisabledSenderHistoryStore:
         return None
 
 
-class UpstashSenderHistoryStore:
-    def __init__(
-        self,
-        settings: Settings,
-        *,
-        opener: Callable | None = None,
-        clock: Callable[[], float] = time.time,
-    ) -> None:
-        if not settings.sender_history_ready:
-            raise ValueError("Sender history is not configured")
-        self._url = f"{settings.sender_history_rest_url}/pipeline"
-        self._token = settings.sender_history_rest_token or ""
-        self._secret = settings.sender_history_hmac_key or ""
-        self._ttl_seconds = settings.sender_history_retention_days * 86400
-        self._timeout = settings.sender_history_timeout_seconds
+class UpstashRateLimitStore:
+    """Shared Redis transport and limiter, independent of sender observations."""
+    status = "configured"
+
+    def __init__(self, url: str, token: str, secret: str, *,
+                 timeout: float = 1.0, opener: Callable | None = None) -> None:
+        self._url = f"{url}/pipeline"
+        self._token = token
+        self._secret = secret
+        self._timeout = timeout
         self._opener = opener or build_opener(_NoRedirectHandler()).open
-        self._clock = clock
 
     def _execute(self, commands: list[list[object]]) -> object:
         request = Request(
@@ -207,8 +201,44 @@ class UpstashSenderHistoryStore:
             or "error" in payload[0]
             or "result" not in payload[0]
         ):
-            raise ValueError("Invalid sender-history response")
+            raise ValueError("Invalid Redis response")
         return payload[0]["result"]
+
+    async def check_rate_limit(
+        self, identity: str, *, limit: int, window_seconds: int,
+    ) -> RateLimitDecision | None:
+        key = _rate_limit_key(identity, self._secret)
+        try:
+            values = await asyncio.to_thread(
+                self._execute,
+                [[
+                    "EVAL", _RATE_LIMIT_SCRIPT, "1", key,
+                    str(limit), str(window_seconds),
+                ]],
+            )
+            if not isinstance(values, list) or len(values) != 2:
+                raise ValueError("Invalid distributed rate-limit response")
+            count, ttl = (int(value) for value in values)
+            if count < 1 or ttl < 0:
+                raise ValueError("Invalid distributed rate-limit values")
+            if count <= limit:
+                return RateLimitDecision(allowed=True)
+            return RateLimitDecision(allowed=False, retry_after=max(1, ttl))
+        except Exception:
+            return None
+
+
+class UpstashSenderHistoryStore(UpstashRateLimitStore):
+    def __init__(self, settings: Settings, *, opener: Callable | None = None,
+                 clock: Callable[[], float] = time.time) -> None:
+        if not settings.sender_history_ready:
+            raise ValueError("Sender history is not configured")
+        super().__init__(settings.sender_history_rest_url,
+                         settings.sender_history_rest_token,
+                         settings.sender_history_hmac_key,
+                         timeout=settings.sender_history_timeout_seconds, opener=opener)
+        self._ttl_seconds = settings.sender_history_retention_days * 86400
+        self._clock = clock
 
     async def lookup(self, address: str) -> SenderHistoryResult:
         key = sender_history_key(address, self._secret)
@@ -248,29 +278,6 @@ class UpstashSenderHistoryStore:
                 status="unavailable",
                 error="Sender history is temporarily unavailable.",
             )
-
-    async def check_rate_limit(
-        self, identity: str, *, limit: int, window_seconds: int,
-    ) -> RateLimitDecision | None:
-        key = _rate_limit_key(identity, self._secret)
-        try:
-            values = await asyncio.to_thread(
-                self._execute,
-                [[
-                    "EVAL", _RATE_LIMIT_SCRIPT, "1", key,
-                    str(limit), str(window_seconds),
-                ]],
-            )
-            if not isinstance(values, list) or len(values) != 2:
-                raise ValueError("Invalid distributed rate-limit response")
-            count, ttl = (int(value) for value in values)
-            if count < 1 or ttl < 0:
-                raise ValueError("Invalid distributed rate-limit values")
-            if count <= limit:
-                return RateLimitDecision(allowed=True)
-            return RateLimitDecision(allowed=False, retry_after=max(1, ttl))
-        except Exception:
-            return None
 
 
 def build_sender_history_store(settings: Settings):

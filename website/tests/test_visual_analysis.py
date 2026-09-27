@@ -61,6 +61,20 @@ class VisualAPITests(unittest.TestCase):
             self.assertFalse(data['analysis_complete'])
             self.assertNotEqual(data['risk_level'], 'safe')
 
+    def test_url_line_confidence_is_bounded_retained_and_cannot_change_risk(self):
+        outputs = []
+        for confidence in (0, 48, 100):
+            status, data, _ = self.call({'observations': [observation(
+                qr_payloads=[], ocr_text='https://paypal.example/login',
+                ocr_confidence=92, ocr_url_line_confidence=confidence)]})
+            self.assertEqual(status, 200)
+            self.assertEqual(data['visual_analysis']['observations'][0]['ocr_url_line_confidence'], confidence)
+            outputs.append((data['risk_level'], data['combined_phishing_score'], data['total_score']))
+        self.assertEqual(outputs[0], outputs[1])
+        self.assertEqual(outputs[1], outputs[2])
+        for confidence in (-1, 101, float('nan')):
+            self.assertEqual(self.call({'observations': [observation(ocr_url_line_confidence=confidence)]})[0], 422)
+
     def test_benign_blank_or_failed_extraction_never_certifies_safety(self):
         for item in [observation(qr_payloads=[], ocr_text='Team meeting on Thursday.'),
                      observation(qr_payloads=[], status='failed', warnings=['OCR failed']),
@@ -109,13 +123,17 @@ class VisualAPITests(unittest.TestCase):
         from test_case_api import CaseAPITests
         fixture = CaseAPITests(); fixture.setUp()
         try:
-            payload = {'observations': [observation()]}
+            payload = {'observations': [observation(ocr_text='https://paypa1.example/login',
+                ocr_url_line_confidence=48)]}
             key = '00000000-0000-4000-8000-000000000099'
             self.assertEqual(asyncio.run(request('POST', '/api/cases/visual', payload=payload, token=None, key=key))[0], 401)
             status, case, _ = fixture.call('POST', '/api/cases/visual', payload=payload, key=key)
             self.assertEqual(status, 201)
             self.assertIn(case['risk'], {'high', 'critical'})
             self.assertEqual(case['analysis']['visual_analysis']['provenance'], 'browser_extracted_unverified')
+            self.assertEqual(case['analysis']['visual_analysis']['observations'][0]['ocr_url_line_confidence'], 48)
+            self.assertEqual(fixture.call('GET', '/api/cases/' + case['id'])[1]
+                             ['analysis']['visual_analysis']['observations'][0]['ocr_url_line_confidence'], 48)
             self.assertNotIn('eml_base64', case['source'])
             self.assertEqual(fixture.call('POST', '/api/cases/visual', payload=payload, key=key)[1]['id'], case['id'])
             payload['observations'][0]['ocr_text'] = 'changed'

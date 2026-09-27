@@ -377,7 +377,7 @@ class RateLimitBoundaryTests(unittest.TestCase):
                         "10.0.0.8:/api/analyze-content",
                     )
 
-    def test_bucket_store_evicts_oldest_entry_at_hard_capacity(self):
+    def test_bucket_store_preserves_active_entries_at_hard_capacity(self):
         buckets = {
             "old:/api/a": deque([10.0]),
             "new:/api/a": deque([20.0]),
@@ -392,10 +392,10 @@ class RateLimitBoundaryTests(unittest.TestCase):
             window_seconds=60.0,
         )
 
-        self.assertTrue(allowed)
+        self.assertFalse(allowed)
         self.assertEqual(len(buckets), 2)
-        self.assertNotIn("old:/api/a", buckets)
-        self.assertIn("third:/api/a", buckets)
+        self.assertIn("old:/api/a", buckets)
+        self.assertNotIn("third:/api/a", buckets)
 
     def test_upstash_distributed_limit_blocks_across_serverless_instances(self):
         class _BlockedStore:
@@ -444,7 +444,7 @@ class RateLimitBoundaryTests(unittest.TestCase):
             )
 
         store = _BlockedStore()
-        with patch.object(app, "_sender_history_store", store):
+        with patch.object(app, "_rate_limit_store", store):
             response = asyncio.run(request())
 
         self.assertEqual(response["status"], 429)

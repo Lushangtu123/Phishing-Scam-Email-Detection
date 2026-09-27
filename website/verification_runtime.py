@@ -5,9 +5,9 @@ from threading import BoundedSemaphore
 
 
 class BoundedExecutor:
-    def __init__(self, workers=10):
+    def __init__(self, workers=10, *, thread_name_prefix='verification'):
         self._slots = BoundedSemaphore(workers)
-        self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix='verification')
+        self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=thread_name_prefix)
 
     def submit(self, function, *args):
         if not self._slots.acquire(blocking=False):

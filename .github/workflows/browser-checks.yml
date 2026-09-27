@@ -1,0 +1,64 @@
+name: Synthetic browser integration
+
+# Opt-in only: these controls are integration evidence, not a release holdout.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-checks:
+    name: Real Chromium on synthetic fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/phishguard-browser-binaries
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            website/requirements.txt
+            requirements-dev.txt
+
+      - name: Install backend and test dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Install the tested Playwright version and Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/phishguard-browser-deps" --no-save --package-lock=false playwright@1.62.1
+          node "$RUNNER_TEMP/phishguard-browser-deps/node_modules/playwright/cli.js" install --with-deps chromium
+
+      - name: Verify vendored recognition assets
+        run: node website/tools/vision-assets/verify.mjs
+
+      - name: Exercise actual browser workers and local APIs
+        run: |
+          node website/tools/browser-checks/run.mjs \
+            --python "$(command -v python)" \
+            --playwright-module "$RUNNER_TEMP/phishguard-browser-deps/node_modules/playwright" \
+            --output "$RUNNER_TEMP/phishguard-browser-reports"
+
+      - name: Verify tracked source was not modified
+        if: always()
+        run: git diff --exit-code
+
+      - name: Preserve integration and literal OCR mismatch reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: synthetic-browser-reports
+          path: |
+            ${{ runner.temp }}/phishguard-browser-reports/browser-checks-report.json
+            ${{ runner.temp }}/phishguard-browser-reports/vision-evaluation-report.json
+          if-no-files-found: warn
+          retention-days: 14

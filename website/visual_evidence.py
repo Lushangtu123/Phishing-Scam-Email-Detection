@@ -22,6 +22,7 @@ class VisualObservation(BaseModel):
     ocr_language: Literal['eng', 'chi_sim', 'eng+chi_sim'] | None = None
     ocr_text: str = Field(default='', max_length=6000)
     ocr_confidence: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
+    ocr_url_line_confidence: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
     warnings: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=6)
 
 

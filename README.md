@@ -521,6 +521,7 @@ does not perform live SPF/DKIM/DMARC verification or expand the trust boundary.
 | `ENABLE_DOMAIN_VERIFICATION` | `false` | Legacy-compatible switch for Lite domain checks when no explicit mode is set |
 | `ENABLE_SMTP_VERIFICATION` | `false` | Legacy-compatible full-mode switch; rejected in public profiles |
 | `VERIFICATION_WORKERS` | `10` | Bounded per-process verification jobs (`4` in the Vercel profile) |
+| `ANALYSIS_WORKERS` | `4` | Per-process non-queueing parsing/rule/model workers, from 1 through 16; busy requests return retryable 503 |
 | `CONTENT_MODEL_ENABLED` | `false` | Loads a verified offline email-text artifact |
 | `CONTENT_MODEL_ARTIFACT` | empty | Path to the trusted artifact created by `prebuild_demo_model.py` |
 | `CONTENT_MODEL_ARTIFACT_SHA256` | empty | Required SHA-256 digest for the configured artifact |
@@ -531,6 +532,10 @@ does not perform live SPF/DKIM/DMARC verification or expand the trust boundary.
 | `SENDER_HISTORY_HMAC_KEY` | empty | Private random key of at least 32 bytes used to derive opaque sender identifiers |
 | `SENDER_HISTORY_RETENTION_DAYS` | `90` | Sliding history retention, from 1 through 365 days |
 | `SENDER_HISTORY_TIMEOUT_SECONDS` | `1.0` | Fail-open Upstash deadline, from 0.1 through 3.0 seconds |
+| `DISTRIBUTED_RATE_LIMIT_ENABLED` | unset | `true` enables shared limits independently of sender history; unset preserves the legacy history-configured limiter; `false` explicitly disables shared limits |
+| `RATE_LIMIT_REDIS_REST_URL`, `RATE_LIMIT_REDIS_REST_TOKEN` | empty | Optional dedicated limiter connection; otherwise uses `UPSTASH_REDIS_REST_*` |
+| `RATE_LIMIT_HMAC_KEY` | empty | At least 32 bytes for opaque client identifiers; otherwise reuses `SENDER_HISTORY_HMAC_KEY` |
+| `RATE_LIMIT_TIMEOUT_SECONDS` | `1.0` | Dedicated limiter deadline, finite and from 0.1 through 3.0 seconds |
 | `RATE_LIMIT_BUCKET_CAPACITY` | `4096` | Hard bound for in-process rate-limit keys |
 | `MAX_REQUEST_BYTES` | `65536` | Actual HTTP request-body byte limit before decoding; applies without Content-Length |
 | `CUSTOM_DOMAINS` | empty | Comma-separated custom hostnames appended to `ALLOWED_HOSTS` |
@@ -598,6 +603,28 @@ personal/course demonstration. It always keeps a bounded in-memory limiter; when
 the optional Upstash configuration is ready, POST requests also use an atomic,
 HMAC-keyed distributed limit shared by Vercel instances. Upstash failure fails
 open to the existing local limiter so detection remains available.
+Shared limiting can be enabled with `DISTRIBUTED_RATE_LIMIT_ENABLED=true` while
+`SENDER_HISTORY_ENABLED=false`; configure the dedicated Redis variables above or
+reuse the Upstash connection with a private `RATE_LIMIT_HMAC_KEY`. This does not
+create sender observations. Explicitly enabled but malformed limiter settings
+block API mutations and report `distributed_rate_limit_status=configuration_error`
+in `/health`, rather than silently removing the requested shared budget.
+`configured` describes configuration readiness, not continuous Redis reachability.
+When the shared service times out, the local limiter remains the fallback.
+CI uses its isolated Redis service to exercise the production limiter's Lua
+through the same Upstash-style pipeline request shape, including concurrent
+limits, minute/hour TTLs and independent routes. For a local run, set
+`PHISHGUARD_TEST_REDIS_PORT` only to an existing trusted localhost Redis port;
+the integration case skips when it is unset. It uses random HMAC-derived keys
+and deletes them afterward. A skipped local case does not prove Redis behavior.
+
+In-process budgets group case paths together and unknown API paths together,
+so arbitrary IDs and unknown paths cannot create unlimited buckets. At hard
+capacity, new client groups are denied until an expired slot is reclaimed;
+active budgets are never evicted. This can temporarily deny new clients under
+capacity pressure. Parsing, sender-candidate selection, content rules and model prediction run in a bounded
+worker pool so long analysis does not block the ASGI event loop. Saturation returns
+503 with `Retry-After: 1`; it does not queue unbounded work or change risk scoring.
 The Vercel profile uses only a single syntactically valid platform-normalized
 `X-Forwarded-For` address as the local-limit identity; ambiguous lists and
 invalid values fall back to the ASGI peer. Other deployment profiles ignore
@@ -648,13 +675,58 @@ successful Production deployment event. After merging a reviewed PR, check
 that `/health` reports the merged commit SHA and that the production smoke job
 completed successfully; a skipped branch run is not production verification.
 
+## Python environments
+
+Use Python **3.12** when loading or rebuilding the committed model. The artifact
+loader checks Python major/minor compatibility and exact recorded numerical
+package versions; installing a newer scikit-learn independently can make an
+otherwise valid artifact unloadable.
+
+All commands below run from the repository root in a dedicated virtual
+environment. The entry points share the canonical serving pins in
+`requirements.txt`:
+
+| Environment | Install command | Purpose |
+|---|---|---|
+| Serving | `python -m pip install -r requirements.txt` | Inference and domain checks; excludes pandas/notebooks |
+| Email-model research | `python -m pip install -r website/requirements.txt` | Serving stack plus pinned pandas for offline builds/evaluation |
+| Development | `python -m pip install -r requirements-dev.txt` | Research stack plus HTTP integration-test client |
+| Notebook benchmark | `python -m pip install -r phishing-detection/requirements.txt` | Shared model versions plus plotting, Jupyter and UCI download tools |
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m pip check
+```
+
+On Windows, activate with `.venv\Scripts\activate`. The requirement files pin
+direct serving dependencies; they are **not full transitive lockfiles**. The
+resolved `requirements-dev-py312-macos-arm64.lock.txt` snapshot records all 35
+installed development packages from a clean Python 3.12.14 macOS arm64
+environment, including transitive dependencies. To reproduce that package set
+on the same platform, install it in a fresh environment instead of the direct
+development requirements:
+
+```bash
+python -m pip install -r requirements-dev-py312-macos-arm64.lock.txt
+python -m pip check
+```
+
+This snapshot has no wheel hashes and is not a verified Linux/Windows,
+Python 3.13, production deployment, or notebook-training lock. Notebook extras
+retain bounded version ranges. For a training experiment, retain
+`python -m pip freeze` and the Python/platform details alongside the dataset and
+artifact provenance; rerun compatibility checks and evaluation when updating
+dependencies. Production CI separately validates the deployment requirements.
+
 For local research with the text model, train and package it before starting the
 web service:
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r website/requirements.txt
+python -m pip install -r website/requirements.txt
 cd website
 python prebuild_demo_model.py --output ../phishing-detection/data/content_model_artifact.pkl
 # Copy the printed SHA-256 value into CONTENT_MODEL_ARTIFACT_SHA256.
@@ -929,7 +1001,7 @@ POST requests when sender-history checks are enabled, within the committed
 bucket.
 
 ```bash
-# From repository root, after installing website dependencies
+# From repository root, after installing requirements-dev.txt
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
 node --test website/static/app.test.mjs
@@ -1014,8 +1086,18 @@ Chinese** or **English + Chinese** for those images. This is a manual language
 choice, not automatic detection; changing it cancels the current scan. Language
 selection affects image text only, including embedded EML images, not QR decoding
 or original email text. Check extracted text even when confidence is high.
+When OCR sees a URL-like line, the result shows that line's own recognition
+confidence separately from the overall image confidence. A high value is still
+not proof of the address's spelling; compare it character by character with the
+original image. The displayed number is client-extracted evidence and does not
+change risk scoring or repair `1`/`l` lookalikes.
 The browser extracts EML images with postal-mime. Results
 show each image's QR payloads, OCR text, OCR confidence and extraction warnings.
+Successfully decoded QR quadrilaterals are whitened in a separate OCR image so
+their patterns do not contribute invented text. This preserves adjacent text
+outside the polygon, the original input digest and the literal QR payloads;
+undecodable regions remain available to OCR. Sparse-text recognition is retained
+for scattered captions. No OCR URL spelling or lookalike characters are repaired.
 Decoded links are plain text; the app never opens them. See
 [asset sources and licenses](website/tools/vision-assets/README.md).
 
@@ -1031,7 +1113,8 @@ SVG/GIF/PDF, attachment malware and general visual meaning are outside scope.
 `POST /api/analyze-visual` and authenticated `POST /api/cases/visual` accept
 `subject`, `body`, optional original bytes in `eml_base64`, and bounded
 `observations`/`warnings`. Each observation includes `name`, `source`, `mime_type`,
-`sha256`, `status`, `qr_payloads`, `ocr_text`, `ocr_confidence`, and `warnings`.
+`sha256`, `status`, `qr_payloads`, `ocr_text`, `ocr_confidence`, optional
+`ocr_url_line_confidence` (0–100 or null), and `warnings`.
 Their request limit is 3 MiB; other endpoint limits are unchanged. The server
 rescans extracted strings as **literal text**, preserves original-message risk,
 and marks browser extraction `browser_extracted_unverified`. Digests identify

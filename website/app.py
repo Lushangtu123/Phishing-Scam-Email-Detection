@@ -18,6 +18,7 @@ Routes:
 from __future__ import annotations
 
 import os
+import asyncio
 import json
 import hashlib
 import ipaddress
@@ -35,6 +36,7 @@ from email.utils import getaddresses
 from html.parser import HTMLParser
 from html import escape as escape_html, unescape as unescape_html
 from itertools import product
+from functools import partial
 from urllib.parse import unquote, urlparse, urljoin
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
@@ -50,6 +52,8 @@ from feedback_api import make_feedback_router
 from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE
 from disposable_registry import load_disposable_registry, load_privacy_relay_registry
 from request_limits import RequestBodyLimitMiddleware
+from rate_limits import DisabledRateLimitStore, build_rate_limit_store
+from verification_runtime import BoundedExecutor
 from visual_evidence import (VisualRequest, VISUAL_PATHS, MAX_VISUAL_REQUEST_BYTES,
                              bound_message_text, merge_visual_findings)
 from language_coverage import (has_substantial_han_text as _has_substantial_han_text,
@@ -94,6 +98,22 @@ from email_structure import (
 RATE_LIMIT_PER_MINUTE = max(1, int(os.getenv("RATE_LIMIT_PER_MINUTE", "20")))
 RATE_LIMIT_BUCKET_CAPACITY = max(128, int(os.getenv("RATE_LIMIT_BUCKET_CAPACITY", "4096")))
 MAX_REQUEST_BYTES = max(1024, int(os.getenv("MAX_REQUEST_BYTES", "65536")))
+try:
+    ANALYSIS_WORKERS = int(os.getenv('ANALYSIS_WORKERS', '4'))
+except ValueError as exc:
+    raise ValueError('ANALYSIS_WORKERS must be an integer') from exc
+if not 1 <= ANALYSIS_WORKERS <= 16:
+    raise ValueError('ANALYSIS_WORKERS must be between 1 and 16')
+_analysis_pool = BoundedExecutor(workers=ANALYSIS_WORKERS, thread_name_prefix='analysis')
+
+
+async def _run_analysis(function, *args, **kwargs):
+    """Keep synchronous parsing/inference off the event loop, without a queue."""
+    future = _analysis_pool.submit(partial(function, *args, **kwargs))
+    if future is None:
+        raise HTTPException(503, 'Analysis is busy; retry shortly.',
+                            headers={'Retry-After': '1'})
+    return await asyncio.wrap_future(future)
 
 # ── Feature definitions (UCI Phishing Websites Dataset mapping) ───────────────
 FEATURE_INFO = [
@@ -407,6 +427,7 @@ def normalize_homoglyphs(text: str) -> str:
 # Populated at startup only from a verified offline artifact.
 _content_pipeline: dict | None = None
 _sender_history_store = DisabledSenderHistoryStore()
+_rate_limit_store = DisabledRateLimitStore()
 
 def _shannon_entropy(s: str) -> float:
     if not s:
@@ -1032,8 +1053,9 @@ async def lifespan(_app: FastAPI):
         _app.state.case_configuration_error = True
         print('Case management unavailable: invalid configuration or inaccessible storage.')
     global _content_pipeline, _content_model_error, _content_model_artifact_sha256
-    global _sender_history_store
+    global _sender_history_store, _rate_limit_store
     _sender_history_store = build_sender_history_store(SETTINGS)
+    _rate_limit_store = build_rate_limit_store(os.environ, SETTINGS)
     if SETTINGS.content_model_enabled:
         if not SETTINGS.content_model_artifact or not SETTINGS.content_model_artifact_sha256:
             _content_pipeline = None
@@ -1117,6 +1139,18 @@ _rate_limit_lock = threading.Lock()
 _rate_limit_buckets: dict[str, deque[float]] = {}
 
 
+class _RateLimitBucket(deque):
+    def __init__(self, window_seconds):
+        super().__init__()
+        self.window_seconds = window_seconds
+
+
+_RATE_LIMIT_PATHS = frozenset({
+    '/api/analyze-email', '/api/analyze-content', '/api/analyze-eml',
+    '/api/analyze-visual', '/api/verify-email', '/api/feedback',
+})
+
+
 def _rate_limit_key(request: Request) -> str:
     """Use Vercel's normalized client address only in the Vercel profile."""
     client_ip = request.client.host if request.client else "unknown"
@@ -1127,7 +1161,13 @@ def _rate_limit_key(request: Request) -> str:
                 client_ip = str(ipaddress.ip_address(forwarded_ip))
             except ValueError:
                 pass
-    return f"{client_ip}:{request.url.path}"
+    path = request.url.path
+    if path == '/api/cases' or path.startswith('/api/cases/'):
+        # Untrusted case IDs must not create a separate budget for each request.
+        path = '/api/cases'
+    elif path not in _RATE_LIMIT_PATHS:
+        path = '/api/unknown'
+    return f"{client_ip}:{path}"
 
 
 def _record_rate_limit_hit(
@@ -1139,9 +1179,10 @@ def _record_rate_limit_hit(
     capacity: int,
     window_seconds: float,
 ) -> bool:
-    cutoff = now - window_seconds
     stale_keys = []
     for key, hits in buckets.items():
+        # Minute requests must not erase still-live hourly feedback restrictions.
+        cutoff = now - getattr(hits, 'window_seconds', window_seconds)
         while hits and hits[0] <= cutoff:
             hits.popleft()
         if not hits:
@@ -1151,9 +1192,10 @@ def _record_rate_limit_hit(
 
     if bucket_key not in buckets:
         if len(buckets) >= capacity:
-            oldest_key = min(buckets, key=lambda key: buckets[key][-1])
-            buckets.pop(oldest_key, None)
-        buckets[bucket_key] = deque()
+            # Preserve live restrictions even under key churn. Expired entries
+            # were reclaimed above; a new identity must wait for a free slot.
+            return False
+        buckets[bucket_key] = _RateLimitBucket(window_seconds)
 
     bucket = buckets[bucket_key]
     if len(bucket) >= limit:
@@ -1214,7 +1256,7 @@ async def security_middleware(request: Request, call_next):
                     headers={"Retry-After": "60"},
                 ))
 
-        distributed_decision = await _sender_history_store.check_rate_limit(
+        distributed_decision = await _rate_limit_store.check_rate_limit(
             bucket_key,
             limit=RATE_LIMIT_PER_MINUTE,
             window_seconds=60,
@@ -1238,7 +1280,7 @@ async def security_middleware(request: Request, call_next):
                 return _with_security_headers(JSONResponse(
                     status_code=429, content={'detail': 'Too many reports; try again later'},
                     headers={'Retry-After': '3600'}))
-            feedback_decision = await _sender_history_store.check_rate_limit(
+            feedback_decision = await _rate_limit_store.check_rate_limit(
                 feedback_key, limit=5, window_seconds=3600)
             if feedback_decision is not None and not feedback_decision.allowed:
                 return _with_security_headers(JSONResponse(
@@ -1321,6 +1363,8 @@ async def health():
             "sender_history_configured": SETTINGS.sender_history_ready,
             "sender_history_available": SETTINGS.sender_history_ready,
             "sender_history_error": SETTINGS.sender_history_config_error,
+            "distributed_rate_limit_status": _rate_limit_store.status,
+            "analysis_workers": ANALYSIS_WORKERS,
             "deployment_profile": SETTINGS.app_env,
             "email_verification_enabled": SETTINGS.domain_verification_enabled,
             "verification_mode": SETTINGS.effective_verification_mode,
@@ -1476,9 +1520,10 @@ def _sender_account_observability(analysis: dict) -> str:
     return "unknown"
 
 
-async def _analyze_and_observe_sender(address: str) -> dict:
+async def _analyze_and_observe_sender(address: str, *, analysis: dict | None = None) -> dict:
     """Analyze one raw-message sender and record one retained observation."""
-    analysis = _analyze_sender_address(address)
+    if analysis is None:
+        analysis = await _run_analysis(_analyze_sender_address, address)
     normalized_address = _normalize_sender_address(address)
     history_address = canonicalize_sender_address(normalized_address or address)
     history = await _sender_history_store.observe(history_address)
@@ -1531,6 +1576,22 @@ def _raw_sender_addresses(from_header: str) -> list[str]:
             seen.add(key)
             addresses.append(normalized)
     return addresses
+
+
+def _select_message_sender(headers: list[str]) -> dict | None:
+    """Score untrusted From candidates in a worker, preserving first-wins ties."""
+    seen = set()
+    selected = None
+    for header in headers:
+        for address in _raw_sender_addresses(header):
+            canonical = canonicalize_sender_address(address)
+            if canonical in seen:
+                continue
+            seen.add(canonical)
+            analysis = _analyze_sender_address(address)
+            if selected is None or analysis['risk_score'] > selected['risk_score']:
+                selected = analysis
+    return selected
 
 
 @app.post("/api/analyze-email")
@@ -3415,7 +3476,8 @@ async def analyze_eml_endpoint(request: Request):
         raw.extend(chunk)
     if not raw.strip():
         raise HTTPException(status_code=400, detail='Email file is empty')
-    structure = analyze_raw_email(bytes(raw), trusted_authserv_ids=SETTINGS.trusted_authserv_ids)
+    structure = await _run_analysis(analyze_raw_email, bytes(raw),
+                                    trusted_authserv_ids=SETTINGS.trusted_authserv_ids)
     return await _analyze_content(ContentRequest(), structure)
 
 
@@ -3431,7 +3493,7 @@ async def _analyze_content(
     body    = request.body.strip()
     if structure is not None or request.raw_email.strip():
         if structure is None:
-            structure = analyze_raw_email(
+            structure = await _run_analysis(analyze_raw_email,
                 request.raw_email,
                 trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
             )
@@ -3450,7 +3512,7 @@ async def _analyze_content(
 
     # 1. Rule-based heuristic scan (explainable categories + extra indicators)
     model_view = {}
-    result = analyze_email_content(subject, body, content_parts=(structure['content_parts'] if structure else
+    result = await _run_analysis(analyze_email_content, subject, body, content_parts=(structure['content_parts'] if structure else
                                        [{'content_type': 'text/plain', 'content': body}] if plain_text else None),
                                    _model_view=model_view)
     if model_view.get('mime_alternatives_truncated'):
@@ -3473,23 +3535,15 @@ async def _analyze_content(
         if floor_rank[structure["risk_floor"]] > floor_rank[result["risk_floor"]]:
             result["risk_floor"] = structure["risk_floor"]
 
-        sender_addresses_by_identity = {}
-        for header in structure['header_candidates']['From']:
-            for address in _raw_sender_addresses(header):
-                canonical = canonicalize_sender_address(address)
-                sender_addresses_by_identity.setdefault(canonical, address)
-        sender_addresses = list(sender_addresses_by_identity.values())
-        if sender_addresses:
+        selected_sender = await _run_analysis(
+            _select_message_sender, structure['header_candidates']['From'])
+        if selected_sender is not None:
             # Select locally before touching the external history store. An
             # attacker can inject many ambiguous From values into one message;
             # only the sender that actually drives the result gets one bounded
             # observation request.
-            selected_sender = max(
-                (_analyze_sender_address(address) for address in sender_addresses),
-                key=lambda analysis: analysis["risk_score"],
-            )
             sender_analysis = (
-                await _analyze_and_observe_sender(selected_sender["email"])
+                await _analyze_and_observe_sender(selected_sender["email"], analysis=selected_sender)
                 if observe_sender_history
                 else selected_sender
             )
@@ -3610,8 +3664,11 @@ async def _analyze_content(
                 'ml_top_contributors': [],
             }
         else:
-            predictions = [predict_content(_content_pipeline, model_view['subject'], body,
-                                           canonical_text=True) for body in bodies]
+            predictions = await _run_analysis(
+                lambda pipeline, subject, bodies: [
+                    predict_content(pipeline, subject, body, canonical_text=True)
+                    for body in bodies],
+                _content_pipeline, model_view['subject'], bodies)
             scored = [prediction for prediction in predictions
                       if prediction['_phishing_probability'] is not None]
             ml = (max(scored, key=lambda prediction: prediction['_phishing_probability'])
@@ -3692,7 +3749,8 @@ async def safe_visual_validation(request, exc):
 async def _analyze_visual(payload, structure=None, *, observe_sender_history=True):
     raw = payload.eml_bytes()
     if structure is None and raw is not None:
-        structure = bound_message_text(analyze_raw_email(raw, trusted_authserv_ids=SETTINGS.trusted_authserv_ids))
+        structure = bound_message_text(await _run_analysis(analyze_raw_email, raw,
+            trusted_authserv_ids=SETTINGS.trusted_authserv_ids))
     if not (raw or payload.subject.strip() or payload.body.strip() or payload.observations or payload.warnings):
         raise HTTPException(400, 'Image evidence or an email is required')
     base = json.loads((await _analyze_content(
@@ -3715,7 +3773,6 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
 # ── Email Authenticity Verification ──────────────────────────────────────────
 
 from concurrent.futures import TimeoutError as FutureTimeout, wait as futures_wait
-from verification_runtime import BoundedExecutor
 
 VERIFICATION_TIMEOUT = 12.0
 try:
@@ -4304,7 +4361,8 @@ async def _analyze_case(payload, raw):
     visual = isinstance(payload, VisualRequest)
     raw_input = payload.eml_bytes() if visual else raw if raw is not None else payload.raw_email
     if raw_input:
-        structure = analyze_raw_email(raw_input, trusted_authserv_ids=SETTINGS.trusted_authserv_ids)
+        structure = await _run_analysis(analyze_raw_email, raw_input,
+            trusted_authserv_ids=SETTINGS.trusted_authserv_ids)
     if visual:
         if structure:
             bound_message_text(structure)

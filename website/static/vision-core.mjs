@@ -58,16 +58,43 @@ export function decodeQRs(image, decode) {
       found++;
       if (qr.data.length > 2048) warnings.push('QR payload exceeded 2,048 characters and was truncated.');
       if (!values.includes(qr.data.slice(0, 2048))) values.push(qr.data.slice(0, 2048));
-      const points = [qr.location.topLeftCorner, qr.location.topRightCorner, qr.location.bottomLeftCorner, qr.location.bottomRightCorner];
-      const left = Math.max(0, region.x + Math.floor(Math.min(...points.map(p => p.x))) - 2);
-      const right = Math.min(width, region.x + Math.ceil(Math.max(...points.map(p => p.x))) + 2);
-      const top = Math.max(0, region.y + Math.floor(Math.min(...points.map(p => p.y))) - 2);
-      const bottom = Math.min(height, region.y + Math.ceil(Math.max(...points.map(p => p.y))) + 2);
-      for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) data.fill(255, (y * width + x) * 4, (y * width + x) * 4 + 4);
+      // Mask every decoded location, including duplicate payloads and quadrant
+      // detections. An axis-aligned box would erase text beside rotated codes.
+      const points = [qr.location.topLeftCorner, qr.location.topRightCorner, qr.location.bottomRightCorner, qr.location.bottomLeftCorner]
+        .map(p => ({x: p.x + region.x, y: p.y + region.y}));
+      const top = Math.max(0, Math.floor(Math.min(...points.map(p => p.y))));
+      const bottom = Math.min(height, Math.ceil(Math.max(...points.map(p => p.y))));
+      for (let y = top; y < bottom; y++) {
+        const crossings = [];
+        for (let i = 0; i < points.length; i++) {
+          const a = points[i], b = points[(i + 1) % points.length], scan = y + .5;
+          if ((a.y <= scan && b.y > scan) || (b.y <= scan && a.y > scan))
+            crossings.push(a.x + (scan - a.y) * (b.x - a.x) / (b.y - a.y));
+        }
+        crossings.sort((a, b) => a - b);
+        for (let i = 0; i + 1 < crossings.length; i += 2) {
+          const left = Math.min(width, Math.max(0, Math.floor(crossings[i]))), right = Math.max(0, Math.min(width, Math.ceil(crossings[i + 1])));
+          if (right > left) data.fill(255, (y * width + left) * 4, (y * width + right) * 4);
+        }
+      }
     }
     if (found === LIMITS.qr) { warnings.push('QR scan reached the eight-code limit; additional codes may be uninspected.'); break; }
   }
-  return {values, warnings: [...new Set(warnings)]};
+  // The caller may OCR this copy; original pixels and literal payloads survive.
+  return {values, warnings: [...new Set(warnings)], ocrImage: {width, height, data}};
+}
+const URL_LIKE_LINE = /(?:\b(?:https?|httbs?)\s*[:：]\s*[/／]?|(?:[a-z0-9-]+\.)+(?:[a-z0-9-]+[a-z][a-z0-9-]*|[a-z][a-z0-9-]+)(?=\/|\b))/i;
+export function urlLineConfidence(blocks) {
+  // Tesseract's page confidence can hide a misread address on one otherwise
+  // clear page. Retain only the lowest URL-like line score, never its spelling.
+  let lowest = null;
+  for (const block of blocks || []) for (const paragraph of block.paragraphs || [])
+    for (const line of paragraph.lines || []) {
+      if (typeof line.text !== 'string' || !URL_LIKE_LINE.test(line.text) ||
+          !Number.isFinite(line.confidence) || line.confidence < 0 || line.confidence > 100) continue;
+      lowest = lowest === null ? line.confidence : Math.min(lowest, line.confidence);
+    }
+  return lowest;
 }
 export function dataImages(html) {
   const images = [], warnings = [];

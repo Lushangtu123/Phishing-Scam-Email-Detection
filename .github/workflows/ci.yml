@@ -22,7 +22,7 @@ jobs:
       - name: Smoke-test committed Vercel profile and model
         run: python website/tests/vercel_runtime_smoke.py
 
-      - name: Evaluate fixed synthetic controls against committed baseline
+      - name: Smoke-test synthetic controls (not release evidence)
         run: |
           python website/tools/evaluate_public_corpus.py --manifest website/tests/fixtures/evaluation/manifest.json --output /tmp/evaluation-candidate.json
           python website/tools/compare_evaluations.py --baseline website/tests/fixtures/evaluation/baseline.json --candidate /tmp/evaluation-candidate.json
@@ -53,12 +53,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: website/requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            website/requirements.txt
+            requirements-dev.txt
 
-      - name: Install backend dependencies
-        run: python -m pip install -r website/requirements.txt
+      - name: Install backend and test dependencies
+        run: python -m pip install -r requirements-dev.txt
 
-      - name: Run backend tests
+      - name: Run backend tests and independent holdout release contract
         env:
           PHISHGUARD_TEST_REDIS_PORT: "6379"
         run: python -m unittest discover -s website/tests -v

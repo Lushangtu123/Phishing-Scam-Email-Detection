@@ -1,7 +1,7 @@
 import {collectEmail} from './vision-email.mjs';
 import Tesseract from './vendor/vision/tesseract.esm.min.js';
 import './vendor/vision/jsQR.js';
-import {LIMITS, checkImage, decodeQRs} from './vision-core.mjs';
+import {LIMITS, checkImage, decodeQRs, urlLineConfidence} from './vision-core.mjs';
 
 const assets = new URL('./vendor/vision/', import.meta.url).href;
 const progress = message => postMessage({progress: message});
@@ -32,7 +32,8 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
       try { info = checkImage(image.buffer); }
       catch (error) { warnings.push(`${image.name}: ${error.message}`.slice(0, 200)); continue; }
       const item = {name: image.name, source: image.source, mime_type: info.mime, sha256,
-        status: 'processed', qr_payloads: [], ocr_language: language, ocr_text: '', ocr_confidence: 0, warnings: []};
+        status: 'processed', qr_payloads: [], ocr_language: language, ocr_text: '', ocr_confidence: 0,
+        ocr_url_line_confidence: null, warnings: []};
       observations.push(item);
       let bitmap;
       try {
@@ -46,6 +47,9 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
         if (scale < 1) item.warnings.push('Large image was resized for recognition; small details may be missed.');
         const qr = decodeQRs(ctx.getImageData(0, 0, canvas.width, canvas.height), self.jsQR);
         item.qr_payloads = qr.values; item.warnings.push(...qr.warnings);
+        if (qr.values.length) {
+          ctx.putImageData(new ImageData(qr.ocrImage.data, canvas.width, canvas.height), 0, 0);
+        }
         const languageLabel = {eng: 'English', chi_sim: 'Simplified Chinese', 'eng+chi_sim': 'English and Simplified Chinese'}[language];
         progress(`Reading ${languageLabel} text…`);
         if (!ocr) {
@@ -57,9 +61,10 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
           await ocr.setParameters({tessedit_pageseg_mode: '11'});
         }
         // Encode locally; no object URLs or remote image loads.
-        const result = await deadline(ocr.recognize(new Uint8Array(await (await canvas.convertToBlob({type: 'image/png'})).arrayBuffer())), 20000, 'OCR timed out.');
+        const result = await deadline(ocr.recognize(new Uint8Array(await (await canvas.convertToBlob({type: 'image/png'})).arrayBuffer()), {}, {blocks: true}), 20000, 'OCR timed out.');
         item.ocr_text = result.data.text.slice(0, 6000);
         item.ocr_confidence = Math.max(0, Math.min(100, result.data.confidence || 0));
+        item.ocr_url_line_confidence = result.data.text.length > 6000 ? null : urlLineConfidence(result.data.blocks);
         if (result.data.text.length > 6000) item.warnings.push('OCR text exceeded 6,000 characters and was truncated.');
         if (item.ocr_text.trim() && item.ocr_confidence < 60) item.warnings.push('OCR confidence is low; verify the extracted text.');
         if (!item.ocr_text.trim() && !item.qr_payloads.length) item.warnings.push('No readable text or QR code was found; image content remains unverified.');

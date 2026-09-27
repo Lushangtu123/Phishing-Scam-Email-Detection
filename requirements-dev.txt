@@ -1,0 +1,3 @@
+# Backend development and integration tests; never install into production.
+-r website/requirements.txt
+httpx==0.28.1

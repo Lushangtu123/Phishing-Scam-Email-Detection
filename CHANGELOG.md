@@ -20,6 +20,108 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 16:15 PT] — Cover distributed rate limits with real Redis in CI
+
+### Why
+- The independently configured distributed limiter had mocked REST-response tests but no test that executed its production Lua against Redis under concurrent requests.
+- The existing CI backend job already provides an isolated local Redis service; local developer machines without Redis should not pretend this integration ran.
+
+### Files changed
+- `website/tests/test_rate_limit_redis.py` — route the production Upstash-style pipeline request to CI's localhost Redis, exercise 12 concurrent requests against a three-request minute budget, then verify an independent six-request hourly feedback budget, retry TTL and a separate legitimate route.
+- `README.md` — document the opt-in local Redis test port, random HMAC-derived keys and local skip behavior.
+
+### Effect
+- With `PHISHGUARD_TEST_REDIS_PORT=6379`, CI's existing Redis-backed backend job will run the new test; no cloud Redis, real credential, sender observation or external network access is used.
+- The current local machine has no Redis server, so the new real-Lua test is skipped here. This entry records test coverage added, not a locally observed Redis integration pass.
+
+## [2026-09-27 16:09 PT] — Guard URL-line diagnostics against dotted release numbers
+
+### Why
+- The URL-like line heuristic introduced in the previous update incorrectly scored ordinary `Q3.2026` release text as an address.
+- The original five-image benchmark has too few font and non-URL variants to reveal that false diagnostic.
+
+### Files changed
+- `website/static/vision-core.mjs`, `website/static/vision.test.mjs` — require a letter in bare-domain suffixes while retaining digit-confused `examp1e` and malformed-protocol coverage; lock the release-number case with a failing-then-passing regression.
+- `website/tools/browser-checks/run.mjs`, `website/tools/browser-checks/README.md`, `docs/evaluation.md` — add ten real-worker, browser-authored URL/font and non-URL controls and document their diagnostic limits.
+
+### Effect
+- On Chromium 148, URL-like line confidence appeared for 8/8 authored address controls and 0/2 non-URL controls; 8/10 literal OCR strings matched their authored inputs. The new integration check brings the browser total to 10/10 passing.
+- The original five-image benchmark remained at 23/238 strict OCR edits, exact URL sets 1/3 and QR payload sets 5/5. No URLs were repaired or fetched, and client confidence still does not affect risk scoring.
+
+## [2026-09-27 15:56 PT] — Show URL-line OCR uncertainty separately from page confidence
+
+### Why
+- A synthetic phishing screenshot displayed 92% whole-image OCR confidence while its `paypa1` URL line scored 48% and was transcribed as `paypal`.
+- Re-running Chinese URL text with another language or page segmentation did not reliably preserve the address, so automatic spelling replacement could conceal lookalikes.
+
+### Files changed
+- `website/static/vision-core.mjs`, `website/static/vision-worker.mjs` — extract the minimum confidence of URL-like Tesseract lines (including malformed prefixes and digit-confused domain suffixes), return null for absent or truncated text, and preserve the literal OCR text.
+- `website/visual_evidence.py` — bound and retain the nullable 0–100 confidence field without using it for risk scoring.
+- `website/static/vision.js`, `website/static/index.html`, `website/static/cases.html` — display the separate line score with character-by-character review guidance and refresh the browser script/worker versions.
+- `website/static/vision.test.mjs`, `website/static/vision-ui.test.mjs`, `website/tests/test_visual_analysis.py`, `website/tools/browser-checks/run.mjs` — verify parsing, bounds, unchanged risk, saved cases, actual API pass-through and current English/Chinese UI results.
+- `README.md`, `docs/evaluation.md`, `website/tools/browser-checks/README.md` — document diagnostic semantics and observed synthetic results.
+
+### Effect
+- In local Chromium 148, the English and Chinese controls both scored 92% overall but their misread URL-like lines scored 48% and 80% respectively; the UI now presents those numbers separately. Exact OCR URLs remained 1/3 and strict CER remained 23/238, with no URL spelling repair or detection-score change.
+- Nine real-browser checks, 190 frontend tests and 620 backend tests passed (nine backend Redis integration checks skipped because local Redis is not configured). Synthetic evidence does not establish real-image accuracy.
+
+## [2026-09-27 10:59 PT] — Exclude decoded QR patterns from OCR without erasing adjacent text
+
+### Why
+- Two unchanged QR-only browser controls consistently produced 22 invented OCR characters despite exact QR decoding.
+- Axis-aligned QR masks can erase captions beside rotated codes; unclipped negative scanline endpoints can erase unrelated pixels.
+
+### Files changed
+- `website/static/vision-core.mjs` — whiten decoded quadrilaterals in a distinct OCR copy, translate quadrant coordinates, mask duplicate-payload locations and clip every span to image bounds.
+- `website/static/vision-worker.mjs` — recognize the masked copy while retaining original bytes, digest and literal QR payloads.
+- `website/static/vision.test.mjs` — cover repeated payloads, quadrant coordinates, rotated geometry, undecodable images and edge-crossing masks.
+- `website/tools/browser-checks/run.mjs` — reject OCR text on QR-only controls and verify real rotated QR extraction with adjacent and scattered text.
+- `website/tools/browser-checks/README.md`, `README.md` — document preprocessing, unchanged OCR limitations and the eight browser checks.
+
+### Effect
+- On the unchanged five-image manifest, invented QR-only OCR text fell from 22 characters to zero; literal CER fell from 45/238 (18.91%) to 23/238 (9.66%). Exact text increased from 0/5 to 2/5; QR payload sets remain 5/5 and OCR URL sets remain 1/3.
+- Sparse-text mode, model assets, input fixtures and scoring are unchanged. The three text-image errors persist; synthetic results do not establish real-mail accuracy.
+- Regression checks failed before the fix for actual QR-only OCR output and out-of-bounds masking, then passed after the fix. Eight real-browser checks and 188 front-end tests pass locally.
+- The existing visual no-regression comparator passes against the previous report without policy changes; 11 visual API tests and all 29 pinned recognition assets also pass.
+
+## [2026-09-27 10:45 PT] — Preserve API budgets and add independent release verification
+
+### Why
+- API key churn could evict active limits; minute-window cleanup could also erase a still-live hourly feedback budget.
+- Synchronous rules, MIME parsing, raw sender-candidate selection and model prediction delayed ASGI health requests. Four synthetic CI emails did not establish real-mail release quality.
+- Add repeatable browser and environment checks while keeping existing detection thresholds, model artifact and ground truth unchanged.
+
+### Files changed
+- `website/app.py` — group untrusted route keys, retain each budget's own window, reject new keys at capacity, wire independent distributed limits and bounded parsing/sender/rule/model workers.
+- `website/rate_limits.py` — validate dedicated Redis limiter configuration without enabling sender observations; preserve legacy configuration and local fallback.
+- `website/sender_history.py` — share Redis transport and atomic limiter independently of sender-history operations.
+- `website/verification_runtime.py` — allow separate worker thread names for verification and analysis pools.
+- `website/tests/test_app_security.py` — assert active budgets survive capacity pressure and update the independent limiter integration seam.
+- `website/tests/test_rate_limit_security.py` — API key-churn, mixed-window, full-capacity, expiry and history-disabled distributed-limit regressions.
+- `website/tests/test_distributed_rate_limits.py` — dedicated/legacy configuration, opaque keys, malformed settings and transport fallback controls.
+- `website/tests/test_analysis_concurrency.py` — verify responsive health, retryable saturation and recovery through actual ASGI APIs.
+- `website/tools/release_evaluation.py` — opt-in human-reviewed real-mail holdout contract bound to cohort, code and model identities.
+- `website/tools/compare_evaluations.py` — accept explicit release review and prevent output from overwriting comparison inputs.
+- `website/tests/test_release_evaluation.py` — review, coverage, identity, temporal and strict no-regression rejection controls.
+- `.github/workflows/ci.yml` — use the development dependency entry point and label the four-email check as synthetic smoke evidence.
+- `website/tools/browser-checks/run.mjs` — real Chromium, actual local APIs/workers and SQLite checks with literal extraction metrics kept separate from integration success.
+- `website/tools/browser-checks/README.md` — pinned Playwright setup, synthetic CER ceilings and observed OCR limitations.
+- `.github/workflows/browser-checks.yml` — manual synthetic Chromium workflow with temporary dependencies and retained reports; no automatic deployment.
+- `requirements.txt`, `website/requirements.txt`, `phishing-detection/requirements.txt` — share unchanged artifact-compatible runtime pins across serving and research entry points.
+- `requirements-dev.txt` — backend/test installation entry point with pinned HTTP client.
+- `requirements-dev-py312-macos-arm64.lock.txt` — resolved 35-package snapshot for the tested Python 3.12 macOS arm64 environment; other platforms and notebook extras remain unverified.
+- `.env.example`, `README.md` — document independent shared limits, saturation behavior and reproducible Python environments.
+- `docs/evaluation.md` — distinguish release review from synthetic smoke and correct the historical candidate status against checked-in code; deployed state remains unverified.
+
+### Effect
+- Before the patch, unknown-path churn turned a blocked analysis request into HTTP 200; afterward it remains 429. New identities wait for expired capacity, and active hourly feedback restrictions survive minute requests.
+- A controlled two-second synchronous analysis formerly delayed health output; health now returns before that analysis completes. Busy analysis returns 503 with `Retry-After: 1` and recovers when a worker is free.
+- The new real-mail review is opt-in: each Gmail/Outlook × English/Chinese cell needs at least 50 independently reviewed phishing and 50 legitimate messages, plus bound human audit evidence. This is a coverage floor, not proof of statistical adequacy or acceptable accuracy. No real holdout is bundled and no real-mail release pass is claimed.
+- Real-browser controls pass 7/7, while literal OCR text exact matches remain 0/5, OCR URL exact sets 1/3, QR sets 5/5 and synthetic CER 45/238 (18.9%). These mismatches are retained as evidence, not rewritten as an accuracy improvement.
+- Final local Python 3.12 checks: 610 backend tests pass, 9 existing real-Redis integration tests skip because no local Redis service is configured; all 183 frontend tests and 29 vendored asset checks pass. The committed model smoke and unchanged four-email synthetic comparison pass. Independent review also verifies cancellation, concurrent cold-model prediction and health responsiveness on a 20,000-header synthetic message. The manual browser GitHub workflow was not dispatched.
+- No model weights, decision thresholds, existing synthetic baseline or deployment were changed.
+
+
 ---
 
 ## [2026-09-26 12:54 PT] — Pin Chart.js with subresource integrity

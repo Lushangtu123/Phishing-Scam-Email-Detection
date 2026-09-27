@@ -75,6 +75,16 @@ test('successful OCR with unknown risk distinguishes recognition from risk and m
   assert.doesNotMatch(text,/Recognition completed|model score: 12%/);
   assert.match(text,/Too little readable text/);
 });
+test('URL line confidence is displayed separately from high whole-image confidence',()=>{
+  const {api}=setup(),root=new Element('section');
+  api.render(root,{observations:[{name:'url.png',status:'processed',risk_level:'unknown',ocr_confidence:92,
+    ocr_url_line_confidence:48,qr_payloads:[],ocr_text:'https://paypal.example/login',warnings:[]}]});
+  const text=JSON.stringify(root);
+  assert.match(text,/OCR confidence 92%/);
+  assert.match(text,/URL-like line OCR confidence: 48%/);
+  assert.match(text,/character by character/);
+  assert.match(text,/https:\/\/paypal.example\/login/);
+});
 
 test('OCR language defaults to English and forwards each explicit supported choice',async()=>{
   for (const language of [undefined,'eng','chi_sim','eng+chi_sim']) {

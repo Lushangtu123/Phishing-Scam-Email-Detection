@@ -232,7 +232,9 @@ must declare the matching bounded `configuration` to produce comparable reports;
 an omitted configuration remains `null` and the gate rejects it. Reports from the
 older unversioned evaluator must be regenerated on both versions; adding a version
 field by hand cannot recover missing exact counts and identities. Preserve prior
-reports as historical evidence, and never fabricate a pre-update baseline.
+reports as historical evidence, and never fabricate a pre-update baseline. The
+comparator rejects an output path that would overwrite either input report or the
+release review, including existing symlink or hardlink aliases.
 
 Reports contain aggregate counts and hashes, not message text or original paths.
 Keep them private: small intersection groups and dates can still reveal cohort
@@ -240,11 +242,84 @@ membership information. Dataset hashes establish reproducibility, not permission
 label quality, training independence or a representative production sample. An
 analysis exception aborts report generation instead of silently dropping a row.
 
-The Vercel-runtime CI job evaluates four project-owned email controls with the
+### Opt-in independent holdout release review
+
+The ordinary comparator is a regression check. To opt into the release review
+contract, use the private evaluator's reports and an independently prepared local
+review file:
+
+```sh
+.venv/bin/python website/tools/compare_evaluations.py \
+  --baseline /absolute/private/baseline.json \
+  --candidate /absolute/private/candidate.json \
+  --release-review /absolute/private/release-review.json \
+  --output /absolute/private/release-comparison.json
+```
+
+This retains every exact-count no-regression check above. In addition, every
+Gmail/Outlook × English (`en`)/Chinese (`zh`) intersection must have at least 50
+unique phishing messages and 50 unique legitimate messages: at least 400 messages
+overall. `minimum_per_class_per_provider_language` is an explicit coverage policy;
+the reviewer can set it higher, but not below 50. This is a coverage floor, **not**
+a statistically adequate sample, target accuracy, or proof of production readiness.
+Explicit additional languages, including `mul` for mixed language, may be included
+and retain the same regression checks; unlabeled languages do not qualify.
+
+The `release-review.json` object requires these fields:
+
+| Field | Required value |
+| --- | --- |
+| `schema_version` | Integer `1` |
+| `dataset_sha256`, `evaluated_cohort_sha256` | Exact matching hashes from both private reports' `input_integrity` |
+| `baseline`, `candidate` | Each is an object with the report's exact `model_artifact_sha256` and `reproducibility.source_sha256` as `source_sha256` |
+| `minimum_per_class_per_provider_language` | Integer ≥ 50, chosen before comparison |
+| `cohort_preparer`, `independent_reviewer` | Distinct pseudonymous IDs, 1–80 ASCII letters, digits, dots, underscores or hyphens |
+| `training_cutoff` | Verified last date of training/tuning data, strictly before the earliest cohort arrival |
+| `cohort_frozen_at` | Date on/after the latest cohort arrival and on/before candidate development started |
+| `candidate_development_started_at` | Date on/before `reviewed_at` |
+| `reviewed_at` | Calendar date the human audit was completed |
+| `evidence_reference` | Nonempty private audit reference, at most 2,000 characters |
+| `attestations` | Object containing each declaration listed below with literal boolean `true` |
+
+All dates use `YYYY-MM-DD`. The required attestations are
+`real_consented_mail`, `all_labels_independently_reviewed`,
+`provider_language_and_received_dates_verified`,
+`families_separated_from_development`, `excluded_from_training_and_tuning`, and
+`holdout_untouched_before_this_comparison`. The reviewer must audit every included
+row, its label/provider/language/date evidence, authorized use, training and tuning
+lineage, family separation and holdout access history. The existing private cohort
+builder's annotations and lineage can support this audit; they alone cannot prove
+full training independence. The independent reviewer must be separate from the
+original case analysts and candidate developers, as well as the cohort preparer;
+the tool checks only the declared preparer/reviewer IDs.
+
+These are **human attestations**, not machine verification. The tool does not open
+the evidence reference or inspect training mail, and even false declarations can
+be structurally valid. If complete training lineage or a pre-development untouched
+holdout is unavailable, do not fill those fields with guesses: a release review
+cannot be established yet. Repeated tuning on a holdout invalidates its use for
+the next candidate; create another untouched set. Missing/malformed review JSON,
+small/missing cells, mismatched identities and regressions produce a nonzero exit.
+Successful comparison does not deploy anything or authorize release.
+
+No real independently reviewed English/Chinese holdout is bundled with this
+repository, so this change establishes gating infrastructure, not a new accuracy
+result or a passing release review. Keep the review, raw inputs and private
+aggregate reports outside Git. Never replace the existing synthetic baseline with
+private mail or fabricated labels to make a gate pass.
+
+The Vercel-runtime CI job smoke-tests four project-owned email controls with the
 committed model and compares against `website/tests/fixtures/evaluation/baseline.json`.
 Unit tests include deliberately worse, missing, changed and failed results to prove
-that the gate rejects them. CI never downloads public mail or private screenshots.
-The real OCR browser run is manual; Node metric tests do not assert OCR accuracy.
+that the gate rejects them. CI tests the opt-in release contract with synthetic
+data; it does not claim a real release gate pass. CI never downloads public mail
+or private screenshots.
+The [real-browser integration runner](../website/tools/browser-checks/README.md)
+automates synthetic OCR/QR, upload, cancellation and case-save checks with Chromium.
+Its reports distinguish integration success from literal OCR/URL mismatches;
+neither its regression ceilings nor Node metric tests establish OCR accuracy on
+real screenshots. The existing manual benchmark remains available for separately
+reviewed authorized inputs.
 
 A green gate means no measured regression on that fixed cohort. It is not a claim
 of statistical significance or acceptable enterprise accuracy. Review the actual
@@ -272,7 +347,7 @@ The model and detection thresholds were not tuned on this pilot. The first usefu
 follow-up is manual error categorization with a separate held-out sample, not a
 threshold change chosen solely to improve these 200 results.
 
-## Follow-up routing policy candidate (2026-09-21, not released)
+## Follow-up routing policy findings (2026-09-21, historical experiment)
 
 Error inspection found all 28 initial normal-mail alerts were medium, with the
 content model predicting legitimate. Reply-To and Return-Path domain differences
@@ -305,7 +380,13 @@ follow-up message has insufficient model text and an uninspected remote image;
 its new result is unknown, not an assurance of safety. Do not relabel unknown as an
 alert, overwrite the baseline, or weaken the gate to claim a pass. Passing the
 synthetic CI controls and unit tests does not override the public-cohort finding.
-The change remains a local policy candidate requiring a release decision.
+These are historical experiment findings, not a statement of current deployment
+status. Repository inspection on 2026-09-27 at `main@7c1abf7` found the combined
+weak routing concern already in `website/email_structure.py`, and the incomplete
+remote-image result policy already in `website/app.py`. Their presence in `main`
+does not establish which revision is deployed or erase the failed comparison.
+Regenerate controlled baseline/candidate evidence from preserved revisions and
+run the independent holdout release review before making a current release claim.
 
 OCR diagnostics reproduced `1`/`l` substitutions and malformed URL punctuation.
 The local benchmark now offers literal expected/extracted text comparison using
@@ -314,9 +395,23 @@ adds a server-side instruction to check addresses against the original image
 character by character even when OCR confidence is high. No OCR engine, language
 model, URL correction or recognition-accuracy improvement is claimed in this step.
 
+The browser now additionally reports the lowest Tesseract line confidence for
+URL-like OCR lines, bounded to 0–100 and nullable when none is detected. It is
+diagnostic client evidence, has no effect on server risk scoring and does not
+correct the original text. On the two unchanged synthetic phishing screenshots,
+overall OCR confidence was 92% for each; the misread English URL line scored
+48% and the malformed Chinese URL line scored 80%. Exact OCR URL sets remained
+1/3. These controls do not measure real screenshot performance, and an
+undetected URL may have no line score.
+The heuristic excludes numeric-only dotted release markers such as `Q3.2026`,
+but some filenames or unknown address formats may still be ambiguous. A separate
+ten-image authored font/text stress check records URL-like score coverage and
+non-URL false scores without treating its OCR output as ground truth for the
+original five-image comparison.
+
 ## Hidden text / linked image review signal (phase 3)
 
-The local candidate now emits one medium review signal when the same HTML document
+The current repository code emits one medium review signal when the same HTML document
 contains at least 500 non-whitespace, non-format hidden characters, fewer than 80
 visible characters, at least a 10:1 hidden/visible ratio, and a visible image inside
 an explicit HTTP(S) anchor. Hidden prose stays excluded from model input. Short
@@ -343,9 +438,12 @@ the confirmation was rerun afterward. The batch has now been evaluated, so it mu
 not be treated as untouched evidence for further tuning.
 
 **The third-batch no-regression gate still fails.** Engineering tests and owned CI
-controls pass, but the routing policy remains an unreleased experiment. Retain the
-current production policy until the recall/unknown tradeoff is explicitly resolved;
-do not treat restored performance on a development example as universal recovery.
+controls pass, but that historical run did not satisfy the strict regression
+policy. The routing and hidden-image rules are already present in `main@7c1abf7`;
+the earlier description of them as an unreleased local candidate was inconsistent
+with the checked-in code. Deployment status was not verified. Preserve the failed
+result, resolve the recall/unknown tradeoff using independent evidence, and do not
+treat restored performance on a development example as universal recovery.
 
 ## Jev shadow evaluation
 
