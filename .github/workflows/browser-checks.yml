@@ -12,8 +12,6 @@ jobs:
     name: Real Chromium on synthetic fixtures
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/phishguard-browser-binaries
     steps:
       - uses: actions/checkout@v7
 
@@ -36,14 +34,16 @@ jobs:
       - name: Install the tested Playwright version and Chromium
         run: |
           npm install --prefix "$RUNNER_TEMP/phishguard-browser-deps" --no-save --package-lock=false playwright@1.62.1
-          node "$RUNNER_TEMP/phishguard-browser-deps/node_modules/playwright/cli.js" install --with-deps chromium
+          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/phishguard-browser-binaries" \
+            node "$RUNNER_TEMP/phishguard-browser-deps/node_modules/playwright/cli.js" install --with-deps chromium
 
       - name: Verify vendored recognition assets
         run: node website/tools/vision-assets/verify.mjs
 
       - name: Exercise actual browser workers and local APIs
         run: |
-          node website/tools/browser-checks/run.mjs \
+          PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/phishguard-browser-binaries" \
+            node website/tools/browser-checks/run.mjs \
             --python "$(command -v python)" \
             --playwright-module "$RUNNER_TEMP/phishguard-browser-deps/node_modules/playwright" \
             --output "$RUNNER_TEMP/phishguard-browser-reports"
