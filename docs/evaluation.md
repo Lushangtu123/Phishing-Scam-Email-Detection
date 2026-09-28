@@ -289,6 +289,20 @@ the unchanged two-class comparison with identical recall, false-alert and
 undetermined rates; the hard-ham-only comparison still cannot pass that release
 policy. No risk weights or model threshold were changed.
 
+### Apple Core newsletter link correction (2026-09-27)
+
+Inspection of those 30 `link.brand_lookalike` alerts found the Apple Core
+newsletter host `applecore.lockergnome.com` in each affected message. A complete
+`applecore` host label now follows the existing benign-word exception for
+Apple-containing names, while compound login lures such as
+`applecore-login.example` remain flagged. Replaying the same 244 `hard_ham`
+messages removes the brand-lookalike signal from their attribution but leaves
+the final 135 alerts, 44 nonalerts and 65 undetermined decisions unchanged;
+other evidence still determines those verdicts. The paired 199-message
+phishing/easy-ham pilot also remains at 90/100 phishing alerts, 2/99 legitimate
+alerts and 7/100 phishing undetermined. This is an explanation correction, not
+evidence of improved population accuracy.
+
 ## 2. Browser OCR and QR controls
 
 ```sh

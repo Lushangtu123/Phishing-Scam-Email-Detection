@@ -1832,7 +1832,7 @@ _ASCII_BRAND_TRANSLATION = str.maketrans({
     "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t",
 })
 _BENIGN_BRAND_LABELS = {
-    "apple": {"crabapple", "dapple", "grapple", "pineapple", "snapple"},
+    "apple": {"applecore", "crabapple", "dapple", "grapple", "pineapple", "snapple"},
 }
 
 # Character obfuscation substitution map (leetspeak / homoglyph tricks)

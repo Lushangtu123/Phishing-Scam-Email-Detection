@@ -829,6 +829,25 @@ class ContentRuleRobustnessTests(unittest.TestCase):
                 self.assertFalse(any("lookalike" in message for message in messages))
                 self.assertFalse(any("userinfo" in message for message in messages))
 
+    def test_applecore_newsletter_host_is_not_apple_lookalike(self):
+        for destination in ("https://applecore.lockergnome.com/archive",
+                            "https://applecore.news.example/archive"):
+            with self.subTest(destination=destination):
+                result = app.analyze_email_content(
+                    "Newsletter", f'<a href="{destination}">Latest Apple Core</a>',
+                )
+                self.assertFalse(any(item.get('rule_id') == 'link.brand_lookalike'
+                                     for item in result['extra_indicators']))
+
+        for destination in ("https://applecore-login.example/verify",
+                            "https://secureapplecore.example/verify"):
+            with self.subTest(destination=destination):
+                result = app.analyze_email_content(
+                    "Action required", f'<a href="{destination}">Review account</a>',
+                )
+                self.assertTrue(any(item.get('rule_id') == 'link.brand_lookalike'
+                                    for item in result['extra_indicators']))
+
     def test_malformed_link_destination_does_not_abort_analysis(self):
         result = app.analyze_email_content(
             "Document shared",

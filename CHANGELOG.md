@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 21:32 PT] — Exclude Apple Core newsletter labels from link lookalikes
+
+### Why
+- Aggregate attribution found Apple brand-lookalike signals in 30 alerted historical `hard_ham` messages. Inspection identified the same Apple Core newsletter host in each, an ordinary compound name rather than a deceptive Apple domain.
+
+### Files changed
+- `website/app.py` — treat the complete `applecore` host label as a benign Apple-containing word; keep longer login-themed compounds eligible for lookalike detection.
+- `website/tests/test_detection_behavior.py` — cover the newsletter host and suspicious compounds with a failing-then-passing regression.
+- `docs/evaluation.md` — record the paired public-corpus replay and its limits.
+
+### Effect
+- The brand-lookalike attribution signal disappears from those 30 alerts. Final decisions remain 135 alerts, 44 nonalerts and 65 undetermined across 244 historical `hard_ham` messages; the 199-message phishing/easy-ham pilot is also unchanged. This fixes an incorrect explanation without demonstrating a false-alert-rate improvement.
+- The full backend suite passes: 653 tests, with 10 local Redis integration skips.
+
 ## [2026-09-27 21:18 PT] — Add privacy-bounded evidence attribution for email evaluations
 
 ### Why
