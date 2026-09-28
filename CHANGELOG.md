@@ -20,6 +20,27 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 15:14 PT] — Stable codes for server messages; Chinese indicator, warning and verification text
+
+### Why
+- In 中文 mode the server's free-text English (sender `risk_indicators[].msg`, content `extra_indicators[].msg`, `safety_signals`, `analysis_warnings`, verification `message`/`smtp_message`, image assessment warnings) was shown untranslated because it carried no stable code.
+- The API must not break: every existing English string and field type stays exactly as before.
+
+### Files changed
+- `website/data/server_messages.json` (new) — 189 codes → English templates (`str.format` fields): `sender.*` 39 (incl. 6 randomness-factor fragments), `content.*` 16, `link.*` 10, `structure.*` 9, `prefix.*` 4, `warning.*` 36, `safety.*` 15, `verify.*` 60.
+- `website/server_messages.py` (new) — `text`, `indicator`, `message`, `wrap` (records `Sender: …` / `Attached message: …` / `Image (name): …` as `prefixes`), `describe`/`details` (derive codes for warning and safety strings from the same templates), `annotate_content`, `strip_details`; params are strings/finite numbers truncated to 256 characters, while `msg` is rendered from the untruncated values.
+- `website/sender_features.py`, `website/email_structure.py`, `website/app.py`, `website/visual_evidence.py`, `website/enhanced_vision.py` — every indicator is built from its template and gains `code`/`params`; link findings keep `rule_id` (code = rule id); warning constants and `CONTENT_SAFETY_SIGNALS` descriptions come from the registry; content/visual responses add `analysis_warning_details` and `safety_signal_details`, observations add `assessment_warning_details`, enhancement adds `warning_details`; `/api/verify-email` adds `code`/`params` to `spf`/`dmarc`/`domain_age`/`mx_ptr`, `smtp_message_code`/`_params`, `note_code`/`_params`, `mailbox_verification.reason_code`/`_params`; `_analyze_case` drops the `*_details` lists before storage (indicator codes are kept).
+- `website/static/i18n.js` — `server.<code>` for all 189 codes in `en` (identical to the registry) and `zh`; `server(entry)` localizes only when the English rendering of code + params reproduces `msg` (else the server text), `serverList(values, details)`; factor lists and category labels inside messages are localized.
+- `website/static/app-core.js` (`serverText`, `serverStrings`, `verifyText`), `app-sender.js`, `app-content-render.js`, `app-reports.js`, `app-verify.js`, `vision.js` — sender indicators, score-breakdown rows, copy summaries, Markdown indicators and warnings, content technical indicators, safety signals, verification step details and image/enhancement warnings use the codes.
+- `website/tests/test_server_messages.py` (new, 14 tests), `website/static/server-messages.test.mjs` (new, 8 tests) — registry ↔ dictionary guard (identical English, same zh placeholders, every backend code literal registered), homepage examples, auth-failure .eml, nested/visual prefixes, verification skipped/unavailable/busy/failed paths, zh rendering and fallbacks.
+- `README.md` — “Message codes” under the API overview; `website/static/index.html`, `cases.html`, `website/tools/asset-versions/manifest.json` — `?v=` bumps.
+
+### Effect
+- English is unchanged: the i18n English snapshot passes untouched, and 266 indicator `msg` plus 59 verification `message` strings (47 addresses, 12 content inputs, 6 .eml files, 2 visual payloads, 58 mocked verification paths) are byte-identical to the previous commit.
+- In 中文 mode, e.g. `Domain contains a hyphen (paypa1-verify.xyz) — …` renders as `域名包含连字符（paypa1-verify.xyz）— 主流服务商的域名通常不使用连字符`; matched keywords, filenames, hosts and SMTP replies stay as sent.
+- Changing a backend template without updating `i18n.js` now fails `node --test`.
+- Tests: Python 689 OK (10 skipped); Node 436 pass, 0 fail.
+
 ## [2026-09-28 14:37 PT] — Simplified Chinese (zh-CN) homepage UI with an EN / 中文 switch
 
 ### Why

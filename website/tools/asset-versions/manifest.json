@@ -8,16 +8,16 @@
     "sha256": "b11baf9a4b986702aaa3299c3da14fc2fdd13981aa3418db7ee9c0be7c0900fb"
   },
   "app-content-render.js": {
-    "version": "2",
-    "sha256": "c28b0d910c64f54082c8d24faa4db694b2d3675d7fb8c086ca7a75a9fca7fca9"
+    "version": "3",
+    "sha256": "6165ffe79c0c1272d1edfb84746ebda1c7e2fa23aee6971d117f61e1315e8692"
   },
   "app-content.js": {
     "version": "2",
     "sha256": "211cc97b5fd1ad3d9cf3b0cf173705ec87f7a1392b6e4c7d92903c87659d54e5"
   },
   "app-core.js": {
-    "version": "2",
-    "sha256": "2bec42e95226ee81f05a08e8c0297380e57b9517dd74093369e3085458e7bf57"
+    "version": "3",
+    "sha256": "026ca394690db51bdf62e63aa5fd6362b0363c54509a436cf96e3e7b1f0fe00d"
   },
   "app-layout.js": {
     "version": "2",
@@ -28,20 +28,20 @@
     "sha256": "c04b8da10a375ba6ca32e0e60fe23866dff528259627ecf832e0e605a1a81f4a"
   },
   "app-reports.js": {
-    "version": "2",
-    "sha256": "77845fc6d0488250df5dacaba2456de0a5857c6e6c9296f2f74bb21fb55cb10f"
+    "version": "3",
+    "sha256": "3a4b0a8750cc49b6cf3df087f0014e5a97e43622cd9da0ec7313f2f60bed7c92"
   },
   "app-sender.js": {
-    "version": "2",
-    "sha256": "cad78012b0ea1a3d2cc1448d74ec565df8461c31a45bbdb1846c836a0964767f"
+    "version": "3",
+    "sha256": "d5ab7ea26ef85261f0a8b24ebc3922a30389f2ddbb51cdfc2d0358e4bb5ac4f9"
   },
   "app-theme.js": {
     "version": "2",
     "sha256": "29ccf4fc37dc2ea5d8c7ff618c956bbe01f5d612cfe24b9e29659b23ba8afa99"
   },
   "app-verify.js": {
-    "version": "2",
-    "sha256": "9f650bfc7301d1cfcff84ea7ae4d7120ee83cf1da7bbca685d7fbe9fc4ee290e"
+    "version": "3",
+    "sha256": "45db02a419aabc7aa025b40e7ea9ffc5dee1036f0345399940e92c57db081809"
   },
   "app.js": {
     "version": "51",
@@ -72,8 +72,8 @@
     "sha256": "531b36c7ef0593da17f94bb7759087dc8e91e1d1c6843a02715052def75a479d"
   },
   "i18n.js": {
-    "version": "1",
-    "sha256": "abde966b0f3a441d0be10555ce6ec617c2e1375fb66f667e87c9290939a49132"
+    "version": "2",
+    "sha256": "7709c3c74683212c132e8d198ca27e5c20798dd81f370a8b19b24a22daf8b505"
   },
   "lang-init.js": {
     "version": "1",
@@ -96,7 +96,7 @@
     "sha256": "144f1780bec74ce698ef643736c49eee23dbd6f0b44cccec576ab1892a673a2a"
   },
   "vision.js": {
-    "version": "10",
-    "sha256": "ecad7c3e00fe5da9b01c4a46d12d2d5e640f0f89d63b37ffdfa72f6920045deb"
+    "version": "11",
+    "sha256": "912859410579affd412af51008f26785651f14bc85fecd9dd393c25843a3d729"
   }
 }

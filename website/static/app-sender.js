@@ -278,7 +278,7 @@ function renderResult(data, { languageOnly = false } = {}) {
     riskList.innerHTML = riskIndicators.map(r => `
       <div class="risk-item risk-${escapeHtml(r.level)}">
         <span class="risk-dot"></span>
-        <span class="risk-msg">${escapeHtml(r.msg)}</span>
+        <span class="risk-msg">${escapeHtml(serverText(r))}</span>
       </div>
     `).join('');
   } else {
@@ -319,7 +319,7 @@ const SENDER_WEIGHTS = { high: 28, medium: 10, low: 3 };
 function senderScoreBreakdown(data) {
   const rows = (data.risk_indicators || [])
     .filter(r => SENDER_WEIGHTS[r.level])
-    .map(r => ({ level: r.level, msg: r.msg, points: SENDER_WEIGHTS[r.level] }))
+    .map(r => ({ level: r.level, msg: serverText(r), points: SENDER_WEIGHTS[r.level] }))
     .sort((a, b) => b.points - a.points);
   const raw = rows.reduce((sum, row) => sum + row.points, 0);
   const total = Math.min(100, raw);

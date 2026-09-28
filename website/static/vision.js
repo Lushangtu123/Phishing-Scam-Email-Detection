@@ -6,10 +6,12 @@ window.PhishGuardVision = (() => {
   const MAX_BYTES = 2 * 1024 * 1024;
   // cases.html loads this file without i18n.js, so every string keeps its
   // English text inline; i18n.test.mjs checks it matches the dictionary.
-  // Worker errors, server warnings and extracted text are shown as received.
+  // Worker errors and extracted text are shown as received; server warnings
+  // with a known code (*_details) are localized, the rest are shown as sent.
   const tr = (key, english, params) => window.PhishGuardI18n ? window.PhishGuardI18n.t(key, params)
     : english.replace(/\{(\w+)\}/g, (match, name) => (params && Object.hasOwn(params, name) ? String(params[name]) : match));
   const levelName = level => window.PhishGuardI18n ? window.PhishGuardI18n.known(`level.${level}`, level) : level;
+  const serverList = (values, details) => window.PhishGuardI18n ? window.PhishGuardI18n.serverList(values, details) : values;
   // vision-worker.mjs reports progress in English; show it in the page language.
   function progressText(message) {
     const text = String(message);
@@ -140,7 +142,8 @@ window.PhishGuardVision = (() => {
       }
       for (const payload of item.qr_payloads || []) section.append(node('strong', tr('vision.qr', 'QR payload')), node('pre', payload));
       if (item.ocr_text) section.append(node('strong', tr('vision.text', 'Extracted text')), node('pre', item.ocr_text));
-      for (const warning of [...new Set([...(item.warnings || []), ...(item.assessment_warnings || [])])]) section.append(node('p', warning));
+      const itemWarnings = [...new Set([...(item.warnings || []), ...(item.assessment_warnings || [])])];
+      for (const warning of serverList(itemWarnings, item.assessment_warning_details)) section.append(node('p', warning));
       target.append(section);
     }
     if (analysis.enhancement) {
@@ -156,7 +159,7 @@ window.PhishGuardVision = (() => {
           for (const url of extra.semantic.visible_urls) section.append(node('pre', url));
         }
       }
-      for (const warning of extra.warnings || []) section.append(node('p', warning));
+      for (const warning of serverList(extra.warnings || [], extra.warning_details)) section.append(node('p', warning));
       target.append(section);
     }
     for (const warning of analysis.warnings || []) target.append(node('p', warning));

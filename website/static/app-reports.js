@@ -29,8 +29,9 @@ function encodeFeedbackEmail(buffer) {
 }
 
 // ── Copy summary ─────────────────────────────────────────────────────────────
-// Copies and reports follow the UI language; indicator messages, warnings and
-// other free text from the server stay as sent. The JSON report is raw data.
+// Copies and reports follow the UI language. Indicator messages and warnings
+// are localized from their codes; other free text from the server stays as
+// sent. The JSON report is raw data.
 const lastResults = { sender: null, content: null };
 const MAILBOX_STATUSES = new Set(['known_disposable_provider', 'privacy_relay',
   'suspicious_mailbox_pattern', 'suspicious_domain_pattern', 'no_known_match']);
@@ -46,7 +47,7 @@ function senderSummaryText(data) {
     t('summary.verdict', { label: senderVerdictLabel(data), score: `${data.risk_score}/100` }),
     t('summary.mailbox', { type: mailboxLabel(data.disposable_status) }),
     t(indicators.length ? 'summary.indicators' : 'summary.indicatorsNone'),
-    ...indicators.map(r => t('summary.indicatorLine', { level: levelName(r.level), msg: r.msg })),
+    ...indicators.map(r => t('summary.indicatorLine', { level: levelName(r.level), msg: serverText(r) })),
     '', t('summary.disclaimer'),
   ].join('\n');
 }
@@ -68,7 +69,7 @@ function contentSummaryText(data) {
     ...categories.map(c => tPlural('summary.categoryLine', c.count,
       { label: categoryText(c, 'label'), level: levelName(c.level), count: c.count })),
     ...(extras.length ? [t('summary.technical'),
-      ...extras.map(r => t('summary.indicatorLine', { level: levelName(r.level), msg: r.msg }))] : []),
+      ...extras.map(r => t('summary.indicatorLine', { level: levelName(r.level), msg: serverText(r) }))] : []),
     '', t('summary.disclaimer'),
   ].join('\n');
 }
@@ -120,7 +121,7 @@ function markdownText(value) {
 
 // One "- **Label:** value" line; values must already be Markdown-safe.
 const reportField = (labelKey, value) => t('report.field', { label: t(labelKey), value });
-const reportIndicator = r => t('report.indicatorLine', { level: markdownText(levelName(r.level)), msg: markdownText(r.msg) });
+const reportIndicator = r => t('report.indicatorLine', { level: markdownText(levelName(r.level)), msg: markdownText(serverText(r)) });
 
 function senderReportMarkdown(data, generatedAt) {
   const indicators = (data.risk_indicators || []).filter(r => r.level !== 'info');
@@ -141,7 +142,7 @@ function contentReportMarkdown(data, generatedAt) {
   const mode = contentMode(data);
   const categories = data.category_results || [];
   const extras = data.extra_indicators || [];
-  const warnings = data.analysis_warnings || [];
+  const warnings = serverStrings(data.analysis_warnings || [], data.analysis_warning_details);
   const model = mode !== 'image' && data.ml_label != null
     ? [reportField('report.model', t('report.modelValue',
       { model: contentModelName(data), score: markdownText(data.ml_phishing_probability) }))]

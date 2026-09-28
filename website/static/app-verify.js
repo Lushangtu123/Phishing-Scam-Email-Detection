@@ -71,7 +71,7 @@ function renderVerifyResult(data) {
   if (data.format_valid) {
     setStep('format', 'ok', t('verify.detail.formatOk'));
   } else {
-    setStep('format', 'fail', data.smtp_message || t('verify.detail.formatInvalid'));
+    setStep('format', 'fail', verifyText(data, 'smtp_message') || t('verify.detail.formatInvalid'));
     ['mx', 'smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s =>
       setStep(s, 'skip', t('verify.detail.skipped')));
     showVerifyVerdict('invalid_format');
@@ -80,7 +80,7 @@ function renderVerifyResult(data) {
 
   // Step 2 – DNS / MX
   if (data.null_mx && data.overall === 'no_mail_service') {
-    setStep('mx', 'info', data.smtp_message);
+    setStep('mx', 'info', verifyText(data, 'smtp_message'));
     ['smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s => setStep(s, 'skip', t('verify.detail.skippedNoMail')));
     showVerifyVerdict('no_mail_service');
     return;
@@ -91,7 +91,7 @@ function renderVerifyResult(data) {
     setStep('mx', 'ok', t('verify.detail.mxRecords', { records: recs || data.email.split('@')[1] }));
   } else {
     const inconclusive = data.overall === 'unverifiable';
-    setStep('mx', inconclusive ? 'warn' : 'fail', data.smtp_message || t('verify.detail.noMx'));
+    setStep('mx', inconclusive ? 'warn' : 'fail', verifyText(data, 'smtp_message') || t('verify.detail.noMx'));
     ['smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s => setStep(s, 'skip', t('verify.detail.skipped')));
     showVerifyVerdict(inconclusive ? 'unverifiable' : 'likely_invalid');
     return;
@@ -99,7 +99,7 @@ function renderVerifyResult(data) {
 
   // Step 3 – SMTP probe
   const smtpResult = data.smtp_result || '';
-  const smtpMsg    = data.smtp_message || '';
+  const smtpMsg    = verifyText(data, 'smtp_message') || '';
   if (smtpResult === 'exists') {
     setStep('smtp', 'ok', smtpMsg);
   } else if (smtpResult === 'does_not_exist') {
@@ -116,11 +116,11 @@ function renderVerifyResult(data) {
   // Step 4 – MX PTR (reverse DNS)
   const ptr = data.mx_ptr || {};
   if (ptr.found) {
-    setStep('ptr', 'ok', ptr.message || t('verify.detail.ptr', { ptr: ptr.ptr }));
+    setStep('ptr', 'ok', verifyText(ptr) || t('verify.detail.ptr', { ptr: ptr.ptr }));
   } else if (ptr.message && ptr.message.includes('timed out')) {
-    setStep('ptr', 'skip', ptr.message);
+    setStep('ptr', 'skip', verifyText(ptr));
   } else {
-    setStep('ptr', 'warn', ptr.message || t('verify.detail.noPtr'));
+    setStep('ptr', 'warn', verifyText(ptr) || t('verify.detail.noPtr'));
   }
 
   // ── Section B: Email Security Policy ───────────────────────────────────
@@ -131,9 +131,9 @@ function renderVerifyResult(data) {
     const state  = policy === 'strict'   ? 'ok'   :
                    policy === 'softfail' ? 'warn'  :
                    policy === 'open'     ? 'fail'  : 'warn';
-    setStep('spf', state, spf.message || t('verify.detail.policy', { policy }));
+    setStep('spf', state, verifyText(spf) || t('verify.detail.policy', { policy }));
   } else {
-    setStep('spf', 'warn', spf.message || t('verify.detail.noSpf'));
+    setStep('spf', 'warn', verifyText(spf) || t('verify.detail.noSpf'));
   }
 
   // Step 6 – DMARC
@@ -143,9 +143,9 @@ function renderVerifyResult(data) {
     const state  = policy === 'reject'     ? 'ok'   :
                    policy === 'quarantine' ? 'warn'  :
                    policy === 'none'       ? 'warn'  : 'skip';
-    setStep('dmarc', state, dmarc.message || t('verify.detail.policy', { policy }));
+    setStep('dmarc', state, verifyText(dmarc) || t('verify.detail.policy', { policy }));
   } else {
-    setStep('dmarc', 'warn', dmarc.message || t('verify.detail.noDmarc'));
+    setStep('dmarc', 'warn', verifyText(dmarc) || t('verify.detail.noDmarc'));
   }
 
   // ── Section C: Domain Intelligence ─────────────────────────────────────
@@ -154,10 +154,10 @@ function renderVerifyResult(data) {
   if (age.found && age.age_days !== null) {
     const d = age.age_days;
     const state = d < 30 ? 'fail' : d < 180 ? 'warn' : 'ok';
-    const detail = age.message + (age.registrar ? t('verify.detail.registrar', { registrar: age.registrar }) : '');
+    const detail = verifyText(age) + (age.registrar ? t('verify.detail.registrar', { registrar: age.registrar }) : '');
     setStep('age', state, detail);
   } else {
-    setStep('age', 'skip', age.message || t('verify.detail.noWhois'));
+    setStep('age', 'skip', verifyText(age) || t('verify.detail.noWhois'));
   }
 
   showVerifyVerdict(data.overall, data.verification_complete, data);

@@ -18,6 +18,17 @@ function uiLang() { return i18n() ? i18n().lang() : 'en'; }
 function knownText(key, serverText) { return i18n() ? i18n().known(key, serverText) : serverText; }
 // Risk level codes (high, medium, …) are shown raw in English, localized otherwise.
 function levelName(level) { return knownText(`level.${level}`, level); }
+// Analysis messages ({code, params, msg}) and string lists with parallel
+// *_details entries: localized when the code is known, else the server's text.
+function serverText(entry) { return i18n() ? i18n().server(entry) : entry && entry.msg; }
+function serverStrings(values, details) { return i18n() ? i18n().serverList(values, details) : (values || []); }
+// A verification result's `field` with its `<field>_code`/`<field>_params`
+// (`message` uses plain `code`/`params`).
+function verifyText(holder, field = 'message') {
+  if (!holder || !holder[field]) return holder && holder[field];
+  const prefix = field === 'message' ? '' : `${field}_`;
+  return serverText({ code: holder[`${prefix}code`], params: holder[`${prefix}params`], msg: holder[field] });
+}
 
 // ── Errors & requests ────────────────────────────────────────────────────────
 function setError(id, message = '') {

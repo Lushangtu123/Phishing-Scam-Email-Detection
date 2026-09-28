@@ -233,7 +233,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
     extraList.innerHTML = data.extra_indicators.map(ind => `
       <div class="risk-item risk-${escapeHtml(ind.level)}">
         <span class="risk-dot"></span>
-        <span class="risk-msg">${escapeHtml(ind.msg)}</span>
+        <span class="risk-msg">${escapeHtml(serverText(ind))}</span>
       </div>
     `).join('');
   } else {
@@ -245,7 +245,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
   const safetyList = document.getElementById('content-safety-list');
   if (data.safety_signals.length > 0) {
     safetyCard.style.display = '';
-    safetyList.innerHTML = data.safety_signals.map(s => `
+    safetyList.innerHTML = serverStrings(data.safety_signals, data.safety_signal_details).map(s => `
       <div class="safety-item">
         <span class="safety-dot">${icon('check')}</span>
         <span class="safety-msg">${escapeHtml(s)}</span>

@@ -12,7 +12,8 @@
 
    Server-provided text stays in English unless it is identified by a stable
    code (verdict, risk level, category key, feature name, mailbox status) and
-   still matches the English wording below; see known().
+   still matches the English wording below; see known(). Free-text analysis
+   messages carry {code, params, msg}; see server().
    ────────────────────────────────────────────────────────────────────────── */
 'use strict';
 window.PhishGuardI18n = (() => {
@@ -718,6 +719,206 @@ window.PhishGuardI18n = (() => {
     'vision.progress.lang.eng': 'English',
     'vision.progress.lang.chi_sim': 'Simplified Chinese',
     'vision.progress.lang.mixed': 'English and Simplified Chinese',
+
+    // ── Server messages (code → English template) ──
+    // Identical to data/server_messages.json; server-messages.test.mjs enforces it.
+    // Shown through server(), never t(): see the comment there.
+    'server.sender.ip_domain': 'Domain is a raw IP address ({domain}) instead of a hostname',
+    'server.sender.long_address': 'Email address is unusually long ({length} chars) — typical addresses are under 50 characters',
+    'server.sender.url_shortener': 'Domain ({domain}) is a known URL shortening service frequently abused in phishing',
+    'server.sender.multiple_at': 'Address contains {count} @ symbols — invalid email format',
+    'server.sender.double_slash': "Domain contains '//' — possible redirect deception trick",
+    'server.sender.domain_hyphen': 'Domain contains a hyphen ({domain}) — major providers typically do not use hyphens in their domains',
+    'server.sender.deep_subdomains': 'Domain has {count} subdomain levels — phishing sites commonly use deep subdomains to impersonate brands',
+    'server.sender.http_token': "Email address contains the token 'http' — used to create visual confusion",
+    'server.sender.unrecognized_provider': 'Domain ({domain}) is not a recognized legitimate mail provider',
+    'server.sender.uncommon_tld': "TLD '.{tld}' is uncommon — phishing emails often use obscure or cheap TLDs",
+    'server.sender.long_domain_label': 'Domain label is unusually long ({length} characters)',
+    'server.sender.domain_digits': 'Domain label contains digits ({label}) — legitimate brand domains are usually letters only',
+    'server.sender.domain_keywords': 'Domain contains phishing keywords: {keywords}',
+    'server.sender.username_keywords': 'Username contains phishing keywords: {keywords}',
+    'server.sender.high_risk_tld': "TLD '.{tld}' is a known high-risk or free domain extension heavily used in phishing campaigns",
+    'server.sender.unsupported_characters': 'Username contains unsupported mailbox characters: {characters}',
+    'server.sender.long_username': 'Username is unusually long ({length} characters) — typical usernames are under 30 characters',
+    'server.sender.homoglyph_brand': "Homoglyph attack detected — '{label}' uses character substitution to impersonate '{brand}' (e.g. 1→l, 0→o, vv→w)",
+    'server.sender.character_substitution': "Character substitution detected in domain '{label}' — normalized to '{normalized}'",
+    'server.sender.abused_cctld': "TLD '.{tld}' is a country-code domain commonly abused in phishing attacks",
+    'server.sender.malformed_syntax': 'Email address has unsupported or malformed mailbox syntax.',
+    'server.sender.fake_financial_business': "Domain '{domain}' follows an [abbreviation]+[financial term]+[business suffix] pattern ({breakdown}) — a known technique used to fabricate fake financial institution email domains",
+    'server.sender.financial_business_combo': "Domain '{domain}' combines financial keywords ({financial}) with business entity suffixes ({suffixes}) — pattern commonly seen in financial phishing and business email compromise (BEC) domains",
+    'server.sender.financial_keywords': "Domain '{domain}' contains financial-sector keywords ({financial}) on an unverified provider — verify the sender before sharing financial or personal information",
+    'server.sender.business_suffix': "Domain '{domain}' uses a business entity suffix ({suffixes}) but is not a recognized or verified organization",
+    'server.sender.brand_substring': "Domain '{domain}' contains the name of a well-known brand ({brands}) as a substring but is not the official domain — possible typosquatting or brand impersonation",
+    'server.sender.government_keywords': "Domain '{domain}' contains government/regulatory keywords ({keywords}) but is NOT a .gov/.mil domain — likely impersonating an official body",
+    'server.sender.compound_domain': "Domain label '{label}' is long ({length} chars) and appears to be a compound of multiple words — bulk phishing campaigns often generate such domains to appear business-like",
+    'server.sender.random_username': "Username '{username}' matches {score}/6 randomness factors ({factors}) — the mailbox pattern looks automatically generated, but account age and lifetime cannot be confirmed",
+    'server.sender.factor.entropy': 'entropy {value}',
+    'server.sender.factor.vowel': 'vowel {percent}%',
+    'server.sender.factor.digits': 'digits scattered',
+    'server.sender.factor.unique': 'unique-ratio {percent}%',
+    'server.sender.factor.no_word': 'no real word',
+    'server.sender.factor.word_combo': 'unusual word combo',
+    'server.sender.disposable_domain_pattern': 'Domain ({domain}) resembles a temporary-email provider name, but is not in the confirmed provider registry',
+    'server.sender.known_disposable': 'Known disposable-email provider detected ({provider}). Provider category alone is not phishing evidence; mailbox lifetime is unknown.',
+    'server.sender.privacy_relay': 'Privacy relay or masked-address provider detected ({provider}); this is not phishing evidence by itself.',
+    'server.sender.plus_alias': 'Address uses plus subaddressing; the tag is not a phishing signal.',
+
+    'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
+    'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
+    'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
+    'server.content.shortened_urls': 'Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain',
+    'server.content.exclamation_marks': 'Excessive exclamation marks ({count}) — emotional manipulation tactic common in scam emails',
+    'server.content.capitalization': 'Excessive capitalization ({percent}% uppercase) — used to simulate alarm and urgency',
+    'server.content.subject_question_marks': 'Multiple question marks in subject line ({count}) — manipulative rhetorical device',
+    'server.content.url_count': 'Unusually high number of URLs ({count}) — suggests bulk phishing template',
+    'server.content.generic_greeting': 'Generic impersonal greeting (Dear Customer/User/Valued Member) — legitimate services address you by name',
+    'server.content.large_amounts': 'Implausibly large monetary amounts mentioned: {amounts} — hallmark of advance-fee and lottery scams',
+    'server.content.generic_cta': "Generic call-to-action phrases used {count}× ('click here', 'click now') — legitimate emails use descriptive link text",
+    'server.content.regional_phrasing': 'Regional or formal English phrasing observed: "{phrase}"; not included in the risk score.',
+    'server.content.regional_phrasing_more': 'Regional or formal English phrasing observed: "{phrase}"...; not included in the risk score.',
+    'server.content.obfuscation': 'Character substitution / homoglyph obfuscation detected for: {brands} — e.g. P@yP@l, Amaz0n — used to evade spam filters',
+    'server.content.category': '{label}',
+    'server.content.nested_category': '{label} — {matched}',
+
+    'server.link.obfuscated_scheme': 'Link uses an obfuscated hxxp/hxxps destination scheme.',
+    'server.link.malformed_target': 'Link contains a malformed destination that could not be safely parsed.',
+    'server.link.unsafe_scheme': 'Link uses an unsafe destination scheme ({scheme}:).',
+    'server.link.url_userinfo': 'Link destination uses URL userinfo before the real host, a common trusted-domain deception technique.',
+    'server.link.ip_host': 'Link destination uses an IP address instead of a domain name; inspect it before opening.',
+    'server.link.display_mismatch': 'Link display domain ({display_host}) does not match the actual destination ({host}).',
+    'server.link.idn_confusable': 'Link destination ({host}) is an IDN/confusable lookalike for {brand}.',
+    'server.link.brand_lookalike': 'Link destination ({host}) is a noncanonical lookalike for {brand}.',
+    'server.link.credential_collection_host': 'Link destination ({host}) combines credential and collection wording.',
+    'server.link.sensitive_host': 'Link destination ({host}) uses account-related wording on an unrecognized domain; this alone does not establish phishing.',
+
+    'server.structure.brand_display_name': "Protected brand identity '{brand}' is displayed from an unrelated domain ({domain}).",
+    'server.structure.idn_sender_domain': 'Sender domain ({domain}) is a Unicode/IDN confusable for {brand}.',
+    'server.structure.no_visible_recipient': 'No visible To or Cc recipient is present; the message may have used Bcc.',
+    'server.structure.self_addressed': 'Self-addressed message: a From mailbox also appears in To or Cc.',
+    'server.structure.routing_mismatch': '{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.',
+    'server.structure.auth_failed': 'Message authentication failed: {mechanisms}.',
+    'server.structure.auth_partial_failure': 'One authentication mechanism failed: {mechanisms}.',
+    'server.structure.dangerous_attachment': 'Potentially dangerous attachment: {filename}.',
+    'server.structure.archive_attachment': 'Archive attachment requires inspection before opening: {filename}.',
+
+    'server.prefix.sender': 'Sender: {text}',
+    'server.prefix.attached_message': 'Attached message: {text}',
+    'server.prefix.image': 'Image ({name}): {text}',
+    'server.prefix.image_recognition': 'Image recognition: {text}',
+
+    'server.warning.mso_conditional': 'MSO conditional content has client-dependent rendering; analysis is incomplete.',
+    'server.warning.malformed_html': 'Malformed HTML required recovery; analysis is incomplete.',
+    'server.warning.link_unparsed': 'A link destination could not be reliably parsed; analysis is incomplete.',
+    'server.warning.hidden_html_text': 'Hidden HTML text was excluded from text scoring; visual rendering was not fully verified, so analysis is incomplete.',
+    'server.warning.stylesheet_visibility': 'A stylesheet may hide or reveal text; CSS rendering was not verified, so the affected text-model view was not scored.',
+    'server.warning.inline_css_visibility': 'Inline CSS may conceal text; its rendering was not verified, so the affected text-model view was not scored.',
+    'server.warning.image_alt_fallback': 'Image alternative text may be shown when an image is unavailable; that rendering was not verified, so the affected text-model view was not scored.',
+    'server.warning.mime_alternative_limit': 'MIME alternative view limit reached; not every rendered version was model-scored. Analysis is incomplete.',
+    'server.warning.mime_alternative_model': 'At least one MIME alternative could not be model-scored; analysis is incomplete.',
+    'server.warning.inline_images': 'Embedded image content was not inspected; analysis is incomplete.',
+    'server.warning.remote_images': 'Remote image content was not inspected; analysis is incomplete.',
+    'server.warning.unresolved_images': 'Unresolved image references were not inspected; analysis is incomplete.',
+    'server.warning.han_text': 'Substantial Han-script text detected; language-specific phishing checks are limited and this content may not be fully evaluated.',
+    'server.warning.model_insufficient_context': 'The message contains too little text for reliable model scoring; ML classification was not applied.',
+    'server.warning.model_insufficient_coverage': 'Text model feature coverage is insufficient; ML classification was not applied.',
+    'server.warning.attachments_uninspected': 'Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete.',
+    'server.warning.duplicate_mime_headers': 'Duplicate MIME headers ({headers}) are ambiguous; bounded alternate inspection, analysis is incomplete.',
+    'server.warning.mime_candidate_limit': 'MIME candidate limit reached; additional interpretations were not inspected.',
+    'server.warning.opaque_eml_attachment': 'Opaque .eml attachment was not parsed as an encapsulated message; analysis is incomplete.',
+    'server.warning.mime_decoding_fallback': 'MIME text decoding required a fallback or replacement; analysis may be incomplete.',
+    'server.warning.mime_resource_limit': 'MIME parser resource limit reached; only outer headers were inspected, body and attachments were not analyzed. Analysis is incomplete.',
+    'server.warning.header_unparsed': '{header} header could not be parsed; raw value preserved, analysis is incomplete.',
+    'server.warning.duplicate_header': 'Duplicate {header} headers are ambiguous; all candidates inspected, analysis is incomplete.',
+    'server.warning.attached_message_empty': 'Attached message has no analyzable content; analysis is incomplete.',
+    'server.warning.mime_malformed': 'MIME structure is incomplete or malformed ({defects}); analysis may be incomplete.',
+    'server.warning.attached_message_encoded': 'Transfer-encoded attached message was not inspected; analysis is incomplete.',
+    'server.warning.attached_message_unparsed': 'Attached message could not be parsed; analysis is incomplete.',
+    'server.warning.attached_message_limit': 'Attached-message depth/count limit reached; analysis is incomplete.',
+    'server.warning.auth_results_incomplete': 'Authentication-Results syntax is incomplete; authentication claims require review.',
+    'server.warning.visual_text_limit': 'Email text exceeded the visual submission text limit; analysis is incomplete.',
+    'server.warning.visual_independent_sources': 'OCR and each distinct QR payload were assessed independently. Risk and rule scores retain the strongest individual assessment; the model score, when available, is the highest individual source score.',
+    'server.warning.visual_unverified': 'Image evidence was extracted in the browser and is not independently verified. OCR and QR recognition may miss content; image safety and malware were not assessed.',
+    'server.warning.ocr_verify_urls': 'Verify website addresses against the original image character by character. OCR can confuse 1/l/I or 0/O and break URL punctuation, even with high confidence. The original OCR text is preserved; no address spelling has been verified.',
+    'server.warning.enhanced_failed': 'Enhanced recognition failed; browser OCR and QR results were retained.',
+    'server.warning.enhanced_unverified': 'Additional recognition is unverified; original browser text and QR payloads are preserved.',
+    'server.warning.enhanced_model_output': 'Model-generated observations and URLs do not establish legitimacy and do not change the risk verdict.',
+
+    'server.safety.unsubscribe': 'Contains unsubscribe link — typical of legitimate bulk emails',
+    'server.safety.privacy_policy': 'Mentions privacy policy — sign of compliance',
+    'server.safety.terms_of_service': 'References terms of service',
+    'server.safety.terms_and_conditions': 'References terms and conditions',
+    'server.safety.opt_out': 'Provides opt-out option',
+    'server.safety.not_requested': 'Acknowledges you may not have requested this',
+    'server.safety.contact_information': 'Provides official contact information',
+    'server.safety.copyright': 'Contains copyright notice',
+    'server.safety.sender_system': 'Identifies sender system transparently',
+    'server.safety.web_version': 'Provides web version link — common in legitimate newsletters',
+    'server.safety.preferences': 'Offers subscription preference management',
+    'server.safety.receiving_reason': 'Explains why the email was sent',
+    'server.safety.subscription_consent': 'Acknowledges subscription consent',
+    'server.safety.named_greeting': 'Personalized greeting (legitimate systems use names)',
+    'server.safety.greeting': 'Personalized greeting',
+
+    'server.verify.format_invalid': 'Enter a single supported email address with an unquoted ASCII local part and a valid domain.',
+    'server.verify.dns_timeout': 'DNS lookup timed out or was unavailable.',
+    'server.verify.dns_unavailable': 'DNS lookup was unavailable.',
+    'server.verify.null_mx': 'Domain publishes Null MX: it does not accept email. This is not evidence of phishing.',
+    'server.verify.invalid_null_mx': 'Invalid mixed or nonzero-preference Null MX records; mail service is inconclusive.',
+    'server.verify.domain_not_found': 'Domain does not exist in DNS.',
+    'server.verify.address_record_fallback': 'No MX record found; domain has an {record_type} record — using domain directly.',
+    'server.verify.no_mail_records': 'Domain has no MX, A, or AAAA records.',
+    'server.verify.deadline_after_dns': 'Verification deadline reached after DNS lookup.',
+    'server.verify.check_busy': 'Verification capacity is busy; this check was not run.',
+    'server.verify.check_failed': 'Verification check failed; result unavailable.',
+    'server.verify.smtp_disabled': 'SMTP mailbox probing is unavailable on this deployment.',
+    'server.verify.smtp_disabled_reason': 'SMTP mailbox probing is unavailable on this deployment; domain evidence does not prove that the mailbox exists.',
+    'server.verify.smtp_timeout': 'SMTP probe timed out.',
+    'server.verify.smtp_port_blocked': 'Port 25 appears blocked by your network. MX records exist, so the domain is real, but mailbox existence cannot be confirmed.',
+    'server.verify.smtp_non_public_target': 'SMTP target for {host} is non-public or could not be validated.',
+    'server.verify.smtp_accepted': 'Mail server accepted the address (SMTP {smtp_code})',
+    'server.verify.smtp_no_such_mailbox': 'Mail server reports no such mailbox (SMTP {smtp_code}): {response}',
+    'server.verify.smtp_policy_rejected': 'Policy rejection does not establish mailbox existence (SMTP {smtp_code}): {response}',
+    'server.verify.smtp_mailbox_full': 'Mailbox full; not evidence of a nonexistent address (SMTP {smtp_code}): {response}',
+    'server.verify.smtp_temporary_error': 'Server returned a temporary error (SMTP {smtp_code}) — try again later',
+    'server.verify.smtp_inconclusive': 'Mailbox existence is inconclusive (SMTP {smtp_code}): {response}',
+    'server.verify.smtp_connect_failed': 'Cannot connect to {host}:25 — {error}',
+    'server.verify.smtp_disconnected': 'Server disconnected unexpectedly — {error}',
+    'server.verify.smtp_connection_timeout': 'Connection to {host} timed out after {seconds}s',
+    'server.verify.smtp_network_error': 'Network error: {error}',
+    'server.verify.smtp_error': '{error}',
+    'server.verify.spf_strict': 'Strict policy (-all): unauthorized senders are rejected.',
+    'server.verify.spf_softfail': 'Soft-fail policy (~all): unauthorized senders are flagged but not blocked.',
+    'server.verify.spf_neutral': 'Neutral policy (?all): no enforcement — spoofing possible.',
+    'server.verify.spf_open': 'Open policy (+all): ANY server may send — high spoofing risk!',
+    'server.verify.spf_unclear': 'SPF record found but enforcement policy is unclear.',
+    'server.verify.spf_missing': 'No SPF record — this domain is vulnerable to email spoofing.',
+    'server.verify.no_txt_records': 'No TXT records found for domain.',
+    'server.verify.dns_error': 'DNS error: {error}',
+    'server.verify.spf_error': 'SPF check error: {error}',
+    'server.verify.spf_timeout': 'SPF check timed out.',
+    'server.verify.dmarc_reject': 'p=reject: domain requests rejection of DMARC-failing messages.',
+    'server.verify.dmarc_reject_partial': 'p=reject (requested for {pct}% of messages): domain requests rejection of DMARC-failing messages.',
+    'server.verify.dmarc_quarantine': 'p=quarantine: domain requests quarantine of DMARC-failing messages.',
+    'server.verify.dmarc_quarantine_partial': 'p=quarantine (requested for {pct}% of messages): domain requests quarantine of DMARC-failing messages.',
+    'server.verify.dmarc_none': 'p=none: monitoring only — no enforcement requested.',
+    'server.verify.dmarc_missing': 'No DMARC record at _dmarc.{domain} — no anti-spoofing policy set.',
+    'server.verify.dmarc_not_found': 'No DMARC record at _dmarc.{domain}.',
+    'server.verify.dmarc_error': 'DMARC check error: {error}',
+    'server.verify.dmarc_timeout': 'DMARC check timed out.',
+    'server.verify.age_very_new': 'Domain is only {days} days old — newly registered domains are a major phishing red flag.',
+    'server.verify.age_new': 'Domain is {days} days old (~{months} months) — relatively new, proceed with caution.',
+    'server.verify.age_under_year': 'Domain is {days} days old (< 1 year) — moderately established.',
+    'server.verify.age_established_one': 'Domain registered {date} ({years} year old) — well-established.',
+    'server.verify.age_established': 'Domain registered {date} ({years} years old) — well-established.',
+    'server.verify.age_no_date': 'WHOIS returned no creation date for this domain.',
+    'server.verify.age_failed': 'WHOIS lookup failed or data unavailable: {error}',
+    'server.verify.age_timeout': 'WHOIS lookup timed out.',
+    'server.verify.ptr_found': 'MX server {ip} → PTR: {ptr}',
+    'server.verify.ptr_missing_ip': 'No PTR record for MX server {ip} — legitimate mail servers almost always have reverse DNS configured.',
+    'server.verify.ptr_missing': 'No PTR record for MX server — legitimate mail servers almost always have reverse DNS configured.',
+    'server.verify.ptr_lookup_error': 'PTR lookup error: {error}',
+    'server.verify.ptr_error': 'PTR check error: {error}',
+    'server.verify.ptr_timeout': 'PTR check timed out.',
   };
 
   const zh = {
@@ -1418,6 +1619,204 @@ window.PhishGuardI18n = (() => {
     'vision.progress.lang.eng': '英文',
     'vision.progress.lang.chi_sim': '简体中文',
     'vision.progress.lang.mixed': '英文和简体中文',
+
+    // ── Server messages ──
+    'server.sender.ip_domain': '域名是原始 IP 地址（{domain}），而不是主机名',
+    'server.sender.long_address': '邮箱地址异常长（{length} 个字符）— 常见地址通常少于 50 个字符',
+    'server.sender.url_shortener': '域名（{domain}）是已知的 URL 短链接服务，常被滥用于钓鱼',
+    'server.sender.multiple_at': '地址包含 {count} 个 @ 符号 — 邮箱格式无效',
+    'server.sender.double_slash': "域名包含 '//' — 可能是重定向欺骗手法",
+    'server.sender.domain_hyphen': '域名包含连字符（{domain}）— 主流服务商的域名通常不使用连字符',
+    'server.sender.deep_subdomains': '域名有 {count} 级子域名 — 钓鱼网站常用多级子域名冒充品牌',
+    'server.sender.http_token': "邮箱地址中包含 'http' 字样 — 用于制造视觉混淆",
+    'server.sender.unrecognized_provider': '域名（{domain}）不是已识别的正规邮箱服务商',
+    'server.sender.uncommon_tld': "顶级域 '.{tld}' 不常见 — 钓鱼邮件常使用冷门或廉价的顶级域",
+    'server.sender.long_domain_label': '域名标签异常长（{length} 个字符）',
+    'server.sender.domain_digits': '域名标签包含数字（{label}）— 正规品牌域名通常只含字母',
+    'server.sender.domain_keywords': '域名包含钓鱼关键词：{keywords}',
+    'server.sender.username_keywords': '用户名包含钓鱼关键词：{keywords}',
+    'server.sender.high_risk_tld': "顶级域 '.{tld}' 属于已知的高风险或免费域名后缀，常被大量用于钓鱼活动",
+    'server.sender.unsupported_characters': '用户名包含不受支持的邮箱字符：{characters}',
+    'server.sender.long_username': '用户名异常长（{length} 个字符）— 常见用户名通常少于 30 个字符',
+    'server.sender.homoglyph_brand': "检测到同形字攻击 — '{label}' 通过字符替换冒充 '{brand}'（例如 1→l、0→o、vv→w）",
+    'server.sender.character_substitution': "检测到域名 '{label}' 中的字符替换 — 规范化后为 '{normalized}'",
+    'server.sender.abused_cctld': "顶级域 '.{tld}' 是常被用于钓鱼攻击的国家/地区代码域名",
+    'server.sender.malformed_syntax': '邮箱地址的语法不受支持或格式错误。',
+    'server.sender.fake_financial_business': "域名 '{domain}' 符合“[缩写]+[金融术语]+[企业后缀]”模式（{breakdown}）— 这是伪造虚假金融机构邮件域名的已知手法",
+    'server.sender.financial_business_combo': "域名 '{domain}' 将金融关键词（{financial}）与企业实体后缀（{suffixes}）组合 — 这种模式常见于金融钓鱼和商业邮件诈骗（BEC）域名",
+    'server.sender.financial_keywords': "域名 '{domain}' 包含金融行业关键词（{financial}），且不是经验证的服务商 — 在提供财务或个人信息前，请先核实发件人",
+    'server.sender.business_suffix': "域名 '{domain}' 使用了企业实体后缀（{suffixes}），但不是已识别或经验证的机构",
+    'server.sender.brand_substring': "域名 '{domain}' 以子串形式包含知名品牌名称（{brands}），但并非官方域名 — 可能是仿冒域名（typosquatting）或品牌冒充",
+    'server.sender.government_keywords': "域名 '{domain}' 包含政府/监管类关键词（{keywords}），但不是 .gov/.mil 域名 — 很可能在冒充官方机构",
+    'server.sender.compound_domain': "域名标签 '{label}' 较长（{length} 个字符），且像是由多个单词拼接而成 — 批量钓鱼活动常生成此类域名，使其看起来像正规企业",
+    'server.sender.random_username': "用户名 '{username}' 符合 {score}/6 项随机性特征（{factors}）— 该邮箱名看起来像是自动生成的，但无法确认账户的注册时长和使用期限",
+    'server.sender.factor.entropy': '熵值 {value}',
+    'server.sender.factor.vowel': '元音占比 {percent}%',
+    'server.sender.factor.digits': '数字分散',
+    'server.sender.factor.unique': '不重复字符占比 {percent}%',
+    'server.sender.factor.no_word': '不含常见单词',
+    'server.sender.factor.word_combo': '单词组合异常',
+    'server.sender.disposable_domain_pattern': '域名（{domain}）的名称类似临时邮箱服务商，但不在已确认的服务商登记表中',
+    'server.sender.known_disposable': '检测到已知的一次性邮箱服务商（{provider}）。仅凭服务商类别不能作为钓鱼证据；该邮箱的有效期未知。',
+    'server.sender.privacy_relay': '检测到隐私中继或隐藏地址服务商（{provider}）；这本身不是钓鱼证据。',
+    'server.sender.plus_alias': '该地址使用了加号子地址；此标签不是钓鱼信号。',
+
+    'server.content.hidden_text_padding': '一大段隐藏文字伴随以图片为主、带链接的邮件；可见内容与隐藏文字差异很大。请人工核查图片和链接目标。',
+    'server.content.password_form': '内嵌 HTML 表单包含密码输入框；输入凭据前，请先检查表单的提交目标。',
+    'server.content.pressured_credential_request': '直接索要凭据，并伴随催促和威胁；请通过独立渠道核实。',
+    'server.content.shortened_urls': '包含短链接 URL（bit.ly、tinyurl 等）— 隐藏了真实的目标域名',
+    'server.content.exclamation_marks': '感叹号过多（{count} 个）— 诈骗邮件常用的情绪操纵手法',
+    'server.content.capitalization': '大写字母过多（{percent}% 为大写）— 用于制造紧张和紧迫感',
+    'server.content.subject_question_marks': '主题行中有多个问号（{count} 个）— 带有操纵意味的修辞手法',
+    'server.content.url_count': 'URL 数量异常多（{count} 个）— 疑似批量钓鱼模板',
+    'server.content.generic_greeting': '使用泛泛的非个人化称呼（Dear Customer/User/Valued Member）— 正规服务通常会称呼您的姓名',
+    'server.content.large_amounts': '提到不合常理的巨额金额：{amounts} — 这是预付费诈骗和中奖诈骗的典型特征',
+    'server.content.generic_cta': "通用行动号召用语出现 {count} 次（'click here'、'click now'）— 正规邮件通常使用描述性的链接文字",
+    'server.content.regional_phrasing': '发现地区性或正式的英文表达：“{phrase}”；不计入风险评分。',
+    'server.content.regional_phrasing_more': '发现地区性或正式的英文表达：“{phrase}”等；不计入风险评分。',
+    'server.content.obfuscation': '检测到针对以下名称的字符替换/同形字混淆：{brands} — 例如 P@yP@l、Amaz0n — 用于规避垃圾邮件过滤',
+    'server.content.category': '{label}',
+    'server.content.nested_category': '{label} — {matched}',
+
+    'server.link.obfuscated_scheme': '链接使用了经过混淆的 hxxp/hxxps 协议。',
+    'server.link.malformed_target': '链接包含格式错误、无法安全解析的目标地址。',
+    'server.link.unsafe_scheme': '链接使用了不安全的目标协议（{scheme}:）。',
+    'server.link.url_userinfo': '链接目标在真实主机名之前使用了 URL 用户信息，这是冒充可信域名的常见手法。',
+    'server.link.ip_host': '链接目标使用 IP 地址而非域名；打开前请先检查。',
+    'server.link.display_mismatch': '链接显示的域名（{display_host}）与实际目标（{host}）不一致。',
+    'server.link.idn_confusable': '链接目标（{host}）是 {brand} 的 IDN/易混淆字符仿冒域名。',
+    'server.link.brand_lookalike': '链接目标（{host}）是 {brand} 的非官方仿冒域名。',
+    'server.link.credential_collection_host': '链接目标（{host}）同时包含凭据和收集类字样。',
+    'server.link.sensitive_host': '链接目标（{host}）在未识别的域名上使用了账户相关字样；仅凭这一点不能认定为钓鱼。',
+
+    'server.structure.brand_display_name': "来自无关域名（{domain}）的邮件显示了受保护的品牌身份 '{brand}'。",
+    'server.structure.idn_sender_domain': '发件人域名（{domain}）是 {brand} 的 Unicode/IDN 易混淆仿冒域名。',
+    'server.structure.no_visible_recipient': '邮件没有可见的 To 或 Cc 收件人；可能使用了密送（Bcc）。',
+    'server.structure.self_addressed': '自发自收邮件：某个 From 邮箱同时出现在 To 或 Cc 中。',
+    'server.structure.routing_mismatch': '{header} 域名（{domain}）与 From 域名候选（{from_domains}）不一致。路由信息不同；仅凭这一点不能认定为冒充。',
+    'server.structure.auth_failed': '邮件身份验证失败：{mechanisms}。',
+    'server.structure.auth_partial_failure': '有一项身份验证机制失败：{mechanisms}。',
+    'server.structure.dangerous_attachment': '潜在危险附件：{filename}。',
+    'server.structure.archive_attachment': '压缩包附件在打开前需要检查：{filename}。',
+
+    'server.prefix.sender': '发件人：{text}',
+    'server.prefix.attached_message': '附件中的邮件：{text}',
+    'server.prefix.image': '图片（{name}）：{text}',
+    'server.prefix.image_recognition': '图片识别：{text}',
+
+    'server.warning.mso_conditional': 'MSO 条件注释内容的渲染因邮件客户端而异；分析未完成。',
+    'server.warning.malformed_html': 'HTML 格式错误，已进行恢复处理；分析未完成。',
+    'server.warning.link_unparsed': '有链接目标无法可靠解析；分析未完成。',
+    'server.warning.hidden_html_text': '隐藏的 HTML 文字已排除在文本评分之外；视觉渲染未经完全验证，因此分析未完成。',
+    'server.warning.stylesheet_visibility': '样式表可能隐藏或显示文字；CSS 渲染未经验证，因此受影响的文本模型视图未评分。',
+    'server.warning.inline_css_visibility': '内联 CSS 可能隐藏文字；其渲染未经验证，因此受影响的文本模型视图未评分。',
+    'server.warning.image_alt_fallback': '图片无法显示时可能会显示其替代文字；该渲染未经验证，因此受影响的文本模型视图未评分。',
+    'server.warning.mime_alternative_limit': '已达到 MIME 备选视图数量上限；并非所有渲染版本都经过模型评分。分析未完成。',
+    'server.warning.mime_alternative_model': '至少有一个 MIME 备选版本无法由模型评分；分析未完成。',
+    'server.warning.inline_images': '未检查内嵌图片内容；分析未完成。',
+    'server.warning.remote_images': '未检查远程图片内容；分析未完成。',
+    'server.warning.unresolved_images': '未检查无法解析的图片引用；分析未完成。',
+    'server.warning.han_text': '检测到大量汉字文本；针对特定语言的钓鱼检查有限，此内容可能未得到充分评估。',
+    'server.warning.model_insufficient_context': '邮件文字过少，模型无法可靠评分；未应用机器学习分类。',
+    'server.warning.model_insufficient_coverage': '文本模型的特征覆盖不足；未应用机器学习分类。',
+    'server.warning.attachments_uninspected': '未检查附件内容；仅检查了文件名和 MIME 类型。分析未完成。',
+    'server.warning.duplicate_mime_headers': '重复的 MIME 头（{headers}）存在歧义；已进行有限的备选解析，分析未完成。',
+    'server.warning.mime_candidate_limit': '已达到 MIME 候选解析数量上限；其他解析方式未检查。',
+    'server.warning.opaque_eml_attachment': '不透明的 .eml 附件未作为封装邮件解析；分析未完成。',
+    'server.warning.mime_decoding_fallback': 'MIME 文本解码需要回退或替换字符；分析可能不完整。',
+    'server.warning.mime_resource_limit': '已达到 MIME 解析器资源上限；仅检查了外层邮件头，正文和附件未分析。分析未完成。',
+    'server.warning.header_unparsed': '无法解析 {header} 邮件头；已保留原始值，分析未完成。',
+    'server.warning.duplicate_header': '重复的 {header} 邮件头存在歧义；已检查所有候选值，分析未完成。',
+    'server.warning.attached_message_empty': '附件中的邮件没有可分析的内容；分析未完成。',
+    'server.warning.mime_malformed': 'MIME 结构不完整或格式错误（{defects}）；分析可能不完整。',
+    'server.warning.attached_message_encoded': '未检查经过传输编码的附件邮件；分析未完成。',
+    'server.warning.attached_message_unparsed': '无法解析附件中的邮件；分析未完成。',
+    'server.warning.attached_message_limit': '已达到附件邮件的嵌套深度/数量上限；分析未完成。',
+    'server.warning.auth_results_incomplete': 'Authentication-Results 语法不完整；身份验证声明需要人工复核。',
+    'server.warning.visual_text_limit': '邮件文字超出图片证据提交的文字上限；分析未完成。',
+    'server.warning.visual_independent_sources': 'OCR 文字和每个不同的二维码内容均被独立评估。风险评分和规则评分保留其中最强的单项评估；如有模型评分，则取各来源中的最高分。',
+    'server.warning.visual_unverified': '图片证据在浏览器中提取，未经独立验证。OCR 和二维码识别可能遗漏内容；未评估图片安全性和恶意软件。',
+    'server.warning.ocr_verify_urls': '请将网址与原图逐字符比对。即使置信度很高，OCR 也可能混淆 1/l/I 或 0/O，并破坏 URL 中的标点。原始 OCR 文字已保留；所有地址的拼写均未经验证。',
+    'server.warning.enhanced_failed': '增强识别失败；已保留浏览器端的 OCR 和二维码结果。',
+    'server.warning.enhanced_unverified': '附加识别结果未经验证；浏览器提取的原始文字和二维码内容已保留。',
+    'server.warning.enhanced_model_output': '模型生成的观察结果和 URL 不能证明其合法性，也不会改变风险结论。',
+
+    'server.safety.unsubscribe': '包含退订链接 — 正规群发邮件的常见特征',
+    'server.safety.privacy_policy': '提及隐私政策 — 合规的迹象',
+    'server.safety.terms_of_service': '提及服务条款',
+    'server.safety.terms_and_conditions': '提及条款与条件',
+    'server.safety.opt_out': '提供退订选项',
+    'server.safety.not_requested': '说明您可能并未请求此邮件',
+    'server.safety.contact_information': '提供官方联系方式',
+    'server.safety.copyright': '包含版权声明',
+    'server.safety.sender_system': '透明地标明发件系统',
+    'server.safety.web_version': '提供网页版链接 — 正规新闻通讯的常见做法',
+    'server.safety.preferences': '提供订阅偏好管理',
+    'server.safety.receiving_reason': '说明您收到此邮件的原因',
+    'server.safety.subscription_consent': '说明您已同意订阅',
+    'server.safety.named_greeting': '个性化称呼（正规系统会使用姓名）',
+    'server.safety.greeting': '个性化称呼',
+
+    'server.verify.format_invalid': '请输入一个受支持的邮箱地址：本地部分须为不带引号的 ASCII 字符，且域名有效。',
+    'server.verify.dns_timeout': 'DNS 查询超时或不可用。',
+    'server.verify.dns_unavailable': 'DNS 查询不可用。',
+    'server.verify.null_mx': '该域名发布了 Null MX：不接收邮件。这不是钓鱼证据。',
+    'server.verify.invalid_null_mx': 'Null MX 记录与其他记录混用或优先级不为零，属于无效配置；邮件服务情况无法定论。',
+    'server.verify.domain_not_found': '该域名在 DNS 中不存在。',
+    'server.verify.address_record_fallback': '未找到 MX 记录；该域名有 {record_type} 记录 — 直接使用该域名。',
+    'server.verify.no_mail_records': '该域名没有 MX、A 或 AAAA 记录。',
+    'server.verify.deadline_after_dns': 'DNS 查询后已达到验证时限。',
+    'server.verify.check_busy': '验证容量已满；此项检查未运行。',
+    'server.verify.check_failed': '验证检查失败；结果不可用。',
+    'server.verify.smtp_disabled': '当前部署不支持 SMTP 邮箱探测。',
+    'server.verify.smtp_disabled_reason': '当前部署不支持 SMTP 邮箱探测；域名证据不能证明该邮箱存在。',
+    'server.verify.smtp_timeout': 'SMTP 探测超时。',
+    'server.verify.smtp_port_blocked': '您的网络似乎阻断了 25 端口。MX 记录存在，说明该域名真实存在，但无法确认邮箱是否存在。',
+    'server.verify.smtp_non_public_target': '{host} 的 SMTP 目标不是公网地址或无法验证。',
+    'server.verify.smtp_accepted': '邮件服务器接受了该地址（SMTP {smtp_code}）',
+    'server.verify.smtp_no_such_mailbox': '邮件服务器报告该邮箱不存在（SMTP {smtp_code}）：{response}',
+    'server.verify.smtp_policy_rejected': '因策略被拒并不能说明邮箱是否存在（SMTP {smtp_code}）：{response}',
+    'server.verify.smtp_mailbox_full': '邮箱已满；这不能证明地址不存在（SMTP {smtp_code}）：{response}',
+    'server.verify.smtp_temporary_error': '服务器返回临时错误（SMTP {smtp_code}）— 请稍后再试',
+    'server.verify.smtp_inconclusive': '邮箱是否存在无法定论（SMTP {smtp_code}）：{response}',
+    'server.verify.smtp_connect_failed': '无法连接到 {host}:25 — {error}',
+    'server.verify.smtp_disconnected': '服务器意外断开连接 — {error}',
+    'server.verify.smtp_connection_timeout': '连接 {host} 超时（{seconds} 秒）',
+    'server.verify.smtp_network_error': '网络错误：{error}',
+    'server.verify.smtp_error': '{error}',
+    'server.verify.spf_strict': '严格策略（-all）：未授权的发件服务器会被拒收。',
+    'server.verify.spf_softfail': '软失败策略（~all）：未授权的发件服务器会被标记，但不会被拦截。',
+    'server.verify.spf_neutral': '中立策略（?all）：不执行任何限制 — 存在被伪造的可能。',
+    'server.verify.spf_open': '开放策略（+all）：任何服务器都可以代发 — 伪造风险很高！',
+    'server.verify.spf_unclear': '找到了 SPF 记录，但执行策略不明确。',
+    'server.verify.spf_missing': '没有 SPF 记录 — 该域名容易被伪造发件。',
+    'server.verify.no_txt_records': '该域名没有 TXT 记录。',
+    'server.verify.dns_error': 'DNS 错误：{error}',
+    'server.verify.spf_error': 'SPF 检查错误：{error}',
+    'server.verify.spf_timeout': 'SPF 检查超时。',
+    'server.verify.dmarc_reject': 'p=reject：域名要求拒收未通过 DMARC 的邮件。',
+    'server.verify.dmarc_reject_partial': 'p=reject（要求适用于 {pct}% 的邮件）：域名要求拒收未通过 DMARC 的邮件。',
+    'server.verify.dmarc_quarantine': 'p=quarantine：域名要求隔离未通过 DMARC 的邮件。',
+    'server.verify.dmarc_quarantine_partial': 'p=quarantine（要求适用于 {pct}% 的邮件）：域名要求隔离未通过 DMARC 的邮件。',
+    'server.verify.dmarc_none': 'p=none：仅监控 — 未要求执行任何处置。',
+    'server.verify.dmarc_missing': '_dmarc.{domain} 没有 DMARC 记录 — 未设置防伪造策略。',
+    'server.verify.dmarc_not_found': '_dmarc.{domain} 没有 DMARC 记录。',
+    'server.verify.dmarc_error': 'DMARC 检查错误：{error}',
+    'server.verify.dmarc_timeout': 'DMARC 检查超时。',
+    'server.verify.age_very_new': '该域名注册仅 {days} 天 — 新注册的域名是重要的钓鱼危险信号。',
+    'server.verify.age_new': '该域名已注册 {days} 天（约 {months} 个月）— 相对较新，请谨慎对待。',
+    'server.verify.age_under_year': '该域名已注册 {days} 天（不足 1 年）— 已有一定历史。',
+    'server.verify.age_established_one': '该域名注册于 {date}（已有 {years} 年）— 历史较长。',
+    'server.verify.age_established': '该域名注册于 {date}（已有 {years} 年）— 历史较长。',
+    'server.verify.age_no_date': 'WHOIS 未返回该域名的注册日期。',
+    'server.verify.age_failed': 'WHOIS 查询失败或数据不可用：{error}',
+    'server.verify.age_timeout': 'WHOIS 查询超时。',
+    'server.verify.ptr_found': 'MX 服务器 {ip} → PTR：{ptr}',
+    'server.verify.ptr_missing_ip': 'MX 服务器 {ip} 没有 PTR 记录 — 正规邮件服务器几乎都会配置反向解析。',
+    'server.verify.ptr_missing': 'MX 服务器没有 PTR 记录 — 正规邮件服务器几乎都会配置反向解析。',
+    'server.verify.ptr_lookup_error': 'PTR 查询错误：{error}',
+    'server.verify.ptr_error': 'PTR 检查错误：{error}',
+    'server.verify.ptr_timeout': 'PTR 检查超时。',
   };
 
   const DICTIONARY = {en, zh};
@@ -1479,6 +1878,67 @@ window.PhishGuardI18n = (() => {
     return lookup(current, key) ?? serverText;
   }
 
+  // ── Server messages ──
+  // Analysis messages arrive as {code, params, msg[, prefixes]}: `msg` is the
+  // server's English text, `server.<code>` the same English template, and each
+  // prefix ({code, params}, outermost first) wraps the inner text as {text}.
+  // A message is localized only when the English rendering of its code and
+  // params reproduces `msg` exactly; unknown codes, changed server wording or
+  // truncated params show `msg` as sent. Params are data: the result is plain
+  // text that callers escape like any other server text.
+  const SERVER_PARAMS = {
+    // The randomness factors are listed by code, each with its own template.
+    'sender.random_username': (lang, params) => {
+      const names = String(params.factor_codes ?? '').split(',').filter(Boolean);
+      const parts = names.map(name => serverTemplate(lang, `sender.factor.${name}`,
+        {value: params.entropy, percent: params[`${name}_percent`]}));
+      if (!names.length || parts.includes(undefined)) return params;
+      return {...params, factors: parts.join(lang === 'zh' ? '、' : ', ')};
+    },
+    'content.category': (lang, params) => ({...params, label: categoryLabel(lang, params)}),
+    'content.nested_category': (lang, params) => ({...params, label: categoryLabel(lang, params)}),
+  };
+
+  function categoryLabel(lang, params) {
+    const key = `category.${params.category}.label`;
+    return lookup('en', key) === params.label ? lookup(lang, key) ?? params.label : params.label;
+  }
+
+  function serverTemplate(lang, code, params) {
+    const template = typeof code === 'string' ? lookup(lang, `server.${code}`) : undefined;
+    if (template === undefined) return undefined;
+    const safe = params && typeof params === 'object' ? params : {};
+    return format(template, Object.hasOwn(SERVER_PARAMS, code) ? SERVER_PARAMS[code](lang, safe) : safe);
+  }
+
+  function serverIn(lang, entry) {
+    let text = serverTemplate(lang, entry.code, entry.params);
+    const prefixes = Array.isArray(entry.prefixes) ? entry.prefixes : [];
+    for (let index = prefixes.length - 1; index >= 0 && text !== undefined; index--) {
+      const prefix = prefixes[index] || {};
+      text = serverTemplate(lang, prefix.code, {...(prefix.params && typeof prefix.params === 'object' ? prefix.params : {}), text});
+    }
+    return text;
+  }
+
+  function server(entry) {
+    if (!entry || typeof entry !== 'object') return entry;
+    const text = entry.msg;
+    if (current === 'en' || typeof text !== 'string' || typeof entry.code !== 'string') return text;
+    if (serverIn('en', entry) !== text) return text;
+    return serverIn(current, entry) ?? text;
+  }
+
+  // Localizes a list of server strings through its parallel *_details entries
+  // (matched by text); strings without a detail are shown as sent.
+  function serverList(values, details) {
+    const byText = new Map();
+    for (const detail of Array.isArray(details) ? details : []) {
+      if (detail && typeof detail.msg === 'string' && !byText.has(detail.msg)) byText.set(detail.msg, detail);
+    }
+    return (Array.isArray(values) ? values : []).map(value => (byText.has(value) ? server(byText.get(value)) : value));
+  }
+
   function apply(root) {
     const scope = root || (typeof document !== 'undefined' ? document : null);
     if (!scope || typeof scope.querySelectorAll !== 'function') return;
@@ -1535,5 +1995,6 @@ window.PhishGuardI18n = (() => {
     }
   }
 
-  return {t, plural, has, known, lang, languageTag, locale, dateLocale, setLang, apply, detect, STORAGE_KEY, DICTIONARY};
+  return {t, plural, has, known, server, serverList, lang, languageTag, locale, dateLocale, setLang, apply, detect,
+    STORAGE_KEY, DICTIONARY};
 })();
