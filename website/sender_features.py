@@ -15,6 +15,7 @@ import tldextract
 from disposable_registry import load_disposable_registry, load_privacy_relay_registry
 from email_structure import _PROTECTED_BRAND_DOMAINS, normalize_domain
 from sender_history import supports_plus_alias, uses_gmail_dot_aliasing
+from server_messages import indicator, text as message_text
 
 # ── Known domains ─────────────────────────────────────────────────────────────
 LEGIT_PROVIDERS = {
@@ -282,47 +283,47 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     is_ip = bool(re.match(r'^\d{1,3}(\.\d{1,3}){3}$', domain))
     features['having_ip_address'] = -1 if is_ip else 1
     if is_ip:
-        risk_indicators.append({"level": "high", "msg": f"Domain is a raw IP address ({domain}) instead of a hostname"})
+        risk_indicators.append(indicator('high', 'sender.ip_domain', domain=domain))
 
     # 2. url_length
     total_len = len(scoring_email)
     features['url_length'] = -1 if total_len > 50 else (0 if total_len > 30 else 1)
     if total_len > 50:
-        risk_indicators.append({"level": "medium", "msg": f"Email address is unusually long ({total_len} chars) — typical addresses are under 50 characters"})
+        risk_indicators.append(indicator('medium', 'sender.long_address', length=total_len))
 
     # 3. shortining_service
     features['shortining_service'] = -1 if base_domain in SHORT_SERVICES else 1
     if base_domain in SHORT_SERVICES:
-        risk_indicators.append({"level": "high", "msg": f"Domain ({base_domain}) is a known URL shortening service frequently abused in phishing"})
+        risk_indicators.append(indicator('high', 'sender.url_shortener', domain=base_domain))
 
     # 4. having_at_symbol
     features['having_at_symbol'] = -1 if at_count > 1 else 1
     if at_count > 1:
-        risk_indicators.append({"level": "high", "msg": f"Address contains {at_count} @ symbols — invalid email format"})
+        risk_indicators.append(indicator('high', 'sender.multiple_at', count=at_count))
 
     # 5. double_slash_redirecting
     features['double_slash_redirecting'] = -1 if '//' in domain else 1
     if '//' in domain:
-        risk_indicators.append({"level": "high", "msg": "Domain contains '//' — possible redirect deception trick"})
+        risk_indicators.append(indicator('high', 'sender.double_slash'))
 
     # 6. prefix_suffix (hyphen in base domain)
     has_hyphen = '-' in base_domain
     features['prefix_suffix'] = -1 if has_hyphen else 1
     if has_hyphen:
-        risk_indicators.append({"level": "low", "msg": f"Domain contains a hyphen ({base_domain}) — major providers typically do not use hyphens in their domains"})
+        risk_indicators.append(indicator('low', 'sender.domain_hyphen', domain=base_domain))
 
     # 7. having_sub_domain
     if matched_privacy_relay:
         subdomain_count = 0
     features['having_sub_domain'] = -1 if subdomain_count > 1 else (0 if subdomain_count == 1 else 1)
     if subdomain_count > 1:
-        risk_indicators.append({"level": "medium", "msg": f"Domain has {subdomain_count} subdomain levels — phishing sites commonly use deep subdomains to impersonate brands"})
+        risk_indicators.append(indicator('medium', 'sender.deep_subdomains', count=subdomain_count))
 
     # 8. https_token
     has_http_in_email = 'http' in scoring_email
     features['https_token'] = -1 if has_http_in_email else 1
     if has_http_in_email:
-        risk_indicators.append({"level": "medium", "msg": "Email address contains the token 'http' — used to create visual confusion"})
+        risk_indicators.append(indicator('medium', 'sender.http_token'))
 
     # 9. sslfinal_state (known legitimate provider)
     is_known = bool(
@@ -334,25 +335,25 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     )
     features['sslfinal_state'] = 1 if is_known else -1
     if not is_known:
-        risk_indicators.append({"level": "medium", "msg": f"Domain ({base_domain}) is not a recognized legitimate mail provider"})
+        risk_indicators.append(indicator('medium', 'sender.unrecognized_provider', domain=base_domain))
 
     # 10. domain_registration_length (TLD)
     has_common_tld = bool(public_suffix) or tld in COMMON_TLDS or bool(matched_privacy_relay)
     features['domain_registration_length'] = 1 if has_common_tld else -1
     if tld and not has_common_tld:
-        risk_indicators.append({"level": "medium", "msg": f"TLD '.{tld}' is uncommon — phishing emails often use obscure or cheap TLDs"})
+        risk_indicators.append(indicator('medium', 'sender.uncommon_tld', tld=tld))
 
     # 11. age_of_domain (domain length as proxy)
     dom_len = len(domain_label)
     features['age_of_domain'] = -1 if dom_len > 20 else (0 if dom_len > 12 else 1)
     if dom_len > 20:
-        risk_indicators.append({"level": "low", "msg": f"Domain label is unusually long ({dom_len} characters)"})
+        risk_indicators.append(indicator('low', 'sender.long_domain_label', length=dom_len))
 
     # 12. dnsrecord (digits in domain)
     has_digits_domain = bool(re.search(r'\d', domain_label)) and not matched_privacy_relay
     features['dnsrecord'] = -1 if has_digits_domain else 1
     if has_digits_domain:
-        risk_indicators.append({"level": "low", "msg": f"Domain label contains digits ({domain_label}) — legitimate brand domains are usually letters only"})
+        risk_indicators.append(indicator('low', 'sender.domain_digits', label=domain_label))
 
     # 13. web_traffic (high-traffic provider)
     features['web_traffic'] = 1 if (matched_high_traffic or matched_privacy_relay) else -1
@@ -363,19 +364,19 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     ]
     features['page_rank'] = -1 if domain_susp else 1
     if domain_susp:
-        risk_indicators.append({"level": "high", "msg": f"Domain contains phishing keywords: {', '.join(domain_susp[:3])}"})
+        risk_indicators.append(indicator('high', 'sender.domain_keywords', keywords=', '.join(domain_susp[:3])))
 
     # 15. google_index (suspicious keywords in local part)
     local_susp = ([] if local in ROUTINE_MAILBOX_NAMES else
                   [kw for kw in SUSPICIOUS_KEYWORDS if kw in local])
     features['google_index'] = -1 if local_susp else 1
     if local_susp:
-        risk_indicators.append({"level": "high", "msg": f"Username contains phishing keywords: {', '.join(local_susp[:3])}"})
+        risk_indicators.append(indicator('high', 'sender.username_keywords', keywords=', '.join(local_susp[:3])))
 
     # 16. statistical_report (spam TLDs)
     features['statistical_report'] = -1 if tld in SPAM_TLDS else 1
     if tld in SPAM_TLDS:
-        risk_indicators.append({"level": "high", "msg": f"TLD '.{tld}' is a known high-risk or free domain extension heavily used in phishing campaigns"})
+        risk_indicators.append(indicator('high', 'sender.high_risk_tld', tld=tld))
 
     # 17. favicon (excessive digits in local)
     num_ratio = sum(c.isdigit() for c in local) / max(len(local), 1)
@@ -391,7 +392,7 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     special = {char for char in local if not _RAW_SENDER_LOCAL_RE.fullmatch(char)}
     features['request_url'] = -1 if special else 1
     if special:
-        risk_indicators.append({"level": "medium", "msg": f"Username contains unsupported mailbox characters: {''.join(sorted(special))}"})
+        risk_indicators.append(indicator('medium', 'sender.unsupported_characters', characters=''.join(sorted(special))))
 
     # 20. url_of_anchor (local part length)
     local_len = len(local)
@@ -400,7 +401,7 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         else (-1 if local_len > 30 else (0 if local_len > 15 else 1))
     )
     if local_len > 30 and not matched_mail_service:
-        risk_indicators.append({"level": "low", "msg": f"Username is unusually long ({local_len} characters) — typical usernames are under 30 characters"})
+        risk_indicators.append(indicator('low', 'sender.long_username', length=local_len))
 
     # 21. links_in_tags (brand spoofing)
     brand_spoof = None
@@ -425,10 +426,8 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
             # Show which substitution was used
             if normalized_match and not original_match:
                 brand_substitution_detected = True
-                risk_indicators.append({
-                    "level": "high",
-                    "msg": f"Homoglyph attack detected — '{domain_label}' uses character substitution to impersonate '{brand}' (e.g. 1→l, 0→o, vv→w)"
-                })
+                risk_indicators.append(indicator(
+                    'high', 'sender.homoglyph_brand', label=domain_label, brand=brand))
             break
     features['links_in_tags'] = -1 if brand_spoof else 1
     features['_brand_substitution_detected'] = brand_substitution_detected
@@ -455,10 +454,8 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     )
     features['abnormal_url'] = -1 if (digit_letter_mix or homoglyph_detected) else 1
     if homoglyph_detected and not digit_letter_mix:
-        risk_indicators.append({
-            "level": "high",
-            "msg": f"Character substitution detected in domain '{domain_label}' — normalized to '{normalized}'"
-        })
+        risk_indicators.append(indicator(
+            'high', 'sender.character_substitution', label=domain_label, normalized=normalized))
 
     # 25. redirect (default legit — can't check without network)
     features['redirect'] = 1
@@ -466,7 +463,7 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     # 26. on_mouseover (abused ccTLD)
     features['on_mouseover'] = -1 if tld in ABUSED_CCTLDS else 1
     if tld in ABUSED_CCTLDS:
-        risk_indicators.append({"level": "medium", "msg": f"TLD '.{tld}' is a country-code domain commonly abused in phishing attacks"})
+        risk_indicators.append(indicator('medium', 'sender.abused_cctld', tld=tld))
 
     # 27. rightclick (auto-generated pattern: lowercase letters + digits)
     auto_gen = bool(re.match(r'^[a-z]{2,5}\d{4,12}$', local))
@@ -484,7 +481,7 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     email_valid = bool(_normalize_sender_address(scoring_email))
     features['links_pointing_to_page'] = 1 if email_valid else -1
     if not email_valid:
-        risk_indicators.append({"level": "high", "msg": "Email address has unsupported or malformed mailbox syntax."})
+        risk_indicators.append(indicator('high', 'sender.malformed_syntax'))
 
     # ── Extended semantic domain analysis (extra risk signals beyond ML) ──────
     if not is_known:
@@ -510,81 +507,43 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
                 break
 
         if fake_biz_breakdown:
-            risk_indicators.insert(0, {
-                "level": "high",
-                "msg": (
-                    f"Domain '{base_domain}' follows an [abbreviation]+[financial term]+"
-                    f"[business suffix] pattern ({fake_biz_breakdown}) — a known technique "
-                    f"used to fabricate fake financial institution email domains"
-                ),
-            })
+            risk_indicators.insert(0, indicator(
+                'high', 'sender.fake_financial_business', domain=base_domain, breakdown=fake_biz_breakdown))
         elif fin_kw_found and biz_sfx_found:
-            risk_indicators.append({
-                "level": "high",
-                "msg": (
-                    f"Domain '{base_domain}' combines financial keywords "
-                    f"({', '.join(fin_kw_found[:2])}) with business entity suffixes "
-                    f"({', '.join(biz_sfx_found[:2])}) — pattern commonly seen in "
-                    f"financial phishing and business email compromise (BEC) domains"
-                ),
-            })
+            risk_indicators.append(indicator(
+                'high', 'sender.financial_business_combo', domain=base_domain,
+                financial=', '.join(fin_kw_found[:2]), suffixes=', '.join(biz_sfx_found[:2])))
         elif fin_kw_found:
-            risk_indicators.append({
-                "level": "medium",
-                "msg": (
-                    f"Domain '{base_domain}' contains financial-sector keywords "
-                    f"({', '.join(fin_kw_found[:3])}) on an unverified provider — "
-                    f"verify the sender before sharing financial or personal information"
-                ),
-            })
+            risk_indicators.append(indicator(
+                'medium', 'sender.financial_keywords', domain=base_domain,
+                financial=', '.join(fin_kw_found[:3])))
         elif biz_sfx_found:
-            risk_indicators.append({
-                "level": "low",
-                "msg": (
-                    f"Domain '{base_domain}' uses a business entity suffix "
-                    f"({', '.join(biz_sfx_found[:2])}) but is not a recognized "
-                    f"or verified organization"
-                ),
-            })
+            risk_indicators.append(indicator(
+                'low', 'sender.business_suffix', domain=base_domain,
+                suffixes=', '.join(biz_sfx_found[:2])))
 
         # Detect domain that embeds a known brand name as a sub-string
         # (catches cases not handled by exact-match brand spoofing check above)
         if not brand_spoof:
             partial_brands = [b for b in BRAND_DOMAINS if b in domain_label and b != domain_label]
             if partial_brands:
-                risk_indicators.append({
-                    "level": "high",
-                    "msg": (
-                        f"Domain '{base_domain}' contains the name of a well-known brand "
-                        f"({', '.join(partial_brands[:2])}) as a substring but is not the "
-                        f"official domain — possible typosquatting or brand impersonation"
-                    ),
-                })
+                risk_indicators.append(indicator(
+                    'high', 'sender.brand_substring', domain=base_domain,
+                    brands=', '.join(partial_brands[:2])))
 
         # Detect government/regulatory keyword on a non-.gov domain
         gov_kw = {'federal', 'national', 'authority', 'ministry', 'government',
                   'regulatory', 'commission', 'bureau', 'department', 'administration'}
         gov_hits = [kw for kw in gov_kw if kw in domain_label]
         if gov_hits and tld not in {'gov', 'mil'}:
-            risk_indicators.append({
-                "level": "high",
-                "msg": (
-                    f"Domain '{base_domain}' contains government/regulatory keywords "
-                    f"({', '.join(gov_hits[:2])}) but is NOT a .gov/.mil domain — "
-                    f"likely impersonating an official body"
-                ),
-            })
+            risk_indicators.append(indicator(
+                'high', 'sender.government_keywords', domain=base_domain,
+                keywords=', '.join(gov_hits[:2])))
 
         # Detect very long domain label (>15 chars) that is a concatenated word chain
         if len(domain_label) > 15 and (fin_kw_found or biz_sfx_found):
-            risk_indicators.append({
-                "level": "medium",
-                "msg": (
-                    f"Domain label '{domain_label}' is long ({len(domain_label)} chars) and "
-                    f"appears to be a compound of multiple words — bulk phishing campaigns "
-                    f"often generate such domains to appear business-like"
-                ),
-            })
+            risk_indicators.append(indicator(
+                'medium', 'sender.compound_domain', label=domain_label, length=len(domain_label)))
 
     # ── Disposable email classification (separate from the 30 ML features) ────
     disposable_status = "no_known_match"
@@ -737,22 +696,26 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
                     features['port'] = -1 if local_entropy > 3.0 else 1
                     features['submitting_to_email'] = -1 if repeated_local else 1
                     features['rightclick'] = -1 if auto_gen else 1
-                    factors_hit = []
-                    if f_entropy:    factors_hit.append(f"entropy {entropy:.2f}")
-                    if f_vowels:     factors_hit.append(f"vowel {vowel_ratio:.0%}")
-                    if f_digits:     factors_hit.append("digits scattered")
-                    if f_unique:     factors_hit.append(f"unique-ratio {unique_ratio:.0%}")
-                    if f_noword:     factors_hit.append("no real word")
-                    if f_word_combo: factors_hit.append("unusual word combo")
-                    risk_indicators.insert(0, {
-                        "level": "medium",
-                        "msg": (
-                            f"Username '{local}' matches {rnd_score}/6 randomness factors "
-                            f"({', '.join(factors_hit)}) — the mailbox pattern looks "
-                            f"automatically generated, but account age and lifetime "
-                            f"cannot be confirmed"
-                        ),
-                    })
+                    # Each factor is its own template; `factor_codes` and the
+                    # numeric fields let a client render the list in its language.
+                    factor_values = {
+                        'entropy': {'value': f"{entropy:.2f}"},
+                        'vowel': {'percent': int(f"{vowel_ratio:.0%}"[:-1])},
+                        'digits': {},
+                        'unique': {'percent': int(f"{unique_ratio:.0%}"[:-1])},
+                        'no_word': {},
+                        'word_combo': {},
+                    }
+                    factors_hit = [name for name, hit in zip(factor_values, (
+                        f_entropy, f_vowels, f_digits, f_unique, f_noword, f_word_combo)) if hit]
+                    risk_indicators.insert(0, indicator(
+                        'medium', 'sender.random_username', username=local, score=rnd_score,
+                        factors=', '.join(message_text('sender.factor.' + name, **factor_values[name])
+                                          for name in factors_hit),
+                        factor_codes=','.join(factors_hit),
+                        entropy=factor_values['entropy']['value'],
+                        vowel_percent=factor_values['vowel']['percent'],
+                        unique_percent=factor_values['unique']['percent']))
 
     if (
         disposable_status == "no_known_match"
@@ -761,37 +724,17 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         disposable_status = "suspicious_domain_pattern"
         disposable_confidence = "heuristic"
         is_suspected_disposable = True
-        risk_indicators.insert(0, {
-            "level": "medium",
-            "msg": (
-                f"Domain ({domain}) resembles a temporary-email provider name, "
-                f"but is not in the confirmed provider registry"
-            ),
-        })
+        risk_indicators.insert(0, indicator('medium', 'sender.disposable_domain_pattern', domain=domain))
 
     disposable_service = matched_disposable_domain if is_disposable else None
     if disposable_status == "known_disposable_provider":
-        risk_indicators.insert(0, {
-            "level": "info",
-            "msg": (
-                f"Known disposable-email provider detected ({matched_disposable_domain}). "
-                "Provider category alone is not phishing evidence; mailbox lifetime is unknown."
-            ),
-        })
+        risk_indicators.insert(0, indicator('info', 'sender.known_disposable',
+                                            provider=matched_disposable_domain))
     elif disposable_status == "privacy_relay":
-        risk_indicators.insert(0, {
-            "level": "info",
-            "msg": (
-                f"Privacy relay or masked-address provider detected "
-                f"({matched_privacy_relay}); this is not phishing evidence by itself."
-            ),
-        })
+        risk_indicators.insert(0, indicator('info', 'sender.privacy_relay', provider=matched_privacy_relay))
 
     if address_alias_type:
-        risk_indicators.append({
-            "level": "info",
-            "msg": "Address uses plus subaddressing; the tag is not a phishing signal.",
-        })
+        risk_indicators.append(indicator('info', 'sender.plus_alias'))
 
     classification = {
         "disposable_status": disposable_status,

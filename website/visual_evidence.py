@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
+from server_messages import details as message_details, indicator, text as message_text, wrap as wrap_message
+
 MAX_VISUAL_REQUEST_BYTES = 3 * 1024 * 1024
 MAX_VISUAL_FILE_BYTES = 2 * 1024 * 1024
 VISUAL_PATHS = frozenset({'/api/analyze-visual', '/api/cases/visual'})
@@ -86,7 +88,7 @@ def bound_message_text(structure, remaining=None):
     for nested in structure['nested_messages']:
         bound_message_text(nested, remaining)
     if truncated:
-        structure['parse_warnings'].append('Email text exceeded the visual submission text limit; analysis is incomplete.')
+        structure['parse_warnings'].append(message_text('warning.visual_text_limit'))
     structure['text_truncated'] = truncated or any(child.get('text_truncated') for child in structure['nested_messages'])
     return structure
 
@@ -102,9 +104,9 @@ def merge_visual_sources(findings, *, source_count):
     result['analysis_warnings'] = []
     categories = {}
     for finding in findings:
-        for indicator in finding['extra_indicators']:
-            if indicator not in result['extra_indicators']:
-                result['extra_indicators'].append(dict(indicator))
+        for item in finding['extra_indicators']:
+            if item not in result['extra_indicators']:
+                result['extra_indicators'].append(dict(item))
         for warning in finding['analysis_warnings']:
             if warning not in result['analysis_warnings']:
                 result['analysis_warnings'].append(warning)
@@ -130,10 +132,7 @@ def merge_visual_sources(findings, *, source_count):
     result['assessment_method'] = 'independent-source-max'
     result['assessed_source_count'] = source_count
     if source_count > 1:
-        result['analysis_warnings'].append(
-            'OCR and each distinct QR payload were assessed independently. '
-            'Risk and rule scores retain the strongest individual assessment; '
-            'the model score, when available, is the highest individual source score.')
+        result['analysis_warnings'].append(message_text('warning.visual_independent_sources'))
     return result
 
 
@@ -148,20 +147,19 @@ def merge_visual_findings(base, observations, findings, warnings):
         record['categories'] = finding['category_results']
         record['assessment_warnings'] = list(finding['analysis_warnings'])
         if observation.ocr_text.strip():
-            record['assessment_warnings'].append(
-                'Verify website addresses against the original image character by character. '
-                'OCR can confuse 1/l/I or 0/O and break URL punctuation, even with high confidence. '
-                'The original OCR text is preserved; no address spelling has been verified.')
+            record['assessment_warnings'].append(message_text('warning.ocr_verify_urls'))
+        record['assessment_warning_details'] = message_details(record['assessment_warnings'])
         record['ml_status'] = finding.get('ml_status')
         record['ml_phishing_probability'] = finding.get('ml_phishing_probability')
         record['assessment_method'] = finding['assessment_method']
         record['assessed_source_count'] = finding['assessed_source_count']
         records.append(record)
-        prefix = f"Image ({observation.name}): "
-        base['extra_indicators'].extend({**item, 'msg': prefix + item['msg']}
+        base['extra_indicators'].extend(wrap_message(item, 'prefix.image', name=observation.name)
                                        for item in finding['extra_indicators'])
-        base['extra_indicators'].extend({'level': cat['level'], 'msg': prefix + cat['label']}
-                                       for cat in finding['category_results'] if cat['count'])
+        base['extra_indicators'].extend(
+            wrap_message(indicator(cat['level'], 'content.category', label=cat['label'], category=cat['key']),
+                         'prefix.image', name=observation.name)
+            for cat in finding['category_results'] if cat['count'])
         if ranks[finding['risk_level']] > ranks[base['risk_level']]:
             for key in ('risk_level', 'risk_label', 'combined_phishing_score'):
                 base[key] = finding.get(key)
@@ -175,12 +173,11 @@ def merge_visual_findings(base, observations, findings, warnings):
         'extractors': 'jsQR 1.4.0; Tesseract.js 6.0.1; postal-mime 3.0.0',
         'observations': records, 'warnings': warnings}
     if observations or warnings:
-        base['analysis_warnings'].append(
-            'Image evidence was extracted in the browser and is not independently verified. '
-            'OCR and QR recognition may miss content; image safety and malware were not assessed.')
-        base['analysis_warnings'].extend('Image recognition: ' + w for w in warnings)
+        base['analysis_warnings'].append(message_text('warning.visual_unverified'))
+        base['analysis_warnings'].extend(message_text('prefix.image_recognition', text=w) for w in warnings)
         for item in observations:
-            base['analysis_warnings'].extend(f'Image ({item.name}): ' + w for w in item.warnings)
+            base['analysis_warnings'].extend(message_text('prefix.image', name=item.name, text=w)
+                                             for w in item.warnings)
         base['analysis_complete'] = False
         if base['risk_level'] == 'safe':
             base['risk_level'] = 'unknown'

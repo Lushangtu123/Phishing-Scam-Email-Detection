@@ -51,6 +51,8 @@ from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE  # noq
 from request_limits import RequestBodyLimitMiddleware
 from rate_limits import DisabledRateLimitStore, build_rate_limit_store
 from verification_runtime import BoundedExecutor
+from server_messages import (annotate_content, indicator, message as coded_message, strip_details,
+                             text as message_text, warning_indicator, wrap as wrap_message)
 from visual_evidence import (VisualRequest, VISUAL_PATHS, MAX_VISUAL_REQUEST_BYTES,
                              bound_message_text, merge_visual_findings, merge_visual_sources)
 from enhanced_vision import load_enhanced_vision_settings, recognize_image, enhanced_evidence
@@ -1060,26 +1062,28 @@ CONTENT_RULES: dict = {
     },
 }
 
-CONTENT_SAFETY_SIGNALS: list = [
-    ("unsubscribe", "Contains unsubscribe link — typical of legitimate bulk emails"),
-    ("privacy policy", "Mentions privacy policy — sign of compliance"),
-    ("terms of service", "References terms of service"),
-    ("terms and conditions", "References terms and conditions"),
-    ("to stop receiving", "Provides opt-out option"),
-    ("if you did not request", "Acknowledges you may not have requested this"),
-    ("if you didn't request", "Acknowledges you may not have requested this"),
-    ("contact us at", "Provides official contact information"),
-    ("© ", "Contains copyright notice"),
-    ("all rights reserved", "Contains copyright notice"),
-    ("sent from", "Identifies sender system transparently"),
-    ("view in browser", "Provides web version link — common in legitimate newsletters"),
-    ("manage preferences", "Offers subscription preference management"),
-    ("update your preferences", "Offers subscription preference management"),
-    ("you are receiving this", "Explains why the email was sent"),
-    ("you subscribed", "Acknowledges subscription consent"),
-    ("hello [name]", "Personalized greeting (legitimate systems use names)"),
-    ("hi [name]", "Personalized greeting"),
-]
+# (keyword, description); each description is the English template of a
+# `safety.*` code in data/server_messages.json.
+CONTENT_SAFETY_SIGNALS: list = [(keyword, message_text('safety.' + code)) for keyword, code in (
+    ("unsubscribe", "unsubscribe"),
+    ("privacy policy", "privacy_policy"),
+    ("terms of service", "terms_of_service"),
+    ("terms and conditions", "terms_and_conditions"),
+    ("to stop receiving", "opt_out"),
+    ("if you did not request", "not_requested"),
+    ("if you didn't request", "not_requested"),
+    ("contact us at", "contact_information"),
+    ("© ", "copyright"),
+    ("all rights reserved", "copyright"),
+    ("sent from", "sender_system"),
+    ("view in browser", "web_version"),
+    ("manage preferences", "preferences"),
+    ("update your preferences", "preferences"),
+    ("you are receiving this", "receiving_reason"),
+    ("you subscribed", "subscription_consent"),
+    ("hello [name]", "named_greeting"),
+    ("hi [name]", "greeting"),
+)]
 
 SHORTENER_DOMAINS = [
     "bit.ly", "tinyurl.com", "goo.gl", "t.co", "ow.ly",
@@ -1387,9 +1391,7 @@ class _AnalysisHTMLParser(HTMLParser):
         return super().parse_html_declaration(index)
 
 
-_MSO_CONDITIONAL_WARNING = (
-    'MSO conditional content has client-dependent rendering; analysis is incomplete.'
-)
+_MSO_CONDITIONAL_WARNING = message_text('warning.mso_conditional')
 
 
 def _expand_mso_comments(text: str, parse_warnings=None) -> str:
@@ -1446,7 +1448,7 @@ def _collect_html(factory, text: str, parse_warnings=None):
         collector.feed(_expand_mso_comments(text, parse_warnings))
         collector.close()
     except (AssertionError, ValueError):
-        warning = 'Malformed HTML required recovery; analysis is incomplete.'
+        warning = message_text('warning.malformed_html')
         if parse_warnings is not None and warning not in parse_warnings:
             parse_warnings.append(warning)
         # Neutralize broken marked declarations, then start fresh so partially
@@ -1635,11 +1637,8 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 score += 3
                 risk_floor = "high"
                 finding_types.add("obfuscated-scheme")
-                findings.append({
-                    "rule_id": "link.obfuscated_scheme",
-                    "level": "high",
-                    "msg": "Link uses an obfuscated hxxp/hxxps destination scheme.",
-                })
+                findings.append({"rule_id": "link.obfuscated_scheme",
+                                 **indicator("high", "link.obfuscated_scheme")})
             if lowered_url.startswith("hxxps://"):
                 url = "https://" + url[8:]
             else:
@@ -1647,7 +1646,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
         try:
             parsed = _parse_link_target(url)
         except ValueError:
-            warning = 'A link destination could not be reliably parsed; analysis is incomplete.'
+            warning = message_text('warning.link_unparsed')
             if parse_warnings is not None and warning not in parse_warnings:
                 parse_warnings.append(warning)
             if "malformed-target" not in finding_types:
@@ -1655,22 +1654,16 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 if risk_floor == "safe":
                     risk_floor = "medium"
                 finding_types.add("malformed-target")
-                findings.append({
-                    "rule_id": "link.malformed_target",
-                    "level": "medium",
-                    "msg": "Link contains a malformed destination that could not be safely parsed.",
-                })
+                findings.append({"rule_id": "link.malformed_target",
+                                 **indicator("medium", "link.malformed_target")})
             continue
         if parsed.scheme.lower() not in {"http", "https"}:
             if parsed.scheme.lower() in {"data", "file", "javascript"} and "unsafe-scheme" not in finding_types:
                 score += 5
                 risk_floor = "high"
                 finding_types.add("unsafe-scheme")
-                findings.append({
-                    "rule_id": "link.unsafe_scheme",
-                    "level": "high",
-                    "msg": f"Link uses an unsafe destination scheme ({parsed.scheme.lower()}:).",
-                })
+                findings.append({"rule_id": "link.unsafe_scheme",
+                                 **indicator("high", "link.unsafe_scheme", scheme=parsed.scheme.lower())})
             continue
 
         if (
@@ -1680,14 +1673,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             score += 5
             risk_floor = "high"
             finding_types.add("url-userinfo")
-            findings.append({
-                "rule_id": "link.url_userinfo",
-                "level": "high",
-                "msg": (
-                    "Link destination uses URL userinfo before the real host, "
-                    "a common trusted-domain deception technique."
-                ),
-            })
+            findings.append({"rule_id": "link.url_userinfo", **indicator("high", "link.url_userinfo")})
 
         target_host = _link_host(parsed)
         if not target_host:
@@ -1696,11 +1682,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             score += 3
             risk_floor = 'high'
             finding_types.add('ip-host')
-            findings.append({
-                'rule_id': 'link.ip_host',
-                'level': 'high',
-                'msg': 'Link destination uses an IP address instead of a domain name; inspect it before opening.',
-            })
+            findings.append({'rule_id': 'link.ip_host', **indicator('high', 'link.ip_host')})
         decoded_host = _decode_idna_domain(target_host)
 
         visible_host = _visible_link_host(link_text)
@@ -1715,14 +1697,9 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             score += 3
             risk_floor = "high"
             finding_types.add("display-mismatch")
-            findings.append({
-                "rule_id": "link.display_mismatch",
-                "level": "high",
-                "msg": (
-                    f"Link display domain ({visible_host}) does not match the "
-                    f"actual destination ({target_host})."
-                ),
-            })
+            findings.append({"rule_id": "link.display_mismatch",
+                             **indicator("high", "link.display_mismatch",
+                                         display_host=visible_host, host=target_host)})
 
         decoded_skeleton = _confusable_skeleton(decoded_host)
         first_label = decoded_skeleton.split(".", 1)[0]
@@ -1741,14 +1718,8 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 score += 5
                 risk_floor = "high"
                 finding_types.add("idn-confusable")
-                findings.append({
-                    "rule_id": "link.idn_confusable",
-                    "level": "high",
-                    "msg": (
-                        f"Link destination ({target_host}) is an IDN/confusable "
-                        f"lookalike for {brand}."
-                    ),
-                })
+                findings.append({"rule_id": "link.idn_confusable",
+                                 **indicator("high", "link.idn_confusable", host=target_host, brand=brand)})
             elif (
                 not canonical
                 and any(
@@ -1760,14 +1731,8 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 score += 5
                 risk_floor = "high"
                 finding_types.add("brand-lookalike")
-                findings.append({
-                    "rule_id": "link.brand_lookalike",
-                    "level": "high",
-                    "msg": (
-                        f"Link destination ({target_host}) is a noncanonical "
-                        f"lookalike for {brand}."
-                    ),
-                })
+                findings.append({"rule_id": "link.brand_lookalike",
+                                 **indicator("high", "link.brand_lookalike", host=target_host, brand=brand)})
 
         host_tokens = set(re.findall(r"[a-z0-9]+", decoded_skeleton))
         credential_collection = bool(
@@ -1786,17 +1751,10 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             if credential_collection:
                 risk_floor = "high"
             finding_types.add(host_finding)
-            findings.append({
-                "rule_id": ("link.credential_collection_host" if credential_collection
-                            else "link.sensitive_host"),
-                "level": "high" if credential_collection else "low",
-                "msg": (
-                    f"Link destination ({target_host}) combines credential and collection wording."
-                    if credential_collection else
-                    f"Link destination ({target_host}) uses account-related wording on an "
-                    "unrecognized domain; this alone does not establish phishing."
-                ),
-            })
+            rule_id = ("link.credential_collection_host" if credential_collection
+                       else "link.sensitive_host")
+            findings.append({"rule_id": rule_id, **indicator(
+                "high" if credential_collection else "low", rule_id, host=target_host)})
 
     return score, findings, risk_floor
 
@@ -1807,29 +1765,12 @@ def _has_mismatched_link_text(text: str) -> bool:
     return any("does not match" in finding["msg"] for finding in findings)
 
 
-_HIDDEN_HTML_TEXT_WARNING = (
-    'Hidden HTML text was excluded from text scoring; visual rendering was not '
-    'fully verified, so analysis is incomplete.'
-)
-_STYLESHEET_VISIBILITY_WARNING = (
-    'A stylesheet may hide or reveal text; CSS rendering was not verified, '
-    'so the affected text-model view was not scored.'
-)
-_INLINE_CSS_VISIBILITY_WARNING = (
-    'Inline CSS may conceal text; its rendering was not verified, '
-    'so the affected text-model view was not scored.'
-)
-_IMAGE_ALT_FALLBACK_WARNING = (
-    'Image alternative text may be shown when an image is unavailable; '
-    'that rendering was not verified, so the affected text-model view was not scored.'
-)
-_MIME_ALTERNATIVE_LIMIT_WARNING = (
-    'MIME alternative view limit reached; not every rendered version was model-scored. '
-    'Analysis is incomplete.'
-)
-_MIME_ALTERNATIVE_MODEL_WARNING = (
-    'At least one MIME alternative could not be model-scored; analysis is incomplete.'
-)
+_HIDDEN_HTML_TEXT_WARNING = message_text('warning.hidden_html_text')
+_STYLESHEET_VISIBILITY_WARNING = message_text('warning.stylesheet_visibility')
+_INLINE_CSS_VISIBILITY_WARNING = message_text('warning.inline_css_visibility')
+_IMAGE_ALT_FALLBACK_WARNING = message_text('warning.image_alt_fallback')
+_MIME_ALTERNATIVE_LIMIT_WARNING = message_text('warning.mime_alternative_limit')
+_MIME_ALTERNATIVE_MODEL_WARNING = message_text('warning.mime_alternative_model')
 _MAX_MIME_MODEL_VIEWS = 16
 _HTML_VOID_ELEMENTS = {
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
@@ -2176,11 +2117,10 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
     return visible
 
 
-_INLINE_IMAGE_WARNING = 'Embedded image content was not inspected; analysis is incomplete.'
-_REMOTE_IMAGE_WARNING = 'Remote image content was not inspected; analysis is incomplete.'
-_UNRESOLVED_IMAGE_WARNING = 'Unresolved image references were not inspected; analysis is incomplete.'
-_HAN_TEXT_WARNING = ('Substantial Han-script text detected; language-specific phishing checks '
-                     'are limited and this content may not be fully evaluated.')
+_INLINE_IMAGE_WARNING = message_text('warning.inline_images')
+_REMOTE_IMAGE_WARNING = message_text('warning.remote_images')
+_UNRESOLVED_IMAGE_WARNING = message_text('warning.unresolved_images')
+_HAN_TEXT_WARNING = message_text('warning.han_text')
 _REMOTE_IMAGE_MIN_VISIBLE_CHARS = 80
 
 
@@ -2547,37 +2487,24 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     if any(hidden_image_padding):
         total_score += 4
         risk_floor = 'medium'
-        extra_indicators.append({
-            'level': 'medium',
-            'msg': 'Large hidden text block accompanies an image-dominant linked message; '
-                   'the visible message differs substantially from its hidden text. Review the image and destination manually.',
-        })
+        extra_indicators.append(indicator('medium', 'content.hidden_text_padding'))
 
     if any(_has_password_form(part, analysis_warnings) for part, is_html in zip(raw_parts, html_parts) if is_html):
         total_score += 4
         risk_floor = 'medium'
-        extra_indicators.append({
-            'level': 'medium',
-            'msg': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
-        })
+        extra_indicators.append(indicator('medium', 'content.password_form'))
 
     if _has_pressured_credential_request(analysis_text):
         total_score += 4
         risk_floor = 'high'
-        extra_indicators.append({
-            'level': 'high',
-            'msg': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
-        })
+        extra_indicators.append(indicator('high', 'content.pressured_credential_request'))
 
     # ── Structural & heuristic checks ────────────────────────────────────────
 
     # 2. URL shorteners
     if _has_shortener_url(raw_text, links=links):
         total_score += 2
-        extra_indicators.append({
-            "level": "high",
-            "msg": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain",
-        })
+        extra_indicators.append(indicator("high", "content.shortened_urls"))
 
     # 3. Inspect every actual link target, even when its visible text is a
     # generic button such as "Review document".
@@ -2592,81 +2519,57 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     excl = full_orig.count("!")
     if excl >= 3:
         total_score += 1
-        extra_indicators.append({
-            "level": "medium",
-            "msg": f"Excessive exclamation marks ({excl}) — emotional manipulation tactic common in scam emails",
-        })
+        extra_indicators.append(indicator("medium", "content.exclamation_marks", count=excl))
 
     # 5. Excessive capitalization
     caps_ratio = _excessive_caps_ratio(full_orig)
     if caps_ratio > 0.40 and len(full_orig) > 60:
         total_score += 1
-        extra_indicators.append({
-            "level": "medium",
-            "msg": f"Excessive capitalization ({caps_ratio:.0%} uppercase) — used to simulate alarm and urgency",
-        })
+        extra_indicators.append(indicator("medium", "content.capitalization",
+                                          percent=int(f"{caps_ratio:.0%}"[:-1])))
 
     # 6. Excessive question marks in subject
     subj_q = scored_parts[0].count("?")
     if subj_q >= 2:
         total_score += 1
-        extra_indicators.append({
-            "level": "medium",
-            "msg": f"Multiple question marks in subject line ({subj_q}) — manipulative rhetorical device",
-        })
+        extra_indicators.append(indicator("medium", "content.subject_question_marks", count=subj_q))
 
     # 7. High URL count
     url_count = _count_urls(links)
     if url_count > 6:
         total_score += 1
-        extra_indicators.append({
-            "level": "medium",
-            "msg": f"Unusually high number of URLs ({url_count}) — suggests bulk phishing template",
-        })
+        extra_indicators.append(indicator("medium", "content.url_count", count=url_count))
 
     # 8. Generic/impersonal salutation
     if _has_generic_salutation(full_orig):
         total_score += 2
-        extra_indicators.append({
-            "level": "medium",
-            "msg": "Generic impersonal greeting (Dear Customer/User/Valued Member) — legitimate services address you by name",
-        })
+        extra_indicators.append(indicator("medium", "content.generic_greeting"))
 
     # 9. Implausibly large currency amounts
     large_amounts = _large_currency_amounts(full_orig)
     if large_amounts:
         total_score += 2
-        extra_indicators.append({
-            "level": "high",
-            "msg": f"Implausibly large monetary amounts mentioned: {', '.join(large_amounts)} — hallmark of advance-fee and lottery scams",
-        })
+        extra_indicators.append(indicator("high", "content.large_amounts", amounts=', '.join(large_amounts)))
 
     # 10. Excessive generic CTAs
     cta_count = _count_generic_cta(full_orig)
     if cta_count >= 2:
         total_score += 1
-        extra_indicators.append({
-            "level": "medium",
-            "msg": f"Generic call-to-action phrases used {cta_count}× ('click here', 'click now') — legitimate emails use descriptive link text",
-        })
+        extra_indicators.append(indicator("medium", "content.generic_cta", count=cta_count))
 
     # 11. Regional/formal English variants are context only. Language variety
     # is neither malicious nor a reliable signal against modern LLM phishing.
     non_native = _detect_non_native_phrases(full_orig)
     if non_native:
-        extra_indicators.append({
-            "level": "info",
-            "msg": f"Regional or formal English phrasing observed: \"{non_native[0]}\"{'...' if len(non_native)>1 else ''}; not included in the risk score.",
-        })
+        extra_indicators.append(indicator(
+            "info", "content.regional_phrasing_more" if len(non_native) > 1 else "content.regional_phrasing",
+            phrase=non_native[0]))
 
     # 12. Character obfuscation / leetspeak
     obfuscated = _detect_obfuscation(full_orig)
     if obfuscated:
         total_score += 3
-        extra_indicators.append({
-            "level": "high",
-            "msg": f"Character substitution / homoglyph obfuscation detected for: {', '.join(set(obfuscated))} — e.g. P@yP@l, Amaz0n — used to evade spam filters",
-        })
+        extra_indicators.append(indicator("high", "content.obfuscation", brands=', '.join(set(obfuscated))))
 
     # Cosmetic legitimacy signals are context only. Attackers can copy these
     # strings, so they must never lower the risk score by themselves.
@@ -2689,7 +2592,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     else:
         risk_level, risk_label = "high",     "High Risk — Likely Phishing"
 
-    extra_indicators.extend({'level': 'info', 'msg': warning} for warning in analysis_warnings)
+    extra_indicators.extend(warning_indicator(warning) for warning in analysis_warnings)
     return {
         "analysis_warnings": analysis_warnings,
         "inline_image_coverage": {
@@ -2869,11 +2772,9 @@ async def _analyze_content(
             result["total_score"] += sender_contribution
             result["sender_score"] = sender_contribution
             result["extra_indicators"].extend(
-                {
-                    "level": indicator["level"],
-                    "msg": f"Sender: {indicator['msg']}",
-                }
-                for indicator in sender_analysis["risk_indicators"]
+                wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes')
+                              if key in item}, 'prefix.sender')
+                for item in sender_analysis["risk_indicators"]
             )
             sender_floor = (
                 "high" if sender_verdict in {"critical", "high"}
@@ -2901,7 +2802,7 @@ async def _analyze_content(
             nested_result = json.loads((await _analyze_content(
                 ContentRequest(), nested, observe_sender_history=False,
             )).body)
-            result['analysis_warnings'].extend('Attached message: ' + warning
+            result['analysis_warnings'].extend(message_text('prefix.attached_message', text=warning)
                                                 for warning in nested_result['analysis_warnings']
                                                 if warning not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
                                                                    _UNRESOLVED_IMAGE_WARNING})
@@ -2926,14 +2827,16 @@ async def _analyze_content(
             nested_floor = 'safe' if nested_result['risk_level'] == 'unknown' else nested_result['risk_level']
             result['risk_floor'] = max((result['risk_floor'], nested_floor), key=floor_rank.get)
             result['extra_indicators'].extend(
-                {'level': item['level'], 'msg': 'Attached message: ' + item['msg'],
-                 **({'rule_id': item['rule_id']} if 'rule_id' in item else {})}
+                wrap_message({key: item[key] for key in ('level', 'msg', 'rule_id', 'code', 'params', 'prefixes')
+                              if key in item}, 'prefix.attached_message')
                 for item in nested_result['extra_indicators']
                 if item['msg'] not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
                                       _UNRESOLVED_IMAGE_WARNING})
             # Categories are not parent-body matches; expose their provenance.
             result['extra_indicators'].extend(
-                {'level': cat['level'], 'msg': 'Attached message: ' + cat['label'] + ' — ' + ', '.join(cat['matched'])}
+                wrap_message(indicator(cat['level'], 'content.nested_category', label=cat['label'],
+                                       matched=', '.join(cat['matched']), category=cat['key']),
+                             'prefix.attached_message')
                 for cat in nested_result['category_results'])
             nested_summaries.append({
                 'from': nested['from'], 'subject': nested['subject'],
@@ -2946,14 +2849,14 @@ async def _analyze_content(
 
     if result['inline_image_coverage']['count'] and _INLINE_IMAGE_WARNING not in result['analysis_warnings']:
         result['analysis_warnings'].append(_INLINE_IMAGE_WARNING)
-        result['extra_indicators'].append({'level': 'info', 'msg': _INLINE_IMAGE_WARNING})
+        result['extra_indicators'].append(indicator('info', 'warning.inline_images'))
     if result['remote_image_coverage']['count'] and _REMOTE_IMAGE_WARNING not in result['analysis_warnings']:
         result['analysis_warnings'].append(_REMOTE_IMAGE_WARNING)
-        result['extra_indicators'].append({'level': 'info', 'msg': _REMOTE_IMAGE_WARNING})
+        result['extra_indicators'].append(indicator('info', 'warning.remote_images'))
     if (result['unresolved_image_coverage']['count']
             and _UNRESOLVED_IMAGE_WARNING not in result['analysis_warnings']):
         result['analysis_warnings'].append(_UNRESOLVED_IMAGE_WARNING)
-        result['extra_indicators'].append({'level': 'info', 'msg': _UNRESOLVED_IMAGE_WARNING})
+        result['extra_indicators'].append(indicator('info', 'warning.unresolved_images'))
 
     # 2. Optional ML text classifier (TF-IDF + selected linear model)
     rendering_uncertain = any(warning in result['analysis_warnings'] for warning in (
@@ -2994,15 +2897,9 @@ async def _analyze_content(
 
         ml_probability = ml['_phishing_probability']
         if ml.get("ml_status") == "insufficient_context":
-            result["analysis_warnings"].append(
-                "The message contains too little text for reliable model scoring; "
-                "ML classification was not applied."
-            )
+            result["analysis_warnings"].append(message_text('warning.model_insufficient_context'))
         elif ml.get("ml_status") == "insufficient_feature_coverage":
-            result["analysis_warnings"].append(
-                "Text model feature coverage is insufficient; ML classification "
-                "was not applied."
-            )
+            result["analysis_warnings"].append(message_text('warning.model_insufficient_coverage'))
 
         result.update(fuse_content_risk(
             ml_phishing_probability=ml_probability,
@@ -3020,10 +2917,9 @@ async def _analyze_content(
 
     if structure and any(item['inspection_status'] == 'metadata_only'
                          for item in structure['attachments']):
-        warning = ('Attachment content was not inspected; only filenames and MIME types '
-                   'were checked. Analysis is incomplete.')
-        result['analysis_warnings'].append(warning)
-        result['extra_indicators'].append({'level': 'info', 'msg': warning})
+        item = indicator('info', 'warning.attachments_uninspected')
+        result['analysis_warnings'].append(item['msg'])
+        result['extra_indicators'].append(item)
 
     result['analysis_warnings'] = list(dict.fromkeys(result['analysis_warnings']
         + (structure['parse_warnings'] if structure else [])))
@@ -3039,7 +2935,7 @@ async def _analyze_content(
             result['risk_level'] = 'unknown'
             result['risk_label'] = 'Analysis Incomplete — Risk Undetermined'
             result['combined_phishing_score'] = None
-    return JSONResponse(result)
+    return JSONResponse(annotate_content(result))
 
 
 @app.post('/api/analyze-visual')
@@ -3071,8 +2967,8 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
         except HTTPException as exc:
             if exc.status_code != 502:
                 raise
-            enhancement = {'status': 'unavailable', 'warnings': [
-                'Enhanced recognition failed; browser OCR and QR results were retained.']}
+            failed = coded_message('warning.enhanced_failed')
+            enhancement = {'status': 'unavailable', 'warnings': [failed['msg']], 'warning_details': [failed]}
     if structure is None and raw is not None:
         structure = bound_message_text(await _run_analysis(analyze_raw_email, raw,
             trusted_authserv_ids=SETTINGS.trusted_authserv_ids))
@@ -3101,7 +2997,7 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
     if enhancement is not None:
         merged['visual_analysis']['enhancement'] = (enhancement if isinstance(enhancement, dict)
             else enhanced_evidence(enhancement, payload.observations[0]))
-    return JSONResponse(merged)
+    return JSONResponse(annotate_content(merged))
 
 
 # ── Email Authenticity Verification ──────────────────────────────────────────
@@ -3120,6 +3016,17 @@ _verification_pool = BoundedExecutor(workers=VERIFICATION_WORKERS)
 
 class VerifyRequest(BaseModel):
     email: str = Field(..., min_length=1, max_length=254)
+
+
+def _verify_message(code: str, key: str = 'message', **params) -> dict:
+    """An English verification message plus its stable code and parameters.
+
+    ``message`` gets ``code``/``params``; another field (``smtp_message``,
+    ``note``, ``reason``) gets ``<field>_code``/``<field>_params``.
+    """
+    coded = coded_message(code, **params)
+    prefix = '' if key == 'message' else key + '_'
+    return {key: coded['msg'], prefix + 'code': code, prefix + 'params': coded['params']}
 
 
 # ── Helper: SMTP mailbox probe ────────────────────────────────────────────────
@@ -3168,7 +3075,8 @@ def _smtp_probe(
     smtp_address: str | None = None,
     timeout: int = 8,
 ) -> dict:
-    result = {"connectable": False, "result": "unverifiable", "message": "", "status": "error"}
+    result = {"connectable": False, "result": "unverifiable", "message": "", "code": None, "params": {},
+              "status": "error"}
     deadline = time.monotonic() + timeout
     if smtp_address is None:
         public_addresses = _resolve_public_smtp_addresses(mx_host, timeout=min(5, timeout))
@@ -3181,7 +3089,7 @@ def _smtp_probe(
         is_public_target = False
     if not is_public_target:
         result['status'] = 'unavailable'
-        result["message"] = f"SMTP target for {mx_host} is non-public or could not be validated."
+        result.update(_verify_message('verify.smtp_non_public_target', host=mx_host))
         return result
 
     smtp = None
@@ -3211,33 +3119,33 @@ def _smtp_probe(
             pass
         if code == 250:
             result["result"] = "exists"
-            result["message"] = f"Mail server accepted the address (SMTP {code})"
+            result.update(_verify_message('verify.smtp_accepted', smtp_code=code))
         elif 500 <= code < 600 and enhanced == '5.1.1':
             result["result"] = "does_not_exist"
-            result["message"] = f"Mail server reports no such mailbox (SMTP {code}): {msg_str[:120]}"
+            result.update(_verify_message('verify.smtp_no_such_mailbox', smtp_code=code, response=msg_str[:120]))
         elif 500 <= code < 600 and enhanced and enhanced.startswith('5.7.'):
             result['result'] = 'policy_rejected'
-            result['message'] = f'Policy rejection does not establish mailbox existence (SMTP {code}): {msg_str[:120]}'
+            result.update(_verify_message('verify.smtp_policy_rejected', smtp_code=code, response=msg_str[:120]))
         elif 500 <= code < 600 and enhanced == '5.2.2':
             result['result'] = 'mailbox_full'
-            result['message'] = f'Mailbox full; not evidence of a nonexistent address (SMTP {code}): {msg_str[:120]}'
+            result.update(_verify_message('verify.smtp_mailbox_full', smtp_code=code, response=msg_str[:120]))
         elif code in (421, 450, 451, 452):
             result["result"] = "temporarily_unavailable"
-            result["message"] = f"Server returned a temporary error (SMTP {code}) — try again later"
+            result.update(_verify_message('verify.smtp_temporary_error', smtp_code=code))
         else:
             result["result"] = "unknown"
-            result["message"] = f"Mailbox existence is inconclusive (SMTP {code}): {msg_str[:120]}"
+            result.update(_verify_message('verify.smtp_inconclusive', smtp_code=code, response=msg_str[:120]))
     except smtplib.SMTPConnectError as e:
-        result["message"] = f"Cannot connect to {mx_host}:25 — {e}"
+        result.update(_verify_message('verify.smtp_connect_failed', host=mx_host, error=str(e)))
     except smtplib.SMTPServerDisconnected as e:
-        result["message"] = f"Server disconnected unexpectedly — {e}"
+        result.update(_verify_message('verify.smtp_disconnected', error=str(e)))
     except socket.timeout:
         result['status'] = 'timeout'
-        result["message"] = f"Connection to {mx_host} timed out after {timeout}s"
+        result.update(_verify_message('verify.smtp_connection_timeout', host=mx_host, seconds=timeout))
     except OSError as e:
-        result["message"] = f"Network error: {e}"
+        result.update(_verify_message('verify.smtp_network_error', error=str(e)))
     except Exception as e:
-        result["message"] = str(e)[:150]
+        result.update(_verify_message('verify.smtp_error', error=str(e)[:150]))
     finally:
         if smtp is not None:
             try:
@@ -3251,7 +3159,8 @@ def _smtp_probe(
 def _check_spf(domain: str) -> dict:
     """Look up SPF TXT record and parse the enforcement policy."""
     import dns.resolver, dns.exception
-    result = {"found": False, "record": None, "policy": None, "message": "", "status": "not_found"}
+    result = {"found": False, "record": None, "policy": None, "message": "", "code": None, "params": {},
+              "status": "not_found"}
     try:
         records = [b''.join(r.strings).decode('ascii', errors='replace')
                    for r in dns.resolver.resolve(domain, 'TXT', lifetime=5)]
@@ -3277,30 +3186,30 @@ def _check_spf(domain: str) -> dict:
                                  if re.fullmatch(r'[+?~-]?all', term, re.IGNORECASE)), None)
                 if all_term == '-all':
                     result["policy"]  = "strict"
-                    result["message"] = "Strict policy (-all): unauthorized senders are rejected."
+                    result.update(_verify_message('verify.spf_strict'))
                 elif all_term == '~all':
                     result["policy"]  = "softfail"
-                    result["message"] = "Soft-fail policy (~all): unauthorized senders are flagged but not blocked."
+                    result.update(_verify_message('verify.spf_softfail'))
                 elif all_term == '?all':
                     result["policy"]  = "neutral"
-                    result["message"] = "Neutral policy (?all): no enforcement — spoofing possible."
+                    result.update(_verify_message('verify.spf_neutral'))
                 elif all_term in {'+all', 'all'}:
                     result["policy"]  = "open"
-                    result["message"] = "Open policy (+all): ANY server may send — high spoofing risk!"
+                    result.update(_verify_message('verify.spf_open'))
                 else:
                     result["policy"]  = "unknown"
-                    result["message"] = "SPF record found but enforcement policy is unclear."
+                    result.update(_verify_message('verify.spf_unclear'))
                 break
         if not result["found"]:
-            result["message"] = "No SPF record — this domain is vulnerable to email spoofing."
+            result.update(_verify_message('verify.spf_missing'))
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-        result["message"] = "No TXT records found for domain."
+        result.update(_verify_message('verify.no_txt_records'))
     except dns.exception.DNSException as e:
         result['status'] = 'timeout' if isinstance(e, dns.exception.Timeout) else 'error'
-        result["message"] = f"DNS error: {e}"
+        result.update(_verify_message('verify.dns_error', error=str(e)))
     except Exception as e:
         result['status'] = 'error'
-        result["message"] = f"SPF check error: {str(e)[:100]}"
+        result.update(_verify_message('verify.spf_error', error=str(e)[:100]))
     return result
 
 
@@ -3308,7 +3217,8 @@ def _check_spf(domain: str) -> dict:
 def _check_dmarc(domain: str) -> dict:
     """Look up DMARC TXT record at _dmarc.<domain> and parse the p= policy."""
     import dns.resolver, dns.exception
-    result = {"found": False, "record": None, "policy": None, "pct": None, "message": "", "status": "not_found"}
+    result = {"found": False, "record": None, "policy": None, "pct": None, "message": "", "code": None, "params": {},
+              "status": "not_found"}
     try:
         dmarc_domain = f"_dmarc.{domain}"
         records = [b''.join(r.strings).decode('ascii', errors='replace')
@@ -3333,23 +3243,20 @@ def _check_dmarc(domain: str) -> dict:
                 raise ValueError('DMARC pct must be between 0 and 100')
             pct = int(pct_text)
             result.update(status='ok', policy=p, pct=pct)
-            pct_str = f" (requested for {pct}% of messages)" if pct < 100 else ""
-            messages = {
-                'reject': f'p=reject{pct_str}: domain requests rejection of DMARC-failing messages.',
-                'quarantine': f'p=quarantine{pct_str}: domain requests quarantine of DMARC-failing messages.',
-                'none': 'p=none: monitoring only — no enforcement requested.',
-            }
-            result['message'] = messages[p]
+            # p=none never mentions pct; a partial pct names its percentage.
+            partial = pct < 100 and p != 'none'
+            result.update(_verify_message(f'verify.dmarc_{p}{"_partial" if partial else ""}',
+                                          **({'pct': pct} if partial else {})))
         if not result["found"]:
-            result["message"] = f"No DMARC record at _dmarc.{domain} — no anti-spoofing policy set."
+            result.update(_verify_message('verify.dmarc_missing', domain=domain))
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-        result["message"] = f"No DMARC record at _dmarc.{domain}."
+        result.update(_verify_message('verify.dmarc_not_found', domain=domain))
     except dns.exception.DNSException as e:
         result['status'] = 'timeout' if isinstance(e, dns.exception.Timeout) else 'error'
-        result["message"] = f"DNS error: {e}"
+        result.update(_verify_message('verify.dns_error', error=str(e)))
     except Exception as e:
         result['status'] = 'error'
-        result["message"] = f"DMARC check error: {str(e)[:100]}"
+        result.update(_verify_message('verify.dmarc_error', error=str(e)[:100]))
     return result
 
 
@@ -3357,7 +3264,7 @@ def _check_dmarc(domain: str) -> dict:
 def _check_domain_age(domain: str) -> dict:
     """Retrieve domain creation date via WHOIS and assess age."""
     result = {"found": False, "creation_date": None, "age_days": None,
-              "registrar": None, "message": "", "status": "not_found"}
+              "registrar": None, "message": "", "code": None, "params": {}, "status": "not_found"}
     try:
         import whois
         from datetime import datetime, timezone
@@ -3376,28 +3283,21 @@ def _check_domain_age(domain: str) -> dict:
             result["age_days"]      = age
             result["registrar"]     = (w.registrar or "")[:80] if w.registrar else None
             if age < 30:
-                result["message"] = (
-                    f"Domain is only {age} days old — newly registered domains "
-                    f"are a major phishing red flag."
-                )
+                result.update(_verify_message('verify.age_very_new', days=age))
             elif age < 180:
-                result["message"] = (
-                    f"Domain is {age} days old (~{age//30} months) — "
-                    f"relatively new, proceed with caution."
-                )
+                result.update(_verify_message('verify.age_new', days=age, months=age // 30))
             elif age < 365:
-                result["message"] = f"Domain is {age} days old (< 1 year) — moderately established."
+                result.update(_verify_message('verify.age_under_year', days=age))
             else:
                 years = age // 365
-                result["message"] = (
-                    f"Domain registered {creation.strftime('%Y-%m-%d')} "
-                    f"({years} year{'s' if years != 1 else ''} old) — well-established."
-                )
+                result.update(_verify_message(
+                    'verify.age_established' if years != 1 else 'verify.age_established_one',
+                    date=creation.strftime('%Y-%m-%d'), years=years))
         else:
-            result["message"] = "WHOIS returned no creation date for this domain."
+            result.update(_verify_message('verify.age_no_date'))
     except Exception as e:
         result['status'] = 'timeout' if isinstance(e, TimeoutError) else 'error'
-        result["message"] = f"WHOIS lookup failed or data unavailable: {str(e)[:100]}"
+        result.update(_verify_message('verify.age_failed', error=str(e)[:100]))
     return result
 
 
@@ -3405,7 +3305,8 @@ def _check_domain_age(domain: str) -> dict:
 def _check_mx_ptr(mx_host: str) -> dict:
     """Check if the primary MX server has a valid PTR (reverse DNS) record."""
     import dns.resolver, dns.reversename, dns.exception
-    result = {"found": False, "ptr": None, "ip": None, "message": "", "status": "not_found"}
+    result = {"found": False, "ptr": None, "ip": None, "message": "", "code": None, "params": {},
+              "status": "not_found"}
     try:
         a_records = dns.resolver.resolve(mx_host, "A", lifetime=5)
         ip = str(a_records[0])
@@ -3416,18 +3317,16 @@ def _check_mx_ptr(mx_host: str) -> dict:
         result["found"] = True
         result["ptr"]   = ptr
         result['status'] = 'ok'
-        result["message"] = f"MX server {ip} → PTR: {ptr}"
+        result.update(_verify_message('verify.ptr_found', ip=ip, ptr=ptr))
     except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
-        result["message"] = (
-            f"No PTR record for MX server{(' ' + result['ip']) if result['ip'] else ''} "
-            f"— legitimate mail servers almost always have reverse DNS configured."
-        )
+        result.update(_verify_message('verify.ptr_missing_ip', ip=result['ip']) if result['ip']
+                      else _verify_message('verify.ptr_missing'))
     except dns.exception.DNSException as e:
         result['status'] = 'timeout' if isinstance(e, dns.exception.Timeout) else 'error'
-        result["message"] = f"PTR lookup error: {e}"
+        result.update(_verify_message('verify.ptr_lookup_error', error=str(e)))
     except Exception as e:
         result['status'] = 'error'
-        result["message"] = f"PTR check error: {str(e)[:100]}"
+        result.update(_verify_message('verify.ptr_error', error=str(e)[:100]))
     return result
 
 
@@ -3436,7 +3335,7 @@ def _lookup_mail_domain(domain: str, deadline: float) -> dict:
     import dns.resolver
     import dns.exception
     result = {'mx_found': False, 'mx_records': [], 'overall': 'unverifiable',
-              'smtp_message': 'DNS lookup timed out or was unavailable.'}
+              **_verify_message('verify.dns_timeout', 'smtp_message')}
     try:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -3446,12 +3345,12 @@ def _lookup_mail_domain(domain: str, deadline: float) -> dict:
         if any(not host for _, host in records):
             if records == [(0, '')]:
                 return {**result, 'null_mx': True, 'overall': 'no_mail_service',
-                        'smtp_message': 'Domain publishes Null MX: it does not accept email. This is not evidence of phishing.'}
-            return {**result, 'smtp_message': 'Invalid mixed or nonzero-preference Null MX records; mail service is inconclusive.'}
+                        **_verify_message('verify.null_mx', 'smtp_message')}
+            return {**result, **_verify_message('verify.invalid_null_mx', 'smtp_message')}
         if records:
             return {'mx_found': True, 'mx_records': records}
     except dns.resolver.NXDOMAIN:
-        return {**result, 'overall': 'likely_invalid', 'smtp_message': 'Domain does not exist in DNS.'}
+        return {**result, 'overall': 'likely_invalid', **_verify_message('verify.domain_not_found', 'smtp_message')}
     except dns.resolver.NoAnswer:
         pass
     except dns.exception.DNSException:
@@ -3465,14 +3364,14 @@ def _lookup_mail_domain(domain: str, deadline: float) -> dict:
             addresses = dns.resolver.resolve(domain, kind, lifetime=min(4, remaining))
             if addresses:
                 return {'mx_found': True, 'mx_records': [[0, domain]],
-                        'note': f'No MX record found; domain has an {kind} record — using domain directly.'}
+                        **_verify_message('verify.address_record_fallback', 'note', record_type=kind)}
         except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
             continue
         except dns.exception.DNSException:
             address_lookup_failed = True
     if address_lookup_failed:
         return result
-    return {**result, 'overall': 'likely_invalid', 'smtp_message': 'Domain has no MX, A, or AAAA records.'}
+    return {**result, 'overall': 'likely_invalid', **_verify_message('verify.no_mail_records', 'smtp_message')}
 
 
 def _summarize_verification(out: dict, *, smtp_enabled: bool) -> None:
@@ -3494,21 +3393,18 @@ def _summarize_verification(out: dict, *, smtp_enabled: bool) -> None:
     else:
         domain_status = "unavailable"
 
+    # The reason repeats smtp_message (or the disabled notice) with its code.
+    reason = {'reason': out["smtp_message"], 'reason_code': out.get("smtp_message_code"),
+              'reason_params': out.get("smtp_message_params") or {}}
     if not smtp_enabled:
         mailbox_status = "unavailable"
-        mailbox_reason = (
-            "SMTP mailbox probing is unavailable on this deployment; "
-            "domain evidence does not prove that the mailbox exists."
-        )
+        reason = _verify_message('verify.smtp_disabled_reason', 'reason')
     elif out["smtp_result"] == "exists":
         mailbox_status = "accepted"
-        mailbox_reason = out["smtp_message"]
     elif out["smtp_result"] == "does_not_exist":
         mailbox_status = "rejected"
-        mailbox_reason = out["smtp_message"]
     else:
         mailbox_status = "inconclusive"
-        mailbox_reason = out["smtp_message"]
 
     out["domain_verification"] = {
         "status": domain_status,
@@ -3517,7 +3413,7 @@ def _summarize_verification(out: dict, *, smtp_enabled: bool) -> None:
     }
     out["mailbox_verification"] = {
         "status": mailbox_status,
-        "reason": mailbox_reason,
+        **reason,
     }
     out["verification_complete"] = (
         domain_complete and mailbox_status in {"accepted", "rejected"}
@@ -3555,12 +3451,16 @@ def verify_email_endpoint(req: VerifyRequest):
         "smtp_connectable": False,
         "smtp_result": None,
         "smtp_message": None,
+        "smtp_message_code": None,
+        "smtp_message_params": {},
         "smtp_status": "skipped",
         "spf":  None,
         "dmarc": None,
         "domain_age": None,
         "mx_ptr": None,
         "note": None,
+        "note_code": None,
+        "note_params": {},
         "overall": None,
         "verification_complete": False,
     }
@@ -3576,7 +3476,7 @@ def verify_email_endpoint(req: VerifyRequest):
     normalized_email = _normalize_sender_address(email)
     if not normalized_email:
         out["overall"]       = "invalid_format"
-        out["smtp_message"]  = "Enter a single supported email address with an unquoted ASCII local part and a valid domain."
+        out.update(_verify_message('verify.format_invalid', 'smtp_message'))
         return respond()
     out["format_valid"] = True
     # Retain the submitted address for display, but use the same canonical
@@ -3594,18 +3494,18 @@ def verify_email_endpoint(req: VerifyRequest):
     except FutureTimeout:
         discovery.cancel()
         out['overall'] = 'unverifiable'
-        out['smtp_message'] = 'DNS lookup timed out or was unavailable.'
+        out.update(_verify_message('verify.dns_timeout', 'smtp_message'))
         return respond()
     except Exception:
         out['overall'] = 'unverifiable'
-        out['smtp_message'] = 'DNS lookup was unavailable.'
+        out.update(_verify_message('verify.dns_unavailable', 'smtp_message'))
         return respond()
     if not out['mx_found']:
         return respond()
     mx_host = out['mx_records'][0][1]
     if time.monotonic() >= deadline:
         out['overall'] = 'unverifiable'
-        out['smtp_message'] = 'Verification deadline reached after DNS lookup.'
+        out.update(_verify_message('verify.deadline_after_dns', 'smtp_message'))
         return respond()
 
     # No per-request context manager: its shutdown would wait past the deadline.
@@ -3624,37 +3524,40 @@ def verify_email_endpoint(req: VerifyRequest):
 
     def safe_result(future, fallback):
         if future is None:
-            return {**fallback, 'status': 'busy', 'message': 'Verification capacity is busy; this check was not run.'}
+            return {**fallback, 'status': 'busy', **_verify_message('verify.check_busy')}
         if future not in done:
             return {**fallback, 'status': 'timeout'}
         try:
             return future.result(timeout=0)
         except Exception:
-            return {**fallback, 'status': 'error', 'message': 'Verification check failed; result unavailable.'}
+            return {**fallback, 'status': 'error', **_verify_message('verify.check_failed')}
 
     if SETTINGS.smtp_verification_enabled:
         probe = safe_result(f_smtp, {"connectable": False, "result": "unverifiable",
-                                     "message": "SMTP probe timed out."})
+                                     **_verify_message('verify.smtp_timeout')})
     else:
         probe = {
             "connectable": False,
             "result": "unavailable",
-            "message": "SMTP mailbox probing is unavailable on this deployment.",
+            **_verify_message('verify.smtp_disabled'),
             "status": "skipped",
         }
     spf_info     = safe_result(f_spf,   {"found": False, "policy": None,
-                                          "message": "SPF check timed out."})
+                                          **_verify_message('verify.spf_timeout')})
     dmarc_info   = safe_result(f_dmarc, {"found": False, "policy": None,
-                                          "message": "DMARC check timed out."})
+                                          **_verify_message('verify.dmarc_timeout')})
     age_info     = safe_result(f_age,   {"found": False, "age_days": None,
-                                          "message": "WHOIS lookup timed out."})
+                                          **_verify_message('verify.age_timeout')})
     ptr_info     = safe_result(f_ptr,   {"found": False, "ptr": None,
-                                          "message": "PTR check timed out."})
+                                          **_verify_message('verify.ptr_timeout')})
 
     out["smtp_connectable"] = probe["connectable"]
     out['smtp_status'] = probe['status']
     out["smtp_result"]      = probe["result"]
     out["smtp_message"]     = probe["message"]
+    # A mocked or legacy probe may lack a code; the English message stays as sent.
+    out["smtp_message_code"] = probe.get("code") if probe["message"] else None
+    out["smtp_message_params"] = (probe.get("params") or {}) if probe["message"] else {}
     out["spf"]              = spf_info
     out["dmarc"]            = dmarc_info
     out["domain_age"]       = age_info
@@ -3670,10 +3573,7 @@ def verify_email_endpoint(req: VerifyRequest):
     elif not probe["connectable"]:
         out["overall"] = "unverifiable"
         if not out["smtp_message"]:
-            out["smtp_message"] = (
-                "Port 25 appears blocked by your network. "
-                "MX records exist, so the domain is real, but mailbox existence cannot be confirmed."
-            )
+            out.update(_verify_message('verify.smtp_port_blocked', 'smtp_message'))
     else:
         out["overall"] = "unverifiable"
 
@@ -3703,6 +3603,9 @@ async def _analyze_case(payload, raw):
                                          observe_sender_history=False)
     analysis = json.loads(response.body)
     analysis.pop('ml_metrics', None)  # Dataset-wide metrics are not per-message evidence.
+    # Message codes on indicators are kept; the *_details lists only repeat the
+    # stored English warnings for display, so they are not retained.
+    strip_details(analysis)
     source = {'subject': structure['subject'] if structure else payload.subject.strip(),
               'body': structure['body'] if structure else payload.body.strip(),
               'input_mode': analysis['input_mode']}

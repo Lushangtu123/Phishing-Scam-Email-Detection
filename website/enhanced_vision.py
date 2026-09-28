@@ -11,6 +11,8 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHand
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from server_messages import details as message_details, text as message_text
+
 
 @dataclass(frozen=True)
 class EnhancedVisionSettings:
@@ -118,14 +120,15 @@ def recognize_image(settings, enhancement, observation):
 
 
 def enhanced_evidence(result, browser_observation):
+    warnings = result.warnings + [message_text('warning.enhanced_unverified'),
+                                  message_text('warning.enhanced_model_output')]
     browser_urls = set(re.findall(r'https?://[^\s<>"\']+', browser_observation.ocr_text))
     service_urls = set(re.findall(r'https?://[^\s<>"\']+', result.ocr.text))
     return {'status': 'available', 'provenance': 'service_extracted_unverified',
         'image_sha256': result.image_sha256, 'ocr': result.ocr.model_dump(),
         'semantic': result.semantic.model_dump(),
         'url_disagreement': browser_urls != service_urls,
-        'warnings': result.warnings + [
-            'Additional recognition is unverified; original browser text and QR payloads are preserved.',
-            'Model-generated observations and URLs do not establish legitimacy and do not change the risk verdict.'],
+        # Service-written warnings have no code; details keep them as sent.
+        'warnings': warnings, 'warning_details': message_details(warnings),
         # Do not retain arbitrary upstream metadata or image bytes in case records.
         'provenance_metadata': result.provenance.model_dump(exclude_none=True)}

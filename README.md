@@ -524,6 +524,39 @@ CS-166-Final-Project/
 | `GET /api/config` | Public feature flags |
 | `GET /health` | Detector availability and deployment profile |
 
+### Message codes
+
+Every server-written English message also carries a stable, dotted `code` and
+its `params` (short strings or numbers, each at most 256 characters; never a
+message body), so clients can show it in another language. The English text is
+unchanged:
+
+- `risk_indicators[]` and `extra_indicators[]` add `code` and `params` next to
+  `level`/`msg`. A message wrapped with its source (`Sender: …`,
+  `Attached message: …`, `Image (name): …`) keeps the inner code and lists the
+  wrappers in `prefixes` (`[{code, params}]`, outermost first).
+- String lists keep their type and gain parallel lists of `{code, params, msg}`:
+  `analysis_warning_details`, `safety_signal_details`, per-image
+  `assessment_warning_details` and the enhancement's `warning_details`.
+  `code` is `null` for text the server did not write, such as browser OCR
+  warnings.
+- `/api/verify-email` adds `code`/`params` to `spf`, `dmarc`, `domain_age` and
+  `mx_ptr`, `smtp_message_code`/`smtp_message_params`, `note_code`/`note_params`
+  and `mailbox_verification.reason_code`/`reason_params`.
+
+```json
+{"level": "low", "code": "sender.domain_hyphen", "params": {"domain": "paypa1-verify.xyz"},
+ "msg": "Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"}
+```
+
+The catalogue of codes and English templates is
+[`website/data/server_messages.json`](website/data/server_messages.json)
+(families `sender.`, `content.`, `link.`, `structure.`, `warning.`, `safety.`,
+`prefix.`, `verify.`); `msg` is always rendered from it. The homepage dictionary
+holds the same English as `server.<code>`, and
+`website/static/server-messages.test.mjs` fails when the two differ. Saved cases
+keep indicator codes but not the `*_details` lists.
+
 Example raw-message request:
 
 ```json

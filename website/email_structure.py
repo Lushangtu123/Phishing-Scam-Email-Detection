@@ -12,6 +12,8 @@ import unicodedata
 import codecs
 from itertools import product
 
+from server_messages import indicator, text as message_text, warning_indicator
+
 
 _AUTH_FAILURES = {"fail", "softfail", "permerror", "temperror"}
 MAX_MIME_PARTS = 200
@@ -137,23 +139,14 @@ def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, l
         brand_pattern = r"(?<!\w)" + r"[\W_]*".join(brand) + r"(?!\w)"
         if re.search(brand_pattern, display_skeleton) and not canonical:
             score += 4
-            indicators.append({
-                "level": "high",
-                "msg": (
-                    f"Protected brand identity '{brand}' is displayed from "
-                    f"an unrelated domain ({from_domain})."
-                ),
-            })
+            indicators.append(indicator('high', 'structure.brand_display_name', brand=brand, domain=from_domain))
         if (
             brand in domain_label_skeleton
             and domain_skeleton != decoded_domain.casefold()
             and not canonical
         ):
             score += 4
-            indicators.append({
-                "level": "high",
-                "msg": f"Sender domain ({from_domain}) is a Unicode/IDN confusable for {brand}.",
-            })
+            indicators.append(indicator('high', 'structure.idn_sender_domain', domain=from_domain, brand=brand))
 
     return score, indicators
 
@@ -177,8 +170,7 @@ def _mime_candidates(message, warnings):
                    for name in names]
         duplicate_names = [name for name, values in zip(names, choices) if len(values) > 1]
         if duplicate_names:
-            warnings.append('Duplicate MIME headers (' + ', '.join(duplicate_names)
-                            + ') are ambiguous; bounded alternate inspection, analysis is incomplete.')
+            warnings.append(message_text('warning.duplicate_mime_headers', headers=', '.join(duplicate_names)))
         yield part, part
         if not duplicate_names:
             continue
@@ -187,7 +179,7 @@ def _mime_candidates(message, warnings):
             if index == 0:
                 continue  # Original interpretation was already inspected.
             if index > 8 or remaining <= 0:
-                warnings.append('MIME candidate limit reached; additional interpretations were not inspected.')
+                warnings.append(message_text('warning.mime_candidate_limit'))
                 break
             remaining -= 1
             alternate = EmailMessage(policy=part.policy)
@@ -249,7 +241,7 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 "inspection_status": "metadata_only",
             })
             if PurePath(filename or '').suffix.lower() == '.eml':
-                warning = 'Opaque .eml attachment was not parsed as an encapsulated message; analysis is incomplete.'
+                warning = message_text('warning.opaque_eml_attachment')
                 if warning not in parse_warnings:
                     parse_warnings.append(warning)
             continue
@@ -271,7 +263,7 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 content = payload.decode(part.get_content_charset() or 'utf-8', errors='replace')
             except (LookupError, UnicodeError):
                 content = payload.decode('utf-8', errors='replace')
-            warning = "MIME text decoding required a fallback or replacement; analysis may be incomplete."
+            warning = message_text('warning.mime_decoding_fallback')
             if warning not in parse_warnings:
                 parse_warnings.append(warning)
         path = alternative_paths[id(original)]
@@ -334,10 +326,9 @@ def analyze_raw_email(
     result = _analyze_message(message, unicode_source=isinstance(raw_email, str),
                               trusted_authserv_ids=trusted_authserv_ids, depth=0, budget=[20])
     if limited:
-        warning = ('MIME parser resource limit reached; only outer headers were inspected, '
-                   'body and attachments were not analyzed. Analysis is incomplete.')
-        result['parse_warnings'].append(warning)
-        result['indicators'].append({'level': 'info', 'msg': warning})
+        item = indicator('info', 'warning.mime_resource_limit')
+        result['parse_warnings'].append(item['msg'])
+        result['indicators'].append(item)
     return result
 
 
@@ -404,7 +395,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 defect_names.update(type(defect).__name__ for defect in getattr(header, 'defects', ()))
             except Exception:
                 value = raw_value
-                warning = f'{name} header could not be parsed; raw value preserved, analysis is incomplete.'
+                warning = message_text('warning.header_unparsed', header=name)
                 if warning not in parse_warnings:
                     parse_warnings.append(warning)
             candidate_name = canonical_names.get(name.lower())
@@ -412,13 +403,12 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 header_candidates[candidate_name].append(value)
     for name, values in header_candidates.items():
         if len(values) > 1:
-            parse_warnings.append(f'Duplicate {name} headers are ambiguous; all candidates inspected, analysis is incomplete.')
+            parse_warnings.append(message_text('warning.duplicate_header', header=name))
     if depth and not (plain.strip() or html.strip() or attachments or any(header_candidates.values())
                       or message.get('Authentication-Results')):
-        parse_warnings.append('Attached message has no analyzable content; analysis is incomplete.')
+        parse_warnings.append(message_text('warning.attached_message_empty'))
     if defect_names:
-        parse_warnings.append('MIME structure is incomplete or malformed ('
-                              + ', '.join(sorted(defect_names)) + '); analysis may be incomplete.')
+        parse_warnings.append(message_text('warning.mime_malformed', defects=', '.join(sorted(defect_names))))
     nested_messages = []
     attachments_by_key = {(item['filename'], item['content_type']): item for item in attachments}
     for part in _walk_message_parts(message):
@@ -427,18 +417,18 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         attachment = attachments_by_key.get((part.get_filename() or 'attached.eml', part.get_content_type()))
         encoding = str(part.get('Content-Transfer-Encoding', '')).strip().lower()
         if encoding not in {'', '7bit', '8bit', 'binary'}:
-            warning = 'Transfer-encoded attached message was not inspected; analysis is incomplete.'
+            warning = message_text('warning.attached_message_encoded')
             if warning not in parse_warnings:
                 parse_warnings.append(warning)
             continue
         children = part.get_payload()
         if not isinstance(children, list) or not children:
-            parse_warnings.append('Attached message could not be parsed; analysis is incomplete.')
+            parse_warnings.append(message_text('warning.attached_message_unparsed'))
             continue
         fully_analyzed = True
         for child in children:
             if depth >= 3 or budget[0] <= 0:
-                warning = 'Attached-message depth/count limit reached; analysis is incomplete.'
+                warning = message_text('warning.attached_message_limit')
                 if warning not in parse_warnings:
                     parse_warnings.append(warning)
                 fully_analyzed = False
@@ -450,7 +440,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
             if nested['parse_warnings']:
                 fully_analyzed = False
             for warning in nested['parse_warnings']:
-                prefixed = 'Attached message: ' + warning
+                prefixed = message_text('prefix.attached_message', text=warning)
                 if prefixed not in parse_warnings:
                     parse_warnings.append(prefixed)
         ambiguous_headers = any(
@@ -468,9 +458,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     # Analyze both alternatives. Phishers commonly put harmless text in the
     # plain part and the credential link only in the HTML part.
     body = "\n".join(part for part in (plain, html) if part)
-    indicators: list[dict] = [
-        {"level": "info", "msg": warning} for warning in parse_warnings
-    ]
+    indicators: list[dict] = [warning_indicator(warning) for warning in parse_warnings]
     score = 0
     risk_floor = "safe"
 
@@ -488,16 +476,10 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         if address.strip()
     }
     if not recipient_addresses:
-        indicators.append({
-            'level': 'info',
-            'msg': 'No visible To or Cc recipient is present; the message may have used Bcc.',
-        })
+        indicators.append(indicator('info', 'structure.no_visible_recipient'))
     elif from_addresses & recipient_addresses:
         score += 1
-        indicators.append({
-            'level': 'low',
-            'msg': 'Self-addressed message: a From mailbox also appears in To or Cc.',
-        })
+        indicators.append(indicator('low', 'structure.self_addressed'))
     brand_score, brand_indicators = max(
         (_brand_identity_signals(name, _domain(address)) for name, address in from_mailboxes),
         key=lambda pair: pair[0], default=(0, []),
@@ -520,9 +502,8 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                          and not any(_domains_align(other, sender) for sender in from_domains)), None)
         if mismatch:
             routing_mismatch = True
-            indicators.append({'level': 'low', 'msg':
-                f'{name} domain ({mismatch}) differs from From domain candidates ({", ".join(sorted(from_domains))}). '
-                'Routing differs; this alone does not establish impersonation.'})
+            indicators.append(indicator('low', 'structure.routing_mismatch', header=name, domain=mismatch,
+                                        from_domains=', '.join(sorted(from_domains))))
     if routing_mismatch:
         score += 2
 
@@ -536,10 +517,10 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     for auth_header in message.get_all("Authentication-Results", []):
         authserv_id, claimed_results, auth_complete = _authentication_results(str(auth_header))
         if not auth_complete:
-            warning = 'Authentication-Results syntax is incomplete; authentication claims require review.'
+            warning = message_text('warning.auth_results_incomplete')
             if warning not in parse_warnings:
                 parse_warnings.append(warning)
-                indicators.append({'level': 'info', 'msg': warning})
+                indicators.append(indicator('info', 'warning.auth_results_incomplete'))
             # Incomplete claims cannot confer a trusted pass.
             claimed_results = {key: value for key, value in claimed_results.items() if value != 'pass'}
         if claimed_results and authserv_id in trusted_ids and not auth_results:
@@ -561,17 +542,12 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     if decisive_failure and not dmarc_passes:
         score += 6
         risk_floor = "high"
-        indicators.append({
-            "level": "high",
-            "msg": "Message authentication failed: " + ", ".join(sorted(failures)).upper() + ".",
-        })
+        indicators.append(indicator('high', 'structure.auth_failed',
+                                    mechanisms=", ".join(sorted(failures)).upper()))
     elif failures and not dmarc_passes:
         score += 2
-        indicators.append({
-            "level": "medium",
-            "msg": "One authentication mechanism failed: "
-                   + ", ".join(sorted(failures)).upper() + ".",
-        })
+        indicators.append(indicator('medium', 'structure.auth_partial_failure',
+                                    mechanisms=", ".join(sorted(failures)).upper()))
 
     for attachment in attachments:
         suffix = PurePath(attachment["filename"]).suffix.lower()
@@ -579,21 +555,12 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         if suffix in _DANGEROUS_EXTENSIONS or content_type in _DANGEROUS_MIME_TYPES:
             score += 4
             risk_floor = "high"
-            indicators.append({
-                "level": "high",
-                "msg": f"Potentially dangerous attachment: {attachment['filename']}.",
-            })
+            indicators.append(indicator('high', 'structure.dangerous_attachment', filename=attachment['filename']))
         elif suffix in _ARCHIVE_EXTENSIONS or content_type in _ARCHIVE_MIME_TYPES:
             score += 2
             if risk_floor == "safe":
                 risk_floor = "medium"
-            indicators.append({
-                "level": "medium",
-                "msg": (
-                    f"Archive attachment requires inspection before opening: "
-                    f"{attachment['filename']}."
-                ),
-            })
+            indicators.append(indicator('medium', 'structure.archive_attachment', filename=attachment['filename']))
 
     return {
         "input_mode": "raw-email",
