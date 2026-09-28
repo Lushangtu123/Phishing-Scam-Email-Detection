@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 21:18 PT] — Add privacy-bounded evidence attribution for email evaluations
+
+### Why
+- Historical `hard_ham` false alerts remained high, while aggregate reports did not show which stable rule signals co-occurred with each decision group.
+
+### Files changed
+- `website/app.py` — attach stable IDs to link findings without changing scores or verdicts.
+- `website/tools/evidence_attribution.py`, `website/tools/evaluate_public_corpus.py`, `website/tools/evaluate_serving_pipeline.py` — add an optional aggregate-only attribution sidecar tied to the evaluated cohort.
+- `website/tests/test_evidence_attribution.py`, `website/tests/test_public_evaluation.py`, `README.md`, `docs/evaluation.md` — cover privacy, denominator integrity and usage.
+
+### Effect
+- A replay of 244 reference-filtered historical `hard_ham` messages found `link.brand_lookalike` in 30 of 135 alerts and `link.display_mismatch` in 20; the groups may overlap. These are co-occurrences, not proven false rules.
+- The 199-message phishing/easy-ham pilot passed the existing two-class comparison with unchanged results. No model, threshold, risk weight or image-recognition default changed.
+
 ## [2026-09-27 19:57 PT] — Keep negative contractions out of winning-phrase matches
 
 ### Why

@@ -2361,6 +2361,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 risk_floor = "high"
                 finding_types.add("obfuscated-scheme")
                 findings.append({
+                    "rule_id": "link.obfuscated_scheme",
                     "level": "high",
                     "msg": "Link uses an obfuscated hxxp/hxxps destination scheme.",
                 })
@@ -2380,6 +2381,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                     risk_floor = "medium"
                 finding_types.add("malformed-target")
                 findings.append({
+                    "rule_id": "link.malformed_target",
                     "level": "medium",
                     "msg": "Link contains a malformed destination that could not be safely parsed.",
                 })
@@ -2390,6 +2392,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 risk_floor = "high"
                 finding_types.add("unsafe-scheme")
                 findings.append({
+                    "rule_id": "link.unsafe_scheme",
                     "level": "high",
                     "msg": f"Link uses an unsafe destination scheme ({parsed.scheme.lower()}:).",
                 })
@@ -2403,6 +2406,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             risk_floor = "high"
             finding_types.add("url-userinfo")
             findings.append({
+                "rule_id": "link.url_userinfo",
                 "level": "high",
                 "msg": (
                     "Link destination uses URL userinfo before the real host, "
@@ -2418,6 +2422,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             risk_floor = 'high'
             finding_types.add('ip-host')
             findings.append({
+                'rule_id': 'link.ip_host',
                 'level': 'high',
                 'msg': 'Link destination uses an IP address instead of a domain name; inspect it before opening.',
             })
@@ -2436,6 +2441,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             risk_floor = "high"
             finding_types.add("display-mismatch")
             findings.append({
+                "rule_id": "link.display_mismatch",
                 "level": "high",
                 "msg": (
                     f"Link display domain ({visible_host}) does not match the "
@@ -2461,6 +2467,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 risk_floor = "high"
                 finding_types.add("idn-confusable")
                 findings.append({
+                    "rule_id": "link.idn_confusable",
                     "level": "high",
                     "msg": (
                         f"Link destination ({target_host}) is an IDN/confusable "
@@ -2479,6 +2486,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 risk_floor = "high"
                 finding_types.add("brand-lookalike")
                 findings.append({
+                    "rule_id": "link.brand_lookalike",
                     "level": "high",
                     "msg": (
                         f"Link destination ({target_host}) is a noncanonical "
@@ -2504,6 +2512,8 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 risk_floor = "high"
             finding_types.add(host_finding)
             findings.append({
+                "rule_id": ("link.credential_collection_host" if credential_collection
+                            else "link.sensitive_host"),
                 "level": "high" if credential_collection else "low",
                 "msg": (
                     f"Link destination ({target_host}) combines credential and collection wording."
@@ -3641,7 +3651,8 @@ async def _analyze_content(
             nested_floor = 'safe' if nested_result['risk_level'] == 'unknown' else nested_result['risk_level']
             result['risk_floor'] = max((result['risk_floor'], nested_floor), key=floor_rank.get)
             result['extra_indicators'].extend(
-                {'level': item['level'], 'msg': 'Attached message: ' + item['msg']}
+                {'level': item['level'], 'msg': 'Attached message: ' + item['msg'],
+                 **({'rule_id': item['rule_id']} if 'rule_id' in item else {})}
                 for item in nested_result['extra_indicators']
                 if item['msg'] not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
                                       _UNRESOLVED_IMAGE_WARNING})

@@ -209,6 +209,7 @@ def evaluate_records(
     model_sha256: str,
     duplicate_policy: str = 'drop',
     configuration: dict | None = None,
+    evidence_observer: Callable[[str, str, dict], None] | None = None,
 ) -> dict:
     """Run each row through the supplied serving analyzer and emit aggregates."""
     if not re.fullmatch(r'[0-9a-f]{64}', model_sha256):
@@ -250,15 +251,18 @@ def evaluate_records(
         risk = result.get('risk_level') if isinstance(result, dict) else None
         if risk not in RISK_LEVELS:
             raise ValueError(f'Row {index}: analyzer returned an invalid risk level')
+        decision = _decision(risk)
         outcomes.append({
             'provider': row['provider'],
             'language': row.get('language', 'unlabeled'),
             'month': row['received_at'][:7],
             'label': row['label'],
-            'decision': _decision(risk),
+            'decision': decision,
             'complete': result.get('analysis_complete') is True,
             'ml_available': result.get('ml_status') == 'available',
         })
+        if evidence_observer is not None:
+            evidence_observer(row['label'], decision, result)
         dates.append(row['received_at'])
     if not outcomes:
         raise ValueError('No evaluation rows were supplied')
@@ -382,7 +386,11 @@ def main() -> None:
                         help='Explicit trusted authentication service ID; repeat for multiple IDs (default: none)')
     parser.add_argument('--duplicate-policy', choices=('drop', 'error'), default='drop',
                         help='Drop exact duplicates (default), or reject them; metadata conflicts always fail')
+    parser.add_argument('--attribution-output', type=Path,
+                        help='Optional aggregate signal counts; keep beside the private input')
     args = parser.parse_args()
+    if args.attribution_output and args.attribution_output.resolve() == args.input.resolve():
+        parser.error('Attribution output must differ from the input path')
     trusted_ids = sorted({value.strip().lower() for value in args.trusted_authserv_id})
     if any(not re.fullmatch(r'[a-z0-9._-]{1,253}', value) for value in trusted_ids):
         parser.error('Trusted authentication service IDs must contain only ASCII letters, digits, dots, underscores or hyphens')
@@ -390,6 +398,7 @@ def main() -> None:
     sys.path.insert(0, str(WEBSITE_DIR))
     from content_inference import load_content_pipeline_artifact
     from config import load_settings
+    from tools.evidence_attribution import EvidenceAttribution
 
     profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text(encoding='utf-8'))['env']
     evaluation_env = {**profile, 'TRUSTED_AUTHSERV_IDS': ','.join(trusted_ids),
@@ -407,11 +416,16 @@ def main() -> None:
         PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_sha256,
     )
 
+    attribution = EvidenceAttribution() if args.attribution_output else None
     with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
         report = evaluate_records(_jsonl_records(args.input), analyze_record,
                                   model_sha256=model_sha256, duplicate_policy=args.duplicate_policy,
-                                  configuration=configuration)
+                                  configuration=configuration,
+                                  evidence_observer=attribution.add if attribution else None)
     report['reproducibility'] = _evaluation_metadata(configuration)
+    if attribution:
+        args.attribution_output.write_text(json.dumps(attribution.snapshot(report), indent=2,
+                                                sort_keys=True) + '\n', encoding='utf-8')
     print(json.dumps(report, indent=2, sort_keys=True))
 
 

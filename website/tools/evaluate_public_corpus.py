@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import sys
+from typing import Callable
 from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
@@ -36,7 +37,8 @@ def _scoring_sha256() -> str:
     return hashlib.sha256(b'public-scoring-v1\0' + _json_bytes(payload)).hexdigest()
 
 
-def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Corpus | None = None) -> dict:
+def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Corpus | None = None,
+                    evidence_observer: Callable[[str, str, dict | None], None] | None = None) -> dict:
     if not isinstance(model_sha256, str) or not re.fullmatch(r'[a-f0-9]{64}', model_sha256):
         raise ValueError('A full model SHA-256 is required')
     # Preflight all duplicate labels before any analysis; no partial reports on invalid cohorts.
@@ -76,17 +78,22 @@ def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Co
             result = analyze(row)
             if not isinstance(result, dict) or result.get('risk_level') not in RISK_LEVELS:
                 raise ValueError('Invalid analyzer result')
+            evidence = result
         except Exception:
             counts['failures'] += 1
             result = {'risk_level': 'unknown'}
+            evidence = None
         risk = result['risk_level']
+        decision = 'undetermined' if risk == 'unknown' else 'alerted' if risk in ALERT_LEVELS else 'not_alerted'
         outcomes.append({
             'label': row['label'], 'source': row['source_id'], 'provider': row['provider'],
             'language': row['language'], 'month': row['received_at'][:7] if row['received_at'] else 'unknown',
-            'decision': 'undetermined' if risk == 'unknown' else 'alerted' if risk in ALERT_LEVELS else 'not_alerted',
+            'decision': decision,
             'complete': result.get('analysis_complete') is True,
             'ml_available': result.get('ml_status') == 'available',
         })
+        if evidence_observer is not None:
+            evidence_observer(row['label'], decision, evidence)
     counts['evaluated'] = len(outcomes)
     counts['excluded'] = counts['duplicates'] + counts['overlap_exact'] + counts['overlap_template']
     grouped = {}
@@ -129,7 +136,13 @@ def main() -> None:
     parser.add_argument('--manifest', required=True, type=Path)
     parser.add_argument('--reference-manifest', type=Path)
     parser.add_argument('--output', type=Path, help='Aggregate JSON report; defaults to stdout')
+    parser.add_argument('--attribution-output', type=Path,
+                        help='Optional aggregate signal counts, without message text or per-record details')
     args = parser.parse_args()
+    if args.attribution_output and any(args.attribution_output.resolve() == path.resolve()
+                                       for path in (args.manifest, args.reference_manifest, args.output)
+                                       if path is not None):
+        parser.error('Attribution output must differ from the input and evaluation report paths')
     try:
         corpus = load_corpus(args.manifest)
         reference = load_corpus(args.reference_manifest) if args.reference_manifest else None
@@ -137,6 +150,7 @@ def main() -> None:
         parser.error('Invalid corpus: check manifest provenance, labels, local relative paths, size bounds and content hashes')
     from content_inference import load_content_pipeline_artifact
     from config import load_settings
+    from tools.evidence_attribution import EvidenceAttribution
     profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text())['env']
     evaluation_env = {**profile, 'TRUSTED_AUTHSERV_IDS': '', 'SENDER_HISTORY_ENABLED': 'false',
                       'EMAIL_VERIFICATION_ENABLED': 'false', 'CASE_MANAGEMENT_ENABLED': 'false'}
@@ -146,8 +160,10 @@ def main() -> None:
     model_hash = profile['CONTENT_MODEL_ARTIFACT_SHA256'].lower()
     pipeline = load_content_pipeline_artifact(PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_hash)
     try:
+        attribution = EvidenceAttribution() if args.attribution_output else None
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
-            report = evaluate_corpus(corpus, analyze_record, model_sha256=model_hash, reference=reference)
+            report = evaluate_corpus(corpus, analyze_record, model_sha256=model_hash, reference=reference,
+                                     evidence_observer=attribution.add if attribution else None)
     except ValueError:
         parser.error('Corpus failed duplicate-label or model-integrity validation')
     metadata = _evaluation_metadata({'trusted_authserv_ids': [], 'observe_sender_history': False,
@@ -156,6 +172,9 @@ def main() -> None:
         (WEBSITE_DIR / 'tools/evaluation_data.py').read_bytes()).hexdigest()
     report['reproducibility'] = metadata
     serialized = json.dumps(report, indent=2, sort_keys=True) + '\n'
+    if attribution:
+        args.attribution_output.write_text(json.dumps(attribution.snapshot(report), indent=2,
+                                                sort_keys=True) + '\n', encoding='utf-8')
     if args.output:
         args.output.write_text(serialized, encoding='utf-8')
     else:

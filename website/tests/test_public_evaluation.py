@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.evaluation_data import load_corpus
+from tools.evidence_attribution import EvidenceAttribution
 from tools.evaluate_public_corpus import evaluate_corpus
 
 
@@ -73,6 +74,30 @@ class PublicEvaluationTests(unittest.TestCase):
         self.assertEqual(report['counts']['evaluated'], 1)
         self.assertEqual(report['overall']['unknown_rate'], 1)
         self.assertNotIn('secret message', json.dumps(report))
+
+    def test_optional_attribution_uses_same_public_denominator(self):
+        corpus = load_corpus(self.corpus([
+            self.row(), self.row(id='duplicate'),
+            self.row(id='phish', label='phishing', body='Private attack text'),
+        ]))
+        collector = EvidenceAttribution()
+
+        def analyze(row):
+            if row['label'] == 'phishing':
+                raise RuntimeError('Private attack text')
+            return {'risk_level': 'high', 'category_results': [{'key': 'urgency'}]}
+
+        report = evaluate_corpus(corpus, analyze, model_sha256='a' * 64,
+                                 evidence_observer=collector.add)
+        diagnosis = collector.snapshot(report)
+        self.assertEqual(report['counts']['evaluated'], 2)
+        self.assertEqual(report['counts']['duplicates'], 1)
+        self.assertEqual(report['counts']['failures'], 1)
+        self.assertEqual(diagnosis['evaluated_cohort_sha256'], report['evaluated_cohort_sha256'])
+        self.assertEqual(diagnosis['outcomes']['legitimate_alerted']['signals']['category.urgency'], 1)
+        self.assertEqual(diagnosis['outcomes']['phishing_undetermined']['signals'],
+                         {'analysis_failed': 1})
+        self.assertNotIn('Private attack text', json.dumps(diagnosis))
 
     def test_missing_provenance_invalid_labels_and_missing_files_fail_closed(self):
         for row in (self.row(label='spam'), self.row(label=[]), self.row(source_id={}),

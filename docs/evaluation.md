@@ -152,6 +152,17 @@ hashes, code/model hashes and package versions. Inference failures remain in the
 undetermined denominator and cause a nonzero exit. An empty post-filter cohort also
 fails. Reports omit original email text and file paths.
 
+For a separate, non-causal signal breakdown, add
+`--attribution-output /absolute/private/path/attribution.json` to either
+evaluator. The sidecar is tied to the main report's evaluated-cohort and model
+digests. It counts one occurrence per message for each allowlisted content
+category, link rule ID, sender/structure signal, model/fusion state, and image
+coverage within the label × decision groups. Unknown rule IDs are grouped as
+`unrecognized`; no raw indicator messages, matched words, addresses, URLs or
+per-message rows are copied. A diagnostic count is an association, not a
+counterfactual contribution to the final verdict. Do not tune weights on an
+inspected development set or use this sidecar as a release gate.
+
 Keep the stricter existing `evaluate_serving_pipeline.py` for consented Gmail and
 Outlook data with known provider and arrival date. Public corpus labels must not be
 passed off as provider-specific real-world testing.
@@ -264,6 +275,19 @@ no-increase-in-unknown requirement. Preserve that failure and all preceding
 label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
+
+### Offline signal attribution (2026-09-27)
+
+The optional sidecar was run on the same 244 reference-filtered historical
+`hard_ham` messages. Its evaluated count and cohort digest match the ordinary
+report. Of 135 alerted legitimate messages, 30 also had the
+`link.brand_lookalike` signal and 20 had `link.display_mismatch`; these groups
+may overlap. The 65 undetermined messages all had uninspected remote-image
+coverage. These are diagnostic co-occurrences, not verified rule errors or
+current-mail performance. The paired 199-message phishing/easy-ham pilot passed
+the unchanged two-class comparison with identical recall, false-alert and
+undetermined rates; the hard-ham-only comparison still cannot pass that release
+policy. No risk weights or model threshold were changed.
 
 ## 2. Browser OCR and QR controls
 

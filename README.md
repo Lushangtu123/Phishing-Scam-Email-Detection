@@ -935,6 +935,16 @@ the pinned Python 3.12 environment:
 .venv/bin/python website/tools/evaluate_serving_pipeline.py --input /absolute/path/to/consented-mail.jsonl
 ```
 
+Add `--attribution-output /absolute/private/path/attribution.json` to write a
+separate, optional aggregate diagnostic. It counts fixed content-category and
+link-rule IDs, sender/structure signals, model state and uninspected-image
+coverage by human label and final decision. It writes no per-message rows,
+matched terms, addresses, URLs or indicator prose. Counts indicate which signals
+occurred together with a decision, **not** which signal caused it; the existing
+scoring, thresholds and comparison policy are unchanged. Keep the diagnostic
+beside the private input, outside version control. The public-corpus evaluator
+supports the same option; compare its normal report as before.
+
 Exact repeats are excluded from metrics by default (`--duplicate-policy drop`).
 Use `--duplicate-policy error` to reject a cohort containing any exact duplicate.
 Identity is based on effective message content within its input mode: original
