@@ -15,6 +15,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import HTTPException
+import httpx
 
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
@@ -38,6 +39,20 @@ class ImagePreviewCSPTests(unittest.TestCase):
         policy = app._with_security_headers(app.Response()).headers['content-security-policy']
         directives = dict(part.strip().split(' ', 1) for part in policy.split(';') if part.strip())
         self.assertEqual(directives['script-src'].split(), ["'self'"])
+
+
+class FaviconTests(unittest.TestCase):
+    def test_default_favicon_path_serves_the_svg_icon(self):
+        async def fetch():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app.app),
+                                         base_url='http://localhost') as client:
+                return await client.get('/favicon.ico')
+
+        response = asyncio.run(fetch())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.headers['content-type'].startswith('image/svg+xml'))
+        self.assertEqual(response.content, (WEBSITE_DIR / 'static' / 'favicon.svg').read_bytes())
+        self.assertIn('content-security-policy', response.headers)
 
 
 class AllowedHostConfigurationTests(unittest.TestCase):

@@ -1168,6 +1168,31 @@ test('attacker-controlled indicator text is HTML escaped before rendering', () =
   );
 });
 
+test('server-supplied levels, counts and contributions cannot inject markup', () => {
+  const payload = 'x"><img src=x onerror=alert(1)>';
+  const { context, elements } = loadFrontend();
+  context.renderResult({ ...senderResult('a@example.com'), high_risk_count: payload, med_risk_count: payload,
+    risk_indicators: [{ level: payload, msg: 'indicator' }] });
+  context.renderContentResult({ ...contentResult('Result'), analysis_complete: true, risk_level: 'high',
+    category_results: [{ key: 'urgency', level: payload, label: 'L', count: payload, description: 'd', matched: [] }],
+    extra_indicators: [{ level: payload, msg: 'extra' }],
+    ml_status: 'available', ml_label: 'Likely Phishing', ml_phishing_probability: 80, ml_legitimate_probability: 20,
+    ml_prediction: 1, ml_top_contributors: [{ term: 'verify', contribution: payload }], ml_metrics: {} });
+  for (const id of ['risk-summary', 'risk-indicators-list', 'content-category-grid', 'content-extra-list', 'content-ml-contribs']) {
+    const html = elements.get(id).innerHTML;
+    assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/, id);
+    assert.doesNotMatch(html, /<img|"><img/, id);
+  }
+});
+
+test('decorative button icons are hidden and the benchmark chart has a text alternative', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  for (const [, inner] of html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)>/g)) {
+    for (const [svg] of inner.matchAll(/<svg\b[^>]*>/g)) assert.match(svg, /aria-hidden="true"/, svg);
+  }
+  assert.match(html, /<canvas id="metricsChart" role="img" aria-label="[^"]*table above[^"]*">/);
+});
+
 test('public OCR forwards language and discards recognition after the selection changes',async()=>{
   let release, selectedLanguage, posts=0;
   const {context,elements}=loadFrontend({fetch:async()=>{posts++;return response(contentResult('File result'));}});

@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 11:44 PT] — Escape remaining server fields, hide decorative icons, serve /favicon.ico
+
+### Why
+- Follow-up to the homepage audit: some server-supplied fields were inserted into `innerHTML` templates without `escapeHtml` while neighbouring fields were escaped; two decorative button icons and the benchmark chart were exposed to assistive technology without meaning; and `/favicon.ico` returned 404, the only console error on the live page.
+
+### Files changed
+- `website/static/app.js` — escape `high_risk_count`/`med_risk_count`, sender and extra indicator `level`, score-breakdown `level`, category `level`/`count` (class, badge and count text) and ML token `contribution` (title attribute). Values that remain unescaped are client constants, locally built markup or `toFixed()` numbers.
+- `website/static/index.html` — `aria-hidden="true"` on the two Analyze button icons; `role="img"` and an `aria-label` on `#metricsChart` pointing to the table above it; bump `app.js` to v46.
+- `website/app.py` — `GET /favicon.ico` returns the existing `static/favicon.svg` as `image/svg+xml`.
+- `website/static/app.test.mjs`, `website/tests/test_app_security.py` — render sender and content results with `x"><img …>` in every affected field and assert it appears only escaped; assert all icons inside buttons/links are hidden and the chart has a text alternative; assert `/favicon.ico` returns the SVG with security headers.
+
+### Effect
+- Local Chromium: no console errors (the `/favicon.ico` 404 is gone), 0 unhidden icons inside controls, the chart reports `role="img"` with its label, and ordinary results render unchanged (`risk-item risk-medium`, `cat-card cat-high`, `level-high`, "4 signals matched").
+- Validation: 364 frontend tests (the 2 new ones fail against the previous `index.html`/`app.js`), 673 backend tests (10 local Redis skips; the favicon test fails with 404 against the previous `app.py`), `ruff check .`, Vercel runtime smoke, evaluation baseline, 34 asset hashes and JavaScript syntax checks pass. The opt-in Playwright run was not repeated for this change.
+
 ## [2026-09-28 11:18 PT] — Homepage landmarks, tab semantics and a named sender input
 
 ### Why

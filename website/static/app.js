@@ -1015,8 +1015,8 @@ function renderResult(data) {
   riskSummary.innerHTML = `
     <div class="risk-pills">
       ${suspectPill}
-      <span class="pill pill-high">${h} high-risk</span>
-      <span class="pill pill-med">${m} medium-risk</span>
+      <span class="pill pill-high">${escapeHtml(h)} high-risk</span>
+      <span class="pill pill-med">${escapeHtml(m)} medium-risk</span>
     </div>
   `;
 
@@ -1027,7 +1027,7 @@ function renderResult(data) {
   if (riskIndicators.length > 0) {
     countEl.textContent = `(${riskIndicators.length})`;
     riskList.innerHTML = riskIndicators.map(r => `
-      <div class="risk-item risk-${r.level}">
+      <div class="risk-item risk-${escapeHtml(r.level)}">
         <span class="risk-dot"></span>
         <span class="risk-msg">${escapeHtml(r.msg)}</span>
       </div>
@@ -1081,7 +1081,7 @@ function renderScoreBreakdown(data) {
   box.hidden = !consistent || rows.length === 0;
   if (box.hidden) return;
   document.getElementById('score-breakdown-list').innerHTML = rows.map(row => `
-    <li class="sb-row sb-${row.level}">
+    <li class="sb-row sb-${escapeHtml(row.level)}">
       <span class="sb-points">+${row.points}</span>
       <span class="sb-msg">${escapeHtml(row.msg)}</span>
     </li>
@@ -1601,7 +1601,7 @@ function renderContentResult(data) {
         `<div class="ml-contribs-title">Top tokens driving the ML score</div>` +
         `<div class="ml-contribs-list">` +
         contribs.map(c =>
-          `<span class="ml-token" title="weighted contribution: ${c.contribution}">${escapeHtml(c.term)}</span>`
+          `<span class="ml-token" title="weighted contribution: ${escapeHtml(c.contribution)}">${escapeHtml(c.term)}</span>`
         ).join('') +
         `</div>`;
     } else {
@@ -1619,14 +1619,14 @@ function renderContentResult(data) {
     grid.innerHTML = `<div class="cat-empty">No suspicious keyword categories matched in this email.</div>`;
   } else {
     grid.innerHTML = data.category_results.map(cat => `
-      <div class="cat-card cat-${cat.level}">
+      <div class="cat-card cat-${escapeHtml(cat.level)}">
         <div class="cat-header">
           <span class="cat-icon icon-tile tile-${escapeHtml(cat.level)}">${icon(CATEGORY_ICONS[cat.key] || 'alert')}</span>
           <div class="cat-title-wrap">
             <div class="cat-title">${escapeHtml(cat.label)}</div>
-            <div class="cat-count">${cat.count} signal${cat.count > 1 ? 's' : ''} matched</div>
+            <div class="cat-count">${escapeHtml(cat.count)} signal${cat.count > 1 ? 's' : ''} matched</div>
           </div>
-          <span class="cat-level-badge level-${cat.level}">${cat.level}</span>
+          <span class="cat-level-badge level-${escapeHtml(cat.level)}">${escapeHtml(cat.level)}</span>
         </div>
         <div class="cat-desc">${escapeHtml(cat.description)}</div>
         <div class="cat-keywords">
@@ -1642,7 +1642,7 @@ function renderContentResult(data) {
   if (data.extra_indicators.length > 0) {
     extraCard.style.display = '';
     extraList.innerHTML = data.extra_indicators.map(ind => `
-      <div class="risk-item risk-${ind.level}">
+      <div class="risk-item risk-${escapeHtml(ind.level)}">
         <span class="risk-dot"></span>
         <span class="risk-msg">${escapeHtml(ind.msg)}</span>
       </div>

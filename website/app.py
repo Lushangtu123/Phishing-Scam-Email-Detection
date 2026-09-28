@@ -600,6 +600,12 @@ async def serve_index():
     return FileResponse(str(BASE_DIR / "static" / "index.html"))
 
 
+# Browsers request /favicon.ico regardless of the page's <link rel="icon">.
+@app.get("/favicon.ico", include_in_schema=False)
+async def serve_favicon():
+    return FileResponse(str(BASE_DIR / "static" / "favicon.svg"), media_type="image/svg+xml")
+
+
 @app.get("/health")
 async def health():
     """Liveness/readiness probe for deployments and load balancers."""
