@@ -9,10 +9,11 @@
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=40" />
+  <link rel="stylesheet" href="/static/style.css?v=41" />
   <script src="/static/vendor/chart/chart.umd.min.js?v=4.4.0" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"></script>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- Fluid ambient background: three slow-drifting colour fields -->
 <div class="bg-fluid" aria-hidden="true">
@@ -50,6 +51,8 @@
     </div>
   </div>
 </nav>
+
+<main id="main" tabindex="-1">
 
 <!-- ── Hero ────────────────────────────────────────────────────────────────── -->
 <section class="hero">
@@ -131,17 +134,17 @@
     </div>
 
     <!-- Tab Switcher -->
-    <div class="demo-tabs">
-      <button class="demo-tab active" id="tab-email-address" data-action="switch-tab" data-arg="email-address">
+    <div class="demo-tabs" role="tablist" aria-label="Analysis mode">
+      <button class="demo-tab active" id="tab-email-address" type="button" role="tab" aria-selected="true" aria-controls="panel-email-address" data-action="switch-tab" data-arg="email-address">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg> Email Address
       </button>
-      <button class="demo-tab" id="tab-email-content" data-action="switch-tab" data-arg="email-content">
+      <button class="demo-tab" id="tab-email-content" type="button" role="tab" aria-selected="false" aria-controls="panel-email-content" tabindex="-1" data-action="switch-tab" data-arg="email-content">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg> Email Content
       </button>
     </div>
 
     <!-- ── Tab 1: Email Address ─────────────────────────────────────────────── -->
-    <div class="tab-panel" id="panel-email-address">
+    <div class="tab-panel" id="panel-email-address" role="tabpanel" aria-labelledby="tab-email-address">
 
     <!-- Email Input -->
     <div class="email-input-card">
@@ -151,6 +154,7 @@
           <input
             type="text"
             id="email-input"
+            aria-label="Email address to analyze"
             aria-describedby="email-error"
             class="email-input"
             placeholder="Enter an email address, e.g. support@paypa1-verify.xyz"
@@ -234,7 +238,7 @@
         <!-- Col 1: Probability Bars + Risk Pills + Disposable Check -->
         <div class="result-col">
           <div class="col-card">
-            <h4 class="col-title">Heuristic Evidence</h4>
+            <h3 class="col-title">Heuristic Evidence</h3>
             <div class="prob-bars">
               <div class="prob-row">
                 <span class="prob-label phish-label">Risk</span>
@@ -249,7 +253,7 @@
 
           <!-- Disposable Check Card — always visible -->
           <div class="col-card disposable-check-card" id="disposable-check-card">
-            <h4 class="col-title">Mailbox Service Type</h4>
+            <h3 class="col-title">Mailbox Service Type</h3>
             <div class="disp-check-row" id="disp-check-row">
               <div class="disp-check-icon" id="disp-check-icon"></div>
               <div class="disp-check-body">
@@ -264,7 +268,7 @@
         <!-- Col 2: Risk Indicators + Sender History -->
         <div class="result-col">
           <div class="col-card">
-            <h4 class="col-title">Risk Indicators <span class="col-count" id="risk-count"></span></h4>
+            <h3 class="col-title">Risk Indicators <span class="col-count" id="risk-count"></span></h3>
             <div id="risk-indicators-list" class="risk-list">
               <div class="no-risk">No risk indicators found</div>
             </div>
@@ -272,7 +276,7 @@
 
           <!-- Deployment-local sender observation history -->
           <div class="col-card sender-history-card" id="sender-history-card">
-            <h4 class="col-title">Sender Observation History</h4>
+            <h3 class="col-title">Sender Observation History</h3>
             <div class="sender-history-row" id="sender-history-row">
               <div class="sender-history-icon" id="sender-history-icon"></div>
               <div class="sender-history-body">
@@ -286,7 +290,7 @@
         <!-- Col 3: Feature Breakdown -->
         <div class="result-col">
           <div class="col-card">
-            <h4 class="col-title">Most Relevant Sender Signals</h4>
+            <h3 class="col-title">Most Relevant Sender Signals</h3>
             <div id="feature-breakdown-list" class="feature-breakdown"></div>
           </div>
         </div>
@@ -295,7 +299,7 @@
 
       <!-- Email Authenticity Verification Card (full width: its step list is long) -->
       <div class="col-card verify-card-wide" id="verify-card">
-        <h4 class="col-title">Email Authenticity Verification</h4>
+        <h3 class="col-title">Email Authenticity Verification</h3>
         <p id="verify-error" class="request-error hidden" role="alert"></p>
         <div id="verification-local-notice" class="verify-idle hidden">
           <p class="verify-desc">Checking mailbox verification availability…</p>
@@ -445,7 +449,7 @@
     </div><!-- end panel-email-address -->
 
     <!-- ── Tab 2: Email Content ─────────────────────────────────────────────── -->
-    <div class="tab-panel hidden" id="panel-email-content">
+    <div class="tab-panel hidden" id="panel-email-content" role="tabpanel" aria-labelledby="tab-email-content">
 
       <div class="content-input-card">
         <div class="raw-email-upload-row file-dropzone" id="content-file-dropzone" tabindex="0" role="group" aria-label="Screenshot upload area" aria-describedby="content-drop-help">
@@ -582,7 +586,7 @@
         <!-- Extra Indicators + Safety Signals row -->
         <div class="content-bottom-row">
           <div class="col-card sender-history-card hidden" id="content-sender-history-card">
-            <h4 class="col-title">Sender Observation History</h4>
+            <h3 class="col-title">Sender Observation History</h3>
             <div class="sender-history-row" id="content-sender-history-row">
               <div class="sender-history-icon" id="content-sender-history-icon"></div>
               <div class="sender-history-body">
@@ -592,15 +596,15 @@
             </div>
           </div>
           <div class="col-card" id="content-extra-card" style="display:none">
-            <h4 class="col-title">Technical Indicators</h4>
+            <h3 class="col-title">Technical Indicators</h3>
             <div id="content-extra-list" class="risk-list"></div>
           </div>
           <div class="col-card" id="content-safety-card" style="display:none">
-            <h4 class="col-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg> Safety Signals Found</h4>
+            <h3 class="col-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg> Safety Signals Found</h3>
             <div id="content-safety-list" class="safety-list"></div>
           </div>
           <div class="col-card content-method-note">
-            <h4 class="col-title">About This Analysis</h4>
+            <h3 class="col-title">About This Analysis</h3>
             <p class="method-note-text">
               This analysis combines RFC 5322 headers, sender alignment, HTML links,
               attachments, and explainable content signals. When a validated text model
@@ -898,6 +902,8 @@
   </div>
 </section>
 
+</main>
+
 <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
 <footer class="footer">
   <div class="footer-inner">
@@ -910,19 +916,19 @@
       </div>
       <nav class="footer-cols" aria-label="Footer">
         <div class="footer-col">
-          <h4>Product</h4>
+          <h2>Product</h2>
           <a href="#demo">Live demo</a>
           <a href="#features">Sender signals</a>
           <a href="#about">How it works</a>
           <a href="#performance">Benchmark</a>
         </div>
         <div class="footer-col">
-          <h4>Analysts</h4>
+          <h2>Analysts</h2>
           <a class="case-login-link" href="https://phishguard-email-analyzer.vercel.app/cases">Case workspace</a>
           <a href="#disposable-info">Disposable email guide</a>
         </div>
         <div class="footer-col">
-          <h4>Project</h4>
+          <h2>Project</h2>
           <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection" target="_blank" rel="noopener">GitHub</a>
           <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection#readme" target="_blank" rel="noopener">Documentation</a>
           <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
@@ -966,7 +972,7 @@
 <script src="/static/file-intake.js?v=1"></script>
 <script src="/static/confirm-dialog.js?v=1"></script>
 <script src="/static/feedback.js?v=8"></script>
-<script src="/static/app.js?v=44"></script>
+<script src="/static/app.js?v=45"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>

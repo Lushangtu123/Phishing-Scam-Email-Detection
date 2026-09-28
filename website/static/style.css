@@ -831,7 +831,7 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 .footer-tagline { margin-top: 14px; max-width: 340px; font-size: 13px; line-height: 1.65; color: var(--text-muted); }
 .footer-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 .footer-col { display: flex; flex-direction: column; gap: 10px; }
-.footer-col h4 { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; }
+.footer-col h2 { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; }
 .footer-col a { font-size: 13.5px; color: var(--text-muted); width: fit-content; transition: color 0.2s; }
 .footer-col a:hover { color: var(--text); text-decoration: none; }
 .footer-bottom {
@@ -1628,3 +1628,12 @@ kbd {
 .drop-icon .ico { width: 22px; height: 22px; vertical-align: 0; }
 .file-dropzone.drag-active .drop-icon { transform: translateY(-2px) scale(1.06); }
 .raw-email-file { cursor: pointer; }
+
+/* ── Skip link ─────────────────────────────────────────────────────────────
+   Off-screen until focused by keyboard; sits above the sticky navbar. */
+.skip-link {
+  position: fixed; top: -64px; left: 16px; z-index: 200;
+  padding: 8px 14px; border-radius: 10px; font-weight: 600;
+  background: var(--accent); color: var(--on-accent); text-decoration: none;
+}
+.skip-link:focus { top: 12px; }

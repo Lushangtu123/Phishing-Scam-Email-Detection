@@ -26,6 +26,8 @@ class FakeElement {
   }
 
   scrollIntoView() {}
+  setAttribute(name, value) { (this.attributes ??= {})[name] = String(value); }
+  removeAttribute(name) { if (this.attributes) delete this.attributes[name]; }
   querySelector() { return null; }
   appendChild() {}
   focus() {}
@@ -610,6 +612,46 @@ test('every declared page action calls the handler its inline attribute used to 
   elements.get('email-input').listeners.keydown({ key: 'a' });
   elements.get('email-input').listeners.keydown({ key: 'Enter' });
   assert.deepEqual(calls, [['runEmailAnalysis']]);
+});
+
+test('demo tabs expose tab semantics and keep aria-selected in sync', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /<div class="demo-tabs" role="tablist" aria-label="[^"]+">/);
+  for (const name of ['email-address', 'email-content']) {
+    assert.match(html, new RegExp(`id="tab-${name}"[^>]*role="tab"[^>]*aria-controls="panel-${name}"`));
+    assert.match(html, new RegExp(`id="panel-${name}" role="tabpanel" aria-labelledby="tab-${name}"`));
+  }
+  assert.equal((html.match(/aria-selected="true"/g) || []).length, 1);
+
+  const tabs = { 'email-address': new FakeElement(), 'email-content': new FakeElement() };
+  tabs['email-address'].classList.add('active');
+  const document = {
+    addEventListener() {},
+    createElement: () => new FakeElement(),
+    getElementById: id => tabs[id.replace(/^tab-/, '')] ?? new FakeElement(),
+    querySelector: () => new FakeElement(),
+    querySelectorAll: selector => selector === '.demo-tab' ? Object.values(tabs) : [],
+  };
+  const { context } = loadFrontend({ document });
+  context.switchDemoTab('email-content');
+  assert.equal(tabs['email-content'].attributes['aria-selected'], 'true');
+  assert.equal('tabindex' in tabs['email-content'].attributes, false);
+  assert.equal(tabs['email-address'].attributes['aria-selected'], 'false');
+  assert.equal(tabs['email-address'].attributes.tabindex, '-1');
+});
+
+test('homepage has a skip link, a main landmark, a named sender input and ordered headings', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /<body>\s*<a class="skip-link" href="#main">/);
+  assert.equal((html.match(/<main id="main" tabindex="-1">/g) || []).length, 1);
+  assert.ok(html.indexOf('<main id="main"') < html.indexOf('id="demo"'));
+  assert.ok(html.indexOf('</main>') < html.indexOf('<footer'));
+  assert.match(html, /id="email-input"\s+aria-label="[^"]+"/);
+  const levels = [...html.matchAll(/<h([1-6])\b/g)].map(match => Number(match[1]));
+  levels.reduce((previous, level) => {
+    assert.ok(level <= previous + 1, `heading jumps from h${previous} to h${level}`);
+    return level;
+  }, 0);
 });
 
 test('narrow-screen section menu is wired to the collapsible link list', () => {

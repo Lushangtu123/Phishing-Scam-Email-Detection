@@ -275,6 +275,7 @@ function setRing(id, pct, color) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   setupPageActions();
+  setupDemoTabs();
   setupTheme();
   setupScrollReveal();
   setupCountUps();
@@ -312,6 +313,22 @@ function setupPageActions() {
   });
   document.getElementById('email-input').addEventListener('keydown', event => {
     if (event.key === 'Enter') runEmailAnalysis();
+  });
+}
+
+// Arrow/Home/End keys move between demo tabs (ARIA tab pattern).
+function setupDemoTabs() {
+  const tablist = document.querySelector('.demo-tabs');
+  if (!tablist) return;
+  tablist.addEventListener('keydown', event => {
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+    const index = tabs.indexOf(document.activeElement);
+    const target = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key];
+    if (index < 0 || target === undefined) return;
+    event.preventDefault();
+    const tab = tabs[(target + tabs.length) % tabs.length];
+    tab.focus();
+    switchDemoTab(tab.dataset.arg);
   });
 }
 
@@ -724,9 +741,15 @@ function switchDemoTab(tabName) {
   const tab = document.getElementById('tab-' + tabName);
   if (tab.classList.contains('active')) return;
   withViewTransition(() => {
-    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.demo-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+      t.setAttribute('tabindex', '-1');
+    });
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
     tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    tab.removeAttribute('tabindex');
     document.getElementById('panel-' + tabName).classList.remove('hidden');
   });
 }
@@ -1650,7 +1673,8 @@ function renderContentResult(data) {
 
 // ── Smooth Scroll & Navbar ────────────────────────────────────────────────────
 function setupSmoothScroll() {
-  document.querySelectorAll('a[href^="#"]').forEach(a => {
+  // The skip link keeps native behaviour so keyboard focus moves into <main>.
+  document.querySelectorAll('a[href^="#"]:not(.skip-link)').forEach(a => {
     a.addEventListener('click', e => {
       e.preventDefault();
       const target = document.querySelector(a.getAttribute('href'));

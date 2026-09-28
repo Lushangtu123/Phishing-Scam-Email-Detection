@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 11:18 PT] — Homepage landmarks, tab semantics and a named sender input
+
+### Why
+- An audit of the live homepage found the main sender input had no accessible name, the demo tabs exposed no selected state, there was no `<main>` landmark or skip link (the case workspace already had both), and headings jumped from `h2` to `h4` twice.
+
+### Files changed
+- `website/static/index.html` — add `aria-label` to `#email-input`; mark the demo switcher as `role="tablist"` with `role="tab"`, `aria-selected`, `aria-controls` and roving `tabindex`, and panels as `role="tabpanel"`; add a skip link and wrap page sections in `<main id="main" tabindex="-1">`; demo column titles `h4` → `h3` and footer column titles `h4` → `h2`.
+- `website/static/app.js` — `switchDemoTab` keeps `aria-selected`/`tabindex` in sync; new `setupDemoTabs` adds ArrowLeft/ArrowRight/Home/End navigation; `setupSmoothScroll` skips the skip link so focus moves into `<main>`.
+- `website/static/style.css` — skip-link styles; `.footer-col h4` → `.footer-col h2` (styles are class-scoped and margins are globally reset, so rendering is unchanged).
+- `website/static/index.html` (assets) — bump `style.css` to v41 and `app.js` to v45.
+- `website/static/app.test.mjs` — tests for tab markup and state sync, skip link, `<main>`, sender input name and heading order.
+
+### Effect
+- Browser audit on a local server: 0 unnamed form controls (was 1), 0 heading-level jumps (was 2), tabs report `aria-selected` true/false with the active tab focusable, ArrowRight moves focus and selection and wraps, and Tab → Enter on the skip link focuses `MAIN#main`.
+- Validation with both changes: 362 frontend tests (the 2 new ones fail on the previous markup), 672 backend tests (10 local Redis skips), `ruff check .`, 13 JavaScript syntax checks and 34 recognition-asset hashes pass. The opt-in browser run (Playwright 1.62.1, Chromium 151, macOS arm64) passes 17/17 checks with 0 external requests and unchanged visual metrics: exact QR sets 5/5, OCR texts 2/5, OCR URL sets 1/3 and 23/238 character edits.
+
 ## [2026-09-28 11:16 PT] — Remove script-src 'unsafe-inline' and the chart CDN from the page CSP
 
 ### Why
