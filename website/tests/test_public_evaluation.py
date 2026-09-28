@@ -12,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.evaluation_data import load_corpus
 from tools.evidence_attribution import EvidenceAttribution
+from tools.counterfactual_evidence import CounterfactualEvidence, FAMILIES
 from tools.evaluate_public_corpus import evaluate_corpus
 
 
@@ -97,6 +98,30 @@ class PublicEvaluationTests(unittest.TestCase):
         self.assertEqual(diagnosis['outcomes']['legitimate_alerted']['signals']['category.urgency'], 1)
         self.assertEqual(diagnosis['outcomes']['phishing_undetermined']['signals'],
                          {'analysis_failed': 1})
+        self.assertNotIn('Private attack text', json.dumps(diagnosis))
+
+    def test_optional_counterfactual_uses_included_baseline_alerts_only(self):
+        corpus = load_corpus(self.corpus([
+            self.row(), self.row(id='duplicate'),
+            self.row(id='phish', label='phishing', body='Private attack text'),
+        ]))
+        seen = []
+
+        def replay(row, family):
+            seen.append(family)
+            return {'risk_level': 'low'}
+
+        collector = CounterfactualEvidence(replay)
+        report = evaluate_corpus(corpus, lambda row: {'risk_level': 'high'}
+                                 if row['label'] == 'legitimate' else {'risk_level': 'unknown'},
+                                 model_sha256='a' * 64,
+                                 counterfactual_observer=collector.add)
+        diagnosis = collector.snapshot(report)
+        self.assertEqual(report['counts']['evaluated'], 2)
+        self.assertEqual(report['counts']['duplicates'], 1)
+        self.assertEqual(len(seen), len(FAMILIES))
+        self.assertEqual(diagnosis['baseline_outcomes']['legitimate_alerted'], 1)
+        self.assertEqual(diagnosis['baseline_outcomes']['phishing_undetermined'], 1)
         self.assertNotIn('Private attack text', json.dumps(diagnosis))
 
     def test_missing_provenance_invalid_labels_and_missing_files_fail_closed(self):

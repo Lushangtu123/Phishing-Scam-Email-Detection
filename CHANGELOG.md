@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 21:45 PT] — Add paired offline counterfactual alert diagnostics
+
+### Why
+- The attribution sidecar showed signal co-occurrence, but the Apple Core correction removed 30 misleading signals without changing any final verdict. The next investigation needs paired decision changes, including possible lost phishing alerts and newly undetermined outcomes.
+
+### Files changed
+- `website/tools/counterfactual_evidence.py` — replay baseline alerts with one fixed evidence family or targeted link rule removed at a time and aggregate transitions without message content or exceptions.
+- `website/tools/evaluate_public_corpus.py`, `website/tools/evaluate_serving_pipeline.py` — offer optional sidecars tied to the evaluated cohort and model, using the same included rows as the ordinary reports; return nonzero if a diagnostic replay fails.
+- `website/tests/test_counterfactual_evidence.py`, `website/tests/test_public_evaluation.py` — cover paired transitions, privacy, denominator integrity, independent sender/link removal and keyword-dependent pressure handling.
+- `README.md`, `docs/evaluation.md` — document commands, interpretation and the first paired public-corpus replay.
+
+### Effect
+- Baseline verdicts on both public cohorts are unchanged. Among 135 historical `hard_ham` alerts, removing sender analysis alone yields 22 nonalerts and 38 undetermined results; removing link-destination rules yields 4 and 15. The narrower display-mismatch replay yields 2 and 15, while removing the now-absent brand-lookalike signal changes none. These are overlapping diagnostic experiments, not combined accuracy gains.
+- On the separate 199-message pilot, removing the model would change 28 of 90 phishing alerts to nonalerts and 14 to undetermined. All seven replay variants completed without inference failures after fixing a keyword-registry shape error; no serving score, model or threshold changed.
+- Local validation: 661 backend tests pass with 10 local Redis integration skips. A two-row synthetic private-evaluator CLI smoke test produced matching cohort/model digests and zero replay failures.
+
 ## [2026-09-27 21:32 PT] — Exclude Apple Core newsletter labels from link lookalikes
 
 ### Why

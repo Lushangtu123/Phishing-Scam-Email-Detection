@@ -945,6 +945,15 @@ scoring, thresholds and comparison policy are unchanged. Keep the diagnostic
 beside the private input, outside version control. The public-corpus evaluator
 supports the same option; compare its normal report as before.
 
+Add `--counterfactual-output /absolute/private/path/counterfactual.json` to
+either evaluator to replay baseline alerts with one evidence family or targeted
+link rule removed at a time. The aggregate transitions show which removals
+would change an alert to a nonalert or an undetermined result, alongside the
+effect on detected phishing messages. The sidecar contains fixed family names
+and counts, not individual messages; overlapping transitions cannot be added
+together. See
+[the evaluation procedure](docs/evaluation.md#offline-counterfactual-alert-diagnostics).
+
 Exact repeats are excluded from metrics by default (`--duplicate-policy drop`).
 Use `--duplicate-policy error` to reject a cohort containing any exact duplicate.
 Identity is based on effective message content within its input mode: original

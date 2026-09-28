@@ -38,7 +38,8 @@ def _scoring_sha256() -> str:
 
 
 def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Corpus | None = None,
-                    evidence_observer: Callable[[str, str, dict | None], None] | None = None) -> dict:
+                    evidence_observer: Callable[[str, str, dict | None], None] | None = None,
+                    counterfactual_observer: Callable[[dict, str, str, dict | None], None] | None = None) -> dict:
     if not isinstance(model_sha256, str) or not re.fullmatch(r'[a-f0-9]{64}', model_sha256):
         raise ValueError('A full model SHA-256 is required')
     # Preflight all duplicate labels before any analysis; no partial reports on invalid cohorts.
@@ -94,6 +95,8 @@ def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Co
         })
         if evidence_observer is not None:
             evidence_observer(row['label'], decision, evidence)
+        if counterfactual_observer is not None:
+            counterfactual_observer(row, row['label'], decision, evidence)
     counts['evaluated'] = len(outcomes)
     counts['excluded'] = counts['duplicates'] + counts['overlap_exact'] + counts['overlap_template']
     grouped = {}
@@ -138,11 +141,14 @@ def main() -> None:
     parser.add_argument('--output', type=Path, help='Aggregate JSON report; defaults to stdout')
     parser.add_argument('--attribution-output', type=Path,
                         help='Optional aggregate signal counts, without message text or per-record details')
+    parser.add_argument('--counterfactual-output', type=Path,
+                        help='Optional aggregate alert transitions after one-family removal')
     args = parser.parse_args()
-    if args.attribution_output and any(args.attribution_output.resolve() == path.resolve()
-                                       for path in (args.manifest, args.reference_manifest, args.output)
-                                       if path is not None):
-        parser.error('Attribution output must differ from the input and evaluation report paths')
+    paths = [path.resolve() for path in (args.manifest, args.reference_manifest, args.output,
+                                        args.attribution_output, args.counterfactual_output)
+             if path is not None]
+    if len(paths) != len(set(paths)):
+        parser.error('Inputs, evaluation report and diagnostic outputs must use distinct paths')
     try:
         corpus = load_corpus(args.manifest)
         reference = load_corpus(args.reference_manifest) if args.reference_manifest else None
@@ -151,6 +157,7 @@ def main() -> None:
     from content_inference import load_content_pipeline_artifact
     from config import load_settings
     from tools.evidence_attribution import EvidenceAttribution
+    from tools.counterfactual_evidence import CounterfactualEvidence
     profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text())['env']
     evaluation_env = {**profile, 'TRUSTED_AUTHSERV_IDS': '', 'SENDER_HISTORY_ENABLED': 'false',
                       'EMAIL_VERIFICATION_ENABLED': 'false', 'CASE_MANAGEMENT_ENABLED': 'false'}
@@ -161,25 +168,32 @@ def main() -> None:
     pipeline = load_content_pipeline_artifact(PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_hash)
     try:
         attribution = EvidenceAttribution() if args.attribution_output else None
+        counterfactual = CounterfactualEvidence() if args.counterfactual_output else None
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
             report = evaluate_corpus(corpus, analyze_record, model_sha256=model_hash, reference=reference,
-                                     evidence_observer=attribution.add if attribution else None)
+                                     evidence_observer=attribution.add if attribution else None,
+                                     counterfactual_observer=counterfactual.add if counterfactual else None)
     except ValueError:
         parser.error('Corpus failed duplicate-label or model-integrity validation')
     metadata = _evaluation_metadata({'trusted_authserv_ids': [], 'observe_sender_history': False,
                                     'network_services_enabled': False})
     metadata['evaluator_sha256'] = hashlib.sha256(Path(__file__).read_bytes() +
-        (WEBSITE_DIR / 'tools/evaluation_data.py').read_bytes()).hexdigest()
+        (WEBSITE_DIR / 'tools/evaluation_data.py').read_bytes() +
+        (WEBSITE_DIR / 'tools/counterfactual_evidence.py').read_bytes()).hexdigest()
     report['reproducibility'] = metadata
     serialized = json.dumps(report, indent=2, sort_keys=True) + '\n'
     if attribution:
         args.attribution_output.write_text(json.dumps(attribution.snapshot(report), indent=2,
                                                 sort_keys=True) + '\n', encoding='utf-8')
+    if counterfactual:
+        args.counterfactual_output.write_text(json.dumps(counterfactual.snapshot(report),
+                                                   indent=2, sort_keys=True) + '\n', encoding='utf-8')
     if args.output:
         args.output.write_text(serialized, encoding='utf-8')
     else:
         print(serialized, end='')
-    if report['counts']['failures'] or not report['counts']['evaluated']:
+    if (report['counts']['failures'] or not report['counts']['evaluated']
+            or (counterfactual is not None and counterfactual.failure_count)):
         raise SystemExit(1)
 
 

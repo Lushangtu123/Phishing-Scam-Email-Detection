@@ -210,6 +210,7 @@ def evaluate_records(
     duplicate_policy: str = 'drop',
     configuration: dict | None = None,
     evidence_observer: Callable[[str, str, dict], None] | None = None,
+    counterfactual_observer: Callable[[dict, str, str, dict], None] | None = None,
 ) -> dict:
     """Run each row through the supplied serving analyzer and emit aggregates."""
     if not re.fullmatch(r'[0-9a-f]{64}', model_sha256):
@@ -263,6 +264,8 @@ def evaluate_records(
         })
         if evidence_observer is not None:
             evidence_observer(row['label'], decision, result)
+        if counterfactual_observer is not None:
+            counterfactual_observer(row, row['label'], decision, result)
         dates.append(row['received_at'])
     if not outcomes:
         raise ValueError('No evaluation rows were supplied')
@@ -388,9 +391,13 @@ def main() -> None:
                         help='Drop exact duplicates (default), or reject them; metadata conflicts always fail')
     parser.add_argument('--attribution-output', type=Path,
                         help='Optional aggregate signal counts; keep beside the private input')
+    parser.add_argument('--counterfactual-output', type=Path,
+                        help='Optional aggregate alert transitions after one-family removal')
     args = parser.parse_args()
-    if args.attribution_output and args.attribution_output.resolve() == args.input.resolve():
-        parser.error('Attribution output must differ from the input path')
+    paths = [path.resolve() for path in (args.input, args.attribution_output,
+                                        args.counterfactual_output) if path is not None]
+    if len(paths) != len(set(paths)):
+        parser.error('Input and diagnostic outputs must use distinct paths')
     trusted_ids = sorted({value.strip().lower() for value in args.trusted_authserv_id})
     if any(not re.fullmatch(r'[a-z0-9._-]{1,253}', value) for value in trusted_ids):
         parser.error('Trusted authentication service IDs must contain only ASCII letters, digits, dots, underscores or hyphens')
@@ -399,6 +406,7 @@ def main() -> None:
     from content_inference import load_content_pipeline_artifact
     from config import load_settings
     from tools.evidence_attribution import EvidenceAttribution
+    from tools.counterfactual_evidence import CounterfactualEvidence
 
     profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text(encoding='utf-8'))['env']
     evaluation_env = {**profile, 'TRUSTED_AUTHSERV_IDS': ','.join(trusted_ids),
@@ -417,16 +425,23 @@ def main() -> None:
     )
 
     attribution = EvidenceAttribution() if args.attribution_output else None
+    counterfactual = CounterfactualEvidence() if args.counterfactual_output else None
     with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
         report = evaluate_records(_jsonl_records(args.input), analyze_record,
                                   model_sha256=model_sha256, duplicate_policy=args.duplicate_policy,
                                   configuration=configuration,
-                                  evidence_observer=attribution.add if attribution else None)
+                                  evidence_observer=attribution.add if attribution else None,
+                                  counterfactual_observer=counterfactual.add if counterfactual else None)
     report['reproducibility'] = _evaluation_metadata(configuration)
     if attribution:
         args.attribution_output.write_text(json.dumps(attribution.snapshot(report), indent=2,
                                                 sort_keys=True) + '\n', encoding='utf-8')
+    if counterfactual:
+        args.counterfactual_output.write_text(json.dumps(counterfactual.snapshot(report),
+                                                   indent=2, sort_keys=True) + '\n', encoding='utf-8')
     print(json.dumps(report, indent=2, sort_keys=True))
+    if counterfactual and counterfactual.failure_count:
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

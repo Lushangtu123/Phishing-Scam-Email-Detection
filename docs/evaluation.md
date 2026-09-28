@@ -303,6 +303,60 @@ phishing/easy-ham pilot also remains at 90/100 phishing alerts, 2/99 legitimate
 alerts and 7/100 phishing undetermined. This is an explanation correction, not
 evidence of improved population accuracy.
 
+### Offline counterfactual alert diagnostics
+
+The optional counterfactual sidecar reruns **only baseline alerts** on the same
+local inputs and evaluation settings, suppressing one fixed evidence family or
+link rule at a time. It records how many alerts remain alerts, become nonalerts,
+become undetermined, or fail to replay. It does not change production behavior
+or put message text, addresses, URLs, record IDs, or exception text in the
+sidecar. A failed replay
+is counted and makes the CLI exit nonzero rather than silently accepting an
+incomplete diagnostic.
+
+```sh
+.venv/bin/python website/tools/evaluate_public_corpus.py \
+  --manifest .evaluation-data/public-pilot/manifest.json \
+  --output .evaluation-data/public-pilot/report.json \
+  --counterfactual-output .evaluation-data/public-pilot/counterfactual.json
+```
+
+The private serving evaluator accepts the same `--counterfactual-output` option
+alongside `--input`; keep its sidecar beside the private report. Both outputs
+carry the evaluated-cohort and model digests. Five family-level interventions
+remove sender analysis, outer-message structure scoring, link-destination rules,
+content keywords (including keyword-dependent credential pressure), or the
+content model. Two narrower interventions remove only `link.display_mismatch`
+or `link.brand_lookalike` evidence. Other content heuristics and URL-shortener
+scoring are not covered by a separate intervention. Removals can overlap: if
+two removals each change the same email, their counts must not be added. A
+transition on a historical label is a local diagnostic, not proof that removing
+that evidence would improve current-mail accuracy or be safe to deploy.
+
+The first paired replay kept all baseline decisions and cohort/model digests
+unchanged. Of 135 alerted historical `hard_ham` messages, one-at-a-time removal
+produced these transitions; the separate pilot column shows losses among its
+90 alerted phishing messages:
+
+| Removed evidence | `hard_ham` → nonalert | `hard_ham` → undetermined | Pilot phishing → nonalert / undetermined |
+| --- | ---: | ---: | ---: |
+| Sender analysis | 22 | 38 | 1 / 4 |
+| Outer-message structure | 6 | 4 | 0 / 1 |
+| Link destinations | 4 | 15 | 0 / 1 |
+| Display-domain mismatch | 2 | 15 | 0 / 0 |
+| Brand lookalike | 0 | 0 | 0 / 1 |
+| Content keywords | 5 | 8 | 0 / 0 |
+| Content model | 15 | 1 | 28 / 14 |
+
+All seven replays completed without failures. In the pilot, removing sender or
+outer-message structure also changed both of its two legitimate alerts to
+nonalerts. Those two counts refer to the *same* messages; neither is a safe
+production change without a fresh independent holdout. An undetermined result
+is not a correct nonalert, and the 2003 `hard_ham` cohort contains no phishing
+controls of its own. The brand-lookalike removal changes no `hard_ham` alert
+after the Apple Core correction; display-domain mismatch accounts for most of
+the link-family transitions, but 15 become undetermined rather than nonalerts.
+
 ## 2. Browser OCR and QR controls
 
 ```sh
