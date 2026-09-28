@@ -85,6 +85,10 @@ function clearRawEmail() {
   _rawReadPending = false;
   _rawEmailSource = '';
   _visualFile = null;
+  const enhanced = document.getElementById('content-enhanced-vision');
+  const semantics = document.getElementById('content-image-understanding');
+  if (enhanced) { enhanced.checked = false; enhanced.disabled = true; }
+  if (semantics) { semantics.checked = false; semantics.disabled = true; }
   window.PhishGuardVision?.cancel();
   document.getElementById('raw-email-file').value = '';
   document.getElementById('raw-email-status').textContent = '';
@@ -383,6 +387,11 @@ function setupInputEvents() {
   });
   document.getElementById('cancel-content-scan')?.addEventListener('click', invalidateContent);
   document.getElementById('content-ocr-language').addEventListener('change', invalidateContent);
+  document.getElementById('content-enhanced-vision')?.addEventListener('change', () => {
+    refreshEnhancedOptions();
+    invalidateContent();
+  });
+  document.getElementById('content-image-understanding')?.addEventListener('change', invalidateContent);
   const rawInput = document.getElementById('raw-email-file');
   if (rawInput) {
     rawInput.addEventListener('change', async event => {
@@ -391,6 +400,8 @@ function setupInputEvents() {
       const file = event.target.files?.[0];
       _rawEmailSource = '';
       _visualFile = null;
+      document.getElementById('content-enhanced-vision').checked = false;
+      document.getElementById('content-image-understanding').checked = false;
       _rawReadPending = !!file;
       ['content-subject', 'content-body'].forEach(id => {
         document.getElementById(id).disabled = !!file;
@@ -416,6 +427,7 @@ function setupInputEvents() {
         }
         _rawEmailSource = source;
         _visualFile = file || null;
+        refreshEnhancedOptions();
         document.getElementById('raw-email-status').textContent = file
           ? `${file.name} loaded — QR and text recognition will use the selected OCR language when you analyze. Manual fields are ignored.` : '';
       } catch (_error) {
@@ -437,8 +449,20 @@ let _verifyEmail = null;   // remember which email was last analyzed
 let _emailVerificationEnabled = false;
 let _publicConfig = {};
 
+function refreshEnhancedOptions() {
+  const enhanced = document.getElementById('content-enhanced-vision');
+  const semantics = document.getElementById('content-image-understanding');
+  const standaloneImage = !!_visualFile && !/\.eml$/i.test(_visualFile.name) && _visualFile.type !== 'message/rfc822';
+  enhanced.disabled = _publicConfig.enhanced_vision_enabled !== true || !standaloneImage;
+  if (enhanced.disabled) enhanced.checked = false;
+  semantics.disabled = enhanced.disabled || !enhanced.checked || _publicConfig.enhanced_vision_semantics_enabled !== true;
+  if (semantics.disabled) semantics.checked = false;
+}
+
 function applyPublicConfig(config) {
   _publicConfig = config;
+  document.getElementById('content-enhancement-options').hidden = config.enhanced_vision_enabled !== true;
+  refreshEnhancedOptions();
   document.querySelectorAll('.result-report').forEach(row => { row.hidden = config.feedback_enabled !== true; });
   const enabled = typeof config.domain_verification_enabled === 'boolean'
     ? config.domain_verification_enabled
@@ -1341,7 +1365,10 @@ async function runContentAnalysis() {
       document.getElementById('cancel-content-scan').hidden = false;
       const payload = await window.PhishGuardVision.recognize(_visualFile, message => {
         if (requestId === _contentRequestId) document.getElementById('visual-progress').textContent = message;
-      }, document.getElementById('content-ocr-language').value || 'eng');
+      }, document.getElementById('content-ocr-language').value || 'eng', {
+        enhance: _publicConfig.enhanced_vision_enabled === true && document.getElementById('content-enhanced-vision').checked === true,
+        includeSemantics: _publicConfig.enhanced_vision_semantics_enabled === true && document.getElementById('content-image-understanding').checked === true,
+      });
       if (requestId !== _contentRequestId) return;
       recognitionPayload = payload;
       data = await postJSON('/api/analyze-visual', payload);

@@ -14,11 +14,12 @@ window.PhishGuardVision = (() => {
     for (let i = 0; i < bytes.length; i += 8192) text += String.fromCharCode(...bytes.subarray(i, i + 8192));
     return btoa(text);
   }
-  async function recognize(file, onProgress = () => {}, language = 'eng') {
+  async function recognize(file, onProgress = () => {}, language = 'eng', options = {}) {
     cancel();
     if (!['eng', 'chi_sim', 'eng+chi_sim'].includes(language)) throw new Error('Choose a supported OCR language.');
     if (!file.size || file.size > MAX_BYTES) throw new Error('Choose a nonempty PNG, JPEG, WebP or EML file up to 2 MiB.');
     const kind = /\.eml$/i.test(file.name) || file.type === 'message/rfc822' ? 'eml' : 'image';
+    if (options.enhance === true && kind !== 'image') throw new Error('Enhanced recognition supports one standalone image.');
     // Register before the asynchronous file read, so clear/sign-out cancels reading too.
     let cancelled = false, worker, rejectWork, timer;
     const task = {stop() { cancelled = true; clearTimeout(timer); worker?.terminate(); rejectWork?.(new Error('Recognition cancelled.')); }};
@@ -41,7 +42,9 @@ window.PhishGuardVision = (() => {
         worker.postMessage({buffer, name: file.name, kind, language});
       });
       if (cancelled) throw new Error('Recognition cancelled.');
-      return {...result, ...(kind === 'eml' ? {eml_base64: base64(buffer)} : {})};
+      return {...result, ...(kind === 'eml' ? {eml_base64: base64(buffer)} : {}),
+        ...(options.enhance === true ? {enhancement: {image_base64: base64(buffer),
+          consent: true, include_semantics: options.includeSemantics === true}} : {})};
     } finally { clearTimeout(timer); worker?.terminate(); if (active === task) active = null; }
   }
   function render(target, analysis, originalFile = null) {
@@ -76,7 +79,9 @@ window.PhishGuardVision = (() => {
         picture.alt = `Original uploaded image: ${item.name}`;
         scroller.append(picture);
         details.append(node('summary', 'Original uploaded image — compare URL characters'),
-          node('p', 'This local preview is not sent to the analysis API or saved with a case.'), scroller);
+          node('p', analysis.enhancement
+            ? 'Enhanced recognition submitted this image for processing. This local preview and original image bytes are not saved with a case.'
+            : 'This local preview is not sent to the analysis API or saved with a case.'), scroller);
         section.append(details);
       }
       if (Number.isFinite(item.ocr_url_line_confidence))
@@ -92,6 +97,22 @@ window.PhishGuardVision = (() => {
       for (const payload of item.qr_payloads || []) section.append(node('strong', 'QR payload'), node('pre', payload));
       if (item.ocr_text) section.append(node('strong', 'Extracted text'), node('pre', item.ocr_text));
       for (const warning of [...new Set([...(item.warnings || []), ...(item.assessment_warnings || [])])]) section.append(node('p', warning));
+      target.append(section);
+    }
+    if (analysis.enhancement) {
+      const extra = analysis.enhancement, section = node('section', '');
+      section.append(node('h4', 'Additional image recognition'));
+      if (extra.status === 'available') {
+        section.append(node('p', `${extra.ocr.engine} ${extra.ocr.version} · Additional text, not independently verified`),
+          node('pre', extra.ocr.text));
+        if (extra.url_disagreement) section.append(node('strong', 'The extractors disagree on visible URLs. Compare both readings against the original image character by character.'));
+        if (extra.semantic.status === 'available') {
+          section.append(node('p', `${extra.semantic.model} · Model-generated observations; not a safety verdict`));
+          for (const observation of extra.semantic.observations) section.append(node('p', observation));
+          for (const url of extra.semantic.visible_urls) section.append(node('pre', url));
+        }
+      }
+      for (const warning of extra.warnings || []) section.append(node('p', warning));
       target.append(section);
     }
     for (const warning of analysis.warnings || []) target.append(node('p', warning));

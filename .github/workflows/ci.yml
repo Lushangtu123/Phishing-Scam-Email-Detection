@@ -94,3 +94,24 @@ jobs:
           node --check website/static/vision-worker.mjs
           node --check website/tools/vision-benchmark/harness.mjs
           node --check website/tools/vision-benchmark/metrics.mjs
+          node --check website/tools/vision-benchmark/evaluate-service.mjs
+          node --check website/tools/vision-benchmark/compare-engines.mjs
+
+  optional-vision:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: website/tools/enhanced_vision/requirements.txt
+      - name: Install optional local OCR dependencies
+        run: python -m pip install -r website/tools/enhanced_vision/requirements.txt
+      - name: Test actual local image decoder, provider boundary and OCR engine
+        run: python -m unittest website.tools.enhanced_vision.test_provider -v
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Test image engine comparison and local-only transport
+        run: node --test website/static/vision-engine-comparison.test.mjs

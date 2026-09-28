@@ -274,6 +274,8 @@ class VerificationFeatureGateTests(unittest.TestCase):
             "sender_history_available": False,
             "sender_history_configured": False,
             "full_version_local_only": True,
+            "enhanced_vision_enabled": False,
+            "enhanced_vision_semantics_enabled": False,
         })
 
     def test_public_config_distinguishes_local_disabled_and_enabled(self):

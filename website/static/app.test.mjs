@@ -79,6 +79,30 @@ test('public reporting actions follow the server availability flag', () => {
   assert.deepEqual(rows.map(row => row.hidden), [true, true]);
 });
 
+test('image understanding requires an enabled enhanced image upload', async () => {
+  const {context, elements} = loadFrontend();
+  context.setupInputEvents();
+  context.applyPublicConfig({enhanced_vision_enabled:true, enhanced_vision_semantics_enabled:true});
+  const enhanced = elements.get('content-enhanced-vision');
+  const semantics = elements.get('content-image-understanding');
+  assert.equal(enhanced.disabled, true);
+  assert.equal(semantics.disabled, true);
+  await elements.get('raw-email-file').listeners.change({target:{files:[{
+    name:'message.png', type:'image/png', size:1,
+    arrayBuffer:async()=>new Uint8Array([1]).buffer,
+  }]}});
+  assert.equal(enhanced.disabled, false);
+  assert.equal(semantics.disabled, true);
+  enhanced.checked = true;
+  enhanced.listeners.change();
+  assert.equal(semantics.disabled, false);
+  semantics.checked = true;
+  enhanced.checked = false;
+  enhanced.listeners.change();
+  assert.equal(semantics.checked, false);
+  assert.equal(semantics.disabled, true);
+});
+
 test('a pending score animation cannot overwrite a newer zero score', () => {
   let frames = [];
   const { context } = loadFrontend({

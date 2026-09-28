@@ -25,6 +25,35 @@ function setup() {
   return {api:window.PhishGuardVision,workers,created,revoked};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('image bytes are included only after explicit enhanced-recognition consent', async()=>{
+  for (const enhance of [false,true]) {
+    const {api,workers}=setup(), bytes=new Uint8Array([1,2,3]);
+    const promise=api.recognize({name:'test.png',size:3,arrayBuffer:async()=>bytes.buffer},()=>{},'eng',{enhance});
+    await tick();workers[0].onmessage({data:{result:{observations:[],warnings:[]}}});
+    const result=await promise;
+    assert.equal('enhancement' in result,enhance);
+    if (enhance) {
+      assert.equal(result.enhancement.consent,true);
+      assert.deepEqual(Buffer.from(result.enhancement.image_base64,'base64'),Buffer.from(bytes));
+      assert.equal(result.enhancement.include_semantics,false);
+    }
+  }
+});
+test('enhancement refuses EML before reading or transmitting original bytes',async()=>{
+  const {api}=setup();let read=false;
+  await assert.rejects(api.recognize({name:'test.eml',size:1,arrayBuffer:async()=>{read=true;}},()=>{},'eng',{enhance:true}),/standalone image/);
+  assert.equal(read,false);
+});
+test('additional model observations render as text without replacing browser OCR',()=>{
+  const {api}=setup(),root=new Element('section');
+  api.render(root,{observations:[{name:'image.png',status:'processed',ocr_confidence:90,ocr_text:'https://paypa1.example',qr_payloads:[],warnings:[]}],
+    enhancement:{status:'available',ocr:{engine:'RapidOCR',version:'test',text:'https://paypal.example'},url_disagreement:true,
+      semantic:{status:'available',model:'test',observations:['<script>bad()</script>'],visible_urls:['javascript:alert(1)']},warnings:[]}});
+  const walk=node=>[node,...node.children.flatMap(walk)],nodes=walk(root),text=nodes.map(n=>n.textContent).join(' ');
+  assert.match(text,/paypa1\.example/);assert.match(text,/paypal\.example/);assert.match(text,/disagree/);
+  assert.match(text,/not a safety verdict/);assert(nodes.some(n=>n.textContent==='<script>bad()</script>'));
+  assert(!nodes.some(n=>['a','script'].includes(n.tag)));
+});
 test('cancel while reading a file prevents the worker and result from appearing',async()=>{
   const {api,workers}=setup();let release;
   const promise=api.recognize({name:'test.png',size:1,arrayBuffer:()=>new Promise(resolve=>{release=resolve;})});

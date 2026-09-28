@@ -97,10 +97,41 @@ remain counted, but no model quality or failed risk-call rate is reported.
 Medium/high/critical maps to phishing, low/safe to benign, and all other levels to unknown.
 This threshold is explicit in the report and does not imply that low risk is safe.
 
+## Compare optional local OCR
+
+Start the optional [RapidOCR service](../enhanced_vision/README.md) on
+`127.0.0.1:8765`. Then evaluate the same hashed manifest as a browser-worker
+baseline and the service candidate. The service runner sends only to the fixed
+loopback address and does not fetch URLs named in images. For the repository's
+small synthetic integration controls, run:
+
+```sh
+node website/tools/vision-benchmark/evaluate-service.mjs \
+  --manifest website/tools/vision-benchmark/synthetic-manifest.json \
+  --image-root website/tests/fixtures/vision --service-port 8765 \
+  --output /tmp/rapidocr-vision.json
+node website/tools/vision-benchmark/compare-engines.mjs \
+  --baseline /tmp/browser-vision.json --candidate /tmp/rapidocr-vision.json \
+  --manifest website/tools/vision-benchmark/synthetic-manifest.json \
+  --output /tmp/vision-comparison.json
+```
+
+`/tmp/browser-vision.json` must be a report exported by the browser harness
+from **these same original images and exact manifest bytes**. The comparison
+rejects mismatched manifests and omitted records. It reports strict character
+error rate, exact visible-URL sets, failures, language groups and a proposed
+10-percentage-point improvement gate. The gate is diagnostic only;
+`adoption_ready` remains `false` until independently annotated, representative
+email screenshots, false positives and latency have been reviewed. Service
+OCR-only reports explicitly mark QR and risk assessment as **not evaluated**.
+The reports exclude raw OCR text and image bytes; comparison receipts still
+contain dataset IDs, digests and engine metadata.
+
 ## Regression checks
 
 ```sh
 node --test website/static/vision-benchmark.test.mjs
+node --test website/static/vision-engine-comparison.test.mjs
 python3 -m py_compile website/tools/vision-benchmark/serve.py
 python3 website/tools/vision-benchmark/test_server.py
 ```

@@ -1116,8 +1116,10 @@ original image. The displayed number is client-extracted evidence and does not
 change risk scoring or repair `1`/`l` lookalikes.
 In **Email Content**, for a directly uploaded image, expand **Original uploaded image** beside the
 result to inspect its characters at native resolution. The preview uses a
-temporary URL in the current browser only; the original image bytes are not
-included in the analysis request, saved case or feedback. Clearing or replacing
+temporary URL in the current browser only. By default, the original image bytes
+are not included in the analysis request, saved case or feedback. When the optional
+enhanced recognition checkbox is selected, the image bytes are submitted once to
+the configured image service; they are still not saved with a case. Clearing or replacing
 the result revokes that URL. Saved cases and EML-embedded images do not have a local preview.
 The browser extracts EML images with postal-mime. Results
 show each image's QR payloads, OCR text, OCR confidence and extraction warnings.
@@ -1149,6 +1151,32 @@ and marks browser extraction `browser_extracted_unverified`. Digests identify
 client-observed bytes; they do not authenticate OCR output. Server-produced risk
 cannot be overridden by client verdict fields. No image-safety guarantee is made,
 even when OCR/QR finds no indicators; visual submissions remain incomplete.
+
+### Optional enhanced image recognition
+
+An independent local [RapidOCR service](website/tools/enhanced_vision/README.md)
+can provide a second literal OCR reading of **one directly uploaded image**.
+The service is disabled by default. When enabled, the UI asks for explicit consent
+before submitting original image bytes. EML attachments, pasted remote URLs and
+the default browser path are unaffected. The additional OCR text, model-generated
+observations (when separately enabled), extractor identity, image digest and URL
+disagreement appear next to the original browser OCR/QR results. They do **not**
+change the risk verdict or replace the browser's literal text or QR payloads.
+They remain unverified evidence; users must compare important addresses with the
+original pixels. A service failure leaves browser findings intact.
+
+The image service and its ONNX dependencies are intentionally excluded from the
+Vercel runtime requirements. The production endpoint may only be configured with
+an HTTPS URL and server-side token. The local HTTP example is for development;
+the service itself binds only to `127.0.0.1`. Exposing it to a deployment requires
+a separately administered private HTTPS gateway. Do not configure a public
+image-upload destination without an appropriate privacy review.
+
+The [comparison CLI](website/tools/vision-benchmark/README.md) uses exact
+manifest hashes, OCR character error rate and literal URL sets. Existing five
+synthetic controls are diagnostic, not a measure of phishing accuracy or an
+adoption decision. QR and risk metrics are not evaluated by the additional
+OCR-only runner.
 
 Original EML bytes are decoded server-side with a shared 60,000-character text
 budget; truncation is reported. The UI never converts EML bytes through UTF-8

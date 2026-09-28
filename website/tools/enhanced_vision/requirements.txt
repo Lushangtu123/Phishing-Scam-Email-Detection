@@ -1,0 +1,5 @@
+# Optional local service only: never add these to the Vercel serving requirements.
+# RapidOCR 1.4.4 bundles PP-OCRv4 ONNX models; requests do not download models.
+rapidocr-onnxruntime==1.4.4
+onnxruntime==1.24.4
+Pillow==12.3.0

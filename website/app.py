@@ -56,6 +56,7 @@ from rate_limits import DisabledRateLimitStore, build_rate_limit_store
 from verification_runtime import BoundedExecutor
 from visual_evidence import (VisualRequest, VISUAL_PATHS, MAX_VISUAL_REQUEST_BYTES,
                              bound_message_text, merge_visual_findings)
+from enhanced_vision import load_enhanced_vision_settings, recognize_image, enhanced_evidence
 from language_coverage import (has_substantial_han_text as _has_substantial_han_text,
                                non_latin_script_segments)
 from sender_history import (
@@ -70,6 +71,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 BASE_DIR = Path(__file__).parent
 SETTINGS = load_settings()
+ENHANCED_VISION = load_enhanced_vision_settings()
 
 
 def load_content_pipeline_artifact(path: Path, expected_sha256: str) -> dict:
@@ -1422,6 +1424,8 @@ async def get_public_config():
         "feedback_enabled": (getattr(app.state, 'case_service', None) is not None
                              and not getattr(app.state, 'case_configuration_error', False)),
         "full_version_local_only": True,
+        "enhanced_vision_enabled": ENHANCED_VISION.enabled,
+        "enhanced_vision_semantics_enabled": ENHANCED_VISION.enabled and ENHANCED_VISION.semantics_enabled,
     })
 
 
@@ -3771,6 +3775,18 @@ async def safe_visual_validation(request, exc):
 
 async def _analyze_visual(payload, structure=None, *, observe_sender_history=True):
     raw = payload.eml_bytes()
+    enhancement = None
+    if payload.enhancement is not None:
+        if raw or len(payload.observations) != 1:
+            raise HTTPException(422, 'Enhanced recognition supports one standalone image')
+        try:
+            enhancement = await _run_analysis(recognize_image, ENHANCED_VISION,
+                                             payload.enhancement, payload.observations[0])
+        except HTTPException as exc:
+            if exc.status_code != 502:
+                raise
+            enhancement = {'status': 'unavailable', 'warnings': [
+                'Enhanced recognition failed; browser OCR and QR results were retained.']}
     if structure is None and raw is not None:
         structure = bound_message_text(await _run_analysis(analyze_raw_email, raw,
             trusted_authserv_ids=SETTINGS.trusted_authserv_ids))
@@ -3790,7 +3806,11 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
         )).body)
         findings.append(finding)
     base['input_mode'] = 'raw-email' if raw else 'image-evidence'
-    return JSONResponse(merge_visual_findings(base, payload.observations, findings, payload.warnings))
+    merged = merge_visual_findings(base, payload.observations, findings, payload.warnings)
+    if enhancement is not None:
+        merged['visual_analysis']['enhancement'] = (enhancement if isinstance(enhancement, dict)
+            else enhanced_evidence(enhancement, payload.observations[0]))
+    return JSONResponse(merged)
 
 
 # ── Email Authenticity Verification ──────────────────────────────────────────

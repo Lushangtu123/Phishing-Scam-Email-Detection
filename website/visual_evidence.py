@@ -4,7 +4,7 @@ import binascii
 from typing import Annotated, Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 MAX_VISUAL_REQUEST_BYTES = 3 * 1024 * 1024
 MAX_VISUAL_FILE_BYTES = 2 * 1024 * 1024
@@ -26,6 +26,29 @@ class VisualObservation(BaseModel):
     warnings: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=6)
 
 
+class VisualEnhancement(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    image_base64: str = Field(min_length=1, max_length=2796204)
+    consent: Literal[True]
+    include_semantics: StrictBool = False
+
+    @field_validator('consent', mode='before')
+    @classmethod
+    def explicit_consent(cls, value):
+        if value is not True:
+            raise ValueError('Explicit image processing consent is required')
+        return value
+
+    def image_bytes(self):
+        try:
+            raw = base64.b64decode(self.image_base64, validate=True)
+        except (ValueError, binascii.Error):
+            raise HTTPException(422, 'Invalid image input') from None
+        if not raw or len(raw) > MAX_VISUAL_FILE_BYTES:
+            raise HTTPException(413, 'Choose a nonempty image up to 2 MiB')
+        return raw
+
+
 class VisualRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     subject: str = Field(default='', max_length=500)
@@ -33,6 +56,7 @@ class VisualRequest(BaseModel):
     eml_base64: str = Field(default='', max_length=2796204)
     observations: list[VisualObservation] = Field(default_factory=list, max_length=4)
     warnings: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=8)
+    enhancement: VisualEnhancement | None = None
 
     def eml_bytes(self):
         if not self.eml_base64:

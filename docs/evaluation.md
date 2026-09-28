@@ -289,6 +289,31 @@ recognizer's own output as ground truth. Public QR datasets whose URL mappings o
 rights have not been verified are not bundled. Target 30 or more independently
 labeled screenshots and 30 QR images in the next evidence-collection stage.
 
+### Optional RapidOCR pilot (2026-09-27)
+
+The separately installed `rapidocr-onnxruntime==1.4.4`/PP-OCRv4 service was
+run on the **same five synthetic controls**, with the same manifest SHA-256
+`c29a546fdc22d9839e8173e3e4d887b39d89fbab5eb1b0f4924fe4c5dc7705d8`.
+The existing browser Tesseract report had 1/3 exact visible-URL sets and
+23/238 character edits (CER 9.66%); RapidOCR had 2/3 and 4/238 (CER 1.68%).
+Both processed 5/5 images. The proposed 10-percentage-point URL gate passed
+on this tiny set, but `adoption_ready` remains false. No QR or risk result is
+claimed for the additional OCR service. The comparison uses exact manifest
+hashes and scores all records, including failures. See the
+[reproduction commands](../website/tools/vision-benchmark/README.md#compare-optional-local-ocr).
+
+As a separate out-of-domain diagnostic, both engines were run against the
+previously pinned 30-image SROIE test sample: the same manifest SHA-256
+`cc77ec0e08a890c14bd54d36f182a8411451dce73568b20dcf70d1d50f396e6f`
+and strict case/punctuation-preserving token-multiset scoring. Each completed
+27/30 images. Browser Tesseract matched 1535/3587 reference tokens (F1 0.420);
+RapidOCR matched 1060/3587 (F1 0.363). RapidOCR therefore did **not** improve
+this broader text diagnostic. Receipts are not email screenshots; token order
+is ignored and neither test estimates phishing detection accuracy. Keep the
+existing browser OCR as the default until a representative, independently
+annotated screenshot holdout establishes a consistent URL gain without
+coverage, false-alert or resource regressions.
+
 Optional risk assessment reports unavailable and undetermined outputs explicitly.
 The external local backend's configuration/model identity is not attested by the
 harness. Record how that backend was started; extraction-only reports are the

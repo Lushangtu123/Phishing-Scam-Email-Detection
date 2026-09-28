@@ -468,6 +468,12 @@
         <div class="content-input-subject-row">
           <label class="content-label" for="content-ocr-language">Image text language (OCR)</label>
           <select id="content-ocr-language" class="ocr-language-select" aria-describedby="content-ocr-help"><option value="eng">English</option><option value="chi_sim">简体中文 · Simplified Chinese</option><option value="eng+chi_sim">中英混合 · English + Chinese</option></select>
+          <div id="content-enhancement-options" hidden>
+            <label><input type="checkbox" id="content-enhanced-vision" disabled> Enhanced recognition — I agree to send this image to the configured image-processing service.</label>
+            <p>Optional, for one PNG/JPEG/WebP image. Original image bytes are not saved with a case. Browser OCR and QR results remain available for comparison.</p>
+            <label><input type="checkbox" id="content-image-understanding" disabled> Also request model-generated image observations.</label>
+            <p>Additional readings can be wrong. They do not change the risk verdict; verify website addresses against the original image.</p>
+          </div>
           <p id="content-ocr-help" class="raw-email-status">Choose the language visible in the image. English avoids unrelated Chinese characters in English screenshots. Use mixed mode for bilingual images; always check extracted text.</p>
         </div>
         <div class="content-input-subject-row">
@@ -966,11 +972,11 @@
     <div class="feedback-actions"><button type="button" id="feedback-cancel" class="btn-ghost">Cancel</button><button type="button" id="feedback-new-report" class="btn btn-primary" hidden>Start new report</button><button type="submit" id="feedback-submit" class="btn btn-primary">Submit report</button></div>
   </form>
 </dialog>
-<script src="/static/vision.js?v=6"></script>
+<script src="/static/vision.js?v=7"></script>
 <script src="/static/file-intake.js?v=1"></script>
 <script src="/static/confirm-dialog.js?v=1"></script>
 <script src="/static/feedback.js?v=8"></script>
-<script src="/static/app.js?v=42"></script>
+<script src="/static/app.js?v=43"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
