@@ -557,6 +557,29 @@ test('scripts are same-origin and the vendored chart library matches its integri
   assert.equal(`sha384-${createHash('sha384').update(bytes).digest('base64')}`, chart[2]);
 });
 
+test('the hidden clear control leaves the tab order and is a usable touch target when shown', () => {
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  const hidden = css.match(/\n\.btn-clear \{([^}]*)\}/)[1];
+  const shown = css.match(/\n\.btn-clear\.visible \{([^}]*)\}/)[1];
+  assert.match(hidden, /visibility:\s*hidden/);
+  assert.match(shown, /visibility:\s*visible/);
+  assert.match(hidden, /min-height:\s*(4[4-9]|[5-9]\d)px/);
+});
+
+test('light-theme section eyebrows meet WCAG AA text contrast on the page background', () => {
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  const light = css.match(/:root\[data-theme="light"\] \{([^}]*)\}/)[1];
+  const background = light.match(/--bg:\s*(#[0-9a-f]{6})/i)[1];
+  const eyebrow = css.match(/:root\[data-theme="light"\] \.section-eyebrow \{ color: (#[0-9a-f]{6}); \}/i)[1];
+  const luminance = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [hi, lo] = [luminance(background), luminance(eyebrow)].sort((a, b) => b - a);
+  assert.ok((hi + 0.05) / (lo + 0.05) >= 4.5, `${eyebrow} on ${background}`);
+});
+
 test('homepage has no inline scripts or inline event handlers', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/);

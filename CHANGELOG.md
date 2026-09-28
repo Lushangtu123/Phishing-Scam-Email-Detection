@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 12:13 PT] — Keyboard-safe clear control, eyebrow contrast and a visible sign-in h1
+
+### Why
+- A live audit found that Tab from the empty sender input landed on the invisible clear button (`opacity: 0` hid it from sight and pointer, not from focus), which was also only 47×17 px when shown.
+- Light-theme section eyebrows (`#0a7fd6` on `#f4f6fb`, 13.5 px) measured 3.87:1, below the 4.5:1 AA text minimum.
+- The signed-out `/cases` view had no `h1`; the workspace `h1` exists only after sign-in, and the intro column is `display: none` at ≤680 px.
+
+### Files changed
+- `website/static/style.css` — `.btn-clear` adds `visibility: hidden` (flipped after the fade) and a 44 px minimum target; light-theme `.section-eyebrow` uses `#0a6fbd` (4.83:1).
+- `website/static/cases.html`, `website/static/cases.css` — "Analyst sign in" becomes the page `h1` and the intro tagline a styled paragraph, both with their previous computed styles; bump `cases.css` to v15.
+- `website/static/index.html` — bump `style.css` to v42.
+- `website/static/app.test.mjs`, `website/static/cases.test.mjs` — tests for the clear control's hidden state and target size, the eyebrow contrast computed from `style.css`, and a single `h1` in the always-visible sign-in panel.
+
+### Effect
+- Local Chromium: Tab from the empty input goes to Analyze; after typing, Tab focuses the visible clear button (47×44 px, 2 px focus ring). The sender input row stays 50 px tall, as in production.
+- At 1280 px the tagline and sign-in heading match production computed styles and boxes exactly (51.2 px/620/−2 px at 301×109; 25 px/620/−0.35 px at 350×34); at 375 px the only visible heading is `H1: Analyst sign in`.
+- Validation: 367 frontend tests (the 3 new ones fail against the previous files) and 675 backend tests (10 local Redis skips) pass, with `ruff check .`, Vercel runtime smoke, evaluation baseline, 34 asset hashes and JavaScript syntax checks.
+
 ## [2026-09-28 12:11 PT] — Defer Chart.js and let browsers reuse versioned static files
 
 ### Why

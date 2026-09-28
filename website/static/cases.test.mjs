@@ -931,3 +931,16 @@ test('an old feedback overview cannot overwrite a newer refresh or a signed-out 
   assert.equal(ui.el('feedback-overview-status').textContent,'');
   assert.equal(ui.el('feedback-open-count').textContent,'—');
 });
+
+test('the signed-out view has its own h1 and headings do not skip a level', () => {
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  const login = html.slice(html.indexOf('<section id="login-panel"'), html.indexOf('</section>', html.indexOf('<section id="login-panel"')));
+  const levels = [...login.matchAll(/<h([1-6])\b/g)].map(match => Number(match[1]));
+  assert.equal(levels[0], 1, 'first heading in the login view is h1');
+  assert.equal(levels.filter(level => level === 1).length, 1);
+  // The intro column is display:none at <=680px, so the h1 must live in the always-visible form panel.
+  const intro = login.slice(login.indexOf('class="login-intro"'), login.indexOf('class="login-form-panel"'));
+  assert.doesNotMatch(intro, /<h[1-6]\b/);
+  assert.match(login.slice(login.indexOf('class="login-form-panel"')), /<h1>Analyst sign in<\/h1>/);
+  levels.reduce((previous, level) => { assert.ok(level <= previous + 1, `h${previous} -> h${level}`); return level; }, 0);
+});

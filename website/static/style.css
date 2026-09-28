@@ -344,9 +344,11 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 .btn-clear {
   background: none; border: none; color: var(--text-dim); cursor: pointer;
   padding: 0 16px; font-size: 13px; opacity: 0; pointer-events: none;
-  transition: opacity 0.2s, color 0.2s;
+  min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  /* Hidden clear control must leave the tab order too; visibility flips after the fade. */
+  visibility: hidden; transition: opacity 0.2s, color 0.2s, visibility 0s linear 0.2s;
 }
-.btn-clear.visible { opacity: 1; pointer-events: auto; }
+.btn-clear.visible { opacity: 1; pointer-events: auto; visibility: visible; transition-delay: 0s; }
 .btn-clear .ico { width: 15px; height: 15px; vertical-align: -0.15em; }
 .safety-dot .ico { width: 15px; height: 15px; vertical-align: -0.2em; }
 .col-title .ico { width: 14px; height: 14px; vertical-align: 0; color: var(--accent2); }
@@ -1365,6 +1367,8 @@ kbd {
   background: linear-gradient(180deg, rgba(15,23,42,0) 0%, rgba(15,23,42,0.025) 12%, rgba(15,23,42,0.025) 88%, rgba(15,23,42,0) 100%);
 }
 :root[data-theme="light"] .gradient-text { background-image: linear-gradient(100deg, #0a7fd6 0%, #2aa6f2 30%, #5b5fe6 62%, #159a63 100%); }
+/* #0a6fbd keeps the small eyebrow at 4.8:1 on the light page (the accent is 3.9:1). */
+:root[data-theme="light"] .section-eyebrow { color: #0a6fbd; }
 :root[data-theme="light"] .btn-primary { color: #ffffff; background: linear-gradient(135deg, #2aa6f2 0%, #0a7fd6 45%, #5b5fe6 100%); box-shadow: 0 10px 30px rgba(10,127,214,0.25); }
 :root[data-theme="light"] .brand-mark { color: #ffffff; }
 :root[data-theme="light"] .orb { opacity: 0.42; }
