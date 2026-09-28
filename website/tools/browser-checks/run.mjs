@@ -209,6 +209,43 @@ try {
     validateVisual(data, ['https://paypa1.example/login']);
     assert.equal(data.visual_analysis.observations.length, 2);
   });
+  await check('real visual API keeps OCR and QR phrases independent', async () => {
+    async function analyze(ocr_text, qr_payloads) {
+      const response = await context.request.post(appURL + '/api/analyze-visual', {data: {observations: [{
+        name: 'source-boundary-control.png', mime_type: 'image/png', source: 'upload', sha256: 'a'.repeat(64),
+        status: 'processed', ocr_text, qr_payloads, ocr_confidence: 90, warnings: [],
+      }]}});
+      assert.equal(response.status(), 200);
+      return response.json();
+    }
+    const isolated = await analyze('', ['enter your password. Urgent account suspended.']);
+    const negation = await analyze('Do not', ['enter your password. Urgent account suspended.']);
+    assert.equal(negation.risk_level, isolated.risk_level, 'A separate caption cannot negate the QR request');
+    assert(['high', 'critical'].includes(negation.risk_level));
+    const split = await analyze('Urgent account suspended. Enter your', ['password']);
+    assert(!['medium', 'high', 'critical'].includes(split.risk_level), 'Independent sources must not create a credential phrase');
+    const complete = await analyze('Urgent account suspended. Enter your password', []);
+    assert(['high', 'critical'].includes(complete.risk_level), 'A complete single-source request remains detected');
+    const record = negation.visual_analysis.observations[0];
+    assert.equal(record.assessment_method, 'independent-source-max');
+    assert.equal(record.assessed_source_count, 2);
+    assert.equal(record.ocr_text, 'Do not');
+    assert.deepEqual(record.qr_payloads, ['enter your password. Urgent account suspended.']);
+    summary.visual_source_boundary = {qr_negation_blocked: true, cross_source_phrase_blocked: true,
+      single_source_risk_retained: true, original_text_retained: true};
+  });
+  await check('independent MIME HTML parts cannot hide a later QR image', async () => {
+    const qr = (await readFile(path.join(fixtureDir, 'synthetic-qr.png'))).toString('base64');
+    const raw = ['MIME-Version: 1.0', 'Content-Type: multipart/alternative; boundary="part-isolation"', '',
+      '--part-isolation', 'Content-Type: text/html', '', '<script>unclosed example',
+      '--part-isolation', 'Content-Type: text/html', '', `<img src="data:image/png;base64,${qr}">`,
+      '--part-isolation--', ''].join('\r\n');
+    const evidence = await page.evaluate(async raw => window.PhishGuardVision.recognize(
+      new File([raw], 'part-isolation.eml', {type: 'message/rfc822'})), raw);
+    assert.equal(evidence.observations.length, 1, 'A separate MIME part must start a fresh HTML parser');
+    assert.deepEqual(evidence.observations[0].qr_payloads, ['https://paypa1.example/login']);
+    summary.mime_part_isolation = {later_image_retained: true, exact_qr: true};
+  });
   await check('HTML resource context excludes inert QR decoys and retains Outlook image candidates', async () => {
     const benign = (await readFile(path.join(fixtureDir, 'synthetic-benign.png'))).toString('base64');
     const qr = (await readFile(path.join(fixtureDir, 'synthetic-qr.png'))).toString('base64');

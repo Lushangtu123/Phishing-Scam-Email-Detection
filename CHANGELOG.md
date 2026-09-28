@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 09:25 PT] — Preserve independent MIME and visual text boundaries
+
+### Why
+- Joined HTML let unclosed markup in one MIME part hide a later part's image. Concatenated OCR and QR strings could create a credential request across sources or allow a separate caption to negate a dangerous QR request.
+
+### Files changed
+- `website/static/vision-email.mjs`, `website/static/vision-email-parts.test.mjs` — parse decoded HTML parts independently with shared part/text limits, preserve image budgets and test MIME boundaries, encoding and parser metadata failures.
+- `website/app.py`, `website/visual_evidence.py`, `website/tests/test_visual_analysis.py` — assess OCR and distinct QR payloads separately; retain the strongest individual risk, maximum rule/model scores and explanatory findings without cross-source score accumulation.
+- `website/static/vision.js`, `website/static/vision-ui.test.mjs` — label the highest individual model score and refresh the worker version.
+- `website/tools/browser-checks/run.mjs`, `website/tools/browser-checks/README.md`, `README.md`, `docs/evaluation.md` — add actual worker/API controls and document limits and evidence.
+
+### Effect
+- The later MIME part's QR is now recovered where the browser previously produced zero observations. Across OCR-to-QR and QR-to-QR controls, separate negation cannot lower a dangerous request and phrase fragments cannot manufacture a new credential request; complete single-source sentences retain their behavior.
+- Validation: 288 frontend tests and 15 Chromium integration checks pass. The 671-test backend suite passes with 10 local Redis integration skips. The fixed five-image visual comparison passes with unchanged 5/5 exact QR sets, 2/5 exact OCR texts, 1/3 exact OCR URL sets and 23/238 character edits.
+- Requests remain bounded to at most 36 nonempty extracted sources. Two local synthetic runs using the pinned model took 87.2 and 82.4 ms at that maximum; this is not a production latency guarantee. The corrections do not repair OCR spelling or establish real-mail accuracy.
+
 ## [2026-09-27 23:02 PT] — Extract HTML image evidence from resource contexts
 
 ### Why

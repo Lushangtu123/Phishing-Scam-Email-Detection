@@ -30,7 +30,7 @@ window.PhishGuardVision = (() => {
       if (!buffer.byteLength || buffer.byteLength > MAX_BYTES) throw new Error('File exceeds the 2 MiB limit.');
       const result = await new Promise((resolve, reject) => {
         rejectWork = reject;
-        worker = new Worker('/static/vision-worker.mjs?v=7', {type: 'module'});
+        worker = new Worker('/static/vision-worker.mjs?v=8', {type: 'module'});
         timer = setTimeout(() => { worker.terminate(); reject(new Error('Recognition timed out. Try a smaller image.')); }, 150000);
         worker.onerror = () => reject(new Error('Recognition could not start. Reload the page or try a supported browser.'));
         worker.onmessage = ({data}) => {
@@ -87,7 +87,9 @@ window.PhishGuardVision = (() => {
       if (Number.isFinite(item.ocr_url_line_confidence))
         section.append(node('p', `URL-like line OCR confidence: ${Math.round(item.ocr_url_line_confidence)}%. Compare the address character by character with the original image; this score does not verify its spelling.`));
       if (item.ml_status === 'available' && Number.isFinite(item.ml_phishing_probability)) {
-        section.append(node('p', `Extracted-text model score: ${item.ml_phishing_probability}% phishing risk. Risk assessment also uses rule and link evidence.`));
+        const label = item.assessment_method === 'independent-source-max' && item.assessed_source_count > 1
+          ? 'Highest extracted-source model score' : 'Extracted-text model score';
+        section.append(node('p', `${label}: ${item.ml_phishing_probability}% phishing risk. Risk assessment also uses rule and link evidence.`));
       } else {
         const reason = {insufficient_context:'Too little readable text for the extracted-text model.',
           insufficient_feature_coverage:'The extracted text has insufficient model coverage.',

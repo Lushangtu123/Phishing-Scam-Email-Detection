@@ -101,6 +101,115 @@ class VisualAPITests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(data['risk_level'], {'high', 'critical'})
 
+    def test_independent_visual_sources_cannot_negate_a_dangerous_qr(self):
+        dangerous = 'enter your password. Urgent account suspended.'
+        for ocr, qr in [('Do not', [dangerous]),
+                        ('', ['Do not', dangerous])]:
+            with self.subTest(ocr=ocr, qr=qr):
+                _, data, _ = self.call({'observations': [observation(
+                    ocr_text=ocr, qr_payloads=qr)]})
+                self.assertEqual(data['risk_level'], 'high')
+                self.assertTrue(any('Direct credential request' in item['msg']
+                                    for item in data['extra_indicators']))
+                record = data['visual_analysis']['observations'][0]
+                self.assertEqual(record['ocr_text'], ocr)
+                self.assertEqual(record['qr_payloads'], qr)
+
+    def test_independent_visual_sources_cannot_create_a_credential_request(self):
+        prefix = 'Urgent account suspended. Enter your'
+        for ocr, qr in [(prefix, ['password']),
+                        ('', [prefix, 'password'])]:
+            with self.subTest(ocr=ocr, qr=qr):
+                _, data, _ = self.call({'observations': [observation(
+                    ocr_text=ocr, qr_payloads=qr)]})
+                self.assertNotIn(data['risk_level'], {'high', 'critical'})
+                self.assertFalse(any('Direct credential request' in item['msg']
+                                     for item in data['extra_indicators']))
+                record = data['visual_analysis']['observations'][0]
+                self.assertFalse(any('enter your password' in cat['matched']
+                                     for cat in record['categories']))
+
+    def test_visual_source_boundaries_preserve_complete_positive_and_negative_sentences(self):
+        for text, expected in [
+            ('Urgent account suspended. Enter your password.', 'high'),
+            ('Urgent account suspended. Do not enter your password.', 'low'),
+        ]:
+            for ocr, qr in [(text, []), ('', [text])]:
+                with self.subTest(text=text, qr=qr):
+                    _, data, _ = self.call({'observations': [observation(
+                        ocr_text=ocr, qr_payloads=qr)]})
+                    self.assertEqual(data['risk_level'], expected)
+
+    def test_visual_sources_retain_distinct_findings_without_adding_scores(self):
+        _, data, _ = self.call({'observations': [observation(
+            ocr_text='Urgent immediately', qr_payloads=['asap deadline'])]})
+        record = data['visual_analysis']['observations'][0]
+        category = next(cat for cat in record['categories'] if cat['key'] == 'urgency')
+        self.assertEqual(set(category['matched']), {'urgent', 'immediately', 'asap', 'deadline'})
+        self.assertEqual(category['score'], 2)
+        self.assertEqual(data['total_score'], 2)
+        self.assertEqual(data['risk_level'], 'low')
+        self.assertEqual(record['assessment_method'], 'independent-source-max')
+        self.assertEqual(record['assessed_source_count'], 2)
+
+        _, data, _ = self.call({'observations': [observation(
+            ocr_text='Please review the document.',
+            qr_payloads=['https://paypa1.example/login', 'https://paypa1.example/login'])]})
+        self.assertTrue(any(item.get('rule_id') == 'link.brand_lookalike'
+                            for item in data['extra_indicators']))
+        record = data['visual_analysis']['observations'][0]
+        self.assertEqual(record['assessed_source_count'], 2)
+        self.assertEqual(len([item for item in record['indicators']
+                              if item.get('rule_id') == 'link.brand_lookalike']), 1)
+
+    def test_visual_model_scores_each_source_separately_and_retains_highest_probability(self):
+        caption = 'Team meeting agenda for next Thursday.'
+        qr = 'Review the attached document before tomorrow.'
+        seen = []
+
+        def predict(pipeline, subject, body, *, canonical_text):
+            seen.append(body)
+            probability = 0.94 if body == qr else 0.03
+            return {'_phishing_probability': probability, 'ml_status': 'available',
+                    'ml_phishing_probability': probability * 100,
+                    'ml_legitimate_probability': (1 - probability) * 100,
+                    'ml_label': 'Likely Phishing' if probability > 0.5 else 'Likely Legitimate'}
+
+        with patch.object(app, '_content_pipeline', {'metrics': {}, 'decision_threshold': 0.5}), \
+                patch.object(app, 'predict_content', side_effect=predict):
+            _, data, _ = self.call({'observations': [observation(
+                ocr_text=caption, qr_payloads=[qr, '', qr, '  '])]})
+        self.assertEqual(seen, ['', caption, qr])
+        self.assertEqual(data['risk_level'], 'high')
+        record = data['visual_analysis']['observations'][0]
+        self.assertEqual(record['ml_status'], 'available')
+        self.assertEqual(record['ml_phishing_probability'], 94)
+        self.assertEqual(record['assessed_source_count'], 2)
+        self.assertTrue(any('highest individual source score' in warning
+                            for warning in record['assessment_warnings']))
+
+    def test_maximum_visual_request_keeps_each_of_36_sources_separate(self):
+        observations = [observation(name=f'image-{image}.png',
+            ocr_text=f'Team agenda number {image}.',
+            qr_payloads=[f'Meeting document {image} number {qr}.' for qr in range(8)])
+            for image in range(4)]
+        original = app._analyze_content
+        seen = []
+
+        async def analyze(content, *args, **kwargs):
+            seen.append((content.body, kwargs))
+            return await original(content, *args, **kwargs)
+
+        with patch.object(app, '_analyze_content', side_effect=analyze):
+            status, data, _ = self.call({'observations': observations})
+        self.assertEqual(status, 200)
+        expected = [text for item in observations for text in [item['ocr_text'], *item['qr_payloads']]]
+        self.assertEqual([text for text, _ in seen], ['', *expected])
+        self.assertTrue(all(options['plain_text'] and not options['observe_sender_history']
+                            for _, options in seen[1:]))
+        self.assertEqual([item['assessed_source_count'] for item in data['visual_analysis']['observations']],
+                         [9] * 4)
+
     def test_visual_input_validation_and_existing_small_endpoint_limit(self):
         for payload in [{'observations': [observation(risk_level='safe')]},
                         {'observations': [observation(ocr_confidence=float('nan'))]},

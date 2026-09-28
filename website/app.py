@@ -55,7 +55,7 @@ from request_limits import RequestBodyLimitMiddleware
 from rate_limits import DisabledRateLimitStore, build_rate_limit_store
 from verification_runtime import BoundedExecutor
 from visual_evidence import (VisualRequest, VISUAL_PATHS, MAX_VISUAL_REQUEST_BYTES,
-                             bound_message_text, merge_visual_findings)
+                             bound_message_text, merge_visual_findings, merge_visual_sources)
 from enhanced_vision import load_enhanced_vision_settings, recognize_image, enhanced_evidence
 from language_coverage import (has_substantial_han_text as _has_substantial_han_text,
                                non_latin_script_segments)
@@ -3835,12 +3835,17 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
     findings = []
     for item in payload.observations:
         # Treat extracted strings as text, never as an HTML document or a URL to fetch.
-        text = '\n'.join([item.ocr_text, *dict.fromkeys(item.qr_payloads)])
-        finding = json.loads((await _analyze_content(
-            ContentRequest(body=text), observe_sender_history=False,
-            plain_text=True, allow_empty=True,
-        )).body)
-        findings.append(finding)
+        # OCR and separate QR codes have no shared sentence or model context:
+        # joining them can invent a request or negate a real request in another.
+        texts = [text for text in [item.ocr_text, *dict.fromkeys(item.qr_payloads)]
+                 if text.strip()]
+        source_findings = []
+        for text in texts or ['']:
+            source_findings.append(json.loads((await _analyze_content(
+                ContentRequest(body=text), observe_sender_history=False,
+                plain_text=True, allow_empty=True,
+            )).body))
+        findings.append(merge_visual_sources(source_findings, source_count=len(texts)))
     base['input_mode'] = 'raw-email' if raw else 'image-evidence'
     merged = merge_visual_findings(base, payload.observations, findings, payload.warnings)
     if enhancement is not None:

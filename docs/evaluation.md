@@ -396,6 +396,40 @@ so this regression fix does not establish a measured corpus accuracy improvement
 
 ## 2. Browser OCR and QR controls
 
+### Independent MIME and extracted-text sources (2026-09-28)
+
+At `main@24a59d6`, postal-mime's joined HTML could let an unclosed script,
+template, comment, style or textarea in one MIME part swallow a later part's
+image. The browser collector now reads each decoded HTML entry independently.
+The real Chromium regression changes from zero observations to the exact QR
+from the later MIME part. Twenty-five new unit controls cover mixed/alternative/
+related parts, complete documents, inert markup, cross-part attribute fragments,
+transfer/charset decoding, nested budgets and unexpected parser metadata.
+The 64-part / 2 Mi-character budget is shared across nested messages; remaining
+HTML is reported as uninspected while earlier evidence and attachments survive.
+
+The visual API previously concatenated OCR and QR strings. A separate caption
+`Do not` could negate a QR request for credentials (high became low), while
+`Enter your` in OCR and `password` in a QR could invent a credential request.
+OCR and each distinct nonempty QR now receive separate literal-text rule/model
+assessments. Fusion takes the strongest individual risk and maximum rule score,
+unions explanatory findings and preserves original-message risk. Categories do
+not contribute an accumulated cross-source score. Tests cover both OCR-to-QR
+and QR-to-QR boundaries, complete single-source positive/negative controls,
+independent model calls, duplicate/empty payloads and the 36-source maximum.
+The response states the aggregation method and source count; the UI labels the
+maximum individual model probability explicitly.
+
+All 15 Chromium integration checks pass, including the actual visual API's
+source-boundary controls. The fixed five-image extraction benchmark remains at
+5/5 exact QR sets, 2/5 exact OCR texts, 1/3 exact OCR URL sets and 23/238 character
+edits, with a passing paired no-regression comparison. This does not estimate
+real-mail accuracy, repair OCR spelling or validate joint visual semantics.
+On one local synthetic diagnostic using the pinned serving model, two full
+36-source requests took 87.2 and 82.4 ms; these measurements are not production
+latency guarantees. Missing CID images and unverified CSS/client rendering
+remain outside these corrections.
+
 ### HTML image resource context (2026-09-27)
 
 At `main@ec85816`, the data-URI collector searched the entire HTML string. The

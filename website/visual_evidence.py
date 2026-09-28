@@ -1,6 +1,7 @@
 """Bounded, explicitly unverified client extraction; never accept a client verdict."""
 import base64
 import binascii
+from copy import deepcopy
 from typing import Annotated, Literal
 
 from fastapi import HTTPException
@@ -90,6 +91,52 @@ def bound_message_text(structure, remaining=None):
     return structure
 
 
+def merge_visual_sources(findings, *, source_count):
+    """Keep OCR and each QR payload independent, including their model context."""
+    ranks = {'unknown': 0, 'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+    strongest = max(findings, key=lambda finding: (
+        ranks[finding['risk_level']], finding.get('combined_phishing_score') or 0))
+    result = deepcopy(strongest)
+    result['total_score'] = max(finding['total_score'] for finding in findings)
+    result['extra_indicators'] = []
+    result['analysis_warnings'] = []
+    categories = {}
+    for finding in findings:
+        for indicator in finding['extra_indicators']:
+            if indicator not in result['extra_indicators']:
+                result['extra_indicators'].append(dict(indicator))
+        for warning in finding['analysis_warnings']:
+            if warning not in result['analysis_warnings']:
+                result['analysis_warnings'].append(warning)
+        for category in finding['category_results']:
+            key = category['key']
+            if key not in categories:
+                categories[key] = deepcopy(category)
+                continue
+            combined = categories[key]
+            combined['matched'] = list(dict.fromkeys(combined['matched'] + category['matched']))
+            combined['count'] = max(combined['count'], category['count'], len(combined['matched']))
+            # The merged labels describe the evidence; they must not add a
+            # cross-source score that no individual source received.
+            combined['score'] = max(combined['score'], category['score'])
+    result['category_results'] = list(categories.values())
+    scored = [finding for finding in findings
+              if finding.get('ml_status') == 'available'
+              and finding.get('ml_phishing_probability') is not None]
+    if scored:
+        model_result = max(scored, key=lambda finding: finding['ml_phishing_probability'])
+        result.update({key: deepcopy(value) for key, value in model_result.items()
+                       if key.startswith('ml_')})
+    result['assessment_method'] = 'independent-source-max'
+    result['assessed_source_count'] = source_count
+    if source_count > 1:
+        result['analysis_warnings'].append(
+            'OCR and each distinct QR payload were assessed independently. '
+            'Risk and rule scores retain the strongest individual assessment; '
+            'the model score, when available, is the highest individual source score.')
+    return result
+
+
 def merge_visual_findings(base, observations, findings, warnings):
     """Independent visual evidence can raise risk, but cannot erase original findings."""
     ranks = {'unknown': 0, 'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
@@ -107,9 +154,11 @@ def merge_visual_findings(base, observations, findings, warnings):
                 'The original OCR text is preserved; no address spelling has been verified.')
         record['ml_status'] = finding.get('ml_status')
         record['ml_phishing_probability'] = finding.get('ml_phishing_probability')
+        record['assessment_method'] = finding['assessment_method']
+        record['assessed_source_count'] = finding['assessed_source_count']
         records.append(record)
         prefix = f"Image ({observation.name}): "
-        base['extra_indicators'].extend({'level': item['level'], 'msg': prefix + item['msg']}
+        base['extra_indicators'].extend({**item, 'msg': prefix + item['msg']}
                                        for item in finding['extra_indicators'])
         base['extra_indicators'].extend({'level': cat['level'], 'msg': prefix + cat['label']}
                                        for cat in finding['category_results'] if cat['count'])

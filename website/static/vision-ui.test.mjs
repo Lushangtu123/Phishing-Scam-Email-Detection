@@ -117,6 +117,18 @@ test('URL line confidence is displayed separately from high whole-image confiden
   assert.match(text,/https:\/\/paypal.example\/login/);
 });
 
+test('multiple independent sources label their maximum model score honestly',()=>{
+  const {api}=setup(),root=new Element('section');
+  api.render(root,{observations:[{name:'mixed.png',status:'processed',risk_level:'high',ocr_confidence:90,
+    qr_payloads:['Enter your password'],ocr_text:'Do not',warnings:[],ml_status:'available',
+    ml_phishing_probability:88,assessment_method:'independent-source-max',assessed_source_count:2}]});
+  const text=JSON.stringify(root);
+  assert.match(text,/Highest extracted-source model score: 88%/);
+  assert.doesNotMatch(text,/Extracted-text model score:/);
+  assert.match(text,/Do not/);
+  assert.match(text,/Enter your password/);
+});
+
 test('original image preview stays local and its object URL is revoked on clear or replacement',()=>{
   const {api,created,revoked}=setup(), root=new Element('section');
   const file={name:'suspect.png',type:'image/png',size:1024};

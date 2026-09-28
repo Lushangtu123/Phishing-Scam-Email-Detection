@@ -1151,6 +1151,12 @@ the configured image service; they are still not saved with a case. Clearing or 
 the result revokes that URL. Saved cases and EML-embedded images do not have a local preview.
 The browser extracts EML images with postal-mime. Results
 show each image's QR payloads, OCR text, OCR confidence and extraction warnings.
+Each decoded HTML MIME part is parsed separately so unclosed markup cannot
+hide an image in a later part or combine fragments into a nonexistent image.
+The submission and nested messages share a 64-part / 2 Mi-character HTML budget;
+excess parts produce an incomplete-coverage warning while earlier evidence and
+image attachments remain available. The part adapter uses pinned postal-mime
+3.0.0 internals and must be rechecked when that dependency changes.
 Inline HTML images are collected with self-hosted HTML/CSS syntax parsers.
 Comments, scripts, templates, literal examples and non-resource attributes do
 not supply image evidence. Actual image sources, responsive candidates, CSS
@@ -1189,7 +1195,15 @@ SVG/GIF/PDF, attachment malware and general visual meaning are outside scope.
 Their request limit is 3 MiB; other endpoint limits are unchanged. The server
 rescans extracted strings as **literal text**, preserves original-message risk,
 and marks browser extraction `browser_extracted_unverified`. Digests identify
-client-observed bytes; they do not authenticate OCR output. Server-produced risk
+client-observed bytes; they do not authenticate OCR output. OCR text and each
+distinct nonempty QR payload are scored independently, then the strongest
+individual risk is retained. Separate sources cannot form a new sentence or
+negate each other's requests. Responses identify this as `independent-source-max`
+and report `assessed_source_count`; the displayed multi-source model score is the
+highest individual source score. Scores are not summed across sources. At most
+36 nonempty sources are analyzed per request (four images, each with OCR plus
+eight QR payloads).
+Server-produced risk
 cannot be overridden by client verdict fields. No image-safety guarantee is made,
 even when OCR/QR finds no indicators; visual submissions remain incomplete.
 
