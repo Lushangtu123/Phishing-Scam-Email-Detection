@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 16:20 PT] — Case queue columns fit their card at every width
+
+### Why
+- The case queue's "Created" column was clipped at 1280 px. Measuring 1121–1920 px showed the fixed-width grid (`84 / 230 / 100 / 116 / 148 px`, or `76 / 210 / 90 / 104 / 132 px` at ≤1380 px) was wider than the queue card from 1121 to 1440 px, clipping up to 108 px of the row in English and Chinese.
+- At 1121–1200 px the two columns' minimums (560 + 350 + 16 px beside the 210 px sidebar) were also wider than the page, adding a horizontal scrollbar.
+
+### Files changed
+- `website/static/cases.css` — `--case-grid` tracks after the risk badge are proportional with floors (`minmax(160px, 2.6fr) minmax(72px, .85fr) minmax(80px, .95fr) minmax(104px, 1.2fr)`; ≤1380 px: `minmax(150px, 2.4fr) minmax(64px, .8fr) minmax(72px, .9fr) minmax(96px, 1.2fr)`); the single-column breakpoint moves from 1120 to 1200 px and the sticky-queue query from 1121 to 1201 px.
+- `website/static/cases.test.mjs` — new test: every non-risk track is a shrinking `minmax(…px, …fr)`, the row floor fits the queue column minimum at both breakpoints, and the two columns fit just above the stacking breakpoint (fails against the previous CSS).
+- `website/static/cases.html`, `website/tools/asset-versions/manifest.json` — `cases.css` `?v=17 → 18` via `website/tools/asset-versions/update.mjs`.
+
+### Effect
+- Chromium, English and Chinese rows at 390, 860, 1000, 1121, 1200, 1280, 1366, 1381, 1440, 1480, 1600, 1920 px: row overflow 0 px and no horizontal page scroll at every width (before: 108 / 103 / 55 / 2 / 50 / 13 px overflow at 1121–1440 px and a page scrollbar at 1121 px). At 1280 px the title column is 212 px (was 210 px) and the date wraps to two lines inside a 106 px column.
+- `node --test website/static/*.test.mjs`: 450 pass, 0 fail.
+
 ## [2026-09-28 15:51 PT] — Simplified Chinese case workspace (/cases) sharing the homepage language choice
 
 ### Why

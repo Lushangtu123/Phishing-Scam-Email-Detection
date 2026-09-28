@@ -25,7 +25,8 @@
   --on-brand: #06080f;
   --radius: 12px;
   --radius-sm: 8px;
-  --case-grid: 84px minmax(230px, 1fr) 100px 116px 148px;
+  /* Proportional tracks with floors, so the queue row always fits its card. */
+  --case-grid: 84px minmax(160px, 2.6fr) minmax(72px, .85fr) minmax(80px, .95fr) minmax(104px, 1.2fr);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: "SFMono-Regular", "Cascadia Code", Consolas, monospace;
 }
@@ -593,14 +594,14 @@ input::file-selector-button:hover { background: var(--hover); }
 
 /* Responsive layout */
 @media (max-width: 1380px) {
-  :root { --case-grid: 76px minmax(210px, 1fr) 90px 104px 132px; }
+  :root { --case-grid: 76px minmax(150px, 2.4fr) minmax(64px, .8fr) minmax(72px, .9fr) minmax(96px, 1.2fr); }
   .app-shell { margin-left: 210px; }
   .sidebar { width: 210px; }
   .columns { grid-template-columns: minmax(560px, 1.25fr) minmax(350px, .8fr); }
   .filter-grid { grid-template-columns: repeat(3, 1fr); }
   .filter-grid button { align-self: end; }
 }
-@media (max-width: 1120px) {
+@media (max-width: 1200px) {
   .columns { grid-template-columns: 1fr; }
   #case-list { max-height: 460px; }
   .filter-grid { grid-template-columns: repeat(5, minmax(110px, 1fr)) auto; }
@@ -772,7 +773,7 @@ select:hover { border-color: var(--line-strong); }
 .filters-disclosure .filters-panel { border-block: 0; border-top: 1px solid var(--line); }
 
 /* The detail column scrolls with the page; keep the (height-bounded) queue in view beside it. */
-@media (min-width: 1121px) {
+@media (min-width: 1201px) {
   .queue { position: sticky; top: 68px; }
   .queue:has(.filters-disclosure[open]) #case-list { max-height: calc(100vh - 480px); }
 }

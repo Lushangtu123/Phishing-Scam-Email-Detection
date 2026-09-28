@@ -1204,3 +1204,28 @@ test('lang-init.js reveals a pending page at DOMContentLoaded even if i18n.js ne
   listeners.DOMContentLoaded();
   assert.equal(attrs.has('data-i18n-pending'), false);
 });
+
+test('queue rows fit the queue card at every two-column width', () => {
+  const css = readFileSync(new URL('./cases.css', import.meta.url), 'utf8');
+  const px = value => Number(value.match(/^(\d+)px$/)?.[1]);
+  // Row floor = risk track + the other tracks' minmax() floors + 4 × 10px gaps + 2 × 14px padding.
+  const rowFloor = grid => {
+    const [risk, ...rest] = grid.match(/minmax\([^)]*\)|\S+/g);
+    assert.equal(rest.length, 4);
+    for (const track of rest) assert.match(track, /^minmax\(\d+px, [\d.]+fr\)$/, `${track} must shrink with the card`);
+    return px(risk) + rest.reduce((sum, track) => sum + px(track.match(/\((\d+px)/)[1]), 0) + 40 + 28;
+  };
+  const wide = css.match(/--case-grid: ([^;]+);/)[1];
+  const narrowBlock = css.slice(css.indexOf('@media (max-width: 1380px)'), css.indexOf('\n}', css.indexOf('@media (max-width: 1380px)')));
+  const narrow = narrowBlock.match(/--case-grid: ([^;]+);/)[1];
+  const queueMin = rule => Number(rule.match(/grid-template-columns: minmax\((\d+)px/)[1]);
+  const detailMin = rule => Number(rule.match(/\) minmax\((\d+)px/)[1]);
+  const wideColumns = css.match(/\.columns \{[^}]*\}/)[0];
+  const narrowColumns = narrowBlock.match(/\.columns \{[^}]*\}/)[0];
+  assert.ok(rowFloor(wide) <= queueMin(wideColumns));
+  assert.ok(rowFloor(narrow) <= queueMin(narrowColumns));
+  // Just above the single-column breakpoint the two columns must fit beside the 210px sidebar and 24px gutters.
+  const stack = Number(css.match(/@media \(max-width: (\d+)px\) \{\s*\.columns \{ grid-template-columns: 1fr; \}/)[1]);
+  assert.ok(queueMin(narrowColumns) + detailMin(narrowColumns) + 16 <= stack + 1 - 210 - 48);
+  assert.match(css, new RegExp(`@media \\(min-width: ${stack + 1}px\\) \\{\\s*\\.queue \\{ position: sticky`));
+});
