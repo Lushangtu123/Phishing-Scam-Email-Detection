@@ -309,6 +309,15 @@ SUSPICIOUS_KEYWORDS = [
     'webmaster', 'hostmaster', 'abuse',
 ]
 
+# A role mailbox's name describes its function, not the message's intent.
+# Require additional evidence (domain, authentication, links, content) before
+# treating one of these complete local parts as phishing. Compounds such as
+# verify-account and secure-update still follow the ordinary keyword rules.
+ROUTINE_MAILBOX_NAMES = frozenset({
+    'subscriptions', 'subscriber', 'updates', 'alerts',
+    'admin', 'mailer', 'webmaster', 'postmaster',
+})
+
 BRAND_DOMAINS = {
     # Consumer tech / social
     'paypal', 'google', 'microsoft', 'amazon', 'apple', 'netflix',
@@ -599,7 +608,8 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         risk_indicators.append({"level": "high", "msg": f"Domain contains phishing keywords: {', '.join(domain_susp[:3])}"})
 
     # 15. google_index (suspicious keywords in local part)
-    local_susp = [kw for kw in SUSPICIOUS_KEYWORDS if kw in local]
+    local_susp = ([] if local in ROUTINE_MAILBOX_NAMES else
+                  [kw for kw in SUSPICIOUS_KEYWORDS if kw in local])
     features['google_index'] = -1 if local_susp else 1
     if local_susp:
         risk_indicators.append({"level": "high", "msg": f"Username contains phishing keywords: {', '.join(local_susp[:3])}"})

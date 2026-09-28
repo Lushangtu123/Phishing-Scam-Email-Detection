@@ -55,6 +55,25 @@ class SenderRiskAnalysisTests(unittest.TestCase):
         self.assertLess(result["risk_score"], 20)
         self.assertEqual(result["verdict"], "low")
 
+    def test_routine_role_mailboxes_are_not_phishing_keywords(self):
+        for local in ('subscriptions', 'subscriber', 'updates', 'alerts',
+                      'admin', 'mailer', 'webmaster', 'postmaster'):
+            with self.subTest(local=local):
+                result = self.analyze(f'{local}@example.org')
+                self.assertEqual(result['high_risk_count'], 0)
+                self.assertEqual(result['verdict'], 'low')
+                self.assertFalse(any('Username contains phishing keywords' in item['msg']
+                                     for item in result['risk_indicators']))
+
+        # A role-looking token joined to an account takeover request remains
+        # suspicious; the exception applies to the whole mailbox name only.
+        suspicious = self.analyze('verify-account@example.org')
+        self.assertGreater(suspicious['high_risk_count'], 0)
+        spoofed_domain = self.analyze('subscriptions@paypa1.com')
+        self.assertIn(spoofed_domain['verdict'], {'high', 'critical'})
+        self.assertTrue(any('impersonate' in item['msg'].lower()
+                            for item in spoofed_domain['risk_indicators']))
+
     def test_supported_atom_punctuation_is_not_invalid_sender_syntax(self):
         # RFC 5322 atext punctuation; dot separators have separate shape rules.
         for punctuation in "!#$%&'*+-/=?^_`{|}~":

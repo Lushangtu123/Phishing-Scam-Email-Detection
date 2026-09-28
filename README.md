@@ -34,6 +34,11 @@ special-character risk signal. Leading, trailing and repeated local-part dots
 remain invalid. This is the application's supported syntax contract, not a
 claim of support for every RFC mailbox form.
 
+Complete routine role names such as `subscriptions`, `updates`, and `admin`
+do not create a high-risk keyword signal by themselves. Domain impersonation
+and other message evidence still apply; compound mailbox names such as
+`verify-account` keep the normal keyword checks.
+
 Sender-only and full-message checks use the same IDNA domain normalization.
 Unicode/Punycode spellings and a trailing root dot share the same scoring rules;
 the submitted address is retained in sender-only responses for display.

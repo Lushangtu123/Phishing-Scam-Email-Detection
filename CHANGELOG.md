@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 22:15 PT] — Avoid high-risk sender flags for routine role mailboxes
+
+### Why
+- Exact functional mailbox names such as `subscriptions` were matching broad local-part substrings and contributing to false alerts on historical normal mail.
+
+### Files changed
+- `website/app.py` — suppress the local-part keyword signal only for eight complete routine role names; keep domain and compound-name checks.
+- `website/tests/test_detection_behavior.py` — cover benign role names and negative controls for account-takeover wording and spoofed domains.
+- `README.md`, `docs/evaluation.md` — describe the rule and paired replay limits.
+
+### Effect
+- On 244 reference-filtered historical `hard_ham` messages, labeled-normal alerts fall from 135 to 114; nonalerts rise from 44 to 45, and undetermined from 65 to 85. The 199-message two-class pilot remains at 90/100 phishing alerts and 2/99 legitimate alerts, with seven phishing results undetermined. Both replays have zero inference failures. The two-class no-regression comparison passes; the hard-ham-only comparison fails its unknown-rate condition and lacks a phishing class. This is a targeted error correction, not an estimate of current-inbox accuracy.
+
 ## [2026-09-27 21:45 PT] — Add paired offline counterfactual alert diagnostics
 
 ### Why

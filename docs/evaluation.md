@@ -357,6 +357,27 @@ controls of its own. The brand-lookalike removal changes no `hard_ham` alert
 after the Apple Core correction; display-domain mismatch accounts for most of
 the link-family transitions, but 15 become undetermined rather than nonalerts.
 
+### Routine sender mailbox correction (2026-09-27)
+
+The sender rule treated complete role names including `subscriptions`,
+`updates`, `alerts`, `admin`, `mailer`, `webmaster`, and `postmaster` as high-risk
+because a broad substring list matched words such as `subscri`. This is not
+evidence of phishing by itself. The sender-only result now excludes those exact
+role names from its local-part keyword indicator; domain spoofing and compound
+mailbox names still use the existing rules. The test first reproduced the high
+indicator, then passed after the correction.
+
+On the same 244 reference-filtered historical `hard_ham` messages, alerts change
+from 135 to 114, nonalerts from 44 to 45, and undetermined from 65 to 85. Thus
+21 fewer labeled normal messages are alerted, but 20 become undetermined because
+other evidence is incomplete. The separate 199-message phishing/easy-ham pilot
+is unchanged: 90/100 phishing alerts, 3 nonalerts, 7 undetermined, and 2/99
+legitimate alerts. Both replays have zero inference exceptions. The paired
+two-class comparison passes; the `hard_ham`-only comparison fails its two-class
+requirement and its no-increase-in-unknown rule. These inspected historical
+corpora do not establish current-inbox accuracy or an independent release
+holdout. In particular, undetermined is not counted as a correct nonalert.
+
 ## 2. Browser OCR and QR controls
 
 ```sh
