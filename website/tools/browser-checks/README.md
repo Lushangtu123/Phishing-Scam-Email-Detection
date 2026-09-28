@@ -136,8 +136,8 @@ remain unchanged. The current ten browser checks passed locally.
 
 The text model, mailbox verification, retained sender history and external
 opinions are disabled in this runner. Browser network requests are restricted to
-the two local origins; the existing chart CDN is blocked, and chart rendering is
-outside these checks. No recognized link is opened. This is an optional integration
+the two local origins, and any external request fails the run; Chart.js is served
+from this site. No recognized link is opened. This is an optional integration
 command for CI environments with Playwright and Chromium installed; Node's VM
 unit tests remain useful but cannot replace it.
 

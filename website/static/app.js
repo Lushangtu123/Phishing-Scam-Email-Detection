@@ -274,6 +274,7 @@ function setRing(id, pct, color) {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  setupPageActions();
   setupTheme();
   setupScrollReveal();
   setupCountUps();
@@ -285,6 +286,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadMetrics();
   setupSmoothScroll();
 });
+
+// ── Page actions ─────────────────────────────────────────────────────────────
+// Controls declare data-action (and optional data-arg) instead of inline
+// handlers, so the page CSP needs no script-src 'unsafe-inline'. Only actions
+// listed here are bound; each listener sits on its element, as inline ones did.
+const PAGE_ACTIONS = {
+  'cycle-theme':         (_arg, event) => cycleTheme(event),
+  'switch-tab':          arg => switchDemoTab(arg),
+  'clear-email':         () => clearEmail(),
+  'analyze-email':       () => runEmailAnalysis(),
+  'set-example':         arg => setExample(arg),
+  'copy-summary':        (arg, event) => copySummary(arg, event.currentTarget),
+  'open-feedback':       arg => openFeedback(arg),
+  'verify-email':        () => runVerification(),
+  'clear-content':       () => clearContent(),
+  'analyze-content':     () => runContentAnalysis(),
+  'set-content-example': arg => setContentExample(arg),
+};
+
+function setupPageActions() {
+  document.querySelectorAll('[data-action]').forEach(element => {
+    const action = PAGE_ACTIONS[element.dataset.action];
+    if (action) element.addEventListener('click', event => action(element.dataset.arg, event));
+  });
+  document.getElementById('email-input').addEventListener('keydown', event => {
+    if (event.key === 'Enter') runEmailAnalysis();
+  });
+}
 
 // Deployed pages link to the stable production workspace (docs/case-workflow.md);
 // a local server should open its own /cases instead.

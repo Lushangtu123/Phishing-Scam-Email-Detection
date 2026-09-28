@@ -34,6 +34,11 @@ class ImagePreviewCSPTests(unittest.TestCase):
         for name in ('script-src', 'connect-src'):
             self.assertNotIn('blob:', directives[name].split())
 
+    def test_page_scripts_are_same_origin_files_only(self):
+        policy = app._with_security_headers(app.Response()).headers['content-security-policy']
+        directives = dict(part.strip().split(' ', 1) for part in policy.split(';') if part.strip())
+        self.assertEqual(directives['script-src'].split(), ["'self'"])
+
 
 class AllowedHostConfigurationTests(unittest.TestCase):
     def test_custom_domains_are_merged_with_base_allowed_hosts(self):

@@ -20,6 +20,26 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 11:16 PT] — Remove script-src 'unsafe-inline' and the chart CDN from the page CSP
+
+### Why
+- The homepage CSP allowed `script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net` only because of 29 inline event handlers, two inline `<script>` blocks and Chart.js from jsDelivr. `'unsafe-inline'` removes most XSS protection on a page that renders analysis of untrusted email, and an allowlisted public CDN serves arbitrary packages.
+
+### Files changed
+- `website/app.py` — default page policy is now `script-src 'self'`; other directives are unchanged (`style-src 'unsafe-inline'` remains for inline style attributes).
+- `website/static/index.html` — replace 28 `onclick` attributes with `data-action`/`data-arg` and drop the `onkeydown` attribute; load `theme-init.js`, `analytics-init.js` and the vendored Chart.js instead of inline or CDN scripts; bump `app.js` to v44.
+- `website/static/theme-init.js`, `website/static/analytics-init.js` — the two former inline scripts, unchanged in behavior.
+- `website/static/vendor/chart/chart.umd.min.js`, `LICENSE.md` — Chart.js 4.4.0 (MIT), byte-identical to the previous CDN file: its SHA-384 matches the existing `integrity` pin, which the script tag keeps.
+- `website/static/app.js` — `PAGE_ACTIONS` allowlist and `setupPageActions`, binding each control's listener on the element itself so `event.currentTarget` is unchanged (the theme reveal animation depends on it); the Enter-to-analyze handler moves here.
+- `website/static/app.test.mjs` — replace the third-party SRI test with a stricter one (all scripts same-origin, vendored file hash equals its pin); assert no inline scripts or handlers; assert each of the 28 declared actions calls the same function with the same arguments as its former inline handler; read the analytics queues from their file and require it to load before the collectors.
+- `website/tests/test_app_security.py` — assert the page `script-src` is exactly `'self'`.
+- `website/tools/browser-checks/run.mjs`, `README.md` — any external request now fails the optional browser run; Chart.js is no longer outside its scope.
+
+### Effect
+- Served policy: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`.
+- In Chromium against a local server with that policy (checked together with the accessibility change that follows): no console errors or CSP violations; Chart.js renders the benchmark chart; the pre-paint theme and analytics queues initialise; a quick-example click fills the input and posts `/api/analyze-email`; typed input + Enter posts it; the theme toggle's reveal origin equals the button centre (453, 35).
+- Validation at this change: 360 frontend tests (358 before; the 4 new or rewritten ones fail against the previous `index.html`/`app.js`), 672 backend tests (10 local Redis skips), `ruff check .` and JavaScript syntax checks pass.
+
 ## [2026-09-28 10:42 PT] — Move sender-address feature extraction out of app.py
 
 ### Why

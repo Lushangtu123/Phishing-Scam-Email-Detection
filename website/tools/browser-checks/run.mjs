@@ -35,7 +35,7 @@ const temporary = await mkdtemp(path.join(os.tmpdir(), 'phishguard-browser-'));
 const summary = {schema_version: 'phishguard-browser-checks/v1', checks: [], limitations: [
   'Synthetic integration controls do not establish real-world detection or OCR accuracy.',
   'Text model, outbound enrichment, sender history and external services are disabled.',
-  'The external chart CDN is blocked; chart rendering is outside these checks.',
+  'Chart.js is served from this site; any external request fails the run.',
 ]};
 let browser;
 let failure;
@@ -101,7 +101,7 @@ try {
   const pageErrors = [];
   const remoteAttempts = new Set();
   const allowed = new Set([appURL, benchmarkURL]);
-  // The project references a chart CDN. Abort all external requests, including accidental navigation to extracted links.
+  // Abort all external requests, including accidental navigation to extracted links; the page needs none.
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
     if (['http:', 'https:'].includes(url.protocol) && !allowed.has(url.origin)) {
@@ -532,7 +532,7 @@ try {
       literal_text_match_count: rows.filter(row => row.literalTextMatch).length};
   });
   assert.deepEqual(pageErrors, [], 'No uncaught browser errors');
-  assert([...remoteAttempts].every(host => host === 'cdn.jsdelivr.net'), `Unexpected remote navigation: ${[...remoteAttempts]}`);
+  assert.equal(remoteAttempts.size, 0, `Unexpected remote request: ${[...remoteAttempts]}`);
   summary.blocked_remote_hosts = [...remoteAttempts];
 } catch (error) {
   failure = error;

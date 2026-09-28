@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -543,15 +544,72 @@ test('copy summaries describe the result without HTML and carry the disclaimer',
   }), /Verdict: High Risk \(72% risk\)\nCategories:\n- Urgency \(high, 2 signals\)/);
 });
 
-test('third-party scripts are pinned with subresource integrity', () => {
+test('scripts are same-origin and the vendored chart library matches its integrity pin', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-  const external = [...html.matchAll(/<script[^>]+src="https?:\/\/[^"]+"[^>]*>/g)].map(match => match[0]);
-  assert.ok(external.length > 0);
-  for (const tag of external) {
-    assert.match(tag, /@\d+\.\d+\.\d+\//, tag);
-    assert.match(tag, /integrity="sha384-[A-Za-z0-9+/]{64}"/, tag);
-    assert.match(tag, /crossorigin="anonymous"/, tag);
+  const sources = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map(match => match[1]);
+  assert.ok(sources.length > 0);
+  for (const src of sources) assert.match(src, /^\/(static|_vercel)\//, src);
+  const chart = html.match(/<script src="\/static\/(vendor\/chart\/chart\.umd\.min\.js)\?v=[^"]+" integrity="(sha384-[A-Za-z0-9+/]{64})"><\/script>/);
+  assert.ok(chart, 'vendored Chart.js keeps its SRI pin');
+  const bytes = readFileSync(new URL(`./${chart[1]}`, import.meta.url));
+  assert.equal(`sha384-${createHash('sha384').update(bytes).digest('base64')}`, chart[2]);
+});
+
+test('homepage has no inline scripts or inline event handlers', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/);
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i);
+});
+
+test('every declared page action calls the handler its inline attribute used to call', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const declared = [...html.matchAll(/data-action="([^"]+)"(?:[^>]*?data-arg="([^"]*)")?/g)]
+    .map(([, action, arg]) => ({ action, arg }));
+  assert.equal(declared.length, 28);
+  const controls = declared.map(({ action, arg }) =>
+    Object.assign(new FakeElement(), { dataset: arg === undefined ? { action } : { action, arg } }));
+  const elements = new Map();
+  const document = {
+    addEventListener() {},
+    createElement: () => new FakeElement(),
+    getElementById: id => elements.get(id) ?? elements.set(id, new FakeElement()).get(id),
+    querySelector: () => new FakeElement(),
+    querySelectorAll: selector => selector === '[data-action]' ? controls : [],
+  };
+  const { context } = loadFrontend({ document });
+  const calls = [];
+  for (const name of ['cycleTheme', 'switchDemoTab', 'clearEmail', 'runEmailAnalysis', 'setExample', 'copySummary',
+    'openFeedback', 'runVerification', 'clearContent', 'runContentAnalysis', 'setContentExample']) {
+    context[name] = (...args) => calls.push([name, ...args]);
   }
+  context.setupPageActions();
+
+  const expected = {
+    'cycle-theme': (_arg, event) => ['cycleTheme', event],
+    'switch-tab': arg => ['switchDemoTab', arg],
+    'clear-email': () => ['clearEmail'],
+    'analyze-email': () => ['runEmailAnalysis'],
+    'set-example': arg => ['setExample', arg],
+    'copy-summary': (arg, event) => ['copySummary', arg, event.currentTarget],
+    'open-feedback': arg => ['openFeedback', arg],
+    'verify-email': () => ['runVerification'],
+    'clear-content': () => ['clearContent'],
+    'analyze-content': () => ['runContentAnalysis'],
+    'set-content-example': arg => ['setContentExample', arg],
+  };
+  controls.forEach((control, index) => {
+    const event = { currentTarget: control };
+    calls.length = 0;
+    assert.equal(typeof control.listeners.click, 'function', control.dataset.action);
+    control.listeners.click(event);
+    assert.deepEqual(calls, [expected[control.dataset.action](declared[index].arg, event)], control.dataset.action);
+  });
+  assert.ok(declared.some(({ action, arg }) => action === 'set-example' && arg === 'security-alert@paypa1-verify.xyz'));
+
+  calls.length = 0;
+  elements.get('email-input').listeners.keydown({ key: 'a' });
+  elements.get('email-input').listeners.keydown({ key: 'Enter' });
+  assert.deepEqual(calls, [['runEmailAnalysis']]);
 });
 
 test('narrow-screen section menu is wired to the collapsible link list', () => {
@@ -562,10 +620,15 @@ test('narrow-screen section menu is wired to the collapsible link list', () => {
 
 test('HTML page loads enabled Vercel observability scripts from this site', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(html, /window\.va\s*=\s*window\.va\s*\|\|/);
+  const queues = readFileSync(new URL('./analytics-init.js', import.meta.url), 'utf8');
+  assert.match(queues, /window\.va\s*=\s*window\.va\s*\|\|/);
+  assert.match(queues, /window\.si\s*=\s*window\.si\s*\|\|/);
+  const queuesAt = html.indexOf('src="/static/analytics-init.js');
+  assert.ok(queuesAt > 0, 'queue script is loaded');
   assert.match(html, /src="\/_vercel\/insights\/script\.js"/);
-  assert.match(html, /window\.si\s*=\s*window\.si\s*\|\|/);
   assert.match(html, /src="\/_vercel\/speed-insights\/script\.js"/);
+  assert.ok(queuesAt < html.indexOf('src="/_vercel/insights/script.js"'), 'queues exist before the collectors load');
+  assert.ok(queuesAt < html.indexOf('src="/_vercel/speed-insights/script.js"'), 'queues exist before the collectors load');
   assert.doesNotMatch(html, /@vercel\/(analytics|speed-insights)\/next/);
 });
 
