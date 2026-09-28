@@ -99,6 +99,16 @@ jobs:
 
       - name: Check JavaScript syntax
         run: |
+          node --check website/static/app-core.js
+          node --check website/static/app-theme.js
+          node --check website/static/app-layout.js
+          node --check website/static/app-config.js
+          node --check website/static/app-sender.js
+          node --check website/static/app-verify.js
+          node --check website/static/app-content.js
+          node --check website/static/app-content-render.js
+          node --check website/static/app-reports.js
+          node --check website/static/app-metrics.js
           node --check website/static/app.js
           node --check website/static/cases.js
           node --check website/static/cases-theme.js

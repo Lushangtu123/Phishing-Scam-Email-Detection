@@ -20,6 +20,33 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 13:37 PT] — Split the homepage script into cohesive files (no behaviour change)
+
+### Why
+- `website/static/app.js` had grown to 2,018 lines covering requests, icons, theme, tabs, navigation, sender and content analysis, verification, reports, recent checks and metrics, so no part could be read on its own. The upcoming UI-string extraction also needs rendering code in predictable places.
+
+### Files changed
+- `website/static/app-core.js` (177 lines) — `setError`, `postJSON`/`postRequest`, `escapeHtml`, the icon system (`ICON_PATHS`, `icon`), `prefersReducedMotion`, `withViewTransition`, `animateNumber`, `setupCountUps`, `setRing`, `animateBar`, `announce`.
+- `website/static/app-theme.js` (59) — `THEME_KEY`, `resolveTheme`, `applyTheme`, `cycleTheme`, `setupTheme`.
+- `website/static/app-layout.js` (210) — `?tab=` deep links and `switchDemoTab`, `setupDemoTabs`, the case login link, `setupMobileNav`, `setupScrollReveal`, `setupShortcuts`, `setupSmoothScroll`.
+- `website/static/app-config.js` (50) — `_publicConfig`, `_emailVerificationEnabled`, `applyPublicConfig`, `loadPublicConfig`.
+- `website/static/app-sender.js` (338) — `invalidateSender`, `setExample`, `clearEmail`, `runEmailAnalysis`, `renderSenderHistory`, `renderResult`, `senderScoreBreakdown`, `renderScoreBreakdown`.
+- `website/static/app-verify.js` (196) — `resetVerifyCard`, `runVerification`, `renderVerifyResult`, `showVerifyVerdict`.
+- `website/static/app-content.js` (275) — raw-file state, `invalidateContent`, `clearRawEmail`, `setupInputEvents`, `refreshEnhancedOptions`, `CONTENT_EXAMPLES`, `setContentExample`, `clearContent`, `runContentAnalysis`.
+- `website/static/app-content-render.js` (246) — `CATEGORY_ICONS`, `RISK_CONFIG`, `contentModelName`, `contentMode`, `renderContentResult`.
+- `website/static/app-reports.js` (330) — `feedbackAnalysis`/`openFeedback`, `lastResults`, copy summary, Markdown/JSON downloads, recent checks.
+- `website/static/app-metrics.js` (135) — `loadMetrics`, `renderMetricsTable`, Chart.js theming and `renderMetricsChart`.
+- `website/static/app.js` (59, was 2,018) — now only the entry point: the `DOMContentLoaded` setup sequence, `PAGE_ACTIONS`/`setupPageActions`, and the navbar scroll listener.
+- `website/static/index.html` — loads the ten `app-*.js` files (`?v=1`) before `app.js` (`?v=50`), still after `feedback.js` and before `analytics-init.js`; the recent-checks markup comment now points to `app-reports.js`.
+- `website/static/app.test.mjs` — `loadFrontend` runs the files in page order in one `vm` context; the SVG-icon test reads all of them; one new test checks `index.html` loads exactly that list in that order. No assertion changed.
+- `.github/workflows/ci.yml` — `node --check` for each new file.
+- `README.md` — the local syntax check covers `website/static/app*.js`.
+- `website/tools/asset-versions/manifest.json` — new pins from `update.mjs`.
+
+### Effect
+- Classic scripts sharing one global scope were kept (not ES modules), so load order, the `DOMContentLoaded` handler, `window.PhishGuardFeedback`/`PhishGuardVision` access and the `vm` test harness behave as before. Nothing but placement changed: all 85 functions have identical source and all 36 top-level `const`/`let` bindings identical values when the old and new files are loaded side by side; every original line is present, and the only new lines are file banners and seven section-header comments.
+- Validation: 400 frontend tests pass (399 before, plus the load-order test); 675 backend tests pass (10 local Redis skips); `node --check` on all eleven files. Chromium (Playwright) against the running app with the text model and feedback enabled: 130/130 checks across light/dark × 1280px/390px (all eleven scripts return 200; sender and content analysis; `?tab=` deep link, click and arrow-key tab switching; theme cycling auto → light → dark → auto with the chart restyled; metrics table and chart; copy summary; Markdown/JSON downloads; recent checks; the feedback dialog; the `/` shortcut; the navbar scroll state; the 390px menu), with no console errors and no CSP violations on any page load.
+
 ## [2026-09-28 13:26 PT] — Tab deep links, model-named ML card, local recent checks and downloadable reports
 
 ### Why

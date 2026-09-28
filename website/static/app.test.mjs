@@ -34,6 +34,15 @@ class FakeElement {
   addEventListener(event, callback) { this.listeners[event] = callback; }
 }
 
+// The homepage scripts, in the order index.html loads them. They are classic
+// scripts sharing one global scope, so they run in one context like the page.
+const APP_SCRIPTS = [
+  'app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js',
+  'app-verify.js', 'app-content.js', 'app-content-render.js', 'app-reports.js',
+  'app-metrics.js', 'app.js',
+];
+const appSource = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
+
 function loadFrontend(overrides = {}) {
   const elements = new Map();
   const getElementById = id => {
@@ -53,10 +62,18 @@ function loadFrontend(overrides = {}) {
     }},
   };
   const context = vm.createContext({ document, window, console, setTimeout: fn => fn(), ...overrides });
-  const source = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
-  vm.runInContext(source, context);
+  for (const name of APP_SCRIPTS) vm.runInContext(appSource(name), context, { filename: name });
   return { context, elements };
 }
+
+test('the page loads the homepage scripts in the order the tests run them', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const scripts = [...html.matchAll(/<script src="\/static\/([^"?]+)\?v=[^"]+"><\/script>/g)].map(match => match[1]);
+  const start = scripts.indexOf('feedback.js') + 1;
+  assert.ok(start > 0);
+  assert.deepEqual(scripts.slice(start, start + APP_SCRIPTS.length + 1), [...APP_SCRIPTS, 'analytics-init.js']);
+  assert.equal(scripts.filter(name => /^app[-.]/.test(name)).length, APP_SCRIPTS.length);
+});
 
 test('feedback diagnostics retain signal identifiers without source-bearing messages', () => {
   const {context} = loadFrontend();
@@ -486,7 +503,7 @@ test('loading states render a result-shaped skeleton', () => {
 
 test('homepage uses SVG icons instead of glyphs and links the renamed repository', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-  const js = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  const js = APP_SCRIPTS.map(appSource).join('\n');
   assert.doesNotMatch(html, /[✓✕]/);
   assert.doesNotMatch(js, /safety-dot">✓/);
   assert.doesNotMatch(html, /CS-166-Final-Project/);

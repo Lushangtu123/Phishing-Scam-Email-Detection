@@ -3,9 +3,49 @@
     "version": "1",
     "sha256": "924d5da868a4c8c750d9edc58854b197a8f9b4a7e098b768c482b0d9633efe70"
   },
+  "app-config.js": {
+    "version": "1",
+    "sha256": "8cd79c96646eaf35246cbb0f1e1a2831b1e510ef1f4251f2c4e5338ee9d7f2eb"
+  },
+  "app-content-render.js": {
+    "version": "1",
+    "sha256": "e1c31e139f358ba3a97ff08856d81597bb366aba8db9fc003d158ca7e1221286"
+  },
+  "app-content.js": {
+    "version": "1",
+    "sha256": "3f24a46c7bd17062876db2b5c19a9eccd65e38b67fba0fc582206e7b21a6a326"
+  },
+  "app-core.js": {
+    "version": "1",
+    "sha256": "2fc1e4bcb85e7f74f33937d2b0c1eb8a43ffb4fa518641fbcac05600d431bcf6"
+  },
+  "app-layout.js": {
+    "version": "1",
+    "sha256": "5442d4804ca7258ee8634bdd21a09e2f5a5e28d4a253e084ce7900c664c30025"
+  },
+  "app-metrics.js": {
+    "version": "1",
+    "sha256": "45aa0f6e994a8d837613398af677bb33a36e3844b35c728f1ed375444b897859"
+  },
+  "app-reports.js": {
+    "version": "1",
+    "sha256": "616f4185859d7dc73796e282ea0b9a1966eb178c34aded66f5dd6359e0e8451d"
+  },
+  "app-sender.js": {
+    "version": "1",
+    "sha256": "337d058f969706f31319aeeba14ad0d12cf956bd799e59dafdbc921bb54a31d3"
+  },
+  "app-theme.js": {
+    "version": "1",
+    "sha256": "7ec69bef49b61ddd897fded42858f0154225e66124864a2ce95b83fc2b84e79b"
+  },
+  "app-verify.js": {
+    "version": "1",
+    "sha256": "8ea9951f384f93e1247274eddfa7581420f3cc7e55c5ed872156bcf1575c3f9d"
+  },
   "app.js": {
-    "version": "49",
-    "sha256": "81087ea913c4c284a60d458bbb98a2ef2d6c964122dcb6418dbf8d99bd62e2c2"
+    "version": "50",
+    "sha256": "9963ad5b8861f2e25fc3573a093ae3a3f959ffc8630f813a55f9d40126e86bcb"
   },
   "cases-theme.js": {
     "version": "1",

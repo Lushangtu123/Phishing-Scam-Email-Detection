@@ -643,7 +643,7 @@
 
     </div><!-- end panel-email-content -->
 
-    <!-- Recent checks: kept in this browser's localStorage only (see app.js). -->
+    <!-- Recent checks: kept in this browser's localStorage only (see app-reports.js). -->
     <details class="recent-checks" id="recent-checks">
       <summary>Recent checks <span class="recent-count" id="recent-checks-count"></span></summary>
       <div class="recent-body">
@@ -997,7 +997,18 @@
 <script src="/static/file-intake.js?v=1"></script>
 <script src="/static/confirm-dialog.js?v=1"></script>
 <script src="/static/feedback.js?v=8"></script>
-<script src="/static/app.js?v=49"></script>
+<!-- Homepage logic: classic scripts sharing one global scope; app.js (last) wires them up on DOMContentLoaded. -->
+<script src="/static/app-core.js?v=1"></script>
+<script src="/static/app-theme.js?v=1"></script>
+<script src="/static/app-layout.js?v=1"></script>
+<script src="/static/app-config.js?v=1"></script>
+<script src="/static/app-sender.js?v=1"></script>
+<script src="/static/app-verify.js?v=1"></script>
+<script src="/static/app-content.js?v=1"></script>
+<script src="/static/app-content-render.js?v=1"></script>
+<script src="/static/app-reports.js?v=1"></script>
+<script src="/static/app-metrics.js?v=1"></script>
+<script src="/static/app.js?v=50"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>
