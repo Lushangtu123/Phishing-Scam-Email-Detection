@@ -1968,7 +1968,9 @@ def _keyword_matches(text: str, keyword: str) -> bool:
     """Match phrases while preventing short tokens from firing inside words."""
     escaped = re.escape(keyword)
     prefix = r"(?<!\w)" if keyword and keyword[0].isalnum() else ""
-    suffix = r"(?!\w)" if keyword and keyword[-1].isalnum() else ""
+    # Python's word characters exclude apostrophes. Keep a negative contraction
+    # together (won't is not won), while retaining possessives and quoted words.
+    suffix = r"(?!\w|['’]t(?!\w))" if keyword and keyword[-1].isalnum() else ""
     return bool(re.search(prefix + escaped + suffix, text, re.IGNORECASE))
 
 

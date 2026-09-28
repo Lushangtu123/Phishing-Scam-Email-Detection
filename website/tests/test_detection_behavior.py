@@ -884,6 +884,43 @@ class ContentRuleRobustnessTests(unittest.TestCase):
                 )
                 self.assertEqual(result["total_score"], 0)
 
+    def test_negative_contractions_do_not_match_winning_phrase(self):
+        for subject, body in (
+            ('Project note', "You won't need extra copies."),
+            ('You won’t need extra copies', 'The copy is available.'),
+            ('Project note', 'YOU WON’T NEED EXTRA COPIES.'),
+            ('Project note', "You won\u200b't need extra copies."),
+            ('Project note', "You won't"),
+        ):
+            with self.subTest(subject=subject, body=body):
+                result = app.analyze_email_content(subject, body)
+                self.assertEqual(result['total_score'], 0)
+                self.assertNotIn('financial', [c['key'] for c in result['category_results']])
+
+    def test_genuine_winning_phrases_quotes_and_possessives_remain_detected(self):
+        for text, keyword in (
+            ('You won a prize.', 'you won'),
+            ('You have won a prize.', 'you have won'),
+            ("'You won' is the quoted award announcement.", 'you won'),
+            ('‘You won’ is the quoted award announcement.', 'you won'),
+            ("You won 't-shirts' in the event.", 'you won'),
+            ("PayPal's terms are available.", 'paypal'),
+            ('PayPal’s terms are available.', 'paypal'),
+            ("Your account will be suspended. Don't ignore this.", 'will be suspended'),
+        ):
+            with self.subTest(text=text, keyword=keyword):
+                self.assertTrue(app._keyword_matches(text, keyword))
+                result = app.analyze_email_content('Notice', text)
+                self.assertTrue(any(keyword in c['matched'] for c in result['category_results']))
+
+    def test_negative_contraction_does_not_hide_later_winning_phrase(self):
+        for contraction in ("won't", 'won’t'):
+            with self.subTest(contraction=contraction):
+                result = app.analyze_email_content(
+                    'Notice', f'You {contraction} need extra copies. You won a prize.')
+                financial = next(c for c in result['category_results'] if c['key'] == 'financial')
+                self.assertIn('you won', financial['matched'])
+
     def test_strong_structural_evidence_is_not_averaged_away(self):
         fused = app.fuse_content_risk(
             ml_phishing_probability=0.02,
@@ -1434,6 +1471,29 @@ Here is the requested update.
                 self.assertFalse(any('format validation' in i['msg']
                                      or 'non-standard special' in i['msg']
                                      for i in result['sender_analysis']['risk_indicators']))
+                if dangerous:
+                    self.assertIn(result['risk_level'], {'high', 'critical'})
+                else:
+                    self.assertIn(result['risk_level'], {'safe', 'low'})
+
+    def test_raw_message_contraction_avoids_financial_lure_but_keeps_dangerous_link(self):
+        from email.message import EmailMessage
+        for subtype, body, dangerous in (
+            ('plain', "You won't need extra copies.", False),
+            ('html', '<p>You won&#39;t need extra copies.</p>', False),
+            ('html', '<p>You won&rsquo;t need extra copies.</p>', False),
+            ('html', '<p>You won’t need extra copies.</p>'
+             '<a href="https://credential-capture.example/document">Review document</a>', True),
+        ):
+            with self.subTest(subtype=subtype, dangerous=dangerous):
+                message = EmailMessage()
+                message['From'] = 'Project Editor <alice@example.com>'
+                message['Subject'] = 'Project note'
+                message.set_content(body, subtype=subtype)
+                result = json.loads(asyncio.run(app.analyze_content_endpoint(
+                    app.ContentRequest(raw_email=message.as_string())
+                )).body)
+                self.assertNotIn('financial', [c['key'] for c in result['category_results']])
                 if dangerous:
                     self.assertIn(result['risk_level'], {'high', 'critical'})
                 else:

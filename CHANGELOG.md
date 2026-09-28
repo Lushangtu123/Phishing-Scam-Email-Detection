@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 19:57 PT] — Keep negative contractions out of winning-phrase matches
+
+### Why
+- Python's word-character boundary excludes apostrophes, so `You won't` incorrectly matched the financial-lure phrase `You won`. Ten inspected hard_ham messages reproduced that false signal. Python and Unicode documentation confirm the relevant boundary distinction.
+
+### Files changed
+- `website/app.py` — keep a straight or curly apostrophe followed by the contraction ending `t` inside the matched word, while preserving possessives and closing quotation marks.
+- `website/tests/test_detection_behavior.py` — add failing-then-passing regressions for subject/body contractions, case, invisible format controls, HTML entities and complete EML input; retain genuine winning phrases, later matches and dangerous links.
+- `README.md`, `docs/evaluation.md` — document the phrase boundary and matched corpus outcomes, including the additional undetermined result.
+
+### Effect
+- The ten false `You won` matches disappear without changing input admission, model artifact, decision threshold or risk weights. This is a bounded phrase-matching correction, not general linguistic negation analysis.
+- On 443 reference-filtered development EMLs, phishing alerts remain 90/100 and easy_ham false alerts remain 2/99. Hard_ham alerts change from 136/244 to 135/244, with nonalerts unchanged at 44 and undetermined results increasing from 64 to 65. One other Critical verdict becomes High. These outcomes do not establish overall accuracy gains.
+- Local validation: 136 focused detection tests and the Vercel runtime/model smoke pass; 638 backend tests run with 10 local Redis integration skips. Synthetic and dual-class pilot comparisons pass. The strict hard_ham comparison remains failing because it lacks phishing samples and increases undetermined results; no acceptance criterion was loosened.
+
 ## [2026-09-27 19:40 PT] — Align sender scoring with supported mailbox syntax
 
 ### Why

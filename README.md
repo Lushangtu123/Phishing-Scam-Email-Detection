@@ -138,6 +138,15 @@ complete message represented as Unicode text. For original files, use
 (or `application/octet-stream`). API-only clients can use this byte-preserving endpoint. The browser uses the visual submission route described below.
 The manual `subject` field is always literal text; HTML parsing applies only to
 the manual body. A MIME subject is likewise treated as literal text.
+
+Phrase checks keep the `n't` ending of English negative contractions together,
+including straight and curly apostrophes: `You won't` does not match the
+financial-lure phrase `You won`. Genuine winning phrases, possessives and
+quoted words still match. This tailors Python's ordinary word-character
+boundary for contractions; it is not general linguistic or negation analysis.
+See [Python's regex definition](https://docs.python.org/3.12/library/re.html) and
+[Unicode's apostrophe guidance](https://www.unicode.org/reports/tr29/#Apostrophe).
+
 The legacy binary endpoint is limited to **60,000 bytes**, checked while the server consumes the request stream. No file is saved or forwarded
 to a third-party analysis service.
 

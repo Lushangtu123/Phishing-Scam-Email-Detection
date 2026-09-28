@@ -234,6 +234,37 @@ release acceptance or an overall accuracy improvement. This patch corrects the
 documented mailbox-syntax contradiction. It does not justify tuning risk
 weights or thresholds on these inspected samples.
 
+### Negative-contraction phrase regression, 2026-09-27
+
+Against baseline `b790e0b6fac1dc324f0ef104d3b5fb925a915db7`, the phrase
+matcher incorrectly treated the apostrophe in `You won't` as the end of
+`You won`. Ten reference-filtered hard_ham messages had only negative
+contractions behind this particular financial-lure match. A suffix guard for
+straight and curly apostrophes removes those ten matches. Genuine winning
+phrases, quoted phrases, possessives, later independent matches and dangerous
+link controls retain their detection. This corrects a phrase boundary; it does
+not implement general linguistic negation or change risk weights or the model.
+
+Matched whole-pipeline replay of the same 443 development messages gives:
+
+| Cohort | Baseline | Updated |
+| --- | --- | --- |
+| 100 phishing_pot messages | 90 alerts, 3 nonalerts, 7 undetermined | 90 alerts, 3 nonalerts, 7 undetermined |
+| 99 easy_ham messages | 2 alerts, 97 nonalerts | 2 alerts, 97 nonalerts |
+| 244 hard_ham messages | 136 alerts, 44 nonalerts, 64 undetermined | 135 alerts, 44 nonalerts, 65 undetermined |
+
+One hard_ham alert becomes undetermined and one Critical verdict becomes High;
+the nonalert count does not increase. The false-alert rate changes from 55.74%
+to 55.33% (updated 95% Wilson interval 49.06–61.44%), and the undetermined
+rate rises from 26.23% to 26.64% (21.49–32.52%). Complete-analysis and
+model-availability rates are unchanged, and all 443 evaluations have zero
+inference failures. The synthetic and dual-class pilot comparisons pass.
+The hard_ham comparison still fails its two-class requirement and its
+no-increase-in-unknown requirement. Preserve that failure and all preceding
+label, historical-period, inspection and independence limitations. Removing a
+misleading keyword signal does not establish an overall accuracy improvement
+or real-mail release acceptance.
+
 ## 2. Browser OCR and QR controls
 
 ```sh
