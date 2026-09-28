@@ -551,8 +551,8 @@ test('scripts are same-origin and the vendored chart library matches its integri
   const sources = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map(match => match[1]);
   assert.ok(sources.length > 0);
   for (const src of sources) assert.match(src, /^\/(static|_vercel)\//, src);
-  const chart = html.match(/<script src="\/static\/(vendor\/chart\/chart\.umd\.min\.js)\?v=[^"]+" integrity="(sha384-[A-Za-z0-9+/]{64})"><\/script>/);
-  assert.ok(chart, 'vendored Chart.js keeps its SRI pin');
+  const chart = html.match(/<script defer src="\/static\/(vendor\/chart\/chart\.umd\.min\.js)\?v=[^"]+" integrity="(sha384-[A-Za-z0-9+/]{64})"><\/script>/);
+  assert.ok(chart, 'vendored Chart.js is deferred (it is first used after metrics load) and keeps its SRI pin');
   const bytes = readFileSync(new URL(`./${chart[1]}`, import.meta.url));
   assert.equal(`sha384-${createHash('sha384').update(bytes).digest('base64')}`, chart[2]);
 });

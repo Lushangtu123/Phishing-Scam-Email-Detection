@@ -467,6 +467,11 @@ def _record_rate_limit_hit(
     return True
 
 
+# One day fresh, then up to a week served from cache while refreshing in the
+# background, so a missed ?v= bump cannot pin a stale file for long.
+VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+
+
 def _with_security_headers(response):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
@@ -556,6 +561,12 @@ async def security_middleware(request: Request, call_next):
         response.headers['Content-Security-Policy'] = (
             "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; "
             "connect-src 'self'; worker-src 'self'; object-src 'none'")
+    # A versioned URL (?v=...) changes whenever its file does, so browsers may
+    # reuse it without revalidating. 304s carry it too, or a browser that cached
+    # the old max-age=0 would keep revalidating.
+    if (request.url.path.startswith('/static/') and request.query_params.get('v')
+            and response.status_code in (200, 304)):
+        response.headers['Cache-Control'] = VERSIONED_ASSET_CACHE_CONTROL
     return response
 
 

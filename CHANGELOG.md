@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 12:11 PT] — Defer Chart.js and let browsers reuse versioned static files
+
+### Why
+- On production, Chart.js (73 KB brotli, 200 KB decoded) was render-blocking in `<head>` although it is first used only after `/api/metrics` resolves; first contentful paint measured 736 ms.
+- Every static file was served `Cache-Control: public, max-age=0, must-revalidate`, so a returning visitor revalidated about ten files per page view (observed 304s taking 110–330 ms each), even though their URLs already carry `?v=`.
+
+### Files changed
+- `website/static/index.html` — load the vendored Chart.js with `defer` (SRI pin unchanged).
+- `website/app.py` — `/static/...?v=...` responses with status 200 or 304 get `Cache-Control: public, max-age=86400, stale-while-revalidate=604800`; unversioned, missing and non-static responses are unchanged. 304s carry it so browsers that stored the old `max-age=0` pick it up.
+- `website/static/app.test.mjs` — the vendored-script test now also requires `defer`.
+- `website/tests/test_app_security.py` — versioned 200 and 304 responses carry the policy; `favicon.svg`, a missing `?v=` file, `/?v=1` and an empty `v` do not.
+
+### Effect
+- Local: Chart.js reports `renderBlockingStatus: non-blocking` and still renders; versioned assets and their 304s return the new header.
+- A changed file must still get a new `?v=`: during this work a second edit to `cases.css` without a bump was served from the one-day cache until it was bumped to v15. The one-day `max-age` bounds that failure mode.
+- Validation: 364 frontend tests and 675 backend tests (10 local Redis skips) pass; the tightened chart test fails against the previous `index.html`, and the caching test fails with `None != 'public, max-age=86400, …'` when the header line is removed. `ruff check .`, Vercel runtime smoke, evaluation baseline, 34 asset hashes and JavaScript syntax checks pass.
+
 ## [2026-09-28 11:44 PT] — Escape remaining server fields, hide decorative icons, serve /favicon.ico
 
 ### Why

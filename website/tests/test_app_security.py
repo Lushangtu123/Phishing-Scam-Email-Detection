@@ -41,6 +41,30 @@ class ImagePreviewCSPTests(unittest.TestCase):
         self.assertEqual(directives['script-src'].split(), ["'self'"])
 
 
+class VersionedAssetCacheTests(unittest.TestCase):
+    @staticmethod
+    def _get(path, headers=None):
+        async def fetch():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app.app),
+                                         base_url='http://localhost') as client:
+                return await client.get(path, headers=headers or {})
+        return asyncio.run(fetch())
+
+    def test_versioned_static_assets_are_cacheable_including_revalidations(self):
+        first = self._get('/static/app.js?v=test')
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.headers.get('cache-control'), app.VERSIONED_ASSET_CACHE_CONTROL)
+        again = self._get('/static/app.js?v=test', {'If-None-Match': first.headers['etag']})
+        self.assertEqual(again.status_code, 304)
+        self.assertEqual(again.headers.get('cache-control'), app.VERSIONED_ASSET_CACHE_CONTROL)
+
+    def test_unversioned_missing_and_non_static_responses_keep_default_caching(self):
+        for path in ('/static/favicon.svg', '/static/missing.js?v=1', '/?v=1', '/static/app.js?v='):
+            with self.subTest(path=path):
+                self.assertNotEqual(self._get(path).headers.get('cache-control'),
+                                    app.VERSIONED_ASSET_CACHE_CONTROL)
+
+
 class FaviconTests(unittest.TestCase):
     def test_default_favicon_path_serves_the_svg_icon(self):
         async def fetch():
