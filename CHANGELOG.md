@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 18:18 PT] — Show the original uploaded image beside uncertain OCR
+
+### Why
+- Synthetic phishing images still show `paypa1` as `paypal` in OCR despite a high whole-image confidence score. A warning to check the original was insufficient when the original image was no longer visible beside the result.
+
+### Files changed
+- `website/static/vision.js`, `website/static/app.js`, `website/static/style.css`, `website/static/index.html`, `website/static/cases.html` — add a bounded, expandable local preview for the directly uploaded image and refresh the changed browser assets.
+- `website/app.py` — permit `blob:` only for images in the public page's content security policy, so a local preview can render without broadening script or connection permissions.
+- `website/static/vision-ui.test.mjs`, `website/tools/browser-checks/run.mjs`, `website/tests/test_app_security.py` — verify local object-URL creation, cleanup, real-browser rendering and the image-only CSP permission.
+- `README.md`, `website/tools/browser-checks/README.md` — explain preview availability and privacy limits.
+
+### Effect
+- In the public Email Content result, the original image can be compared at native resolution with extracted URL text. Its bytes remain in the browser; the analysis API, saved cases and feedback continue to receive only extracted evidence, never the image preview.
+- Clearing or replacing the result revokes the temporary preview URL. OCR text, QR payloads, risk scoring and the existing literal benchmark remain unchanged.
+
 ## [2026-09-27 16:15 PT] — Cover distributed rate limits with real Redis in CI
 
 ### Why

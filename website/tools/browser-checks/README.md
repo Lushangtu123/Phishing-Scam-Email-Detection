@@ -8,6 +8,7 @@ both servers and the browser are stopped in `finally`.
 
 The ten checks cover sender analysis, manual message analysis, English and Chinese
 image URL-line confidence displayed through the real API/UI, image upload,
+local-only original-image preview beside the OCR result,
 worker cancellation followed by a successful retry, EML embedded-image extraction,
 analyst image-case creation and reload, all five existing synthetic benchmark
 images, an additional authored rotated QR with adjacent and scattered text, and

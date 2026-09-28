@@ -1352,7 +1352,7 @@ async function runContentAnalysis() {
     }
     if (requestId !== _contentRequestId) return;
     renderContentResult(data);
-    window.PhishGuardVision?.render(document.getElementById('visual-evidence'), data.visual_analysis);
+    window.PhishGuardVision?.render(document.getElementById('visual-evidence'), data.visual_analysis, _visualFile);
     const rawSnapshot = _rawEmailSource;
     const mode = _visualFile && /\.eml$/i.test(_visualFile.name) ? 'eml'
       : _visualFile ? 'image' : rawSnapshot ? 'eml' : 'content';

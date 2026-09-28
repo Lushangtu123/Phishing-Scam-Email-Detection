@@ -1091,6 +1091,11 @@ confidence separately from the overall image confidence. A high value is still
 not proof of the address's spelling; compare it character by character with the
 original image. The displayed number is client-extracted evidence and does not
 change risk scoring or repair `1`/`l` lookalikes.
+In **Email Content**, for a directly uploaded image, expand **Original uploaded image** beside the
+result to inspect its characters at native resolution. The preview uses a
+temporary URL in the current browser only; the original image bytes are not
+included in the analysis request, saved case or feedback. Clearing or replacing
+the result revokes that URL. Saved cases and EML-embedded images do not have a local preview.
 The browser extracts EML images with postal-mime. Results
 show each image's QR payloads, OCR text, OCR confidence and extraction warnings.
 Successfully decoded QR quadrilaterals are whitened in a separate OCR image so

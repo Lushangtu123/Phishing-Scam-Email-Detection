@@ -1580,6 +1580,11 @@ kbd {
 .visual-evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; font-size: .85rem; }
 .visual-evidence h3, .visual-evidence h4 { margin: 0 0 .5rem; overflow-wrap: anywhere; }
 .visual-evidence p { margin: .5rem 0; overflow-wrap: anywhere; }
+.visual-original-preview { margin: .75rem 0; }
+.visual-original-preview summary { cursor: pointer; font-weight: 600; }
+.visual-original-preview summary:focus-visible { outline: 2px solid var(--accent, #5ad1ff); outline-offset: 3px; }
+.visual-original-preview-scroll { max-height: 28rem; overflow: auto; border: 1px solid var(--border, #64748b); border-radius: 8px; }
+.visual-original-preview img { display: block; max-width: none; width: auto; height: auto; }
 
 .ocr-language-select { width: 100%; min-height: 44px; padding: 12px; border: 1px solid var(--border-hi); border-radius: var(--radius-sm); background: var(--field-bg); color: var(--text); font: inherit; }
 .ocr-language-select:focus-visible { outline: 2px solid var(--accent, #5ad1ff); outline-offset: 3px; }

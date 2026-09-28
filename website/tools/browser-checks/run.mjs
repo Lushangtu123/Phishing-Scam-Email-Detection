@@ -169,6 +169,13 @@ try {
     await page.locator('#visual-evidence').waitFor({state: 'visible'});
     assert((await page.locator('#visual-evidence').innerText()).includes('https://paypa1.example/login'));
     assert.equal(await page.locator('#visual-evidence a').count(), 0, 'Extracted payloads must stay non-clickable');
+    const preview = page.locator('#visual-evidence details.visual-original-preview');
+    await preview.locator('summary').click();
+    const picture = preview.locator('img');
+    await picture.waitFor({state: 'visible'});
+    assert.match(await picture.getAttribute('src'), /^blob:/, 'Original preview must use a local object URL');
+    await picture.evaluate(img => img.decode());
+    assert(await picture.evaluate(img => img.complete && img.naturalWidth > 0), 'Original image must render next to OCR evidence');
   });
   await check('public cancellation stops an actual worker before sending evidence and permits retry', async () => {
     await page.locator('#content-analyze-btn').waitFor({state: 'visible'});

@@ -26,6 +26,15 @@ import content_model
 from config import Settings
 
 
+class ImagePreviewCSPTests(unittest.TestCase):
+    def test_blob_permission_is_limited_to_images(self):
+        policy = app._with_security_headers(app.Response()).headers['content-security-policy']
+        directives = dict(part.strip().split(' ', 1) for part in policy.split(';') if part.strip())
+        self.assertIn('blob:', directives['img-src'].split())
+        for name in ('script-src', 'connect-src'):
+            self.assertNotIn('blob:', directives[name].split())
+
+
 class AllowedHostConfigurationTests(unittest.TestCase):
     def test_custom_domains_are_merged_with_base_allowed_hosts(self):
         builder = getattr(app, "_build_allowed_hosts", None)

@@ -9,7 +9,7 @@ class Element {
   replaceChildren(...nodes) {this.children=nodes;}
 }
 function setup() {
-  const workers=[];
+  const workers=[], created=[], revoked=[];
   class Worker {
     constructor() {workers.push(this);}
     postMessage(message) {this.input=message;}
@@ -18,9 +18,11 @@ function setup() {
   const window={};
   vm.runInNewContext(readFileSync(new URL('./vision.js',import.meta.url),'utf8'),{
     window,document:{createElement:tag=>new Element(tag)},Worker,setTimeout,clearTimeout,Uint8Array,
+    URL:{createObjectURL(file) { created.push(file); return `blob:preview-${created.length}`; },
+      revokeObjectURL(url) { revoked.push(url); }},
     btoa:s=>Buffer.from(s,'binary').toString('base64'),
   });
-  return {api:window.PhishGuardVision,workers};
+  return {api:window.PhishGuardVision,workers,created,revoked};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('cancel while reading a file prevents the worker and result from appearing',async()=>{
@@ -84,6 +86,29 @@ test('URL line confidence is displayed separately from high whole-image confiden
   assert.match(text,/URL-like line OCR confidence: 48%/);
   assert.match(text,/character by character/);
   assert.match(text,/https:\/\/paypal.example\/login/);
+});
+
+test('original image preview stays local and its object URL is revoked on clear or replacement',()=>{
+  const {api,created,revoked}=setup(), root=new Element('section');
+  const file={name:'suspect.png',type:'image/png',size:1024};
+  const item={name:'suspect.png',source:'upload',mime_type:'image/png',status:'processed',
+    risk_level:'unknown',ocr_confidence:92,qr_payloads:[],ocr_text:'https://paypal.example/login',warnings:[]};
+  const analysis={observations:[item],warnings:[]};
+  function walk(node) {return [node,...node.children.flatMap(walk)];}
+  api.render(root,analysis,file);
+  const image=walk(root).find(node=>node.tag==='img');
+  assert.equal(image?.src,'blob:preview-1');
+  assert.match(JSON.stringify(root),/Original uploaded image/);
+  assert.deepEqual(created,[file]);
+  assert.deepEqual(revoked,[]);
+  api.render(root,analysis,file);
+  assert.deepEqual(revoked,['blob:preview-1']);
+  api.render(root,null);
+  assert.deepEqual(revoked,['blob:preview-1','blob:preview-2']);
+  assert.equal(root.children.length,0);
+  api.render(root,analysis,{...file,type:'image/svg+xml'});
+  api.render(root,{observations:[{...item,source:'mime'}]},file);
+  assert.equal(created.length,2,'unsupported and embedded files are not previewed');
 });
 
 test('OCR language defaults to English and forwards each explicit supported choice',async()=>{

@@ -1212,7 +1212,7 @@ def _with_security_headers(response):
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; "
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
     )
     return response
