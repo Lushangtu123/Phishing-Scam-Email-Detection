@@ -940,6 +940,57 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 .copy-trigger .ico { width: 15px; height: 15px; vertical-align: 0; }
 .copy-buffer { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
+/* Download report: one pill holding a label and a button per format. */
+.download-group { display: inline-flex; align-items: stretch; min-height: 40px; border: 1px solid var(--border-hi); border-radius: var(--pill); background: var(--surface); }
+.download-label { display: inline-flex; align-items: center; gap: 8px; padding: 0 10px 0 15px; font-size: 13px; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.download-label .ico { width: 15px; height: 15px; vertical-align: 0; }
+.download-option { min-height: 38px; padding: 6px 12px; border: 0; border-left: 1px solid var(--border); background: transparent; color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.download-option:last-child { padding-right: 15px; border-radius: 0 var(--pill) var(--pill) 0; }
+.download-option:hover { color: var(--accent); background: var(--fill-soft); }
+
+/* Recent checks: a per-browser list under the demo tabs. */
+.recent-checks { margin-top: 28px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sheen), var(--surface); }
+.recent-checks > summary {
+  display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer;
+  padding: 14px 18px; font-size: 14px; font-weight: 650; color: var(--text-muted);
+}
+.recent-checks > summary::-webkit-details-marker { display: none; }
+.recent-checks > summary::after {
+  content: ''; margin-left: auto; width: 7px; height: 7px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px); transition: transform 0.3s var(--ease);
+}
+.recent-checks[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.recent-checks > summary:hover { color: var(--text); }
+.recent-count { font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.recent-body { padding: 0 18px 18px; }
+.recent-note, .recent-empty { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); }
+.recent-empty { margin-top: 10px; color: var(--text-muted); }
+.recent-empty[hidden], .recent-list[hidden], .recent-clear[hidden] { display: none; }
+.recent-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.recent-item {
+  display: grid; grid-template-columns: 84px minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
+  padding: 9px 12px; border-radius: 10px; background: var(--fill-soft); border-left: 3px solid var(--text-dim);
+  font-size: 12.5px;
+}
+.recent-safe     { border-left-color: var(--accent2); }
+.recent-low      { border-left-color: var(--info); }
+.recent-medium, .recent-unknown { border-left-color: var(--yellow); }
+.recent-high     { border-left-color: var(--orange); }
+.recent-critical { border-left-color: var(--red); }
+.recent-mode { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+.recent-main { display: flex; flex-wrap: wrap; gap: 2px 10px; min-width: 0; }
+.recent-label { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.recent-domain { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.recent-score { font-family: var(--font-mono); font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.recent-time { color: var(--text-dim); white-space: nowrap; }
+.recent-clear { margin-top: 14px; }
+@media (max-width: 640px) {
+  .recent-item { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .recent-mode { grid-column: 1 / -1; }
+  .recent-time { grid-column: 1 / -1; }
+}
+
 /* "Why this score?" disclosure under the sender verdict */
 .score-breakdown { margin: -6px 0 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sheen), var(--surface); }
 .score-breakdown[hidden] { display: none; }

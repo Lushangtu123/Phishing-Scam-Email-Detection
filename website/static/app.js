@@ -276,6 +276,7 @@ function setRing(id, pct, color) {
 document.addEventListener('DOMContentLoaded', async () => {
   setupPageActions();
   setupDemoTabs();
+  setupRecentChecks();
   setupTheme();
   setupScrollReveal();
   setupCountUps();
@@ -304,6 +305,8 @@ const PAGE_ACTIONS = {
   'clear-content':       () => clearContent(),
   'analyze-content':     () => runContentAnalysis(),
   'set-content-example': arg => setContentExample(arg),
+  'download-report':     arg => downloadReport(...String(arg).split(':')),
+  'clear-recent':        () => clearRecentChecks(),
 };
 
 function setupPageActions() {
@@ -316,8 +319,11 @@ function setupPageActions() {
   });
 }
 
-// Arrow/Home/End keys move between demo tabs (ARIA tab pattern).
+// Arrow/Home/End keys move between demo tabs (ARIA tab pattern). A ?tab= link
+// opens its tab straight away, without the switch animation.
 function setupDemoTabs() {
+  const linked = typeof location !== 'undefined' ? tabFromSearch(location.search) : null;
+  if (linked) switchDemoTab(linked, { animate: false, updateUrl: false });
   const tablist = document.querySelector('.demo-tabs');
   if (!tablist) return;
   tablist.addEventListener('keydown', event => {
@@ -737,10 +743,42 @@ function showVerifyVerdict(overall, complete, data = {}) {
 }
 
 // ── Demo Tab Switcher ─────────────────────────────────────────────────────────
-function switchDemoTab(tabName) {
-  const tab = document.getElementById('tab-' + tabName);
-  if (tab.classList.contains('active')) return;
-  withViewTransition(() => {
+// ?tab=address|content deep-links a tab. It is a query parameter rather than
+// the hash because in-page links already push #demo, #about, … to the URL.
+const TAB_QUERY_VALUES = new Map([['address', 'email-address'], ['content', 'email-content']]);
+
+function tabFromSearch(search) {
+  try {
+    return TAB_QUERY_VALUES.get(new URLSearchParams(search || '').get('tab')) || null;
+  } catch (_error) { return null; }
+}
+
+// Replaces (never pushes) the URL so switching tabs adds no history entries;
+// the current #hash is kept.
+function syncTabQuery(tabName) {
+  if (typeof history === 'undefined' || typeof location === 'undefined') return;
+  const value = [...TAB_QUERY_VALUES].find(([, name]) => name === tabName)?.[0];
+  if (!value) return;
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set('tab', value);
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+  } catch (_error) { /* URL or history unavailable; the tab still switches */ }
+}
+
+// A view transition applies its update a frame later, so the requested tab is
+// tracked here; a quick second switch (e.g. arrow keys) is then not dropped, and
+// whichever update runs last shows the latest request.
+let _requestedDemoTab = null;
+
+function switchDemoTab(tabName, { animate = true, updateUrl = true } = {}) {
+  if (!document.getElementById('tab-' + tabName)) return;
+  const current = _requestedDemoTab || document.querySelector('.demo-tab.active')?.id?.replace(/^tab-/, '');
+  if (tabName === current) return;
+  _requestedDemoTab = tabName;
+  const update = () => {
+    const name = _requestedDemoTab;
+    const tab = document.getElementById('tab-' + name);
     document.querySelectorAll('.demo-tab').forEach(t => {
       t.classList.remove('active');
       t.setAttribute('aria-selected', 'false');
@@ -750,8 +788,10 @@ function switchDemoTab(tabName) {
     tab.classList.add('active');
     tab.setAttribute('aria-selected', 'true');
     tab.removeAttribute('tabindex');
-    document.getElementById('panel-' + tabName).classList.remove('hidden');
-  });
+    document.getElementById('panel-' + name).classList.remove('hidden');
+  };
+  if (animate) withViewTransition(update); else update();
+  if (updateUrl) syncTabQuery(tabName);
 }
 
 function openFeedback(kind) { window.PhishGuardFeedback?.open(kind); }
@@ -819,6 +859,7 @@ async function runEmailAnalysis() {
     const data = await postJSON('/api/analyze-email', { email });
     if (requestId !== _senderRequestId) return;
     renderResult(data);
+    recordRecentCheck(senderRecentEntry(data));
     window.PhishGuardFeedback?.set('sender', {
       inputMode: 'sender', fingerprintInput: email,
       analysis: feedbackAnalysis(data, true), buildSource: () => ({email}),
@@ -1117,10 +1158,14 @@ function senderSummaryText(data) {
   ].join('\n');
 }
 
-function contentSummaryText(data) {
-  const score = data.combined_phishing_score != null
+function contentScoreText(data) {
+  return data.combined_phishing_score != null
     ? `${Math.round(data.combined_phishing_score)}% risk`
     : `heuristic score ${data.total_score}`;
+}
+
+function contentSummaryText(data) {
+  const score = contentScoreText(data);
   const categories = data.category_results || [];
   const extras = data.extra_indicators || [];
   return [
@@ -1159,18 +1204,246 @@ async function copySummary(kind, button) {
     // navigator.clipboard is missing on non-secure origins (e.g. a LAN IP over http).
     if (!copyWithSelection(text)) message = announcement = 'Copy failed';
   }
-  // The label swap is not reliably announced; the live region is. Clearing it first
-  // makes a repeated identical message announce again.
-  const status = document.getElementById('copy-status');
-  if (status) {
-    status.textContent = '';
-    clearTimeout(status._announceTimer);
-    status._announceTimer = setTimeout(() => { status.textContent = announcement; }, 50);
-  }
+  // The label swap is not reliably announced; the live region is.
+  announce(announcement);
   if (!label) return;
   label.textContent = message;
   clearTimeout(button._copyTimer);
   button._copyTimer = setTimeout(() => { label.textContent = 'Copy summary'; }, 1800);
+}
+
+// Speaks `message` through the #copy-status live region. Clearing it first
+// makes a repeated identical message announce again.
+function announce(message) {
+  const status = document.getElementById('copy-status');
+  if (!status) return;
+  status.textContent = '';
+  clearTimeout(status._announceTimer);
+  status._announceTimer = setTimeout(() => { status.textContent = message; }, 50);
+}
+
+// ── Download report ──────────────────────────────────────────────────────────
+// Reports are built in the browser from the last rendered result; nothing is
+// sent anywhere. Markdown mirrors the copy summary; JSON carries the API response.
+const REPORT_TYPES = { md: 'text/markdown;charset=utf-8', json: 'application/json' };
+
+// Result text can come from the analysed message, so neutralise Markdown syntax
+// (links, images, HTML, emphasis) and keep each value on one line.
+function markdownText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim().replace(/[\\`*_[\]<>|~#]/g, '\\$&');
+}
+
+function senderReportMarkdown(data, generatedAt) {
+  const indicators = (data.risk_indicators || []).filter(r => r.level !== 'info');
+  return [
+    '# PhishGuard sender check', '',
+    `- **Sender:** ${markdownText(data.email)}`,
+    `- **Verdict:** ${markdownText(data.label)} (${markdownText(data.risk_score)}/100)`,
+    `- **Mailbox type:** ${MAILBOX_LABELS[data.disposable_status] || 'Unknown'}`,
+    `- **Generated:** ${generatedAt.toISOString()}`, '',
+    '## Indicators', '',
+    ...(indicators.length
+      ? indicators.map(r => `- **${markdownText(r.level)}** — ${markdownText(r.msg)}`)
+      : ['None detected.']),
+    '', '---', '', `_${SUMMARY_DISCLAIMER}_`, '',
+  ].join('\n');
+}
+
+function contentReportMarkdown(data, generatedAt) {
+  const mode = contentMode(data);
+  const categories = data.category_results || [];
+  const extras = data.extra_indicators || [];
+  const warnings = data.analysis_warnings || [];
+  const model = mode !== 'image' && data.ml_label != null
+    ? [`- **Text model:** ${contentModelName(data)} — ${markdownText(data.ml_phishing_probability)}% model risk score`]
+    : [];
+  return [
+    '# PhishGuard content check', '',
+    `- **Input:** ${RECENT_MODES[mode]}`,
+    `- **Verdict:** ${markdownText(data.risk_label)} (${markdownText(contentScoreText(data))})`,
+    ...model,
+    `- **Generated:** ${generatedAt.toISOString()}`, '',
+    '## Categories', '',
+    ...(categories.length
+      ? categories.map(c => `- ${markdownText(c.label)} (${markdownText(c.level)}, ${markdownText(c.count)} signal${c.count === 1 ? '' : 's'})`)
+      : ['None matched.']),
+    ...(extras.length ? ['', '## Technical indicators', '',
+      ...extras.map(r => `- **${markdownText(r.level)}** — ${markdownText(r.msg)}`)] : []),
+    ...(warnings.length ? ['', '## Analysis warnings', '', ...warnings.map(w => `- ${markdownText(w)}`)] : []),
+    '', '---', '', `_${SUMMARY_DISCLAIMER}_`, '',
+  ].join('\n');
+}
+
+// Drops every *_base64 field at any depth so a report never embeds file bytes.
+function withoutBase64(value) {
+  if (Array.isArray(value)) return value.map(withoutBase64);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !/_base64$/i.test(key))
+    .map(([key, item]) => [key, withoutBase64(item)]));
+}
+
+function reportFilename(mode, format, date) {
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+    `-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  return `phishguard-${mode}-${stamp}.${format}`;
+}
+
+function buildReport(kind, format, data, generatedAt) {
+  const mode = kind === 'sender' ? 'sender' : contentMode(data);
+  const text = format === 'json'
+    ? JSON.stringify({
+      generated_at: generatedAt.toISOString(), tool: 'PhishGuard', mode, result: withoutBase64(data),
+    }, null, 2) + '\n'
+    : (kind === 'sender' ? senderReportMarkdown : contentReportMarkdown)(data, generatedAt);
+  return { text, filename: reportFilename(mode, format, generatedAt), type: REPORT_TYPES[format] };
+}
+
+function downloadReport(kind, format) {
+  if ((kind !== 'sender' && kind !== 'content') || !Object.hasOwn(REPORT_TYPES, format) || !lastResults[kind]) return;
+  const report = buildReport(kind, format, lastResults[kind], new Date());
+  let url = null;
+  try {
+    url = URL.createObjectURL(new Blob([report.text], { type: report.type }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = report.filename;
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (_error) {
+    if (url) URL.revokeObjectURL(url);
+    announce('Download failed');
+    return;
+  }
+  // Revoke once the click has handed the URL to the browser's download manager.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  announce('Report downloaded');
+}
+
+// ── Recent checks (this browser only) ────────────────────────────────────────
+// The last few verdicts are kept in localStorage so a user can compare checks.
+// Each entry holds only the mode, verdict label and level, score and time, plus
+// the sender's *domain*: never the local part, a subject, body, file name or
+// extracted text. Entries are display-only and cannot be re-run.
+const RECENT_KEY = 'phishguard-recent-checks';
+const RECENT_LIMIT = 10;
+const RECENT_MODES = { sender: 'Sender', content: 'Content', eml: 'Email file', image: 'Image' };
+const RECENT_LEVELS = new Set(['safe', 'low', 'medium', 'high', 'critical', 'unknown']);
+let _recentStorageOk = true;
+
+function senderRecentEntry(data) {
+  const email = String(data.email || '');
+  return {
+    mode: 'sender', label: data.label, level: data.verdict, score: data.risk_score,
+    domain: email.includes('@') ? email.slice(email.lastIndexOf('@') + 1).toLowerCase() : '',
+    at: Date.now(),
+  };
+}
+
+function contentRecentEntry(data) {
+  const scored = data.risk_level !== 'unknown' && data.combined_phishing_score != null;
+  return {
+    mode: contentMode(data), label: data.risk_label, level: data.risk_level,
+    score: scored ? data.combined_phishing_score : null, at: Date.now(),
+  };
+}
+
+// Rebuilds an entry from allowed fields only, so a stale or hand-edited list
+// cannot carry anything else into storage or onto the page.
+function cleanRecentEntry(entry) {
+  if (!entry || typeof entry !== 'object' || !Object.hasOwn(RECENT_MODES, entry.mode)) return null;
+  const at = Number(entry.at);
+  if (!Number.isFinite(at) || Number.isNaN(new Date(at).getTime())) return null;
+  const score = entry.score === null || entry.score === undefined || entry.score === ''
+    || !Number.isFinite(Number(entry.score)) ? null : Math.max(0, Math.min(100, Math.round(Number(entry.score))));
+  const clean = {
+    mode: entry.mode,
+    label: String(entry.label ?? '').slice(0, 80),
+    level: RECENT_LEVELS.has(entry.level) ? entry.level : 'unknown',
+    score, at,
+  };
+  if (entry.mode === 'sender' && typeof entry.domain === 'string' && entry.domain) {
+    clean.domain = entry.domain.slice(entry.domain.lastIndexOf('@') + 1).slice(0, 253);
+  }
+  return clean;
+}
+
+function readRecentChecks() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    _recentStorageOk = true;
+    return Array.isArray(list) ? list.map(cleanRecentEntry).filter(Boolean).slice(0, RECENT_LIMIT) : [];
+  } catch (error) {
+    // Storage blocked (e.g. privacy mode) throws; corrupt JSON is simply ignored.
+    _recentStorageOk = error instanceof SyntaxError;
+    return [];
+  }
+}
+
+function recordRecentCheck(entry) {
+  const clean = cleanRecentEntry(entry);
+  if (!clean) return;
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([clean, ...readRecentChecks()].slice(0, RECENT_LIMIT)));
+  } catch (_error) {
+    _recentStorageOk = false;
+  }
+  renderRecentChecks();
+}
+
+function clearRecentChecks() {
+  try { localStorage.removeItem(RECENT_KEY); } catch (_error) { _recentStorageOk = false; }
+  renderRecentChecks();
+  announce('Recent checks cleared');
+  // The Clear button hides itself, so return focus to the disclosure.
+  document.querySelector('#recent-checks > summary')?.focus();
+}
+
+function formatRecentTime(at, now) {
+  const minutes = Math.floor((now - at) / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ago`;
+  return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function renderRecentChecks() {
+  const list = document.getElementById('recent-checks-list');
+  if (!list) return;
+  const entries = readRecentChecks();
+  const now = Date.now();
+  list.innerHTML = entries.map(entry => {
+    const when = new Date(entry.at);
+    const score = entry.score === null ? '—' : entry.mode === 'sender' ? `${entry.score}/100` : `${entry.score}%`;
+    const domain = entry.domain ? `<span class="recent-domain">${escapeHtml(entry.domain)}</span>` : '';
+    return `
+      <li class="recent-item recent-${entry.level}">
+        <span class="recent-mode">${escapeHtml(RECENT_MODES[entry.mode])}</span>
+        <span class="recent-main"><span class="recent-label">${escapeHtml(entry.label || 'Result')}</span>${domain}</span>
+        <span class="recent-score">${escapeHtml(score)}</span>
+        <time class="recent-time" datetime="${when.toISOString()}" title="${escapeHtml(when.toLocaleString())}">${escapeHtml(formatRecentTime(entry.at, now))}</time>
+      </li>`;
+  }).join('');
+  list.hidden = entries.length === 0;
+  document.getElementById('recent-checks-count').textContent = entries.length ? `(${entries.length})` : '';
+  document.getElementById('recent-checks-clear').hidden = entries.length === 0;
+  const empty = document.getElementById('recent-checks-empty');
+  empty.hidden = entries.length > 0;
+  empty.textContent = _recentStorageOk
+    ? 'No checks yet. Results you analyze here will be listed.'
+    : 'This browser is blocking local storage, so recent checks are not kept.';
+}
+
+function setupRecentChecks() {
+  renderRecentChecks();
+  // Refresh relative times when reopened, and follow changes from other tabs.
+  document.getElementById('recent-checks')?.addEventListener('toggle', renderRecentChecks);
+  window.addEventListener('storage', event => {
+    if (event.key === RECENT_KEY || event.key === null) renderRecentChecks();
+  });
 }
 
 // ── Keyboard shortcuts ───────────────────────────────────────────────────────
@@ -1459,6 +1732,7 @@ async function runContentAnalysis() {
     }
     if (requestId !== _contentRequestId) return;
     renderContentResult(data);
+    recordRecentCheck(contentRecentEntry(data));
     window.PhishGuardVision?.render(document.getElementById('visual-evidence'), data.visual_analysis, _visualFile);
     const rawSnapshot = _rawEmailSource;
     const mode = _visualFile && /\.eml$/i.test(_visualFile.name) ? 'eml'
@@ -1494,6 +1768,25 @@ const RISK_CONFIG = {
   high:     { icon: 'bell',  color: 'high',     scoreColor: 'var(--orange)' },
   critical: { icon: 'skull', color: 'critical', scoreColor: 'var(--red)' },
 };
+
+// The API names the selected classifier in ml_metrics.model (see model selection
+// in content_model.py); every candidate there shares the word + character TF-IDF
+// vectorizer. Anything unrecognised falls back to a generic name.
+const CONTENT_MODEL_NAMES = new Map([
+  ['LogisticRegression', 'TF-IDF + Logistic Regression'],
+  ['CalibratedLinearSVC', 'TF-IDF + Linear SVM (calibrated)'],
+  ['ComplementNB', 'TF-IDF + Complement Naive Bayes'],
+]);
+
+function contentModelName(data) {
+  return CONTENT_MODEL_NAMES.get(data && data.ml_metrics && data.ml_metrics.model) || 'Text model';
+}
+
+// Which input produced a content result, from the server's input_mode.
+function contentMode(data) {
+  const inputMode = data && data.input_mode;
+  return inputMode === 'raw-email' ? 'eml' : inputMode === 'image-evidence' ? 'image' : 'content';
+}
 
 function renderContentResult(data) {
   lastResults.content = data;
@@ -1577,6 +1870,7 @@ function renderContentResult(data) {
   // ── ML Classifier Card ───────────────────────────────────────────────────
   const mlCard = document.getElementById('content-ml-card');
   const mlProbabilityBars = document.getElementById('content-ml-prob-bars');
+  document.getElementById('content-ml-title').textContent = contentModelName(data);
   if (imageOnly) {
     // The top-level model result describes the original email body, which is
     // empty for an image upload. Each image has its own extracted-text result.

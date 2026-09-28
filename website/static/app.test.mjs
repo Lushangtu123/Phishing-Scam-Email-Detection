@@ -590,7 +590,7 @@ test('every declared page action calls the handler its inline attribute used to 
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const declared = [...html.matchAll(/data-action="([^"]+)"(?:[^>]*?data-arg="([^"]*)")?/g)]
     .map(([, action, arg]) => ({ action, arg }));
-  assert.equal(declared.length, 28);
+  assert.equal(declared.length, 33);
   const controls = declared.map(({ action, arg }) =>
     Object.assign(new FakeElement(), { dataset: arg === undefined ? { action } : { action, arg } }));
   const elements = new Map();
@@ -604,7 +604,8 @@ test('every declared page action calls the handler its inline attribute used to 
   const { context } = loadFrontend({ document });
   const calls = [];
   for (const name of ['cycleTheme', 'switchDemoTab', 'clearEmail', 'runEmailAnalysis', 'setExample', 'copySummary',
-    'openFeedback', 'runVerification', 'clearContent', 'runContentAnalysis', 'setContentExample']) {
+    'openFeedback', 'runVerification', 'clearContent', 'runContentAnalysis', 'setContentExample',
+    'downloadReport', 'clearRecentChecks']) {
     context[name] = (...args) => calls.push([name, ...args]);
   }
   context.setupPageActions();
@@ -621,6 +622,8 @@ test('every declared page action calls the handler its inline attribute used to 
     'clear-content': () => ['clearContent'],
     'analyze-content': () => ['runContentAnalysis'],
     'set-content-example': arg => ['setContentExample', arg],
+    'download-report': arg => ['downloadReport', ...arg.split(':')],
+    'clear-recent': () => ['clearRecentChecks'],
   };
   controls.forEach((control, index) => {
     const event = { currentTarget: control };
@@ -630,6 +633,11 @@ test('every declared page action calls the handler its inline attribute used to 
     assert.deepEqual(calls, [expected[control.dataset.action](declared[index].arg, event)], control.dataset.action);
   });
   assert.ok(declared.some(({ action, arg }) => action === 'set-example' && arg === 'security-alert@paypa1-verify.xyz'));
+  for (const kind of ['sender', 'content']) {
+    for (const format of ['md', 'json']) {
+      assert.ok(declared.some(({ action, arg }) => action === 'download-report' && arg === `${kind}:${format}`), `${kind}:${format}`);
+    }
+  }
 
   calls.length = 0;
   elements.get('email-input').listeners.keydown({ key: 'a' });
@@ -1437,4 +1445,419 @@ test('text fields use 16px on touch devices so iOS Safari does not zoom on focus
   // Desktop sizes are unchanged.
   assert.match(css, /\n\.email-input \{[^}]*font-size: 15px;/);
   assert.match(css, /\n\.content-subject-input \{[^}]*font-size: 14px;/);
+});
+
+// ── Tab deep links ───────────────────────────────────────────────────────────
+function tabPage({ search = '', href = `https://phishguard.test/${search}`, deferTransitions = false } = {}) {
+  const tabs = { 'email-address': new FakeElement(), 'email-content': new FakeElement() };
+  const panels = { 'email-address': new FakeElement(), 'email-content': new FakeElement() };
+  tabs['email-address'].classList.add('active');
+  panels['email-content'].classList.add('hidden');
+  Object.entries(tabs).forEach(([name, tab]) => { tab.id = `tab-${name}`; });
+  const transitions = [], pendingUpdates = [];
+  const document = {
+    addEventListener() {},
+    createElement: () => new FakeElement(),
+    getElementById: id => id.startsWith('tab-') ? tabs[id.slice(4)] ?? null
+      : id.startsWith('panel-') ? panels[id.slice(6)] ?? null : new FakeElement(),
+    querySelector: selector => selector === '.demo-tab.active'
+      ? Object.values(tabs).find(tab => tab.classList.contains('active')) ?? null : null,
+    querySelectorAll: selector => selector === '.demo-tab' ? Object.values(tabs)
+      : selector === '.tab-panel' ? Object.values(panels) : [],
+    // Browsers run the update callback a frame later; deferTransitions models that.
+    startViewTransition: update => {
+      transitions.push('start');
+      if (deferTransitions) pendingUpdates.push(update); else update();
+      return { finished: Promise.resolve() };
+    },
+  };
+  const replaced = [], pushed = [];
+  const location = { search, href };
+  const history = {
+    state: null,
+    replaceState: (_state, _title, url) => { replaced.push(url); location.href = new URL(url, location.href).href; },
+    pushState: (_state, _title, url) => pushed.push(url),
+  };
+  const { context } = loadFrontend({ document, location, history, URL, URLSearchParams });
+  return { context, tabs, panels, transitions, pendingUpdates, replaced, pushed, location };
+}
+
+test('?tab=content opens the content tab on load without animation or a history entry', () => {
+  const page = tabPage({ search: '?tab=content', href: 'https://phishguard.test/?tab=content#demo' });
+  page.context.setupDemoTabs();
+  assert.equal(page.tabs['email-content'].classList.contains('active'), true);
+  assert.equal(page.tabs['email-content'].attributes['aria-selected'], 'true');
+  assert.equal(page.tabs['email-address'].attributes['aria-selected'], 'false');
+  assert.equal(page.panels['email-content'].classList.contains('hidden'), false);
+  assert.equal(page.panels['email-address'].classList.contains('hidden'), true);
+  assert.deepEqual(page.transitions, [], 'no view transition on load');
+  assert.deepEqual(page.replaced, [], 'the URL already says content');
+  assert.deepEqual(page.pushed, []);
+
+  const address = tabPage({ search: '?tab=address' });
+  address.context.setupDemoTabs();
+  assert.equal(address.tabs['email-address'].classList.contains('active'), true);
+  assert.equal(address.tabs['email-content'].classList.contains('active'), false);
+});
+
+test('switching tabs replaces the tab query, keeps other params and the #hash', () => {
+  const page = tabPage({ search: '?lang=en', href: 'https://phishguard.test/?lang=en#about' });
+  page.context.setupDemoTabs();
+  page.context.switchDemoTab('email-content');
+  assert.deepEqual(page.transitions, ['start'], 'user switches still animate');
+  page.context.switchDemoTab('email-content');
+  page.context.switchDemoTab('email-address');
+  assert.deepEqual(page.replaced, ['/?lang=en&tab=content#about', '/?lang=en&tab=address#about']);
+  assert.deepEqual(page.pushed, [], 'tab switches never add history entries');
+
+  // Keyboard switching goes through the same path.
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /href="#tab=|href="\?tab=/, 'no hash-based tab links');
+});
+
+test('a second tab switch during a pending view transition is not dropped', () => {
+  const page = tabPage({ deferTransitions: true });
+  page.context.switchDemoTab('email-content');
+  page.context.switchDemoTab('email-address');
+  page.context.switchDemoTab('email-content');
+  assert.equal(page.transitions.length, 3);
+  page.pendingUpdates.splice(0).forEach(update => update());
+  assert.equal(page.tabs['email-content'].classList.contains('active'), true);
+  assert.equal(page.tabs['email-address'].classList.contains('active'), false);
+  assert.equal(page.panels['email-content'].classList.contains('hidden'), false);
+  assert.deepEqual(page.replaced, ['/?tab=content', '/?tab=address', '/?tab=content']);
+});
+
+test('unknown or malformed ?tab values are ignored', () => {
+  for (const search of ['?tab=admin', '?tab=', '?tab=email-content', '?tab=constructor', '?tab=__proto__', '?TAB=content', '']) {
+    const page = tabPage({ search });
+    page.context.setupDemoTabs();
+    assert.equal(page.tabs['email-address'].classList.contains('active'), true, search);
+    assert.equal(page.tabs['email-content'].classList.contains('active'), false, search);
+    assert.deepEqual(page.replaced, [], search);
+  }
+  const page = tabPage();
+  page.context.switchDemoTab('nonexistent');
+  assert.deepEqual(page.replaced, []);
+  // Without URL support the tab still switches.
+  const { context } = loadFrontend({ location: { search: '?tab=content', href: 'x' },
+    history: { replaceState() { throw new Error('blocked'); } } });
+  assert.equal(context.tabFromSearch('?tab=content'), null, 'URLSearchParams missing is tolerated');
+  assert.doesNotThrow(() => context.syncTabQuery('email-content'));
+});
+
+// ── ML card title ────────────────────────────────────────────────────────────
+test('the ML card title names the model the API reports, with a generic fallback', () => {
+  const { context, elements } = loadFrontend();
+  const result = model => ({
+    ...contentResult('Result'), ml_label: 'Phishing', ml_prediction: 1,
+    ml_phishing_probability: 81.2, ml_legitimate_probability: 18.8,
+    ml_metrics: model === undefined ? undefined : { model },
+  });
+  const title = () => elements.get('content-ml-title').textContent;
+  context.renderContentResult(result('LogisticRegression'));
+  assert.equal(title(), 'TF-IDF + Logistic Regression');
+  context.renderContentResult(result('CalibratedLinearSVC'));
+  assert.equal(title(), 'TF-IDF + Linear SVM (calibrated)');
+  context.renderContentResult(result('ComplementNB'));
+  assert.equal(title(), 'TF-IDF + Complement Naive Bayes');
+  for (const model of [undefined, null, '', 'GradientBoosting', 'constructor', '__proto__', '<img src=x onerror=alert(1)>']) {
+    context.renderContentResult(result(model));
+    assert.equal(title(), 'Text model', String(model));
+  }
+  assert.equal(elements.get('content-ml-title').innerHTML, '', 'set through textContent only');
+
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /<span class="ml-badge">ML<\/span>\s*<span id="content-ml-title">Text model<\/span>/);
+  assert.doesNotMatch(html, /TF-IDF \+ Logistic Regression/);
+});
+
+// ── Recent checks ────────────────────────────────────────────────────────────
+function memoryStorage(initial = {}) {
+  const data = new Map(Object.entries(initial));
+  return {
+    data,
+    getItem: key => (data.has(key) ? data.get(key) : null),
+    setItem: (key, value) => { data.set(key, String(value)); },
+    removeItem: key => { data.delete(key); },
+  };
+}
+const RECENT = 'phishguard-recent-checks';
+const stored = storage => JSON.parse(storage.getItem(RECENT) || '[]');
+
+test('a sender check is recorded with the domain only, never the local part', async () => {
+  const storage = memoryStorage();
+  const { context, elements } = loadFrontend({ localStorage: storage,
+    fetch: async () => response({ ...senderResult('alice.secret+tag@Mail.Example.COM'), verdict: 'high',
+      label: 'High Sender Risk', risk_score: 38 }) });
+  context.document.getElementById('email-input').value = 'alice.secret+tag@Mail.Example.COM';
+  await context.runEmailAnalysis();
+  const entries = stored(storage);
+  assert.equal(entries.length, 1);
+  assert.deepEqual(Object.keys(entries[0]).sort(), ['at', 'domain', 'label', 'level', 'mode', 'score']);
+  assert.equal(entries[0].mode, 'sender');
+  assert.equal(entries[0].domain, 'mail.example.com');
+  assert.equal(entries[0].level, 'high');
+  assert.equal(entries[0].score, 38);
+  assert.doesNotMatch(storage.getItem(RECENT), /alice|secret|tag@/i);
+  const list = elements.get('recent-checks-list');
+  assert.match(list.innerHTML, /Sender<\/span>/);
+  assert.match(list.innerHTML, /mail\.example\.com/);
+  assert.match(list.innerHTML, /38\/100/);
+  assert.match(list.innerHTML, /Just now/);
+  assert.doesNotMatch(list.innerHTML, /alice/);
+  assert.equal(list.hidden, false);
+  assert.equal(elements.get('recent-checks-count').textContent, '(1)');
+  assert.equal(elements.get('recent-checks-clear').hidden, false);
+});
+
+test('content, email-file and image checks store no subject, body, file name or text', async () => {
+  const storage = memoryStorage();
+  const { context, elements } = loadFrontend({ localStorage: storage,
+    fetch: async () => response({ ...contentResult('High Risk — Likely Phishing'), risk_level: 'high',
+      combined_phishing_score: 72.6, input_mode: 'subject-body', subject: 'Private subject', body: 'Private body' }) });
+  context.document.getElementById('content-subject').value = 'Private subject';
+  context.document.getElementById('content-body').value = 'Private body';
+  await context.runContentAnalysis();
+  let entries = stored(storage);
+  assert.equal(entries.length, 1);
+  assert.deepEqual(Object.keys(entries[0]).sort(), ['at', 'label', 'level', 'mode', 'score']);
+  assert.equal(entries[0].mode, 'content');
+  assert.equal(entries[0].score, 73);
+  assert.doesNotMatch(storage.getItem(RECENT), /Private/);
+
+  for (const [inputMode, mode] of [['raw-email', 'eml'], ['image-evidence', 'image']]) {
+    const entry = context.contentRecentEntry({ ...contentResult('Unknown'), risk_level: 'unknown',
+      combined_phishing_score: 12, input_mode: inputMode });
+    assert.equal(entry.mode, mode);
+    assert.equal(entry.score, null, 'undetermined risk keeps no score');
+  }
+  // Even if a caller passes extra fields, only allowed ones are written.
+  context.recordRecentCheck({ mode: 'image', label: 'Medium Risk', level: 'medium', score: 40, at: Date.now(),
+    filename: 'invoice-secret.png', ocr_text: 'Private OCR', subject: 'Private', domain: 'x.test' });
+  entries = stored(storage);
+  assert.deepEqual(Object.keys(entries[0]).sort(), ['at', 'label', 'level', 'mode', 'score']);
+  assert.doesNotMatch(storage.getItem(RECENT), /invoice|Private|x\.test/);
+  assert.match(elements.get('recent-checks-list').innerHTML, /Image<\/span>[\s\S]*40%[\s\S]*Content<\/span>[\s\S]*73%/);
+});
+
+test('recent checks keep the newest ten and nothing is recorded on errors', async () => {
+  const storage = memoryStorage();
+  let fail = true;
+  const { context } = loadFrontend({ localStorage: storage,
+    fetch: async () => { if (fail) throw new Error('offline'); return response(senderResult('a@example.com')); } });
+  context.document.getElementById('email-input').value = 'a@example.com';
+  await context.runEmailAnalysis();
+  assert.equal(storage.getItem(RECENT), null, 'a failed request records nothing');
+  fail = false;
+  for (let i = 0; i < 12; i++) {
+    context.recordRecentCheck({ mode: 'sender', label: `Check ${i}`, level: 'low', score: i, domain: `d${i}.test`, at: 1_700_000_000_000 + i });
+  }
+  const entries = stored(storage);
+  assert.equal(entries.length, 10);
+  assert.equal(entries[0].label, 'Check 11');
+  assert.equal(entries[9].label, 'Check 2');
+});
+
+test('recent checks survive throwing, empty and tampered storage', async () => {
+  const throwing = { getItem() { throw new Error('SecurityError'); }, setItem() { throw new Error('QuotaExceeded'); },
+    removeItem() { throw new Error('SecurityError'); } };
+  const { context, elements } = loadFrontend({ localStorage: throwing, clearTimeout() {},
+    fetch: async () => response(senderResult('a@example.com')) });
+  context.document.getElementById('email-input').value = 'a@example.com';
+  await context.runEmailAnalysis();
+  assert.equal(elements.get('result-area').classList.contains('hidden'), false, 'the result still renders');
+  assert.equal(elements.get('email-error').textContent, '');
+  assert.equal(elements.get('recent-checks-list').hidden, true);
+  assert.match(elements.get('recent-checks-empty').textContent, /blocking local storage/);
+  assert.doesNotThrow(() => context.clearRecentChecks());
+
+  // A getter that throws (storage disabled entirely) is tolerated too.
+  const blocked = loadFrontend({ clearTimeout() {} }).context;
+  Object.defineProperty(blocked, 'localStorage', { get() { throw new Error('SecurityError'); } });
+  assert.doesNotThrow(() => { blocked.setupRecentChecks(); blocked.recordRecentCheck(blocked.senderRecentEntry(senderResult('a@b.test'))); });
+
+  // Empty storage shows the empty state; corrupt JSON is ignored.
+  const empty = loadFrontend({ localStorage: memoryStorage({ [RECENT]: '{not json' }) });
+  empty.context.setupRecentChecks();
+  assert.equal(empty.elements.get('recent-checks-list').innerHTML, '');
+  assert.equal(empty.elements.get('recent-checks-clear').hidden, true);
+  assert.match(empty.elements.get('recent-checks-empty').textContent, /No checks yet/);
+
+  // Hand-edited entries are rebuilt from allowed fields and escaped.
+  const tampered = memoryStorage({ [RECENT]: JSON.stringify([
+    { mode: 'sender', label: '<img src=x onerror=alert(1)>', level: 'high" onclick="x', score: 999,
+      domain: 'bob@evil.test', at: 1_700_000_000_000, subject: 'Private' },
+    { mode: 'evil', label: 'dropped', at: 1 },
+    { mode: 'content', label: 'bad time', at: 'soon' },
+    { mode: 'content', label: 'no score', score: '', at: 1_700_000_000_000 },
+  ]) });
+  const edited = loadFrontend({ localStorage: tampered });
+  edited.context.setupRecentChecks();
+  const html = edited.elements.get('recent-checks-list').innerHTML;
+  assert.doesNotMatch(html, /<img|onclick|bob|dropped|bad time|Private/);
+  assert.match(html, /&lt;img src=x/);
+  assert.match(html, /recent-item recent-unknown/);
+  assert.match(html, /evil\.test/);
+  assert.match(html, /100\/100/);
+  assert.match(html, /no score[\s\S]*—/);
+  assert.equal(edited.elements.get('recent-checks-count').textContent, '(2)');
+});
+
+test('clearing recent checks wipes storage, announces, and returns focus to the disclosure', () => {
+  const storage = memoryStorage();
+  const { context, elements } = loadFrontend({ localStorage: storage, clearTimeout() {} });
+  let focused = false;
+  const summary = new FakeElement();
+  summary.focus = () => { focused = true; };
+  context.document.querySelector = selector => (selector === '#recent-checks > summary' ? summary : null);
+  context.recordRecentCheck(context.senderRecentEntry(senderResult('a@example.com')));
+  assert.equal(stored(storage).length, 1);
+  context.clearRecentChecks();
+  assert.equal(storage.getItem(RECENT), null);
+  assert.equal(elements.get('recent-checks-list').innerHTML, '');
+  assert.equal(elements.get('recent-checks-clear').hidden, true);
+  assert.equal(elements.get('recent-checks-count').textContent, '');
+  assert.equal(elements.get('copy-status').textContent, 'Recent checks cleared');
+  assert.equal(focused, true);
+});
+
+test('relative times fall back to a date after a day', () => {
+  const { context } = loadFrontend();
+  const now = Date.UTC(2026, 8, 28, 12);
+  assert.equal(context.formatRecentTime(now - 10_000, now), 'Just now');
+  assert.equal(context.formatRecentTime(now - 5 * 60_000, now), '5 min ago');
+  assert.equal(context.formatRecentTime(now - 3 * 3_600_000, now), '3 h ago');
+  assert.match(context.formatRecentTime(now - 3 * 86_400_000, now), /2026/);
+});
+
+test('the recent list and privacy copy say the list stays in this browser', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const recent = html.match(/<details class="recent-checks" id="recent-checks">[\s\S]*?<\/details>/);
+  assert.ok(recent, 'recent checks disclosure exists');
+  assert.match(recent[0], /<summary>Recent checks/);
+  assert.match(recent[0], /only in this browser/i);
+  assert.match(recent[0], /id="recent-checks-clear" data-action="clear-recent"/);
+  assert.ok(html.indexOf('end panel-email-content') < html.indexOf('id="recent-checks"'));
+  const notice = html.match(/<p class="raw-email-status content-privacy-notice">([\s\S]*?)<\/p>/)[1];
+  assert.match(notice, /Recent checks list keeps only verdicts and scores in this browser/);
+});
+
+// ── Download report ──────────────────────────────────────────────────────────
+function downloadHarness(overrides = {}) {
+  const blobs = [], revoked = [], clicks = [];
+  const { context, elements } = loadFrontend({
+    Blob, clearTimeout() {},
+    URL: { createObjectURL: blob => { blobs.push(blob); return `blob:report-${blobs.length}`; },
+      revokeObjectURL: url => revoked.push(url) },
+    ...overrides,
+  });
+  const appended = [];
+  context.document.body = { appendChild: el => appended.push(el) };
+  context.document.createElement = () => {
+    const link = new FakeElement();
+    link.click = () => clicks.push({ href: link.href, download: link.download, attached: appended.includes(link) });
+    link.remove = () => { link.removed = true; };
+    return link;
+  };
+  return { context, elements, blobs, revoked, clicks, appended };
+}
+
+test('sender reports download as Markdown with a timestamp, escaped text and the disclaimer', async () => {
+  const h = downloadHarness();
+  h.context.renderResult({ ...senderResult('a@paypa1-verify.xyz'), verdict: 'critical', label: 'Critical Sender Risk',
+    risk_score: 100, disposable_status: 'no_known_match',
+    risk_indicators: [{ level: 'high', msg: 'Homoglyph [login](http://evil.test) <b>*x*</b>' }, { level: 'info', msg: 'note' }] });
+  h.context.downloadReport('sender', 'md');
+  assert.equal(h.clicks.length, 1);
+  assert.match(h.clicks[0].download, /^phishguard-sender-\d{8}-\d{6}\.md$/);
+  assert.equal(h.clicks[0].href, 'blob:report-1');
+  assert.equal(h.clicks[0].attached, true);
+  assert.equal(h.appended[0].removed, true);
+  assert.deepEqual(h.revoked, ['blob:report-1'], 'the object URL is revoked');
+  assert.equal(h.blobs[0].type, 'text/markdown;charset=utf-8');
+  const text = await h.blobs[0].text();
+  assert.match(text, /^# PhishGuard sender check\n\n- \*\*Sender:\*\* a@paypa1-verify\.xyz\n- \*\*Verdict:\*\* Critical Sender Risk \(100\/100\)\n/);
+  assert.match(text, /- \*\*Mailbox type:\*\* No known disposable-provider match/);
+  assert.match(text, /- \*\*Generated:\*\* \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/);
+  assert.match(text, /- \*\*high\*\* — Homoglyph \\\[login\\\]\(http:\/\/evil\.test\) \\<b\\>\\\*x\\\*\\<\/b\\>/);
+  assert.doesNotMatch(text, /note/);
+  assert.match(text, /_Heuristic result from PhishGuard; it does not prove a message is safe or malicious\._\n$/);
+  assert.equal(h.elements.get('copy-status').textContent, 'Report downloaded');
+});
+
+test('content reports download as JSON with the API response and no *_base64 fields', async () => {
+  const h = downloadHarness();
+  const data = { ...contentResult('Medium Risk — Suspicious Content'), risk_level: 'medium', input_mode: 'image-evidence',
+    eml_base64: 'AAAA', visual_analysis: { observations: [{ ocr_text: 'Pay now', image_base64: 'BBBB', nested: [{ Thumb_BASE64: 'CCCC', keep: 1 }] }] } };
+  h.context.renderContentResult(data);
+  h.context.downloadReport('content', 'json');
+  assert.match(h.clicks[0].download, /^phishguard-image-\d{8}-\d{6}\.json$/);
+  assert.equal(h.blobs[0].type, 'application/json');
+  const text = await h.blobs[0].text();
+  assert.doesNotMatch(text, /_base64|AAAA|BBBB|CCCC/i);
+  const report = JSON.parse(text);
+  assert.deepEqual(Object.keys(report), ['generated_at', 'tool', 'mode', 'result']);
+  assert.equal(report.tool, 'PhishGuard');
+  assert.equal(report.mode, 'image');
+  assert.match(report.generated_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.equal(report.result.risk_label, 'Medium Risk — Suspicious Content');
+  assert.equal(report.result.visual_analysis.observations[0].ocr_text, 'Pay now');
+  assert.equal(report.result.visual_analysis.observations[0].nested[0].keep, 1);
+  assert.equal(data.eml_base64, 'AAAA', 'the rendered result is not mutated');
+  assert.deepEqual(h.revoked, ['blob:report-1']);
+  assert.equal(h.elements.get('copy-status').textContent, 'Report downloaded');
+
+  h.context.renderResult(senderResult('a@example.com'));
+  h.context.downloadReport('sender', 'json');
+  const sender = JSON.parse(await h.blobs[1].text());
+  assert.equal(sender.mode, 'sender');
+  assert.equal(sender.result.email, 'a@example.com');
+  assert.match(h.clicks[1].download, /^phishguard-sender-\d{8}-\d{6}\.json$/);
+});
+
+test('content Markdown names the input, model and warnings; filenames use local time', () => {
+  const { context } = loadFrontend();
+  const text = context.contentReportMarkdown({
+    ...contentResult('High Risk — Likely Phishing'), input_mode: 'raw-email', combined_phishing_score: 72.4,
+    ml_label: 'Phishing', ml_phishing_probability: 63.2, ml_metrics: { model: 'LogisticRegression' },
+    category_results: [{ label: 'Urgency', level: 'high', count: 1 }],
+    extra_indicators: [{ level: 'medium', msg: 'Link text differs from destination' }],
+    analysis_warnings: ['Attachment content was not inspected; only metadata was checked.'],
+  }, new Date(Date.UTC(2026, 8, 28, 20, 5, 9)));
+  assert.match(text, /^# PhishGuard content check\n\n- \*\*Input:\*\* Email file\n- \*\*Verdict:\*\* High Risk — Likely Phishing \(72% risk\)\n- \*\*Text model:\*\* TF-IDF \+ Logistic Regression — 63\.2% model risk score\n- \*\*Generated:\*\* 2026-09-28T20:05:09\.000Z\n/);
+  assert.match(text, /## Categories\n\n- Urgency \(high, 1 signal\)/);
+  assert.match(text, /## Technical indicators\n\n- \*\*medium\*\* — Link text differs from destination/);
+  assert.match(text, /## Analysis warnings\n\n- Attachment content was not inspected; only metadata was checked\./);
+  assert.match(text, /does not prove a message is safe or malicious/);
+  assert.doesNotMatch(context.contentReportMarkdown({ ...contentResult('X'), input_mode: 'image-evidence', ml_label: 'Phishing' },
+    new Date()), /Text model/, 'image results have no top-level model score');
+  assert.equal(context.reportFilename('sender', 'md', new Date(2026, 8, 28, 13, 5, 9)), 'phishguard-sender-20260928-130509.md');
+});
+
+test('downloads ignore missing results and unknown formats, and report failures', () => {
+  const h = downloadHarness();
+  h.context.downloadReport('sender', 'md');
+  h.context.renderResult(senderResult('a@example.com'));
+  for (const [kind, format] of [['sender', 'pdf'], ['sender', undefined], ['sender', '__proto__'], ['sender', 'toString'], ['__proto__', 'md'], ['constructor', 'json']]) {
+    h.context.downloadReport(kind, format);
+  }
+  assert.equal(h.clicks.length, 0);
+  assert.equal(h.elements.has('copy-status'), false, 'nothing was announced');
+
+  const failing = downloadHarness({ URL: { createObjectURL() { throw new Error('no blobs'); }, revokeObjectURL() { throw new Error('unexpected'); } } });
+  failing.context.renderResult(senderResult('a@example.com'));
+  failing.context.downloadReport('sender', 'md');
+  assert.equal(failing.elements.get('copy-status').textContent, 'Download failed');
+});
+
+test('download controls sit beside each copy button as a labelled, keyboard-reachable group', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  for (const kind of ['sender', 'content']) {
+    const group = html.match(new RegExp(`data-action="copy-summary" data-arg="${kind}">[\\s\\S]*?<div class="download-group" role="group" aria-labelledby="${kind}-download-label">([\\s\\S]*?)</div>`));
+    assert.ok(group, kind);
+    assert.match(group[1], new RegExp(`<span class="download-label" id="${kind}-download-label">[\\s\\S]*Download report</span>`));
+    assert.match(group[1], new RegExp(`<button type="button" class="download-option" data-action="download-report" data-arg="${kind}:md">Markdown</button>`));
+    assert.match(group[1], new RegExp(`<button type="button" class="download-option" data-action="download-report" data-arg="${kind}:json">JSON</button>`));
+  }
 });

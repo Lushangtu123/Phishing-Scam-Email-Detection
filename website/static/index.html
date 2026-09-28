@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=44" />
+  <link rel="stylesheet" href="/static/style.css?v=45" />
   <script defer src="/static/vendor/chart/chart.umd.min.js?v=4.4.0" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"></script>
 </head>
 <body>
@@ -201,6 +201,11 @@
     <div id="result-area" class="result-area hidden">
       <div class="result-actions">
         <button type="button" class="report-trigger copy-trigger" data-action="copy-summary" data-arg="sender"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg> <span class="copy-label">Copy summary</span></button>
+        <div class="download-group" role="group" aria-labelledby="sender-download-label">
+          <span class="download-label" id="sender-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> Download report</span>
+          <button type="button" class="download-option" data-action="download-report" data-arg="sender:md">Markdown</button>
+          <button type="button" class="download-option" data-action="download-report" data-arg="sender:json">JSON</button>
+        </div>
         <div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="sender">Report an issue <span aria-hidden="true">↗</span></button></div>
       </div>
 
@@ -499,6 +504,7 @@
           original input is included only with your explicit consent. When sender history is enabled, a
           pseudonymous sender observation may be retained for abuse detection.
           Remove unrelated personal content before submitting an email.
+          The Recent checks list keeps only verdicts and scores in this browser.
         </p>
         <div class="content-input-actions">
           <p class="kbd-hint kbd-hint-inline"><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> to analyze</p>
@@ -524,6 +530,11 @@
       <div id="content-result-area" class="content-result-area hidden">
         <div class="result-actions">
           <button type="button" class="report-trigger copy-trigger" data-action="copy-summary" data-arg="content"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg> <span class="copy-label">Copy summary</span></button>
+          <div class="download-group" role="group" aria-labelledby="content-download-label">
+            <span class="download-label" id="content-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> Download report</span>
+            <button type="button" class="download-option" data-action="download-report" data-arg="content:md">Markdown</button>
+            <button type="button" class="download-option" data-action="download-report" data-arg="content:json">JSON</button>
+          </div>
           <div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="content">Report an issue <span aria-hidden="true">↗</span></button></div>
         </div>
         <section id="visual-evidence" class="visual-evidence" hidden></section>
@@ -555,7 +566,7 @@
             <div>
               <div class="ml-card-title">
                 <span class="ml-badge">ML</span>
-                TF-IDF + Logistic Regression
+                <span id="content-ml-title">Text model</span>
               </div>
               <div class="ml-card-sub" id="content-ml-sub"></div>
             </div>
@@ -631,6 +642,17 @@
       </div>
 
     </div><!-- end panel-email-content -->
+
+    <!-- Recent checks: kept in this browser's localStorage only (see app.js). -->
+    <details class="recent-checks" id="recent-checks">
+      <summary>Recent checks <span class="recent-count" id="recent-checks-count"></span></summary>
+      <div class="recent-body">
+        <p class="recent-note">Saved only in this browser: verdicts, scores and sender domains, never addresses or message text.</p>
+        <p class="recent-empty" id="recent-checks-empty">No checks yet. Results you analyze here will be listed.</p>
+        <ol class="recent-list" id="recent-checks-list" hidden></ol>
+        <button type="button" class="report-trigger recent-clear" id="recent-checks-clear" data-action="clear-recent" hidden>Clear recent checks</button>
+      </div>
+    </details>
 
   </div>
 </section>
@@ -902,7 +924,7 @@
   </div>
 </section>
 
-<!-- Announces copy-summary results; the button label change alone is often not read out. -->
+<!-- Announces copy, download and recent-check results; a button label change alone is often not read out. -->
 <p id="copy-status" class="sr-only" role="status" aria-live="polite"></p>
 
 </main>
@@ -975,7 +997,7 @@
 <script src="/static/file-intake.js?v=1"></script>
 <script src="/static/confirm-dialog.js?v=1"></script>
 <script src="/static/feedback.js?v=8"></script>
-<script src="/static/app.js?v=48"></script>
+<script src="/static/app.js?v=49"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>
