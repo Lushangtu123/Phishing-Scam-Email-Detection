@@ -3,8 +3,28 @@ export const LIMITS = Object.freeze({bytes: 2 * 1024 * 1024, images: 4, pixels: 
 export function imageInfo(buffer) {
   const b = new Uint8Array(buffer), v = new DataView(buffer);
   const ascii = (i, n) => String.fromCharCode(...b.slice(i, i + n));
-  if (b.length >= 24 && ascii(1, 3) === 'PNG' && b[0] === 137 && ascii(12, 4) === 'IHDR')
-    return {mime: 'image/png', width: v.getUint32(16), height: v.getUint32(20)};
+  if (b.length >= 33 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, i) => b[i] === value) &&
+      v.getUint32(8) === 13 && ascii(12, 4) === 'IHDR') {
+    const info = {mime: 'image/png', width: v.getUint32(16), height: v.getUint32(20)};
+    let animated = false, hasImageData = false;
+    // APNG declares animation in acTL before IDAT. Inspect actual chunk
+    // boundaries, including CRC bytes, rather than matching payload strings.
+    // This validates framing, not CRC checksums or decoded pixels.
+    for (let i = 33; i + 12 <= b.length;) {
+      const size = v.getUint32(i), tag = ascii(i + 4, 4), end = i + 12 + size;
+      if (size > 0x7fffffff || end > b.length || tag === 'IHDR') break;
+      if (tag === 'acTL') {
+        if (size !== 8 || !v.getUint32(i + 8) || hasImageData || animated) break;
+        animated = true;
+      }
+      if (tag === 'IDAT') hasImageData = true;
+      if (tag === 'IEND') {
+        if (size !== 0 || !hasImageData) break;
+        return animated ? {...info, animated: true} : info;
+      }
+      i = end;
+    }
+  }
   if (b.length >= 12 && ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP') {
     for (let i = 12; i + 8 <= b.length;) {
       const tag = ascii(i, 4), size = v.getUint32(i + 4, true), p = i + 8;
@@ -38,7 +58,7 @@ export function checkImage(buffer) {
   const info = imageInfo(buffer);
   if (!info.width || !info.height || info.width > LIMITS.side || info.height > LIMITS.side || info.width * info.height > LIMITS.pixels)
     throw new Error('Image exceeds 4,096 pixels per side or 8 megapixels.');
-  if (info.animated) throw new Error('Animated WebP is not supported; export a still image.');
+  if (info.animated) throw new Error(`Animated ${info.mime === 'image/png' ? 'PNG' : 'WebP'} is not supported; export a still image.`);
   return info;
 }
 export function decodeQRs(image, decode) {
@@ -96,15 +116,30 @@ export function urlLineConfidence(blocks) {
     }
   return lowest;
 }
-export function dataImages(html) {
-  const images = [], warnings = [];
+export function addImage(images, image, warnings) {
+  // Compare original bytes before applying the shared budget. Retaining at
+  // most four candidates bounds comparisons across inline and nested parts.
+  const bytes = new Uint8Array(image.buffer);
+  if (images.some(item => {
+    if (item.buffer.byteLength !== bytes.length) return false;
+    const other = new Uint8Array(item.buffer);
+    for (let i = 0; i < bytes.length; i++) if (bytes[i] !== other[i]) return false;
+    return true;
+  })) return;
+  if (images.length >= LIMITS.images) {
+    const warning = 'Image extraction reached the four-image limit; additional distinct images were not inspected visually.';
+    if (!warnings.includes(warning)) warnings.push(warning);
+    return;
+  }
+  images.push(image);
+}
+export function dataImages(html, images = [], warnings = []) {
   // Scan strings only. Email HTML is never inserted into a document or fetched.
   for (const match of html.matchAll(/data:image\/(png|jpeg|webp);base64,([a-z0-9+/=]+)/gi)) {
-    if (images.length >= LIMITS.images) { warnings.push('Additional inline images exceeded the four-image limit.'); break; }
     try {
       const text = atob(match[2]);
       if (text.length > LIMITS.bytes) throw new Error();
-      images.push({name: `inline-image-${images.length + 1}`, source: 'data-uri', buffer: Uint8Array.from(text, c => c.charCodeAt(0)).buffer});
+      addImage(images, {name: `inline-image-${images.length + 1}`, source: 'data-uri', buffer: Uint8Array.from(text, c => c.charCodeAt(0)).buffer}, warnings);
     } catch { warnings.push('An inline image could not be decoded within the size limit.'); }
   }
   if (/(?:src|srcset|background|url\s*\()[^<>]{0,40}(?:https?:)?\/\//i.test(html)) warnings.push('Remote images were not downloaded or inspected.');

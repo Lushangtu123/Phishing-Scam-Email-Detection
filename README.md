@@ -326,6 +326,10 @@ article title and dotted release numbers such as `5.0` or `802.11b` do not alone
 establish a mismatch. Full IPv4 labels and explicitly displayed legacy IP URLs
 remain eligible. Actual destinations are still checked independently; no tracking
 domain is allowlisted and no redirect is followed.
+Complete bare filenames such as `invoice.pdf` and `report.docx` do not claim a
+display domain when their extension is absent from the bundled public suffix
+list. Explicit addresses, navigation instructions, paths/ports and real
+file-like domain suffixes such as `.zip` and `.mov` retain mismatch checks.
 HTML text, destination, form, and image collectors retain the first occurrence
 of a repeated attribute, including an empty value, matching HTML parsing rules.
 Later duplicate `action`, `formaction`, `href`, `type`, or image attributes cannot
@@ -1155,14 +1159,17 @@ for scattered captions. No OCR URL spelling or lookalike characters are repaired
 Decoded links are plain text; the app never opens them. See
 [asset sources and licenses](website/tools/vision-assets/README.md).
 
-Limits: 2 MiB input file, four images per submission, 4,096 pixels per side and
+Limits: 2 MiB input file, four distinct images per submission, 4,096 pixels per side and
 8 megapixels before decoding, eight QR codes per image, 6,000 OCR characters per
 image. QR scanning uses original pixels within those bounds; only the masked OCR
 copy is resized above 2,000 pixels, with a small-text warning. One job has
 a 150-second deadline; OCR initialization/recognition have their own deadlines.
 Cancel, clear, file changes and case sign-out discard pending results. Recent
 browsers supporting Workers, OffscreenCanvas and WebAssembly are required.
-Animated WebP is rejected; PNG animation is not fully inspected. Remote images,
+Exact image bytes share one slot across inline images, attachments and nested
+messages; another distinct image beyond the limit produces a coverage warning.
+Animated WebP and animated PNG (APNG) are rejected with a still-image instruction.
+PNG chunk framing is checked before decoding; this is not full CRC or pixel validation. Remote images,
 SVG/GIF/PDF, attachment malware and general visual meaning are outside scope.
 
 `POST /api/analyze-visual` and authenticated `POST /api/cases/visual` accept

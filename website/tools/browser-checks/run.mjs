@@ -209,6 +209,23 @@ try {
     validateVisual(data, ['https://paypa1.example/login']);
     assert.equal(data.visual_analysis.observations.length, 2);
   });
+  await check('repeated inline images leave room for a later distinct QR attachment', async () => {
+    const logo = (await readFile(path.join(fixtureDir, 'synthetic-benign.png'))).toString('base64');
+    const qr = (await readFile(path.join(fixtureDir, 'synthetic-qr.png'))).toString('base64');
+    const raw = ['MIME-Version: 1.0', 'Content-Type: multipart/mixed; boundary="repeated-image-control"', '',
+      '--repeated-image-control', 'Content-Type: text/html', '',
+      `<img src="data:image/png;base64,${logo}">`.repeat(6),
+      '--repeated-image-control', 'Content-Type: image/png',
+      'Content-Disposition: attachment; filename="later-qr.png"', 'Content-Transfer-Encoding: base64', '', qr,
+      '--repeated-image-control--', ''].join('\r\n');
+    const evidence = await page.evaluate(async raw => window.PhishGuardVision.recognize(
+      new File([raw], 'repeated-images.eml', {type: 'message/rfc822'})), raw);
+    assert.equal(evidence.observations.length, 2, 'Repeated bytes must not consume unique-image slots');
+    assert(evidence.observations.every(item => ['processed', 'partial'].includes(item.status)));
+    assert.deepEqual(evidence.observations.flatMap(item => item.qr_payloads), ['https://paypa1.example/login']);
+    assert.equal(evidence.warnings.length, 0, 'Copies must not produce false coverage-limit warnings');
+    summary.repeated_image_control = {image_occurrences: 7, unique_images_inspected: 2, exact_later_qr: true};
+  });
   await check('analyst can save and reload an image case through real SQLite APIs', async () => {
     await page.goto(appURL + '/cases');
     await page.waitForLoadState('networkidle');

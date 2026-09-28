@@ -2326,6 +2326,21 @@ def _visible_link_host(link_text: str) -> str:
             r'(?<!\w)(?:visit|open|go to|log\s*in (?:to|at)|sign\s*in (?:to|at))\s*$'
             r'|(?:访问|打开|登录|登陆)\s*$', link_text[:match.start()], re.IGNORECASE,
         ))
+        # A complete filename such as invoice.pdf labels a document, not its
+        # hosting domain. Keep explicit addresses, paths/ports and real public
+        # suffixes (including file-like .zip/.mov) eligible for mismatch checks.
+        filename_label = (
+            not match.group('prefix') and match.start() == 0
+            and match.end() == len(link_text)
+            and suffix in {
+                'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+                'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'csv',
+                'json', 'xml', 'yaml', 'yml', 'zip', 'mov',
+            }
+            and not _DOMAIN_EXTRACTOR(host).suffix
+        )
+        if filename_label:
+            continue
         if (domain or ip) and (match.group('prefix') or address_label or navigation):
             return host
     return ""

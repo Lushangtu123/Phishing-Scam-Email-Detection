@@ -6,10 +6,11 @@ pages and vendored module workers. It uses no API response mocks, personal mail,
 cloud credentials or remote uploads. Its temporary SQLite database is deleted and
 both servers and the browser are stopped in `finally`.
 
-The eleven checks cover sender analysis, manual message analysis, English and Chinese
+The twelve checks cover sender analysis, manual message analysis, English and Chinese
 image URL-line confidence displayed through the real API/UI, image upload,
 local-only original-image preview beside the OCR result,
 worker cancellation followed by a successful retry, EML embedded-image extraction,
+six repeated inline images followed by a different QR attachment,
 analyst image-case creation and reload, all five existing synthetic benchmark
 images, an additional authored rotated QR with adjacent and scattered text, and
 ten browser-authored font/text controls for URL lookalikes and non-URL prose,
@@ -65,7 +66,7 @@ running the command in a browser-enabled job.
 The hard integration gates require usable extraction for every image, exact
 single- and multiple-QR payload sets with zero unexpected payloads, zero OCR text
 on the two QR-only controls, preservation of the rotated QR's adjacent caption
-and scattered text, no unexpected
+and scattered text, recovery of the later QR despite repeated earlier images, no unexpected
 Han characters on English controls, and literal CER at most 5% on each English
 text control and 40% on the Chinese text control. CER preserves punctuation,
 case and whitespace. The Chinese ceiling preserves the current limited

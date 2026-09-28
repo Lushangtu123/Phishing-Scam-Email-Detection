@@ -86,8 +86,8 @@ test('a QR polygon crossing image edges cannot mask unrelated rows or columns', 
 test('damaged, oversized dimension and non-image input are rejected before bitmap decode', () => {
   assert.throws(()=>checkImage(new ArrayBuffer(0)),/nonempty/);
   assert.throws(()=>checkImage(new TextEncoder().encode('<svg onload="bad()"/>').buffer),/Unsupported/);
-  const png = new Uint8Array(24), view=new DataView(png.buffer);
-  png.set([137,80,78,71],0); png.set([73,72,68,82],12);view.setUint32(16,100000);view.setUint32(20,100000);
+  const png = Uint8Array.from(readFileSync(new URL('../tests/fixtures/vision/synthetic-qr.png',import.meta.url))), view=new DataView(png.buffer);
+  view.setUint32(16,100000);view.setUint32(20,100000);
   assert.throws(()=>checkImage(png.buffer),/megapixels/);
 });
 test('data images are extracted as bytes and remote URLs remain warnings only', () => {
@@ -110,9 +110,60 @@ test('real MIME parser extracts inline and attached images as original bytes', a
 });
 test('MIME extraction caps image count and surfaces the uninspected remainder',async()=>{
   const raw=['MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="X"','','body'];
-  for(let n=0;n<6;n++) raw.push('--X','Content-Type: image/png','Content-Transfer-Encoding: base64','', 'aGVsbG8=');
+  for(let n=0;n<6;n++) raw.push('--X','Content-Type: image/png','Content-Transfer-Encoding: base64','', Buffer.from(`image-${n}`).toString('base64'));
   raw.push('--X--','');
   const images=[],warnings=[];
   await collectEmail(raw.join('\r\n'),images,warnings);
   assert.equal(images.length,4);assert.match(warnings.join(' '),/four-image limit/);
+});
+
+test('repeated data images do not hide a later different image',()=>{
+  const repeated='<img src="data:image/png;base64,aGVsbG8=">';
+  const result=dataImages(repeated.repeat(6)+'<img src="data:image/png;base64,d29ybGQ=">');
+  assert.deepEqual(result.images.map(item=>new TextDecoder().decode(item.buffer)),['hello','world']);
+  assert.deepEqual(result.warnings,[]);
+});
+
+function imageEmail(parts) {
+  return ['MIME-Version: 1.0','Content-Type: multipart/mixed; boundary="X"','',
+    ...parts.flatMap(part=>['--X',...part]),'--X--',''].join('\r\n');
+}
+function attachment(bytes, name='picture.png') {
+  return ['Content-Type: image/png',`Content-Disposition: attachment; filename="${name}"`,
+    'Content-Transfer-Encoding: base64','',Buffer.from(bytes).toString('base64')];
+}
+test('identical bytes share the image budget across data URIs, attachments and nested mail',async()=>{
+  const nested=['MIME-Version: 1.0','Content-Type: text/html','',
+    '<img src="data:image/png;base64,aGVsbG8="><img src="data:image/png;base64,bmVzdGVk">'].join('\r\n');
+  const raw=imageEmail([
+    ['Content-Type: text/html','','<img src="data:image/png;base64,aGVsbG8=">'],
+    ...Array.from({length:5},(_,n)=>attachment('hello',`copy-${n}.png`)),
+    ['Content-Type: message/rfc822','Content-Transfer-Encoding: base64','',Buffer.from(nested).toString('base64')],
+    attachment('last'),
+  ]);
+  const images=[],warnings=[];
+  await collectEmail(raw,images,warnings);
+  assert.deepEqual(images.map(item=>new TextDecoder().decode(item.buffer)),['hello','nested','last']);
+  assert.deepEqual(warnings,[]);
+});
+test('four distinct images followed by copies and ordinary attachments do not claim missing coverage',async()=>{
+  const raw=imageEmail([
+    ...['first','second','third','fourth','first','fourth'].map(bytes=>attachment(bytes)),
+    ['Content-Type: application/octet-stream','Content-Disposition: attachment; filename="notes.bin"','','notes'],
+  ]);
+  const images=[],warnings=[];
+  await collectEmail(raw,images,warnings);
+  assert.equal(images.length,4);
+  assert.deepEqual(warnings,[]);
+});
+test('nested inline images cannot exceed the shared four-image budget',async()=>{
+  const nested=['MIME-Version: 1.0','Content-Type: text/html','',
+    [1,2,3,4,5,6].map(n=>`<img src="data:image/png;base64,${Buffer.from(`nested-${n}`).toString('base64')}">`).join('')].join('\r\n');
+  const images=[],warnings=[];
+  await collectEmail(imageEmail([attachment('first'),attachment('second'),attachment('third'),
+    ['Content-Type: message/rfc822','Content-Transfer-Encoding: base64','',Buffer.from(nested).toString('base64')]]),images,warnings);
+  assert.equal(images.length,4);
+  assert.equal(new TextDecoder().decode(images[3].buffer),'nested-1');
+  assert.match(warnings.join(' '),/four-image limit/);
+  assert.equal(warnings.length,1);
 });

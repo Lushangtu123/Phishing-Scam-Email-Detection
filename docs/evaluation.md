@@ -378,7 +378,48 @@ requirement and its no-increase-in-unknown rule. These inspected historical
 corpora do not establish current-inbox accuracy or an independent release
 holdout. In particular, undetermined is not counted as a correct nonalert.
 
+### Filename-label correction (2026-09-27)
+
+At `main@7169ae5`, nine synthetic document labels, including `invoice.pdf`,
+`report.docx` and `Budget.xlsx`, incorrectly triggered a high displayed-domain
+mismatch against a neutral document host. The correction excludes only complete
+bare common filenames whose extension is absent from the bundled public suffix
+list. Nine explicit-address/real-suffix controls and four dangerous destination
+controls retain their alert evidence. This does not treat a document link as safe.
+
+Paired replay on the same 443 historical messages has zero decision-count
+changes or inference failures: `hard_ham` remains 114 alerts, 45 nonalerts and
+85 undetermined out of 244; the pilot remains 90/3/7 on 100 phishing messages
+and 2/97/0 on 99 legitimate messages (alert/nonalert/undetermined). The two-class
+comparison passes. No matching bare document labels were found in these corpora,
+so this regression fix does not establish a measured corpus accuracy improvement.
+
 ## 2. Browser OCR and QR controls
+
+### Duplicate-image budget and PNG coverage (2026-09-27)
+
+A new Chromium control puts six byte-identical benign inline images before a
+different QR attachment. The previous extraction budget was exhausted before
+worker deduplication: it inspected only one unique image and missed the QR.
+Deduplicating original bytes during collection now inspects both unique images
+and recovers the exact QR payload, without a false image-limit warning. Unit
+controls cover shared budgets across data URIs, MIME attachments and nested
+messages, copies after the fourth unique image, and a real fifth-image warning.
+The limits remain four distinct candidates and a 2 MiB input file.
+
+PNG preflight now checks chunk boundaries and rejects APNG instead of inspecting
+only its default image. Six format tests cover ordinary PNG, literal `acTL`
+metadata, valid two-frame animation, a separate default image with one animation
+frame, truncated streams and malformed animation chunks. This follows the
+[W3C animation-control chunk definition](https://www.w3.org/TR/png-3/#11acTL);
+the preflight does not validate CRC contents or decode all animation frames.
+
+The unchanged five-image benchmark still has 5/5 exact QR sets, 2/5 exact OCR
+texts, 1/3 exact OCR URL sets and 23/238 character edits. These extraction fixes
+do not resolve existing OCR spelling errors or establish real-mail accuracy.
+Raw HTML data-URI extraction still lacks rendering-context filtering; a URI in
+inert HTML may be collected. Fixing that requires a parser that preserves
+email-client conditional content, with separate false-alert and coverage controls.
 
 ### Remote-image follow-up and native QR scanning (2026-09-27)
 

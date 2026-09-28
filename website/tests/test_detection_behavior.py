@@ -671,6 +671,43 @@ class ContentRuleRobustnessTests(unittest.TestCase):
         messages = [item["msg"].lower() for item in result["extra_indicators"]]
         self.assertTrue(any("does not match" in message for message in messages))
 
+    def test_bare_document_filenames_do_not_claim_link_domains(self):
+        for label in ('invoice.pdf', 'report.docx', 'Budget.xlsx',
+                      'slides.pptx', 'photo.jpeg', 'notes.txt', 'data.csv',
+                      'report.2026.pdf', '(invoice.pdf)'):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Document', f'<a href="https://documents.example/files/1">{label}</a>',
+                )
+                self.assertNotIn(result['risk_level'], {'high', 'critical'})
+                self.assertFalse(any(item.get('rule_id') == 'link.display_mismatch'
+                                     for item in result['extra_indicators']))
+
+    def test_filename_like_addresses_keep_domain_mismatch_evidence(self):
+        for label in ('archive.zip', 'video.mov', 'host.example',
+                      'https://invoice.pdf', 'www.invoice.pdf',
+                      'Visit invoice.pdf', 'invoice.pdf/download',
+                      'invoice.pdf:443', 'invoice.pdf?download=1'):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Document', f'<a href="https://other.example/view">{label}</a>',
+                )
+                self.assertIn(result['risk_level'], {'high', 'critical'})
+                self.assertTrue(any(item.get('rule_id') == 'link.display_mismatch'
+                                    for item in result['extra_indicators']))
+
+    def test_filename_labels_do_not_suppress_dangerous_destinations(self):
+        for destination in ('https://paypa1.example/', 'http://192.0.2.10/',
+                            'https://credential-capture.example/', 'javascript:alert(1)'):
+            with self.subTest(destination=destination):
+                result = app.analyze_email_content(
+                    'Document', f'<a href="{destination}">invoice.pdf</a>',
+                )
+                self.assertIn(result['risk_level'], {'high', 'critical'})
+                self.assertTrue(any(item.get('rule_id', '').startswith('link.')
+                                    and item.get('rule_id') != 'link.display_mismatch'
+                                    for item in result['extra_indicators']))
+
     def test_dotted_versions_do_not_create_display_domain_mismatches(self):
         for label in ('5.0', 'Download release 2.0', 'Wi-Fi 802.11b update',
                       'Q3.2026 report', 'Release 1.0RC1'):

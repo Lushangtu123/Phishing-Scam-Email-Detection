@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 22:46 PT] — Reduce filename false alerts and image coverage errors
+
+### Why
+- Bare download labels such as `invoice.pdf` were mistaken for displayed domains and forced high-risk mismatch alerts. Repeated inline image bytes consumed the four-image budget before worker deduplication, hiding later distinct attachments. APNG could silently contribute only its default frame.
+
+### Files changed
+- `website/app.py`, `website/tests/test_detection_behavior.py` — exempt complete bare common filenames without a recognized public suffix, with explicit-address, real-suffix and dangerous-target controls.
+- `website/static/vision-core.mjs`, `website/static/vision-email.mjs`, `website/static/vision.js` — deduplicate original bytes before the shared image limit, validate PNG chunk framing, explicitly reject APNG and refresh the worker version.
+- `website/static/vision.test.mjs`, `website/static/vision-image-format.test.mjs`, `website/tools/browser-checks/run.mjs` — cover duplicate/nested image budgets, PNG/APNG format failures and actual recovery of a later QR attachment.
+- `README.md`, `docs/evaluation.md`, `website/tools/browser-checks/README.md` — document scope, results and remaining rendering/OCR limitations.
+
+### Effect
+- Nine synthetic benign filename controls no longer trigger displayed-domain mismatch; nine address controls and four dangerous targets retain alerts. Both historical public corpora (443 messages total) retain their prior counts, with zero inference failures; the two-class comparison passes. These corpora contain no matching filename examples, so no real-data accuracy gain is claimed.
+- In Chromium, six copies followed by a different QR now yield two unique observations and the exact QR, up from one observation with the QR omitted. The existing five-image benchmark is unchanged, and its paired comparison passes. PNG animation is reported as unsupported, not treated as completely inspected.
+- Validation: 223 frontend tests and 12 Chromium integration checks pass. The 665-test backend suite passes with 10 local Redis integration skips. Independent review found no blocking defect. Raw HTML data-URI rendering-context filtering and remaining literal OCR errors require further work.
+
 ## [2026-09-27 22:31 PT] — Preserve small QR codes in large screenshots
 
 ### Why
