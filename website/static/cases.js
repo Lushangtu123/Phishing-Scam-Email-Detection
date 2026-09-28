@@ -25,6 +25,17 @@
     if (className) el.className = className;
     return el;
   }
+  // Server times are UTC; show them in the viewer's zone and always name that zone.
+  // (dateStyle/timeStyle cannot be combined with timeZoneName, so list the fields.)
+  const timeFormat = {year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'};
+  function formatTime(value, timeZone) {
+    return new Date(value).toLocaleString(undefined, timeZone ? {...timeFormat, timeZone} : timeFormat);
+  }
+  function timeNode(value, className) {
+    const el = node('time', formatTime(value), className), date = new Date(value);
+    if (!Number.isNaN(date.getTime())) { el.setAttribute('datetime', date.toISOString()); el.title = formatTime(date, 'UTC'); }
+    return el;
+  }
   function riskBadge(risk) {
     const known = ['critical', 'high', 'medium', 'low', 'safe', 'unknown'];
     const level = known.includes(risk) ? risk : 'unknown';
@@ -225,7 +236,7 @@
       title.append(node('strong', item.title), node('span', item.kind === 'feedback' ? 'User feedback' : 'Case', 'record-kind'));
       const status = node('span', labels[item.status], 'case-cell status-cell');
       const verdict = node('span', item.verdict || 'Not reviewed', 'case-cell verdict-cell');
-      const created = node('time', new Date(item.created_at).toLocaleString(), 'case-cell date-cell');
+      const created = timeNode(item.created_at, 'case-cell date-cell');
       button.append(risk, title, status, verdict, created);
       button.addEventListener('click', () => action(button, () => loadCase(item.id, item.kind)));
       $('case-list').append(button);
@@ -337,12 +348,13 @@
     restoreReview(reviewDrafts.get(value.id)?.values || reviewBaseline);
     renderDraftState();
     $('history').replaceChildren(...value.events.map(event => {
-      const li = node('li', '');
-      li.append(node('strong', `${event.actor} · ${event.action === 'auxiliary_saved' ? 'Jev opinion saved' : event.action}`), node('p', new Date(event.happened_at).toLocaleString(), 'muted'));
+      const li = node('li', ''), when = node('p', '', 'muted');
+      when.append(timeNode(event.happened_at));
+      li.append(node('strong', `${event.actor} · ${event.action === 'auxiliary_saved' ? 'Jev opinion saved' : event.action}`), when);
       for (const [key, change] of Object.entries(event.changes)) {
         if (key === 'auxiliary_opinion' && event.action === 'auxiliary_saved' && change.to) {
           const opinion = change.to;
-          li.append(node('p', `${opinion.model} · Requested ${new Date(opinion.requested_at).toLocaleString()}. Saved model opinion; risk and human verdict unchanged.`));
+          li.append(node('p', `${opinion.model} · Requested ${formatTime(opinion.requested_at)}. Saved model opinion; risk and human verdict unchanged.`));
           renderProbabilities(li, opinion);
           if (opinion.evidence_incomplete) li.append(node('p', 'Original evidence was incomplete.'));
           const provenance = node('details', '');
@@ -393,7 +405,7 @@
     if (Number.isInteger(jevConfig.used) && Number.isInteger(jevConfig.daily_limit)) {
       message += ` Workspace attempts today: ${jevConfig.used}/${jevConfig.daily_limit}.`;
     }
-    if (Number.isInteger(jevConfig.reset_at)) message += ` Resets ${new Date(jevConfig.reset_at * 1000).toLocaleString()}.`;
+    if (Number.isInteger(jevConfig.reset_at)) message += ` Resets ${formatTime(jevConfig.reset_at * 1000)}.`;
     $('jev-availability').textContent = message;
     const busy = jevBusy || opinionSaves.has(selected?.id);
     $('jev-run').disabled = !jevAvailable || busy;
@@ -453,7 +465,7 @@
         renderJevAvailability();
       }
       const receiptNote = result.receipt_expires_at
-        ? ` This request record is reused until ${new Date(result.receipt_expires_at * 1000).toLocaleString()}; submitting again will not start another provider call during that period.` : '';
+        ? ` This request record is reused until ${formatTime(result.receipt_expires_at * 1000)}; submitting again will not start another provider call during that period.` : '';
       if (result.status !== 'available') {
         const reasons = {
           no_cached_opinion: 'No unexpired result exists for your account and this case. No new model call was made.',

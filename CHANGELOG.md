@@ -20,6 +20,34 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 13:06 PT] — Dim-text contrast, iOS focus zoom, benchmark escaping, UTC-labelled case times and announced copy
+
+### Why
+- `--text-dim` (footer headings, kbd hints, example labels, score formula, phone table labels at 10–12.5px) failed WCAG AA: dark `#6b7382` was 4.19:1 on `--bg` and 3.95:1 on `--bg-card`; light `#8792a6` was 2.90:1 on `--bg` and 3.14:1 on white. The case page's `--faint` had the same problem (dark 3.88:1, light 3.31:1 on `--canvas`).
+- iOS Safari zooms into focused fields under 16px: `.email-input` 15px, `.content-subject-input` 14px, `.content-body-textarea` 13.5px, `.ocr-language-select` 15px, feedback dialog fields 14px, and the case filters 11px (the existing ≤460px rule lost to `.filter-grid input`).
+- `renderMetricsTable` interpolated classifier names into HTML unescaped and hard-coded the "Best" badge to `Random Forest`. Case date filters are UTC but were labelled "From"/"Through", and case timestamps used a bare `toLocaleString()` with no zone. Copy summary only swapped the button label, which screen readers usually do not announce.
+
+### Files changed
+- `website/static/style.css` — `--text-dim` dark `#858d9d`, light `#626c81`; a `(hover: none) and (pointer: coarse)` rule sets the sender input, subject, body, OCR language select, feedback dialog select/textarea and `.copy-buffer` to 16px; new `.sr-only` utility.
+- `website/static/cases.css` — `--faint` dark `#8a8a8a`, light `#6e6e6e`; the same coarse-pointer rule sets text inputs, selects, textareas, `.filter-grid` fields and the theme select to 16px.
+- `website/static/app.js` — `renderMetricsTable` escapes names with `escapeHtml` and picks the best row as highest F1, ties by higher ROC_AUC (`row-best` unchanged); `copySummary` clears then sets `#copy-status` to "Summary copied to clipboard" / "Copy failed" and keeps the label swap.
+- `website/static/index.html` — `<p id="copy-status" class="sr-only" role="status" aria-live="polite">`; bump `style.css` to v44 and `app.js` to v48.
+- `website/static/cases.js` — `formatTime(value, timeZone)` (explicit fields plus `timeZoneName: 'short'`; `dateStyle` cannot be combined with `timeZoneName`) and `timeNode(value, className)` (`<time datetime="…Z" title="… UTC">`) used for queue dates, history times, Jev requested/reset/receipt-expiry times.
+- `website/static/cases.html` — visible labels "From (UTC)" / "Through (UTC)"; bump `cases.css` to v16 and `cases.js` to v23. `theme-color` already followed the applied theme via `cases-theme.js` (`#0a0a0a`/`#fafafa` = `--canvas`); unchanged, now guarded by a test.
+- `website/tools/asset-versions/manifest.json` — new pins from `update.mjs`.
+- `website/static/app.test.mjs`, `cases.test.mjs`, `cases-theme.test.mjs` — 7 tests: metrics escaping and computed best row, copy live region, `--text-dim` contrast in both themes, the 16px touch rule, case time zones and ISO `datetime`, `--faint` contrast and touch rule, and `theme-color` matching `--canvas` per theme.
+
+### Effect
+| Token (theme) | Before on bg / card | After on bg / card | After, worst realistic surface |
+|---|---|---|---|
+| `--text-dim` dark | 4.19 / 3.95 | 6.00 / 5.65 | 4.63 (hovered glass card with sheen) |
+| `--text-dim` light | 2.90 / 3.14 | 4.88 / 5.27 | 4.59 (`--fill-soft` on page) |
+| `--faint` dark (canvas / surface) | 3.88 / 3.70 | 5.73 / 5.47 | 5.04 (`--soft`) |
+| `--faint` light (canvas / surface) | 3.31 / 3.45 | 4.89 / 5.10 | 4.64 (`--soft`) |
+- Both tokens stay dimmer than their muted counterparts (e.g. dark `--text-muted` 7.87:1 vs `--text-dim` 6.00:1 on `--bg`).
+- In Chromium, a touch context gets 16px for every field listed above while desktop keeps 15/14/13.5/15/14px; a `<img onerror>` classifier name renders as text; case `theme-color` tracks the theme, with `#0a0a0a` when JS is off. Real metrics still mark Random Forest (F1 0.9746) as best.
+- Validation: 382 frontend tests pass (7 new; the 6 behaviour tests fail against the previous sources, the `theme-color` guard passes on both), plus `node --check` on `app.js` and `cases.js`, and 675 backend tests (10 local Redis skips) pass.
+
 ## [2026-09-28 12:41 PT] — Theme-aware risk colours, visible load/input errors, announced results and reduced-motion scrolling
 
 ### Why

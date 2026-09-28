@@ -4,20 +4,20 @@
     "sha256": "924d5da868a4c8c750d9edc58854b197a8f9b4a7e098b768c482b0d9633efe70"
   },
   "app.js": {
-    "version": "47",
-    "sha256": "512c753088b7548cc63991087ababe57402cce88221cadafa807ad73b63efc1c"
+    "version": "48",
+    "sha256": "5a2b68133e12de4df1732ba659c7891a0f5eb1da19570dcca469b81117d53497"
   },
   "cases-theme.js": {
     "version": "1",
     "sha256": "0063880df85f7931e32af1d00b4b2ead6751cf722ebad6f162586a0076e89950"
   },
   "cases.css": {
-    "version": "15",
-    "sha256": "4c146f70798578c4e3653270d07a0cdb56f85d5af1ea8206476e43ddbeadc03e"
+    "version": "16",
+    "sha256": "41d34d4276e36b356fa6f62dd2e4658b3b099f7537a712244e4be1eac84f294e"
   },
   "cases.js": {
-    "version": "22",
-    "sha256": "8d4165b7c45a0dd87d363ec55c4b15b8d55a010aada6bb010945e1c15ce3127b"
+    "version": "23",
+    "sha256": "20ad0341ce2c9984621ddb062653c3b12cd4f7960871257f968394fe50ade168"
   },
   "confirm-dialog.js": {
     "version": "1",
@@ -32,8 +32,8 @@
     "sha256": "01ebe735e087bb899e032cd2f88f07d101aa3304777ff4ccb00870fc14dd7673"
   },
   "style.css": {
-    "version": "43",
-    "sha256": "9dbbeedc0715490f9aa65f09a548fee5897f8c07ea20102f2dce50f0d1940dae"
+    "version": "44",
+    "sha256": "bf45c253b7476faae31944f150336fb6584d614cc75b1a2594883d452241d862"
   },
   "theme-init.js": {
     "version": "1",

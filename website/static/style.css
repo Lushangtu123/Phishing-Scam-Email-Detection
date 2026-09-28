@@ -19,7 +19,8 @@
   --border-hi: rgba(255, 255, 255, 0.16);
   --text:      #f3f5f9;
   --text-muted:#9aa3b2;
-  --text-dim:  #6b7382;
+  /* --text-dim clears 4.5:1 (WCAG AA) on the page, cards and hovered glass surfaces. */
+  --text-dim:  #858d9d;
   --accent:    #5ad1ff;
   --accent-2:  #7c8cff;
   --accent2:   #3fd58f;
@@ -1338,7 +1339,7 @@ kbd {
   --border-hi: rgba(15, 23, 42, 0.16);
   --text:      #0f172a;
   --text-muted:#56627a;
-  --text-dim:  #8792a6;
+  --text-dim:  #626c81;
   --accent:    #0a7fd6;
   --accent-2:  #5b5fe6;
   --accent2:   #159a63;
@@ -1611,6 +1612,14 @@ kbd {
 .ocr-language-select:focus, .feedback-dialog select:focus { border-color: rgba(90,209,255,0.6); box-shadow: 0 0 0 4px rgba(90,209,255,0.12); outline: none; }
 .ocr-language-select option, .feedback-dialog select option { background: var(--bg-card2); color: var(--text); }
 
+/* iOS Safari zooms into any focused field whose text is under 16px. Target touch-first
+   devices rather than a width so landscape phones and tablets are covered too; mouse
+   and trackpad users keep the compact desktop sizes. */
+@media (hover: none) and (pointer: coarse) {
+  .email-input, .content-subject-input, .content-body-textarea, .ocr-language-select,
+  .feedback-dialog select, .feedback-dialog textarea, .copy-buffer { font-size: 16px; }
+}
+
 /* Upload drop target */
 .content-input-card .file-dropzone {
   display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center;
@@ -1643,3 +1652,9 @@ kbd {
   background: var(--accent); color: var(--on-accent); text-decoration: none;
 }
 .skip-link:focus { top: 12px; }
+
+/* Hidden visually but still read by screen readers (e.g. live status messages). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}

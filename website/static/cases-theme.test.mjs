@@ -80,3 +80,18 @@ test('changes made in another homepage tab synchronize without unrelated storage
   ui.storageEvent('phishguard-theme', null);
   assert.equal(ui.root.dataset.theme, 'dark');
 });
+
+test('theme-color matches the case page background for each applied theme and defaults to dark without JS', () => {
+  const css = readFileSync(new URL('./cases.css', import.meta.url), 'utf8');
+  const canvas = block => block.match(/--canvas:\s*(#[0-9a-f]{6});/i)[1].toLowerCase();
+  const dark = canvas(css.match(/^:root \{([^}]*)\}/m)[1]);
+  const light = canvas(css.match(/:root\[data-theme="light"\] \{([^}]*)\}/)[1]);
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  assert.match(html, new RegExp(`<meta name="theme-color" content="${dark}">`));
+  const ui = setup({stored: 'dark'}); ui.ready();
+  assert.equal(ui.meta.content, dark);
+  ui.choose('light'); assert.equal(ui.meta.content, light);
+  ui.choose('auto'); assert.equal(ui.meta.content, dark);
+  ui.system(true); assert.equal(ui.meta.content, light);
+  ui.storageEvent('phishguard-theme', 'dark'); assert.equal(ui.meta.content, dark);
+});

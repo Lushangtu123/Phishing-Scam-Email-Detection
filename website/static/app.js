@@ -1152,12 +1152,20 @@ async function copySummary(kind, button) {
   if (!data) return;
   const text = kind === 'sender' ? senderSummaryText(data) : contentSummaryText(data);
   const label = button && button.querySelector('.copy-label');
-  let message = 'Copied';
+  let message = 'Copied', announcement = 'Summary copied to clipboard';
   try {
     await navigator.clipboard.writeText(text);
   } catch (error) {
     // navigator.clipboard is missing on non-secure origins (e.g. a LAN IP over http).
-    if (!copyWithSelection(text)) message = 'Copy failed';
+    if (!copyWithSelection(text)) message = announcement = 'Copy failed';
+  }
+  // The label swap is not reliably announced; the live region is. Clearing it first
+  // makes a repeated identical message announce again.
+  const status = document.getElementById('copy-status');
+  if (status) {
+    status.textContent = '';
+    clearTimeout(status._announceTimer);
+    status._announceTimer = setTimeout(() => { status.textContent = announcement; }, 50);
   }
   if (!label) return;
   label.textContent = message;
@@ -1229,13 +1237,17 @@ function renderMetricsTable(metrics) {
   const colLabels = { ROC_AUC: 'ROC AUC' };
   const best = {};
   cols.forEach(col => { best[col] = Math.max(...classifiers.map(c => metrics[c][col])); });
+  // The overall "Best" row is the highest F1; a tie goes to the higher ROC_AUC.
+  const bestClf = classifiers.reduce((top, clf) =>
+    (metrics[clf].F1 - metrics[top].F1 || metrics[clf].ROC_AUC - metrics[top].ROC_AUC) > 0 ? clf : top,
+  classifiers[0]);
 
   tbody.innerHTML = classifiers.map(clf => {
     const m = metrics[clf];
-    const isRF = clf === 'Random Forest';
+    const isBest = clf === bestClf;
     return `
-      <tr class="${isRF ? 'row-best' : ''}">
-        <td class="clf-name">${clf}${isRF ? ` <span class="best-badge">${icon('award')} Best</span>` : ''}</td>
+      <tr class="${isBest ? 'row-best' : ''}">
+        <td class="clf-name">${escapeHtml(clf)}${isBest ? ` <span class="best-badge">${icon('award')} Best</span>` : ''}</td>
         ${cols.map(col => `<td class="${m[col] === best[col] ? 'cell-best' : ''}" data-label="${colLabels[col] || col}">${m[col].toFixed(4)}</td>`).join('')}
       </tr>
     `;

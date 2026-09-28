@@ -944,3 +944,46 @@ test('the signed-out view has its own h1 and headings do not skip a level', () =
   assert.match(login.slice(login.indexOf('class="login-form-panel"')), /<h1>Analyst sign in<\/h1>/);
   levels.reduce((previous, level) => { assert.ok(level <= previous + 1, `h${previous} -> h${level}`); return level; }, 0);
 });
+
+test('timestamps name their time zone and time elements carry ISO UTC values', async () => {
+  const zoneOf = ms => new Intl.DateTimeFormat(undefined, {timeZoneName: 'short'})
+    .formatToParts(new Date(ms)).find(part => part.type === 'timeZoneName').value;
+  const ui = setup(async url => url.endsWith('/me') ? {status: 200, data: {actor: 'alice', jev_available: true,
+    jev: {status: 'quota_exhausted', daily_limit: 20, used: 20, reset_at: 1790121600}}} :
+    url.endsWith('/auxiliary') ? {status: 200, data: {case_id: 'case-1', case_version: 1, status: 'skipped',
+      reason: 'request_pending', receipt_expires_at: 1790121600}} : standard(url));
+  await ui.login();
+  const created = ui.el('case-list').children[0].children[4];
+  assert.ok(created.textContent.endsWith(zoneOf(Date.parse('2026-09-20T00:00:00Z'))), created.textContent);
+  assert.equal(created.attrs.datetime, '2026-09-20T00:00:00.000Z');
+  assert.match(created.title, /2026.*UTC$/);
+  ui.el('case-list').children[0].listeners.click(); await tick();
+  const happened = ui.el('history').children[0].children[1].children[0];
+  assert.equal(happened.attrs.datetime, '2026-09-20T00:00:00.000Z');
+  assert.ok(happened.textContent.endsWith(zoneOf(Date.parse('2026-09-20T00:00:00Z'))), happened.textContent);
+  const zone = zoneOf(1790121600 * 1000);
+  assert.ok(ui.el('jev-availability').textContent.includes(`${zone}.`), ui.el('jev-availability').textContent);
+  ui.el('jev-consent').checked = true; await ui.fire('jev-run');
+  assert.ok(ui.el('jev-status').textContent.includes(`${zone};`), ui.el('jev-status').textContent);
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  assert.match(html, /<span>From \(UTC\)<\/span><input id="filter-from" type="date"/);
+  assert.match(html, /<span>Through \(UTC\)<\/span><input id="filter-to" type="date"/);
+});
+
+test('case workspace faint text meets WCAG AA and fields avoid iOS focus zoom', () => {
+  const css = readFileSync(new URL('./cases.css', import.meta.url), 'utf8');
+  const luminance = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map(v => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  for (const block of [css.match(/^:root \{([^}]*)\}/m)[1], css.match(/:root\[data-theme="light"\] \{([^}]*)\}/)[1]]) {
+    const token = name => block.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6});`, 'i'))[1];
+    for (const bg of ['--canvas', '--sidebar', '--surface', '--raised', '--soft']) {
+      assert.ok(contrast(token('--faint'), token(bg)) >= 4.5, `--faint ${token('--faint')} on ${bg} ${token(bg)}`);
+      assert.ok(contrast(token('--muted'), token(bg)) > contrast(token('--faint'), token(bg)));
+    }
+  }
+  const touch = css.match(/@media \(hover: none\) and \(pointer: coarse\) \{\n([\s\S]*?)\n\}/)[1];
+  assert.match(touch, /\.filter-grid input, \.filter-grid select[^{]*\{ font-size: 16px; \}/);
+  assert.match(touch, /input:not\(\[type="checkbox"\], \[type="file"\]\), select, textarea/);
+});

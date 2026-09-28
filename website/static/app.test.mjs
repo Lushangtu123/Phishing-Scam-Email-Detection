@@ -1345,3 +1345,96 @@ test('result and in-page scrolling respect reduced motion; hash links update the
     assert.equal(elements.has('about'), false);
   }
 });
+
+test('benchmark names are escaped and the best row is computed from F1, then ROC AUC', () => {
+  const { context, elements } = loadFrontend();
+  const row = (F1, ROC_AUC) => ({ Accuracy: 0.9, Precision: 0.9, Recall: 0.9, F1, ROC_AUC });
+  context.renderMetricsTable({
+    'Random Forest': row(0.90, 0.999),
+    '<img src=x onerror=alert(1)>': row(0.95, 0.96),
+    'Tie & Winner': row(0.95, 0.97),
+  });
+  const html = elements.get('metrics-tbody').innerHTML;
+  assert.doesNotMatch(html, /<img/);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  const best = html.split('</tr>').filter(tr => /<tr class="row-best">/.test(tr));
+  assert.equal(best.length, 1);
+  assert.match(best[0], /Tie &amp; Winner <span class="best-badge">/);
+  assert.equal(html.match(/best-badge/g).length, 1);
+});
+
+test('copy results are announced through a polite live region', async () => {
+  const timers = [];
+  const { context } = loadFrontend({
+    navigator: { clipboard: { writeText: async () => {} } },
+    setTimeout: (fn, ms) => timers.push({ fn, ms }), clearTimeout: () => {},
+  });
+  context.renderResult({
+    email: 'a@example.test', verdict: 'low', label: 'Low Sender Risk', risk_score: 5,
+    risk_indicators: [], feature_breakdown: [], high_risk_count: 0, med_risk_count: 0, phish_feature_count: 0,
+    disposable_status: 'no_known_match',
+  });
+  const status = context.document.getElementById('copy-status');
+  const label = { textContent: 'Copy summary' };
+  const flush = () => timers.splice(0).filter(t => t.ms < 1000).forEach(t => t.fn());
+  timers.length = 0;
+  status.textContent = 'Summary copied to clipboard';
+  await context.copySummary('sender', { querySelector: () => label });
+  assert.equal(status.textContent, '', 'cleared first so a repeated message is announced again');
+  flush();
+  assert.equal(status.textContent, 'Summary copied to clipboard');
+  assert.equal(label.textContent, 'Copied');
+
+  context.navigator.clipboard.writeText = async () => { throw new Error('denied'); };
+  await context.copySummary('sender', { querySelector: () => label });
+  flush();
+  assert.equal(status.textContent, 'Copy failed');
+  assert.equal(label.textContent, 'Copy failed');
+
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const region = html.match(/<p id="copy-status"[^>]*>/);
+  assert.ok(region, 'index.html has the copy live region');
+  for (const attr of ['class="sr-only"', 'role="status"', 'aria-live="polite"']) assert.ok(region[0].includes(attr), attr);
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  assert.match(css, /\n\.sr-only \{[^}]*position: absolute;[^}]*clip: rect\(0, 0, 0, 0\);/);
+});
+
+test('--text-dim meets WCAG AA on page and card backgrounds in both themes, below --text-muted', () => {
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  const luminance = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(v => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const blocks = {
+    dark: css.match(/\n:root \{([^}]*)\}/)[1],
+    light: css.match(/\n:root\[data-theme="light"\] \{([^}]*)\}/)[1],
+  };
+  for (const [theme, block] of Object.entries(blocks)) {
+    const token = name => block.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6});`, 'i'))[1];
+    const dim = token('--text-dim'), muted = token('--text-muted');
+    for (const bg of ['--bg', '--bg-card', '--bg-card2']) {
+      const ratio = contrast(dim, token(bg));
+      assert.ok(ratio >= 4.5, `${theme} --text-dim ${dim} on ${bg} ${token(bg)} is ${ratio.toFixed(2)}:1`);
+      assert.ok(contrast(muted, token(bg)) > ratio, `${theme} --text-dim stays dimmer than --text-muted on ${bg}`);
+    }
+  }
+});
+
+test('text fields use 16px on touch devices so iOS Safari does not zoom on focus', () => {
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  const touch = [...css.matchAll(/@media \(hover: none\) and \(pointer: coarse\) \{\n([\s\S]*?)\n\}/g)]
+    .map(match => match[1]).find(body => /font-size:\s*16px/.test(body));
+  assert.ok(touch, 'a coarse-pointer 16px rule exists');
+  for (const selector of ['.email-input', '.content-subject-input', '.content-body-textarea',
+    '.ocr-language-select', '.feedback-dialog select', '.feedback-dialog textarea']) {
+    assert.ok(touch.includes(selector), selector);
+  }
+  // Desktop sizes are unchanged.
+  assert.match(css, /\n\.email-input \{[^}]*font-size: 15px;/);
+  assert.match(css, /\n\.content-subject-input \{[^}]*font-size: 14px;/);
+});
