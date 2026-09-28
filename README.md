@@ -497,6 +497,7 @@ CS-166-Final-Project/
 │   └── src/
 ├── website/
 │   ├── app.py                   # API and explainable content rules
+│   ├── sender_features.py       # sender-address features and domain registries
 │   ├── content_model.py         # group-isolated optional text model
 │   ├── content_inference.py     # runtime-only verified artifact loader
 │   ├── email_structure.py       # RFC 5322/MIME/header analysis

@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 10:42 PT] — Move sender-address feature extraction out of app.py
+
+### Why
+- `website/app.py` was 4,496 lines; `extract_email_features` alone was 601 lines, the largest function in the backend, interleaved with the domain registries it depends on.
+
+### Files changed
+- `website/sender_features.py` — new module holding, verbatim and in original order, `extract_email_features` and its full module-level dependency closure: known-domain sets (`LEGIT_PROVIDERS`, `HIGH_TRAFFIC`, `SUSPICIOUS_KEYWORDS`, `ROUTINE_MAILBOX_NAMES`, `BRAND_DOMAINS`, keyword and TLD sets), the disposable/privacy-relay registries, `_DOMAIN_EXTRACTOR`, registry matchers, `normalize_homoglyphs`, `_shannon_entropy`, and `_normalize_sender_address` with its two regexes (26 names, 24 statements).
+- `website/app.py` — remove those statements and re-export all 26 names from `sender_features`, so `app.<name>` references in callers and tests are unchanged; drop seven imports that only the moved code used.
+- `README.md` — list the new module under Project structure.
+
+### Effect
+- `website/app.py` shrinks from 4,496 to 3,732 lines. No behavior change is intended.
+- Equivalence evidence: the moved 24 statements and the remaining 181 `app.py` statements are AST-identical to the originals in the same order. A differential run of the original and refactored `extract_email_features` over 3,126 addresses (every address found in `website/tests`, 3,000 seeded random locals across legitimate, disposable, relay and brand domains, and malformed inputs) produced 0 differences.
+- No test patches any moved name (checked every `patch.object(app, …)`/`patch('app.…')`); no moved global is reassigned at runtime.
+- Validation: 671 backend tests pass (10 local Redis skips), Vercel runtime smoke and evaluation baseline comparison pass, the root Vercel entrypoint and `website/` uvicorn imports load, 358 frontend tests, 13 JavaScript syntax checks and 34 asset hashes pass.
+
 ## [2026-09-28 10:40 PT] — Add a pinned ruff lint gate for definite Python defects
 
 ### Why
