@@ -1048,6 +1048,16 @@ phishing positive control and an uncertain-rendering control.
 A lint job runs pinned `ruff` with `ruff.toml`, which enables only syntax
 errors and pyflakes defects (undefined names, unused imports and variables);
 style rules and exploratory notebooks are out of scope.
+Versioned static URLs (`/static/app.js?v=46`) are cached by browsers for a day,
+so a changed file needs a new `?v=`. `website/tools/asset-versions/manifest.json`
+pins each versioned file's version and SHA-256, and
+`website/static/asset-versions.test.mjs` fails when a file changes without a
+bump. After editing such a file, run
+`node website/tools/asset-versions/update.mjs`: it bumps the integer `?v=`
+everywhere the file is referenced (repeating when a bump changes another
+versioned file, such as `vision.js` referencing `vision-worker.mjs`) and
+rewrites the manifest. Non-integer versions such as Chart.js `4.4.0` are
+changed by hand.
 A separate deployment-status workflow checks the completed public Vercel
 deployment's commit SHA, model digest, and JSON and raw `.eml` controls rather
 than assuming that the source checkout represents its bundle. It performs six
@@ -1062,6 +1072,7 @@ python -m compileall -q website phishing-detection/src
 python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
 node --test website/static/app.test.mjs
 node --check website/static/app.js
+node website/tools/asset-versions/update.mjs   # after editing a versioned static file
 git diff --check
 ```
 

@@ -1,0 +1,54 @@
+{
+  "analytics-init.js": {
+    "version": "1",
+    "sha256": "924d5da868a4c8c750d9edc58854b197a8f9b4a7e098b768c482b0d9633efe70"
+  },
+  "app.js": {
+    "version": "46",
+    "sha256": "cd07c899cdcb4a7aebb279d05f16614aa5e0226354f68df0690db836d13df26f"
+  },
+  "cases-theme.js": {
+    "version": "1",
+    "sha256": "0063880df85f7931e32af1d00b4b2ead6751cf722ebad6f162586a0076e89950"
+  },
+  "cases.css": {
+    "version": "15",
+    "sha256": "4c146f70798578c4e3653270d07a0cdb56f85d5af1ea8206476e43ddbeadc03e"
+  },
+  "cases.js": {
+    "version": "22",
+    "sha256": "8d4165b7c45a0dd87d363ec55c4b15b8d55a010aada6bb010945e1c15ce3127b"
+  },
+  "confirm-dialog.js": {
+    "version": "1",
+    "sha256": "3e976e2411a5c6283efb3d93a66c098b94ea3fc474bf8fca4f095e943a077f58"
+  },
+  "feedback.js": {
+    "version": "8",
+    "sha256": "afd7513e7a549369ecf607b59ad85d36fa79ef4784ddb0243e5292b3ebac29c3"
+  },
+  "file-intake.js": {
+    "version": "1",
+    "sha256": "01ebe735e087bb899e032cd2f88f07d101aa3304777ff4ccb00870fc14dd7673"
+  },
+  "style.css": {
+    "version": "42",
+    "sha256": "aa047c53b4bcf814bb2330b7d1d9b60a778fd37f2ffbb3db946022dbc2fd05cb"
+  },
+  "theme-init.js": {
+    "version": "1",
+    "sha256": "896a24d6ffd40875917b806165f826f3deb9201ec1df2ce9ed7341784c35adeb"
+  },
+  "vendor/chart/chart.umd.min.js": {
+    "version": "4.4.0",
+    "sha256": "0e2326c6868072bec1592760c6729043caeea2960a2b46cee6a2192aac6abff0"
+  },
+  "vision-worker.mjs": {
+    "version": "10",
+    "sha256": "144f1780bec74ce698ef643736c49eee23dbd6f0b44cccec576ab1892a673a2a"
+  },
+  "vision.js": {
+    "version": "9",
+    "sha256": "7539ec5567d5d714e84ae3494dafc077eb7190d62a5a207095efda56b2cc1231"
+  }
+}

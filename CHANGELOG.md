@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 12:25 PT] — Fail CI when a versioned static file changes without a new ?v=
+
+### Why
+- Versioned static URLs are now cached by browsers for a day (entry at 12:11), so an edited file whose `?v=` is not bumped is served stale. This happened once during that work (`cases.css` until v15); the bump was a manual convention with no check.
+
+### Files changed
+- `website/tools/asset-versions/asset-versions.mjs` — collect every `/static/<file>?v=<version>` reference in served HTML/JS/CSS (13 files, 16 references); check them against a manifest; bump changed integer versions everywhere they are referenced, repeating until stable because a bump inside one versioned file changes its own hash (`vision.js` references `vision-worker.mjs`). It refuses before writing anything when references disagree or a changed file has a non-integer version (Chart.js `4.4.0`).
+- `website/tools/asset-versions/update.mjs`, `manifest.json` — CLI that applies the update and writes a sorted manifest; initial manifest pins the current 13 versions and SHA-256s (no version changed).
+- `website/static/asset-versions.test.mjs` — fails CI (it runs with the existing `node --test website/static/*.test.mjs`) when the manifest and files disagree, naming the file and the command to run; fixture tests cover the cascade, non-integer versions, disagreeing references, missing and stale pins.
+- `README.md`, `.vercelignore` — document the workflow; keep the tool out of the deployment.
+
+### Effect
+- Appending a comment to `style.css` made the test fail with "style.css changed without a new ?v= (still 42)"; `update.mjs` then rewrote `index.html` to `style.css?v=43` and the test passed (probe reverted). A second run on a clean tree reports "Versioned static assets are up to date."
+- Validation: 370 frontend tests (3 new), 675 backend tests (10 local Redis skips), `ruff check .`, `compileall` and `git diff --check` pass.
+
 ## [2026-09-28 12:13 PT] — Keyboard-safe clear control, eyebrow contrast and a visible sign-in h1
 
 ### Why
