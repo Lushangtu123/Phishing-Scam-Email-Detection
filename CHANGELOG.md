@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 12:27 PT] — Correction: browsers do not get stale-while-revalidate on Vercel
+
+### Why
+- The 12:11 entry and the `app.py` comment said browsers could serve a versioned file from cache for up to a week while refreshing it. Production shows otherwise: `GET /static/style.css?v=42` returns `cache-control: public, max-age=86400` with `x-vercel-cache: HIT`. Vercel's CDN acts on `stale-while-revalidate` itself and strips it from the browser response; the local server still sends the full header.
+
+### Files changed
+- `website/app.py` — the comment on `VERSIONED_ASSET_CACHE_CONTROL` now states the observed Vercel behaviour; the header value is unchanged.
+
+### Effect
+- On Vercel, browsers cache versioned files for one day and then revalidate; the CDN also caches them and serves `HIT`s, and each deployment clears that cache. A missed `?v=` bump can therefore be stale in a browser for up to a day, not a week; the 12:25 check now catches a missed bump before merge.
+- Production evidence after the 12:11 change: a repeat visit loaded all 9 versioned files from the browser cache with no network request, and 304 revalidations carry `max-age=86400`.
+
 ## [2026-09-28 12:25 PT] — Fail CI when a versioned static file changes without a new ?v=
 
 ### Why

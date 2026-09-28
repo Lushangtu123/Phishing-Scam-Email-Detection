@@ -467,8 +467,11 @@ def _record_rate_limit_hit(
     return True
 
 
-# One day fresh, then up to a week served from cache while refreshing in the
-# background, so a missed ?v= bump cannot pin a stale file for long.
+# Browsers reuse a versioned file for one day. On Vercel the CDN acts on
+# stale-while-revalidate itself (x-vercel-cache: HIT) and strips it from the
+# browser response, so browsers see only max-age=86400; each deployment clears
+# the CDN cache. A missed ?v= bump can serve a stale file for up to a day, which
+# website/tools/asset-versions guards against.
 VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
 
 
