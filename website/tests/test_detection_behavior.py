@@ -55,6 +55,46 @@ class SenderRiskAnalysisTests(unittest.TestCase):
         self.assertLess(result["risk_score"], 20)
         self.assertEqual(result["verdict"], "low")
 
+    def test_supported_atom_punctuation_is_not_invalid_sender_syntax(self):
+        # RFC 5322 atext punctuation; dot separators have separate shape rules.
+        for punctuation in "!#$%&'*+-/=?^_`{|}~":
+            with self.subTest(punctuation=punctuation):
+                address = f'alice{punctuation}notes@example.com'
+                result = self.analyze(address)
+                features, indicators, *_ = app.extract_email_features(address)
+                self.assertEqual(features['request_url'], 1)
+                self.assertEqual(features['links_pointing_to_page'], 1)
+                self.assertLess(result['risk_score'], 30)
+                self.assertFalse(any('format validation' in i['msg']
+                                     or 'non-standard special' in i['msg'] for i in indicators))
+
+    def test_supported_punctuation_with_idn_domains_keeps_valid_syntax(self):
+        for domain in ('例子.com', 'xn--fsqu00a.com', 'xn--fsqu00a.com.'):
+            with self.subTest(domain=domain):
+                result = self.analyze('alice#notes@' + domain)
+                self.assertNotIn(result['verdict'], {'high', 'critical'})
+                self.assertFalse(any('format validation' in i['msg']
+                                     for i in result['risk_indicators']))
+
+    def test_sender_feature_syntax_rejects_malformed_dot_atoms(self):
+        for local in ('.alice', 'alice.', 'alice..notes'):
+            with self.subTest(local=local):
+                address = local + '@example.com'
+                features, _, *_ = app.extract_email_features(address)
+                self.assertEqual(features['links_pointing_to_page'], -1)
+                with self.assertRaises(app.HTTPException) as error:
+                    self.analyze(address)
+                self.assertEqual(error.exception.status_code, 400)
+
+    def test_valid_punctuation_does_not_hide_brand_substitution(self):
+        for address in ('alice#notes@paypa1.com', 'alice/notes@g00gle.com',
+                        "alice'notes@app1e.com"):
+            with self.subTest(address=address):
+                result = self.analyze(address)
+                self.assertIn(result['verdict'], {'high', 'critical'})
+                self.assertTrue(any('impersonate' in i['msg'].lower()
+                                    for i in result['risk_indicators']))
+
     def test_digit_substitution_brand_domains_are_high_risk_by_themselves(self):
         for domain in (
             "paypa1.com",
@@ -1377,6 +1417,27 @@ Here is the requested update.
         self.assertLess(result["sender_analysis"]["risk_score"], 20)
         self.assertEqual(result["total_score"], 0)
         self.assertEqual(result["risk_level"], "safe")
+
+    def test_punctuated_raw_sender_avoids_format_alerts_but_keeps_link_evidence(self):
+        for body, dangerous in (
+            ('Here are the regular project meeting notes.', False),
+            ('Review https://credential-capture.example/document', True),
+        ):
+            with self.subTest(dangerous=dangerous):
+                raw = ('From: Project Editor <alice#notes@example.com>\n'
+                       'Subject: Project notes\n\n' + body)
+                result = json.loads(asyncio.run(app.analyze_content_endpoint(
+                    app.ContentRequest(raw_email=raw)
+                )).body)
+                self.assertIn('sender_analysis', result)
+                self.assertLess(result['sender_analysis']['risk_score'], 30)
+                self.assertFalse(any('format validation' in i['msg']
+                                     or 'non-standard special' in i['msg']
+                                     for i in result['sender_analysis']['risk_indicators']))
+                if dangerous:
+                    self.assertIn(result['risk_level'], {'high', 'critical'})
+                else:
+                    self.assertIn(result['risk_level'], {'safe', 'low'})
 
     def test_brand_substrings_in_ordinary_names_are_not_impersonation(self):
         for name in ('Alice Appleton', 'Pineapple Gardening', 'Amazonas Travel', 'Googleton Club'):

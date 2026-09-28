@@ -191,8 +191,8 @@ FEATURE_INFO = [
      "email_desc_pos": "Username entropy is normal — does not appear randomly generated"},
     {"name": "request_url",
      "label": "Special Chars in Local",   "group": "HTML/Content-based",
-     "email_desc":     "Username contains non-standard special characters",
-     "email_desc_pos": "Username uses only standard alphanumeric characters"},
+     "email_desc":     "Username contains characters outside the supported mailbox syntax",
+     "email_desc_pos": "Username characters are supported, including ordinary atom punctuation"},
     {"name": "url_of_anchor",
      "label": "Username Length",          "group": "HTML/Content-based",
      "email_desc":     "Username exceeds 30 characters — abnormally long",
@@ -235,8 +235,8 @@ FEATURE_INFO = [
      "email_desc_pos": "Composite risk score is low — few phishing indicators present"},
     {"name": "links_pointing_to_page",
      "label": "Valid Email Format",       "group": "HTML/Content-based",
-     "email_desc":     "Email address fails RFC format validation — potentially invalid or malformed",
-     "email_desc_pos": "Email address passes standard RFC format validation"},
+     "email_desc":     "Email address has unsupported or malformed mailbox syntax",
+     "email_desc_pos": "Email address matches the supported mailbox syntax"},
 ]
 
 FEATURE_NAMES = [f["name"] for f in FEATURE_INFO]
@@ -616,11 +616,12 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     features['port'] = 1
 
     # 19. request_url (special chars in local)
-    allowed = set('abcdefghijklmnopqrstuvwxyz0123456789._-+')
-    special = set(local) - allowed
+    # Use the same character contract as the API/From parser. RFC atom
+    # punctuation such as #, = and apostrophes is not a phishing signal.
+    special = {char for char in local if not _RAW_SENDER_LOCAL_RE.fullmatch(char)}
     features['request_url'] = -1 if special else 1
     if special:
-        risk_indicators.append({"level": "medium", "msg": f"Username contains non-standard special characters: {''.join(sorted(special))}"})
+        risk_indicators.append({"level": "medium", "msg": f"Username contains unsupported mailbox characters: {''.join(sorted(special))}"})
 
     # 20. url_of_anchor (local part length)
     local_len = len(local)
@@ -710,12 +711,10 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     features['iframe'] = -1 if phish_count > 8 else (0 if phish_count > 4 else 1)
 
     # 30. links_pointing_to_page (basic email format validity)
-    email_valid = bool(re.match(
-        r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$', scoring_email
-    ))
+    email_valid = bool(_normalize_sender_address(scoring_email))
     features['links_pointing_to_page'] = 1 if email_valid else -1
     if not email_valid:
-        risk_indicators.append({"level": "high", "msg": "Email address does not pass RFC format validation — invalid address"})
+        risk_indicators.append({"level": "high", "msg": "Email address has unsupported or malformed mailbox syntax."})
 
     # ── Extended semantic domain analysis (extra risk signals beyond ML) ──────
     if not is_known:

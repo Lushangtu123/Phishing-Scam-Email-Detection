@@ -192,6 +192,48 @@ overall accuracy improvement from this change. Representative, independently
 reviewed development and holdout mail is still needed before changing sender
 weights or the model threshold.
 
+### Sender syntax regression, 2026-09-27
+
+Baseline `f0f6756f4af9af7c75657e2a7712a8460f3c4dbe` accepted unquoted
+mailboxes containing ordinary atom punctuation at the API and From-parser
+boundaries, but two narrower scoring checks then marked them as suspicious or
+invalid. Paired replay found these incorrect syntax flags in 86 hard_ham
+senders and one easy_ham sender. Reusing the existing character contract and
+mailbox normalizer removes those flags without changing input admission,
+sender weights, the committed model or its decision threshold. Malformed dot
+atoms still fail validation; brand substitution and dangerous-link controls
+remain active.
+
+The same 443 reference-filtered original messages described above were rerun.
+They remain inspected development data with the same label, historical-period,
+overlap and independence limitations; they are not an untouched holdout.
+Medium, High and Critical still count as alerts:
+
+| Cohort | Baseline | Updated |
+| --- | --- | --- |
+| 100 phishing_pot messages | 90 alerts, 3 nonalerts, 7 undetermined | 90 alerts, 3 nonalerts, 7 undetermined |
+| 99 easy_ham messages | 3 alerts, 96 nonalerts | 2 alerts, 97 nonalerts |
+| 244 hard_ham messages | 206 alerts, 36 nonalerts, 2 undetermined | 136 alerts, 44 nonalerts, 64 undetermined |
+
+Of the 70 fewer hard_ham alerts, only eight become nonalerts; the other 62
+become undetermined under the existing incomplete-content contract. Removing an
+incorrect sender signal exposes that uncertainty rather than establishing that
+those messages are safe. The hard_ham false-alert rate changes from 84.43% to
+55.74% (updated 95% Wilson interval 49.46–61.83%), while its undetermined rate
+increases from 0.82% to 26.23% (21.11–32.09%). False alerts and incomplete
+analysis remain substantial. Complete-analysis and model-availability rates
+are unchanged, and all 443 evaluations have zero inference failures.
+
+Easy_ham false alerts change from 3.03% to 2.02% (0.56–7.07%); phishing alert
+recall remains 90% (82.56–94.48%). Paired replay finds no new phishing nonalert
+or undetermined result in this cohort. Synthetic controls and the dual-class
+pilot pass the unchanged comparison policy. The single-class hard_ham
+comparison fails both its two-class requirement and its no-increase-in-unknown
+requirement. Preserve that failure; these results do not qualify as real-mail
+release acceptance or an overall accuracy improvement. This patch corrects the
+documented mailbox-syntax contradiction. It does not justify tuning risk
+weights or thresholds on these inspected samples.
+
 ## 2. Browser OCR and QR controls
 
 ```sh

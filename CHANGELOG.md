@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 19:40 PT] — Align sender scoring with supported mailbox syntax
+
+### Why
+- API and From-parser validation accepted ordinary mailbox punctuation, but two narrower scoring checks incorrectly added special-character and invalid-format risk. Paired public-corpus replay found 86 affected hard_ham senders and one easy_ham sender.
+
+### Files changed
+- `website/app.py` — reuse the existing mailbox character contract and normalizer, and describe supported syntax without claiming complete RFC mailbox support.
+- `website/tests/test_detection_behavior.py` — add failing-then-passing tests for supported punctuation, IDN domains, malformed dot atoms, brand substitution and full-message dangerous links.
+- `README.md`, `docs/evaluation.md` — document the consistent syntax boundary, matched corpus results and increased undetermined count.
+
+### Effect
+- Input admission, model artifact, decision threshold, sender weights and dangerous-link rules are unchanged. Valid punctuation no longer creates an invalid-format signal; malformed local-part dots still fail validation.
+- On 443 inspected, reference-filtered EML regressions, phishing alerts remain 90/100 and easy_ham false alerts change from 3/99 to 2/99. Hard_ham false alerts change from 206/244 to 136/244: eight alerts become nonalerts and 62 become undetermined, raising its undetermined total from two to 64. These development results do not establish overall accuracy.
+- Local validation: 634 backend tests run with 10 Redis integration skips, 191 frontend tests pass, and the Vercel runtime/model smoke passes. Independent code review found no blocking issue. Synthetic and dual-class pilot comparisons pass; the strict hard_ham comparison remains failing because it lacks phishing samples and increases undetermined results. No acceptance criterion was loosened.
+
 ## [2026-09-27 19:14 PT] — Distinguish displayed addresses from release numbers and article titles
 
 ### Why
