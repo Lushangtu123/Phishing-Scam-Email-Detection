@@ -10,7 +10,6 @@ Classifiers
 4. Decision Tree        – interpretable single-tree model (bonus)
 """
 
-import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier

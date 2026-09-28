@@ -138,7 +138,7 @@ class OpinionStoreTests(unittest.TestCase):
             self.assertEqual(store.save_opinion(case['id'],actor='alice',expected_version=1,opinion=opinion),(saved, False))
             with self.assertRaises(CaseConflict):
                 store.save_opinion(case['id'],actor='bob',expected_version=1,opinion=opinion)
-            updated = store.update(case['id'],actor='alice',expected_version=2,status='in_progress',verdict='legitimate',note='Reviewed')
+            store.update(case['id'],actor='alice',expected_version=2,status='in_progress',verdict='legitimate',note='Reviewed')
             closed = store.update(case['id'],actor='alice',expected_version=3,status='closed',verdict='legitimate',note='Done')
             with self.assertRaises(CaseInvalid):
                 store.save_opinion(case['id'],actor='bob',expected_version=4,opinion=opinion)

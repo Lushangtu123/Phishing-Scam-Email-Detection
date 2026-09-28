@@ -159,7 +159,7 @@ def preprocess(df: pd.DataFrame, target_col: str = "result", test_size: float = 
     X = X.apply(pd.to_numeric, errors="coerce").fillna(0)
 
     print(f"Class distribution:\n{y.value_counts().to_string()}")
-    print(f"  (0 = phishing, 1 = legitimate)")
+    print("  (0 = phishing, 1 = legitimate)")
 
     # Train / test split
     X_train, X_test, y_train, y_test = train_test_split(

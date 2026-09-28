@@ -49,7 +49,7 @@ from contextlib import asynccontextmanager
 from config import load_settings
 from case_api import build_case_service, make_case_router, public_jev_status
 from feedback_api import make_feedback_router
-from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE
+from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE  # noqa: F401 -- used by tests via app._REGISTRY_DOMAIN_RE
 from disposable_registry import load_disposable_registry, load_privacy_relay_registry
 from request_limits import RequestBodyLimitMiddleware
 from rate_limits import DisabledRateLimitStore, build_rate_limit_store
@@ -858,7 +858,6 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
 
             letters_only = ''.join(c for c in local if c.isalpha())
             digit_count  = sum(c.isdigit() for c in local)
-            digit_ratio  = digit_count / max(len(local), 1)
             vowel_ratio  = sum(1 for c in letters_only if c in 'aeiou') / max(len(letters_only), 1)
             entropy      = _shannon_entropy(local)
 
@@ -4294,9 +4293,6 @@ def verify_email_endpoint(req: VerifyRequest):
                 "Enable Lite mode or run full SMTP checks locally."
             ),
         )
-
-    import dns.resolver
-    import dns.exception
 
     email = req.email.strip()
     out = {

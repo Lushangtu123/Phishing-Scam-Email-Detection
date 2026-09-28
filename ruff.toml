@@ -1,0 +1,9 @@
+# Lint gate for definite defects only: syntax errors and pyflakes
+# (undefined names, unused imports/variables, redefinitions).
+# Style rules are intentionally not enabled.
+target-version = "py312"
+# Exploratory notebooks are not part of the served or tested code.
+extend-exclude = ["*.ipynb"]
+
+[lint]
+select = ["E9", "F"]

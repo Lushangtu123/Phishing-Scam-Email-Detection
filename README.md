@@ -1044,6 +1044,9 @@ checks their consistency, verifies the committed model digest, starts the real
 Lite profile with ML enabled, and performs phishing-positive and legitimate-
 negative prediction smoke tests. It also uploads original MIME bytes for a
 phishing positive control and an uncertain-rendering control.
+A lint job runs pinned `ruff` with `ruff.toml`, which enables only syntax
+errors and pyflakes defects (undefined names, unused imports and variables);
+style rules and exploratory notebooks are out of scope.
 A separate deployment-status workflow checks the completed public Vercel
 deployment's commit SHA, model digest, and JSON and raw `.eml` controls rather
 than assuming that the source checkout represents its bundle. It performs six
@@ -1055,6 +1058,7 @@ bucket.
 # From repository root, after installing requirements-dev.txt
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
+python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
 node --test website/static/app.test.mjs
 node --check website/static/app.js
 git diff --check

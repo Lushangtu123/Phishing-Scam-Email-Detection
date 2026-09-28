@@ -1,6 +1,5 @@
 """Regression gates must not pass changed cohorts, missing metrics or failures."""
 import copy
-import importlib.util
 import json
 from pathlib import Path
 import subprocess

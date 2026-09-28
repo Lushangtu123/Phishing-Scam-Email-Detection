@@ -20,6 +20,25 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 10:40 PT] — Add a pinned ruff lint gate for definite Python defects
+
+### Why
+- CI only ran `compileall`, which catches syntax errors but not undefined names or dead imports. A first `ruff` pass found 9 pyflakes findings.
+
+### Files changed
+- `ruff.toml` — enable only `E9` and `F` (syntax errors and pyflakes); exclude exploratory notebooks.
+- `.github/workflows/ci.yml` — new `lint` job installing `ruff==0.16.9` and running `ruff check .`.
+- `.vercelignore` — exclude `ruff.toml` from the deployment bundle.
+- `website/app.py` — remove unused `digit_ratio` in sender randomness scoring (factor 3 uses `digit_count` and a scatter pattern, unchanged) and unused `dns.resolver`/`dns.exception` imports in `verify_email_endpoint` (helpers import their own resolvers); mark the `_REGISTRY_DOMAIN_RE` import as a deliberate re-export because `test_detection_behavior.py` reads `app._REGISTRY_DOMAIN_RE`.
+- `website/tests/test_case_opinions.py` — keep the `store.update` call but drop its unused result binding.
+- `website/tests/test_compare_evaluations.py`, `website/tools/build_private_cohort.py`, `phishing-detection/src/evaluate.py`, `phishing-detection/src/train.py` — remove unused imports.
+- `phishing-detection/src/preprocess.py` — replace a placeholder-free f-string with a plain string.
+- `README.md` — document the lint job and the local command.
+
+### Effect
+- `ruff check .` reports 0 findings (previously 9 in served/tested code). Style rules remain disabled, so the gate flags definite defects only.
+- Validation: 671 backend tests pass (10 local Redis skips); no runtime behavior changes.
+
 ## [2026-09-28 10:09 PT] — Disclose missing and ambiguous CID image coverage
 
 ### Why
