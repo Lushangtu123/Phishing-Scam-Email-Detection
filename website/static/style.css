@@ -552,6 +552,8 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 .vb-left { display: flex; align-items: center; gap: 18px; color: var(--text); position: relative; z-index: 1; }
 .vb-icon { font-size: 36px; line-height: 1; }
 .vb-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+/* Result headings take focus only so screen readers announce the verdict; they are not controls. */
+.vb-title:focus, .crb-title:focus { outline: none; }
 .banner-phish   .vb-title { color: var(--red); }
 .banner-legit   .vb-title { color: var(--accent2); }
 .banner-suspect .vb-title { color: var(--yellow); }

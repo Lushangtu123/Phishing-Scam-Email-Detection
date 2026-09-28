@@ -971,9 +971,9 @@ function renderResult(data) {
   const banner = document.getElementById('verdict-banner');
   let bannerCls, bannerIcon, probColor;
   if (isHighRisk) {
-    bannerCls = 'banner-phish';   bannerIcon = 'alert';  probColor = '#ff5c6c';
+    bannerCls = 'banner-phish';   bannerIcon = 'alert';  probColor = 'var(--red)';
   } else if (isSuspect) {
-    bannerCls = 'banner-suspect'; bannerIcon = 'search'; probColor = '#f0c05a';
+    bannerCls = 'banner-suspect'; bannerIcon = 'search'; probColor = 'var(--yellow)';
   } else {
     bannerCls = 'banner-neutral'; bannerIcon = 'info'; probColor = 'var(--info)';
   }
@@ -1056,7 +1056,9 @@ function renderResult(data) {
   }).join('');
 
   area.classList.remove('hidden');
-  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  area.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  // Move focus to the verdict so screen readers announce the result.
+  document.getElementById('vb-title').focus({ preventScroll: true });
 }
 
 // ── Score breakdown ──────────────────────────────────────────────────────────
@@ -1197,13 +1199,26 @@ function animateBar(id, pct) {
 
 // ── Metrics Table ─────────────────────────────────────────────────────────────
 async function loadMetrics() {
+  let metrics;
   try {
     const res = await fetch('/api/metrics');
-    const data = await res.json();
-    renderMetricsTable(data.metrics);
-    renderMetricsChart(data.metrics);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    metrics = (await res.json())?.metrics;
+    if (!metrics || typeof metrics !== 'object' || !Object.keys(metrics).length) {
+      throw new Error('Response has no metrics');
+    }
+    renderMetricsTable(metrics);
   } catch (e) {
     console.error('Failed to load metrics:', e);
+    document.getElementById('metrics-tbody').innerHTML =
+      '<tr><td colspan="6" class="loading-cell">Benchmark results are unavailable right now.</td></tr>';
+    return;
+  }
+  // A chart failure must not replace the table that already rendered.
+  try {
+    renderMetricsChart(metrics);
+  } catch (e) {
+    console.error('Failed to render metrics chart:', e);
   }
 }
 
@@ -1396,6 +1411,7 @@ async function runContentAnalysis() {
   const subject = document.getElementById('content-subject').value.trim();
   const body    = document.getElementById('content-body').value.trim();
   if (!subject && !body && !_rawEmailSource) {
+    setError('content-error', 'Paste a subject or body, or upload an .eml or image file, before analyzing.');
     document.getElementById('content-body').classList.add('shake');
     setTimeout(() => document.getElementById('content-body').classList.remove('shake'), 500);
     return;
@@ -1457,13 +1473,14 @@ async function runContentAnalysis() {
   }
 }
 
+// Score colours are theme tokens so the light theme's darker shades apply.
 const RISK_CONFIG = {
-  unknown:  { icon: 'alert', color: 'medium', scoreColor: '#f0c05a' },
-  safe:     { icon: 'check', color: 'safe',     scoreColor: '#3fd58f' },
-  low:      { icon: 'info',  color: 'low',      scoreColor: '#6fb6ff' },
-  medium:   { icon: 'alert', color: 'medium',   scoreColor: '#f0c05a' },
-  high:     { icon: 'bell',  color: 'high',     scoreColor: '#ff8a4c' },
-  critical: { icon: 'skull', color: 'critical', scoreColor: '#ff5c6c' },
+  unknown:  { icon: 'alert', color: 'medium', scoreColor: 'var(--yellow)' },
+  safe:     { icon: 'check', color: 'safe',     scoreColor: 'var(--accent2)' },
+  low:      { icon: 'info',  color: 'low',      scoreColor: 'var(--info)' },
+  medium:   { icon: 'alert', color: 'medium',   scoreColor: 'var(--yellow)' },
+  high:     { icon: 'bell',  color: 'high',     scoreColor: 'var(--orange)' },
+  critical: { icon: 'skull', color: 'critical', scoreColor: 'var(--red)' },
 };
 
 function renderContentResult(data) {
@@ -1668,7 +1685,8 @@ function renderContentResult(data) {
 
   const area = document.getElementById('content-result-area');
   area.classList.remove('hidden');
-  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  area.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  document.getElementById('crb-title').focus({ preventScroll: true });
 }
 
 // ── Smooth Scroll & Navbar ────────────────────────────────────────────────────
@@ -1677,8 +1695,14 @@ function setupSmoothScroll() {
   document.querySelectorAll('a[href^="#"]:not(.skip-link)').forEach(a => {
     a.addEventListener('click', e => {
       e.preventDefault();
-      const target = document.querySelector(a.getAttribute('href'));
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const href = a.getAttribute('href');
+      const target = document.querySelector(href);
+      if (!target) return;
+      target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+      // Keep the URL shareable and put keyboard focus where the page scrolled to.
+      if (typeof history !== 'undefined') history.pushState(null, '', href);
+      if (target.tabIndex < 0 && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
     });
   });
 }

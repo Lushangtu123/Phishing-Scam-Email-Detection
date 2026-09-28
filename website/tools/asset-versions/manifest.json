@@ -4,8 +4,8 @@
     "sha256": "924d5da868a4c8c750d9edc58854b197a8f9b4a7e098b768c482b0d9633efe70"
   },
   "app.js": {
-    "version": "46",
-    "sha256": "cd07c899cdcb4a7aebb279d05f16614aa5e0226354f68df0690db836d13df26f"
+    "version": "47",
+    "sha256": "512c753088b7548cc63991087ababe57402cce88221cadafa807ad73b63efc1c"
   },
   "cases-theme.js": {
     "version": "1",
@@ -32,8 +32,8 @@
     "sha256": "01ebe735e087bb899e032cd2f88f07d101aa3304777ff4ccb00870fc14dd7673"
   },
   "style.css": {
-    "version": "42",
-    "sha256": "aa047c53b4bcf814bb2330b7d1d9b60a778fd37f2ffbb3db946022dbc2fd05cb"
+    "version": "43",
+    "sha256": "9dbbeedc0715490f9aa65f09a548fee5897f8c07ea20102f2dce50f0d1940dae"
   },
   "theme-init.js": {
     "version": "1",

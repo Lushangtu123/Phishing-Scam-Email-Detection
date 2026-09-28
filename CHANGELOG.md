@@ -20,6 +20,25 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 12:41 PT] — Theme-aware risk colours, visible load/input errors, announced results and reduced-motion scrolling
+
+### Why
+- Result scores and rings used hard-coded dark-theme hex colours as inline styles, so the light theme's darker tokens never applied: the medium-risk yellow `#f0c05a` measured 1.57:1 on the light page.
+- A failed `/api/metrics` request left the benchmark table on "Loading…" indefinitely; an empty Email Content submission only shook the textarea with no message.
+- A new sender or content verdict was not announced to screen readers, and result scrolling and in-page links animated even with reduced motion requested; in-page links also left the URL hash and keyboard focus behind.
+
+### Files changed
+- `website/static/app.js` — `renderResult` and `RISK_CONFIG.scoreColor` use `var(--red|--orange|--yellow|--info|--accent2)`; `loadMetrics` checks `res.ok` and a non-empty `metrics` object, shows "Benchmark results are unavailable right now." in `#metrics-tbody` on failure, and renders the chart in its own `try` so a Chart.js error keeps the table; `runContentAnalysis` sets `#content-error` for an empty submission; both result renderers focus their verdict title (`preventScroll`) after revealing it; result scrolling and `setupSmoothScroll` use `prefersReducedMotion() ? 'auto' : 'smooth'`, and in-page links now `history.pushState` the hash and focus the target (adding `tabindex="-1"` when it is not focusable).
+- `website/static/index.html` — `#vb-title` and `#crb-title` get `tabindex="-1"`; bump `app.js` to v47 and `style.css` to v43.
+- `website/static/style.css` — no focus outline on the two programmatically focused verdict titles.
+- `website/tools/asset-versions/manifest.json` — new pins from `update.mjs`.
+- `website/static/app.test.mjs` — 5 tests: theme tokens for every risk level (and both theme blocks define them), metrics failure modes versus a chart-only failure, the empty-content message, verdict focus, and reduced-motion/hash-link behaviour.
+
+### Effect
+- Light-theme score contrast on `#f4f6fb` (score text is large bold, 3:1 minimum): yellow 1.57 → 3.02, orange 2.16 → 3.13, red 2.77 → 4.27, info 1.98 → 4.78, green 1.75 → 3.33. In Chromium, a light-theme high-risk content score computes to `rgb(221, 107, 31)` (the light `--orange`) for both text and ring.
+- In Chromium: a 500 from `/api/metrics` shows the unavailable row; focus lands on `crb-title` / `vb-title` after analysis; with reduced motion, the "How It Works" link jumps to `#about`, sets the hash and focuses the section.
+- Validation: 375 frontend tests (5 new; all 5 fail against the previous `app.js`/`index.html`), `node --check website/static/app.js`, and 675 backend tests (10 local Redis skips) pass.
+
 ## [2026-09-28 12:27 PT] — Correction: browsers do not get stale-while-revalidate on Vercel
 
 ### Why

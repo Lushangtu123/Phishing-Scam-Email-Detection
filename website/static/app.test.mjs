@@ -1234,3 +1234,114 @@ test('public OCR forwards language and discards recognition after the selection 
   release({observations:[],warnings:[]});await pending;
   assert.equal(posts,0);assert.equal(elements.get('content-analyze-btn').disabled,false);
 });
+
+test('risk score colours use theme tokens so the light theme applies', () => {
+  const { context, elements } = loadFrontend();
+  const expected = { unknown: 'yellow', safe: 'accent2', low: 'info', medium: 'yellow', high: 'orange', critical: 'red' };
+  for (const [level, token] of Object.entries(expected)) {
+    context.renderContentResult({ ...contentResult('Result'), risk_level: level });
+    assert.equal(elements.get('crb-score').style.color, `var(--${token})`, level);
+    assert.equal(elements.get('crb-ring').style.stroke, `var(--${token})`, level);
+  }
+  // The medium verdict appends a note to the banner's left column.
+  context.document.getElementById('verdict-banner').querySelector = selector =>
+    (selector === '.vb-left' ? new FakeElement() : null);
+  for (const [verdict, token] of [['high', 'red'], ['medium', 'yellow'], ['low', 'info']]) {
+    context.renderResult({ ...senderResult('user@example.com'), verdict });
+    assert.equal(elements.get('vb-prob').style.color, `var(--${token})`, verdict);
+    assert.equal(elements.get('vb-ring').style.stroke, `var(--${token})`, verdict);
+  }
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  const block = selector => css.slice(css.indexOf(selector + ' {'), css.indexOf('}', css.indexOf(selector + ' {')));
+  for (const token of new Set(Object.values(expected))) {
+    assert.match(block(':root'), new RegExp(`--${token}:`), `dark ${token}`);
+    assert.match(block(':root[data-theme="light"]'), new RegExp(`--${token}:`), `light ${token}`);
+  }
+});
+
+test('benchmark load failures replace the loading row, but a chart failure keeps the table', async () => {
+  const errors = [];
+  const quiet = { error: (...args) => errors.push(args) };
+  const unavailable = /<td colspan="6" class="loading-cell">Benchmark results are unavailable right now\.<\/td>/;
+  for (const fetch of [
+    async () => ({ ok: false, status: 503, json: async () => ({ detail: 'down' }) }),
+    async () => ({ ok: true, json: async () => { throw new SyntaxError('bad json'); } }),
+    async () => ({ ok: true, json: async () => ({}) }),
+    async () => { throw new TypeError('offline'); },
+  ]) {
+    const { context, elements } = loadFrontend({ fetch, console: quiet });
+    await context.loadMetrics();
+    assert.match(elements.get('metrics-tbody').innerHTML, unavailable);
+  }
+  assert.equal(errors.length, 4);
+
+  // FakeElement has no canvas context, so the chart step throws after the table rendered.
+  const metrics = { 'Random Forest': { Accuracy: 0.97, Precision: 0.96, Recall: 0.95, F1: 0.94, ROC_AUC: 0.99 } };
+  const { context, elements } = loadFrontend({ fetch: async () => response({ metrics }), console: quiet });
+  await context.loadMetrics();
+  assert.match(elements.get('metrics-tbody').innerHTML, /Random Forest/);
+  assert.doesNotMatch(elements.get('metrics-tbody').innerHTML, /unavailable/);
+  assert.equal(errors.length, 5);
+});
+
+test('submitting empty content explains what to provide without calling the API', async () => {
+  let calls = 0;
+  const { context, elements } = loadFrontend({ fetch: async () => { calls++; return response(contentResult('Result')); } });
+  await context.runContentAnalysis();
+  assert.equal(calls, 0);
+  assert.match(elements.get('content-error').textContent, /subject or body.*\.eml or image file/i);
+  assert.equal(elements.get('content-error').classList.contains('hidden'), false);
+});
+
+test('rendered results move focus to the verdict title without scrolling twice', () => {
+  const { context, elements } = loadFrontend();
+  const focused = [];
+  for (const id of ['vb-title', 'crb-title']) {
+    context.document.getElementById(id).focus = options => focused.push([id, options.preventScroll]);
+  }
+  context.renderResult(senderResult('user@example.com'));
+  context.renderContentResult(contentResult('Result'));
+  assert.deepEqual(focused, [['vb-title', true], ['crb-title', true]]);
+  assert.equal(elements.get('result-area').classList.contains('hidden'), false);
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="vb-title" tabindex="-1"/);
+  assert.match(html, /id="crb-title" tabindex="-1"/);
+});
+
+test('result and in-page scrolling respect reduced motion; hash links update the URL and focus', () => {
+  for (const reduce of [true, false]) {
+    const pushed = [];
+    const { context, elements } = loadFrontend({
+      matchMedia: () => ({ matches: reduce }),
+      history: { pushState: (_state, _title, url) => pushed.push(url) },
+    });
+    const behaviors = [];
+    for (const id of ['result-area', 'content-result-area']) {
+      context.document.getElementById(id).scrollIntoView = options => behaviors.push(options.behavior);
+    }
+    context.renderResult(senderResult('user@example.com'));
+    context.renderContentResult(contentResult('Result'));
+
+    const target = new FakeElement();
+    target.tabIndex = -1;
+    target.hasAttribute = name => Boolean(target.attributes && name in target.attributes);
+    target.scrollIntoView = options => behaviors.push(options.behavior);
+    let focusOptions;
+    target.focus = options => { focusOptions = options; };
+    const link = new FakeElement();
+    link.getAttribute = () => '#about';
+    context.document.querySelectorAll = () => [link];
+    context.document.querySelector = selector => (selector === '#about' ? target : null);
+    context.setupSmoothScroll();
+    let prevented = false;
+    link.listeners.click({ preventDefault: () => { prevented = true; } });
+
+    const expected = reduce ? 'auto' : 'smooth';
+    assert.deepEqual(behaviors, [expected, expected, expected]);
+    assert.equal(prevented, true);
+    assert.deepEqual(pushed, ['#about']);
+    assert.equal(target.attributes.tabindex, '-1');
+    assert.equal(focusOptions.preventScroll, true);
+    assert.equal(elements.has('about'), false);
+  }
+});
