@@ -1151,6 +1151,15 @@ the configured image service; they are still not saved with a case. Clearing or 
 the result revokes that URL. Saved cases and EML-embedded images do not have a local preview.
 The browser extracts EML images with postal-mime. Results
 show each image's QR payloads, OCR text, OCR confidence and extraction warnings.
+Inline HTML images are collected with self-hosted HTML/CSS syntax parsers.
+Comments, scripts, templates, literal examples and non-resource attributes do
+not supply image evidence. Actual image sources, responsive candidates, CSS
+image values and one layer of Outlook conditional markup remain inspectable.
+CSS selectors, cascade and client-specific display are not verified; those
+candidates carry a rendering warning. HTML is never inserted into a page or
+executed, and remote resources are not fetched. Parsing stops with an incomplete
+coverage warning at 128 open elements, 256 attributes per tag or 20,000 node/text
+construction operations; earlier collected candidates can still be inspected.
 Successfully decoded QR quadrilaterals are whitened in a separate OCR image so
 their patterns do not contribute invented text. This preserves adjacent text
 outside the polygon, the original input digest and the literal QR payloads;

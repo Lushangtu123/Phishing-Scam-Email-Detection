@@ -1,4 +1,5 @@
-// Pure helpers shared by the worker and tests. No DOM parsing or URL fetching.
+// Pure helpers shared by the worker and tests. No DOM APIs or URL fetching.
+import {imageReferences} from './vision-html.mjs';
 export const LIMITS = Object.freeze({bytes: 2 * 1024 * 1024, images: 4, pixels: 8000000, side: 4096, qr: 8});
 export function imageInfo(buffer) {
   const b = new Uint8Array(buffer), v = new DataView(buffer);
@@ -134,15 +135,24 @@ export function addImage(images, image, warnings) {
   images.push(image);
 }
 export function dataImages(html, images = [], warnings = []) {
-  // Scan strings only. Email HTML is never inserted into a document or fetched.
-  for (const match of html.matchAll(/data:image\/(png|jpeg|webp);base64,([a-z0-9+/=]+)/gi)) {
+  const references = imageReferences(html);
+  const warn = message => { if (!warnings.includes(message)) warnings.push(message); };
+  references.warnings.forEach(warn);
+  for (const reference of references.urls) {
+    const url = reference.replace(/[\t\r\n]/g, '');
+    if (/^(?:https?:|\/\/)/i.test(url)) { warn('Remote images were not downloaded or inspected.'); continue; }
+    if (!/^data:image\/(?:png|jpeg|webp)(?:;|,)/i.test(url)) {
+      if (/^data:/i.test(url)) warn('Unsupported inline image formats were not inspected.');
+      else if (!/^cid:/i.test(url)) warn('An image reference could not be resolved locally; coverage is incomplete.');
+      continue;
+    }
     try {
+      const match = /^data:image\/(png|jpeg|webp);base64,([a-z0-9+/=\f ]+)$/i.exec(url);
+      if (!match || match[2].length > Math.ceil(LIMITS.bytes / 3) * 4) throw new Error();
       const text = atob(match[2]);
       if (text.length > LIMITS.bytes) throw new Error();
       addImage(images, {name: `inline-image-${images.length + 1}`, source: 'data-uri', buffer: Uint8Array.from(text, c => c.charCodeAt(0)).buffer}, warnings);
-    } catch { warnings.push('An inline image could not be decoded within the size limit.'); }
+    } catch { warn('An inline image could not be decoded within the size limit.'); }
   }
-  if (/(?:src|srcset|background|url\s*\()[^<>]{0,40}(?:https?:)?\/\//i.test(html)) warnings.push('Remote images were not downloaded or inspected.');
-  if (/data:image\/(?!png[;,]|jpeg[;,]|webp[;,])/i.test(html)) warnings.push('Unsupported inline image formats were not inspected.');
   return {images, warnings};
 }

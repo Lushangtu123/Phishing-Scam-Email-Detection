@@ -209,6 +209,36 @@ try {
     validateVisual(data, ['https://paypa1.example/login']);
     assert.equal(data.visual_analysis.observations.length, 2);
   });
+  await check('HTML resource context excludes inert QR decoys and retains Outlook image candidates', async () => {
+    const benign = (await readFile(path.join(fixtureDir, 'synthetic-benign.png'))).toString('base64');
+    const qr = (await readFile(path.join(fixtureDir, 'synthetic-qr.png'))).toString('base64');
+    const evidence = await page.evaluate(async ({benign, qr}) => {
+      const real = `<img src="data:image/png;base64,${benign}">`;
+      const decoy = `<img src="data:image/png;base64,${qr}">`;
+      const scan = html => window.PhishGuardVision.recognize(new File([
+        'MIME-Version: 1.0\r\nContent-Type: text/html\r\n\r\n' + html,
+      ], 'html-context.eml', {type: 'message/rfc822'}));
+      const inert = await scan(`<!--${decoy}--><script>const sample = '${decoy}';</script>` +
+        `<template>${decoy}</template><textarea>${decoy}</textarea>` + real);
+      const conditional = await scan(`<!--[if mso]>${decoy}<![endif]-->` + real);
+      const css = await scan(String.raw`<div style="backg\72 ound:image\2d set('data:image/png;base64,${qr}' 1x)"></div>`);
+      const bounded = await scan(real + '<template>'.repeat(20000) + '</template>'.repeat(20000));
+      return {inert, conditional, css, bounded};
+    }, {benign, qr});
+    assert.equal(evidence.inert.observations.length, 1, 'Inert HTML must not supply a QR observation');
+    assert.deepEqual(evidence.inert.observations[0].qr_payloads, []);
+    assert(evidence.inert.observations[0].ocr_text.includes('meeting'), 'Actual image remains readable');
+    assert.equal(evidence.conditional.observations.length, 2);
+    assert.deepEqual(evidence.conditional.observations.flatMap(item => item.qr_payloads), ['https://paypa1.example/login']);
+    assert(evidence.conditional.warnings.some(warning => /conditional|render/i.test(warning)));
+    assert.deepEqual(evidence.css.observations.flatMap(item => item.qr_payloads), ['https://paypa1.example/login']);
+    assert(evidence.css.warnings.some(warning => /CSS|render/i.test(warning)));
+    assert.equal(evidence.bounded.observations.length, 1);
+    assert(evidence.bounded.warnings.some(warning => /nesting limit.*incomplete/i.test(warning)));
+    summary.html_image_context_control = {inert_qr_observations: 0, actual_image_retained: true,
+      conditional_qr_retained: true, conditional_warning: true, escaped_css_qr_retained: true,
+      parser_limit_preserves_prefix: true};
+  });
   await check('repeated inline images leave room for a later distinct QR attachment', async () => {
     const logo = (await readFile(path.join(fixtureDir, 'synthetic-benign.png'))).toString('base64');
     const qr = (await readFile(path.join(fixtureDir, 'synthetic-qr.png'))).toString('base64');

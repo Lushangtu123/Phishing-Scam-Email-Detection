@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 23:02 PT] — Extract HTML image evidence from resource contexts
+
+### Why
+- Whole-HTML data-URI matching treated QR images inside comments, scripts, templates and literal examples as evidence. Distinct inert images could also consume the four-image budget before a real image. Parser limits applied only after a full parse would not bound deep nesting or very long attribute lists.
+
+### Files changed
+- `website/static/vision-html.mjs`, `website/static/vision-core.mjs`, `website/static/vision.js` — identify HTML/CSS resource candidates, preserve one conditional Outlook interpretation, bound parsing during construction/tokenization, decode only supported inline resources and refresh the worker version.
+- `website/tools/vision-assets/*`, `website/static/vendor/vision/*` — lock parse5 8.0.1, CSSTree 3.2.1 and esbuild 0.28.2; bundle self-hosted parsers with licenses and manifest hashes. Existing OCR/QR assets are unchanged; installations remain task-local.
+- `website/static/vision-html-images.test.mjs`, `website/tools/browser-checks/*`, `website/tools/vision-benchmark/serve.py`, `website/tools/vision-benchmark/test_server.py` — add 39 parser controls, a real worker regression and implementation-identity coverage.
+- `README.md`, `docs/evaluation.md` — document candidate semantics, incomplete-coverage limits and remaining CSS/OCR limitations.
+
+### Effect
+- The Chromium inert-QR control changes from two observations including the hidden decoy to only the actual benign image. Outlook conditional and escaped CSS QR candidates remain recognizable with rendering warnings; earlier evidence survives a parser-limit stop.
+- Validation: 262 frontend tests, 13 Chromium integration checks, three benchmark-server checks and all 34 asset hashes pass. The 665-test backend suite passes with 10 local Redis integration skips. Independent review found no remaining blocking issue.
+- The unchanged five-image benchmark retains 5/5 exact QR sets, 2/5 exact OCR texts, 1/3 exact OCR URL sets and 23/238 character edits; the paired no-regression gate passes. These synthetic controls do not estimate real-mail accuracy. CSS layout/client visibility remains unverified, and unsupported CSS grammar explicitly reports incomplete coverage.
+
 ## [2026-09-27 22:46 PT] — Reduce filename false alerts and image coverage errors
 
 ### Why

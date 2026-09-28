@@ -30,7 +30,7 @@ window.PhishGuardVision = (() => {
       if (!buffer.byteLength || buffer.byteLength > MAX_BYTES) throw new Error('File exceeds the 2 MiB limit.');
       const result = await new Promise((resolve, reject) => {
         rejectWork = reject;
-        worker = new Worker('/static/vision-worker.mjs?v=6', {type: 'module'});
+        worker = new Worker('/static/vision-worker.mjs?v=7', {type: 'module'});
         timer = setTimeout(() => { worker.terminate(); reject(new Error('Recognition timed out. Try a smaller image.')); }, 150000);
         worker.onerror = () => reject(new Error('Recognition could not start. Reload the page or try a supported browser.'));
         worker.onmessage = ({data}) => {

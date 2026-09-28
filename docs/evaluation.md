@@ -396,6 +396,45 @@ so this regression fix does not establish a measured corpus accuracy improvement
 
 ## 2. Browser OCR and QR controls
 
+### HTML image resource context (2026-09-27)
+
+At `main@ec85816`, the data-URI collector searched the entire HTML string. The
+new Chromium regression places a phishing QR only inside ordinary comments,
+scripts, templates and textarea examples, followed by a real benign image.
+Previously the worker returned two observations, including the inert QR. It now
+returns only the actual image, with no QR payload. A separate Outlook conditional
+version retains that same QR and explicitly warns about client-dependent display.
+The browser control also verifies escaped CSS image-set syntax and preservation
+of an earlier image when deeply nested template markup exceeds parsing limits.
+
+Locked parse5 and CSSTree bundles identify resource positions without DOM
+insertion, script execution or resource fetching. Thirty-nine focused tests
+cover inert content, duplicate attributes, character references, CSS escapes,
+responsive candidates, conditional backgrounds and parsing limits. An input
+with six distinct commented-out images no longer exhausts the budget before a
+real image. CSS property/function identifiers are decoded once; URL/string AST
+values are already decoded and are not decoded again. Sources:
+[parse5 options](https://parse5.js.org/interfaces/parse5.ParserOptions.html),
+[CSSTree](https://github.com/csstree/csstree),
+[HTML srcset processing](https://html.spec.whatwg.org/multipage/images.html#parsing-a-srcset-attribute).
+
+Limits apply during tree construction and attribute tokenization, before the
+potentially expensive full parse. The budget is 128 open elements, 256 attributes
+per tag and 20,000 node/text construction operations. Truncation preserves only
+earlier candidates and reports incomplete coverage. The attribute hook uses
+parse5 8.0.1 internals and must be rechecked on upgrades. The evaluation identity
+now hashes `vision-html.mjs` as well as the parser asset manifest.
+
+This is resource-candidate extraction, not a complete rendering engine. CSS
+selectors, cascade, viewport and email-client behavior remain unverified; CSS
+and responsive/conditional candidates disclose that limitation. CSS values that
+the parser cannot represent, including an unquoted escaped `url()` function,
+produce an incomplete-coverage warning. Remote pixels and unresolved references
+are not fetched. Existing MIME image attachments are still inspected separately.
+The unchanged five-image benchmark remains at 5/5 exact QR sets, 2/5 exact OCR
+texts, 1/3 exact OCR URL sets and 23/238 character edits. No real-mail accuracy
+gain is inferred from these synthetic parser controls.
+
 ### Duplicate-image budget and PNG coverage (2026-09-27)
 
 A new Chromium control puts six byte-identical benign inline images before a
@@ -417,9 +456,8 @@ the preflight does not validate CRC contents or decode all animation frames.
 The unchanged five-image benchmark still has 5/5 exact QR sets, 2/5 exact OCR
 texts, 1/3 exact OCR URL sets and 23/238 character edits. These extraction fixes
 do not resolve existing OCR spelling errors or establish real-mail accuracy.
-Raw HTML data-URI extraction still lacks rendering-context filtering; a URI in
-inert HTML may be collected. Fixing that requires a parser that preserves
-email-client conditional content, with separate false-alert and coverage controls.
+At that revision, raw HTML data-URI extraction still lacked resource-context
+filtering. The subsequent correction and its rendering limits are recorded above.
 
 ### Remote-image follow-up and native QR scanning (2026-09-27)
 

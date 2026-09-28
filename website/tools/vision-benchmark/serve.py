@@ -19,7 +19,7 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 def identity(risk_enabled):
-    files = ['vision.js', 'vision-worker.mjs', 'vision-core.mjs', 'vision-email.mjs', 'vendor/vision/manifest.json']
+    files = ['vision.js', 'vision-worker.mjs', 'vision-core.mjs', 'vision-email.mjs', 'vision-html.mjs', 'vendor/vision/manifest.json']
     try:
         commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=WEBSITE, text=True).strip()
         dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=WEBSITE, text=True).strip())
