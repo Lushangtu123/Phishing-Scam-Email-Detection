@@ -156,6 +156,42 @@ Keep the stricter existing `evaluate_serving_pipeline.py` for consented Gmail an
 Outlook data with known provider and arrival date. Public corpus labels must not be
 passed off as provider-specific real-world testing.
 
+### Displayed-link rule regression, 2026-09-27
+
+The public samples were inspected to diagnose false alerts, so subsequent results
+on them are development regressions, not an untouched holdout. Before comparison,
+decoded message views were conservatively checked against 63,054 rows from the
+seven public training-source files, verified against artifact provenance hashes.
+One easy_ham and three hard_ham messages matched normalized families/templates
+and were excluded. This heuristic check does not establish complete training or
+campaign independence.
+
+Against baseline `d7fac9359fbcbe55785ef0891412ad4fe926ce2c`, the address-label fix
+keeps the committed model and threshold unchanged. The same original EML bytes
+produce the following results; Medium, High and Critical all count as alerts:
+
+| Cohort | Baseline | Updated |
+| --- | --- | --- |
+| 100 phishing_pot messages | 90 alerts, 3 nonalerts, 7 undetermined | 90 alerts, 3 nonalerts, 7 undetermined |
+| 99 easy_ham messages | 3 alerts, 96 nonalerts | 3 alerts, 96 nonalerts |
+| 244 hard_ham messages | 207 alerts, 36 nonalerts, 1 undetermined | 206 alerts, 36 nonalerts, 2 undetermined |
+
+The additional corpus is [SpamAssassin hard_ham](https://spamassassin.apache.org/old/publiccorpus/20030228_hard_ham.tar.bz2),
+archive SHA-256 `ce2ce67880643dbde65ea7f85bffbfe4417349c4bd80b6b0de56262ae6b0a9c9`.
+Three of its 250 messages exceed the 60,000-byte contract, leaving 247 before the
+three reference exclusions. All 443 evaluated messages have zero inference
+failures. The hard_ham false-alert rate changes from 84.84% to 84.43%, with 95%
+Wilson intervals of 79.80–88.79% and 79.35–88.44%. One alert became undetermined;
+it did not become a verified legitimate result. False alerts remain excessive.
+The easy_ham rate remains 3.03% and phishing alert recall remains 90%.
+
+The dual-class pilot passes the existing comparison policy. The hard_ham cohort
+has no phishing class and increases its undetermined count, so it cannot satisfy
+that policy as release evidence. Do not lower the comparison gate or claim an
+overall accuracy improvement from this change. Representative, independently
+reviewed development and holdout mail is still needed before changing sender
+weights or the model threshold.
+
 ## 2. Browser OCR and QR controls
 
 ```sh

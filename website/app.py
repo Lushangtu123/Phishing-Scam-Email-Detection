@@ -2284,14 +2284,36 @@ def _extract_links(text: str, *, parse_html: bool = True, parse_warnings=None,
 
 
 def _visible_link_host(link_text: str) -> str:
-    match = re.search(
-        r"(?:https?://|www\.)?"
-        r"((?:xn--)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-        r"(?:\.(?:xn--)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)",
+    """Extract an address presented to the reader, not a domain in article prose."""
+    link_text = link_text.strip(" \t\r\n<>()[]{}'\",;.!?")
+    matches = re.finditer(
+        r"(?<![\w@./-])(?P<prefix>https?://|www\.)?"
+        r"(?P<host>[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+        r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*)"
+        r"(?![\w-]|\.[a-z0-9])",
         link_text,
         re.IGNORECASE,
     )
-    return match.group(1).lower().rstrip(".") if match else ""
+    for match in matches:
+        host = match.group('host').lower()
+        suffix = host.rsplit('.', 1)[-1]
+        domain = '.' in host and bool(re.fullmatch(r'[a-z]{2,63}|xn--[a-z0-9-]+', suffix))
+        # Bare dotted releases are not addresses. Preserve full IPv4 labels and
+        # explicitly displayed legacy IP URLs without resolving any host.
+        ip = _is_ip_host(host) and (bool(match.group('prefix')) or host.count('.') == 3)
+        # A bare domain must occupy the address label (optional port/path).
+        # Merely mentioning a publisher in a headline does not promise that
+        # the link skips a redirect. Its actual target is still analyzed below.
+        address_label = match.start() == 0 and bool(re.fullmatch(
+            r'(?::[0-9]{1,5})?(?:[/?#]\S*)?', link_text[match.end():],
+        ))
+        navigation = bool(re.search(
+            r'(?<!\w)(?:visit|open|go to|log\s*in (?:to|at)|sign\s*in (?:to|at))\s*$'
+            r'|(?:访问|打开|登录|登陆)\s*$', link_text[:match.start()], re.IGNORECASE,
+        ))
+        if (domain or ip) and (match.group('prefix') or address_label or navigation):
+            return host
+    return ""
 
 
 def _known_link_host(host: str) -> bool:

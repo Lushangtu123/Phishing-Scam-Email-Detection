@@ -612,6 +612,91 @@ class ContentRuleRobustnessTests(unittest.TestCase):
         messages = [item["msg"].lower() for item in result["extra_indicators"]]
         self.assertTrue(any("does not match" in message for message in messages))
 
+    def test_dotted_versions_do_not_create_display_domain_mismatches(self):
+        for label in ('5.0', 'Download release 2.0', 'Wi-Fi 802.11b update',
+                      'Q3.2026 report', 'Release 1.0RC1'):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Release notes', f'<a href="https://updates.example/releases">{label}</a>',
+                )
+                self.assertNotIn(result['risk_level'], {'high', 'critical'})
+                self.assertFalse(any('does not match' in item['msg']
+                                     for item in result['extra_indicators']))
+
+    def test_displayed_addresses_after_versions_still_detect_mismatches(self):
+        for label, host in (
+            ('Version 5.0: https://example.com/releases', 'example.com'),
+            ('www.examp1e.com', 'examp1e.com'), ('paypa1.example', 'paypa1.example'),
+            ('xn--pple-43d.com', 'xn--pple-43d.com'),
+            ('192.0.2.10', '192.0.2.10'), ('http://3221225994/', '3221225994'),
+        ):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Document', f'<a href="https://other.example/view">{label}</a>',
+                )
+                self.assertIn(result['risk_level'], {'high', 'critical'})
+                self.assertTrue(any(f'domain ({host}) does not match' in item['msg']
+                                    for item in result['extra_indicators']))
+
+    def test_domain_mentions_in_article_titles_do_not_claim_link_destinations(self):
+        for label in ('News.com reports on new software',
+                      'Amazon.com announces a new product',
+                      'Release notes from docs.example.com',
+                      'Wi-Fi 802.11b review on news.com',
+                      'Write to editor@news.com'):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Weekly reading', f'<a href="https://click.example/article/42">{label}</a>',
+                )
+                self.assertNotIn(result['risk_level'], {'high', 'critical'})
+                self.assertFalse(any('does not match' in item['msg']
+                                     for item in result['extra_indicators']))
+
+    def test_address_labels_keep_mismatch_evidence_with_paths_and_punctuation(self):
+        for label in ('example.com/help', '(example.com)', 'example.com.',
+                      'example.com:443/help?issue=5#details',
+                      'Read https://example.com/help', 'Visit www.example.com',
+                      '<b>https://example.com</b>', 'https:&#47;&#47;example.com'):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Document', f'<a href="https://other.example/view">{label}</a>',
+                )
+                self.assertIn(result['risk_level'], {'high', 'critical'})
+                self.assertTrue(any('does not match' in item['msg']
+                                    for item in result['extra_indicators']))
+
+    def test_article_labels_do_not_suppress_dangerous_destinations(self):
+        for destination in ('https://paypa1.example/', 'https://paypal.com@other.example/',
+                            'https://credential-capture.example/', 'http://192.0.2.10/',
+                            'https://xn--pple-43d.com/', 'javascript:alert(1)'):
+            with self.subTest(destination=destination):
+                result = app.analyze_email_content(
+                    'Weekly reading', f'<a href="{destination}">News.com software review</a>',
+                )
+                self.assertIn(result['risk_level'], {'high', 'critical'})
+                self.assertTrue(any(item['level'] == 'high' and 'does not match' not in item['msg']
+                                    for item in result['extra_indicators']))
+
+    def test_mismatched_address_after_article_domain_is_still_detected(self):
+        result = app.analyze_email_content(
+            'Document', '<a href="https://news.com/article">News.com: https://example.com</a>',
+        )
+        self.assertIn(result['risk_level'], {'high', 'critical'})
+        self.assertTrue(any('domain (example.com) does not match' in item['msg']
+                            for item in result['extra_indicators']))
+
+    def test_navigation_instructions_keep_bare_domain_mismatch_evidence(self):
+        for label in ('Visit example.com', 'Please open example.com', 'Go to example.com',
+                      'Log in at example.com', 'Sign in to example.com',
+                      '访问 example.com', '打开 example.com', '登录 example.com'):
+            with self.subTest(label=label):
+                result = app.analyze_email_content(
+                    'Document', f'<a href="https://other.example/view">{label}</a>',
+                )
+                self.assertIn(result['risk_level'], {'high', 'critical'})
+                self.assertTrue(any('does not match' in item['msg']
+                                    for item in result['extra_indicators']))
+
     def test_idn_confusable_link_destination_is_high_risk(self):
         result = app.analyze_email_content(
             "Document shared",

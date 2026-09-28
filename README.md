@@ -298,6 +298,13 @@ destination evidence. No link is fetched to perform these checks. Generic
 login/account words on an unrecognized hostname are weak context, not a standalone
 high-risk verdict; brand impersonation, userinfo deception, and explicit
 credential-collection wording retain stronger signals.
+Displayed-host mismatch requires a presented address: an HTTP(S)/`www.` address,
+a bare address label with an optional port/path, or an explicit navigation
+instruction such as “visit” or “log in at.” A publisher domain mentioned in an
+article title and dotted release numbers such as `5.0` or `802.11b` do not alone
+establish a mismatch. Full IPv4 labels and explicitly displayed legacy IP URLs
+remain eligible. Actual destinations are still checked independently; no tracking
+domain is allowlisted and no redirect is followed.
 HTML text, destination, form, and image collectors retain the first occurrence
 of a repeated attribute, including an empty value, matching HTML parsing rules.
 Later duplicate `action`, `formaction`, `href`, `type`, or image attributes cannot

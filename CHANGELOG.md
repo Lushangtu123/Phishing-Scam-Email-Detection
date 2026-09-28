@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 19:14 PT] — Distinguish displayed addresses from release numbers and article titles
+
+### Why
+- Historical public normal-mail tests exposed false link-display mismatches for release numbers such as `5.0` and `802.11b`, and publisher domains mentioned inside article headlines.
+- Treating those labels as promised destination addresses forced High risk without sufficient evidence; explicit address and navigation deception must retain its detection.
+
+### Files changed
+- `website/app.py` — validate domain suffixes, skip numeric release labels, distinguish address labels and navigation instructions from prose, and continue scanning for explicit addresses after unrelated mentions.
+- `website/tests/test_detection_behavior.py` — add failing-then-passing regressions and controls for versions, publisher titles, actual addresses, English/Chinese navigation instructions, IP URLs, punctuation, and dangerous destinations.
+- `README.md`, `docs/evaluation.md` — document the rule boundary and the matched public-corpus comparison, exclusions and remaining uncertainty.
+
+### Effect
+- Model artifact, decision threshold and actual-destination checks are unchanged. No tracking domain is allowlisted and no link is fetched.
+- On 443 reference-filtered public EML regressions, phishing alerts remain 90/100 and easy_ham false alerts remain 3/99. Hard_ham false alerts change from 207/244 to 206/244, with undetermined results increasing from one to two; the overall false-alert rate remains excessive. These inspected samples are development evidence, not an independent release holdout.
+- Local validation: 629 backend tests run with 10 Redis integration skips, 191 frontend tests pass, the committed Vercel runtime/model smoke passes, and the existing synthetic and dual-class public regression comparisons pass. The single-class hard_ham result does not qualify as release evidence.
+
 ## [2026-09-27 18:18 PT] — Show the original uploaded image beside uncertain OCR
 
 ### Why
