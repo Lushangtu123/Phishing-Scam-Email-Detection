@@ -314,6 +314,13 @@ existing browser OCR as the default until a representative, independently
 annotated screenshot holdout establishes a consistent URL gain without
 coverage, false-alert or resource regressions.
 
+The three images both engines failed were 4,961 × 7,016 pixels and exceeded
+the product's 2 MiB and 4,096-pixel-side input limits. They remain in the
+denominator as coverage failures. The
+[local holdout preparation tool](../website/tools/vision-benchmark/README.md#prepare-a-reviewed-email-screenshot-holdout)
+supports human-reviewed email screenshots with unchanged original-image hashes;
+it does not create ground truth or turn these receipts into an adoption test.
+
 Optional risk assessment reports unavailable and undetermined outputs explicitly.
 The external local backend's configuration/model identity is not attested by the
 harness. Record how that backend was started; extraction-only reports are the

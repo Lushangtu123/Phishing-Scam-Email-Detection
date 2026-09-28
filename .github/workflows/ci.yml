@@ -96,6 +96,7 @@ jobs:
           node --check website/tools/vision-benchmark/metrics.mjs
           node --check website/tools/vision-benchmark/evaluate-service.mjs
           node --check website/tools/vision-benchmark/compare-engines.mjs
+          node --check website/tools/vision-benchmark/holdout.mjs
 
   optional-vision:
     runs-on: ubuntu-latest

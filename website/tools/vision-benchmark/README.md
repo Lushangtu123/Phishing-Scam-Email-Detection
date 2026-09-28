@@ -127,11 +127,61 @@ OCR-only reports explicitly mark QR and risk assessment as **not evaluated**.
 The reports exclude raw OCR text and image bytes; comparison receipts still
 contain dataset IDs, digests and engine metadata.
 
+### Prepare a reviewed email-screenshot holdout
+
+The synthetic controls and public scanned receipts cannot establish email-
+screenshot accuracy. The local `holdout.mjs` tool prepares a manifest for
+screenshots that you have permission to use. It reads image files, checks the
+same 2 MiB, 4,096-pixel-side and 8-megapixel input limits as the browser,
+rejects symlinks and duplicate bytes, and records original SHA-256 hashes.
+It does not perform OCR, fetch URLs, or upload images.
+
+```sh
+node website/tools/vision-benchmark/holdout.mjs prepare \
+  --image-root /private/path/email-screenshots \
+  --dataset-id email-screenshots-2026 \
+  --source 'Documented local collection' --rights 'Permission recorded per image' \
+  --output /private/path/holdout-draft.json
+```
+
+Edit the draft while viewing **the original pixels**. For each record, set
+`source_type` to `email_screenshot`, give non-sensitive `source_reference` and
+`rights_reference` identifiers for the acquisition and use-permission records,
+select `language` and `label`, transcribe `expected_text` including visible
+punctuation and line breaks, and set `expected_urls` to exactly the literal
+HTTP(S) strings in that transcription. Review QR presence and set
+`expected_qr_payloads` to the offline-decoded literal payloads, or `[]` if
+there is no QR. Set `annotation.method` to `manual_pixels`, both review flags
+to `true`, and different `transcribed_by` and `verified_by` pseudonyms after
+a second person checks the image. Do not derive answers from either OCR engine.
+Do not commit private messages, images or annotation drafts.
+
+```sh
+node website/tools/vision-benchmark/holdout.mjs finalize \
+  --draft /private/path/holdout-draft.json \
+  --image-root /private/path/email-screenshots \
+  --output /private/path/holdout-manifest.json
+```
+
+Finalization requires at least 30 reviewed screenshots, including 10 with a
+visible URL and 5 without one. It re-hashes every image and produces the
+existing browser/service benchmark manifest format. The audit verifies the
+*declarations and consistency* of the labels; it cannot prove their accuracy,
+rights, independent review, or sample representativeness. Keep any scored
+holdout separate from tuning data and record provenance for each screenshot.
+Published phishing-page screenshot sets, such as
+[Phish360](https://web.cs.hacettepe.edu.tr/~selman/phish360-dataset/) and
+[PhishingEval](https://github.com/Fujiaoji/PhishingEval), are a different
+visual domain. [SpaPhish](https://github.com/lbustio/spa_phish) supplies
+anonymized email text and metadata rather than a ready-to-use screenshot
+holdout. None should be relabeled as email screenshots to pass this gate.
+
 ## Regression checks
 
 ```sh
 node --test website/static/vision-benchmark.test.mjs
 node --test website/static/vision-engine-comparison.test.mjs
+node --test website/static/vision-holdout.test.mjs
 python3 -m py_compile website/tools/vision-benchmark/serve.py
 python3 website/tools/vision-benchmark/test_server.py
 ```

@@ -1177,6 +1177,10 @@ manifest hashes, OCR character error rate and literal URL sets. Existing five
 synthetic controls are diagnostic, not a measure of phishing accuracy or an
 adoption decision. QR and risk metrics are not evaluated by the additional
 OCR-only runner.
+For future adoption decisions, the [local holdout preparation workflow](website/tools/vision-benchmark/README.md#prepare-a-reviewed-email-screenshot-holdout)
+creates a hashed manifest from manually transcribed, independently reviewed
+email screenshots without uploading the images or using either OCR engine as
+ground truth.
 
 Original EML bytes are decoded server-side with a shared 60,000-character text
 budget; truncation is reported. The UI never converts EML bytes through UTF-8
