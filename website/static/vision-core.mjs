@@ -134,16 +134,24 @@ export function addImage(images, image, warnings) {
   }
   images.push(image);
 }
-export function dataImages(html, images = [], warnings = []) {
+export function dataImages(html, images = [], warnings = [], resolveCID) {
   const references = imageReferences(html);
   const warn = message => { if (!warnings.includes(message)) warnings.push(message); };
   references.warnings.forEach(warn);
   for (const reference of references.urls) {
     const url = reference.replace(/[\t\r\n]/g, '');
     if (/^(?:https?:|\/\/)/i.test(url)) { warn('Remote images were not downloaded or inspected.'); continue; }
+    if (/^cid:/i.test(url)) {
+      const unresolved = 'A CID image reference could not be verified in its MIME context; coverage is incomplete.';
+      try {
+        const warning = resolveCID ? resolveCID(url) : unresolved;
+        if (warning !== null) warn(typeof warning === 'string' && warning ? warning : unresolved);
+      } catch { warn(unresolved); }
+      continue;
+    }
     if (!/^data:image\/(?:png|jpeg|webp)(?:;|,)/i.test(url)) {
       if (/^data:/i.test(url)) warn('Unsupported inline image formats were not inspected.');
-      else if (!/^cid:/i.test(url)) warn('An image reference could not be resolved locally; coverage is incomplete.');
+      else warn('An image reference could not be resolved locally; coverage is incomplete.');
       continue;
     }
     try {

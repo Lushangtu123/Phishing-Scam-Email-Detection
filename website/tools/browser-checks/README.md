@@ -6,11 +6,12 @@ pages and vendored module workers. It uses no API response mocks, personal mail,
 cloud credentials or remote uploads. Its temporary SQLite database is deleted and
 both servers and the browser are stopped in `finally`.
 
-The sixteen checks cover sender analysis, manual message analysis, English and Chinese
+The seventeen checks cover sender analysis, manual message analysis, English and Chinese
 image URL-line confidence displayed through the real API/UI, image upload,
 local-only original-image preview beside the OCR result,
 worker cancellation followed by a successful retry, EML embedded-image extraction,
 an OCR startup outage with four distinct QR images and original-message risk preserved,
+missing CID coverage warnings through the public API/UI with a valid matching-CID control,
 six repeated inline images followed by a different QR attachment,
 inert HTML QR decoys versus Outlook/CSS image candidates and bounded parsing,
 independent HTML MIME parts and separate OCR/QR phrase assessment,
@@ -73,8 +74,9 @@ and scattered text, recovery of the later QR despite repeated earlier images,
 exclusion of QR decoys in inert HTML while preserving conditional/CSS candidates, no unexpected
 cross-source credential phrases or negation, recovery of a QR after a separate
 MIME part with unclosed markup, retention of all four QR observations and original
-EML bytes when OCR startup stalls, no unexpected
-Han characters on English controls, and literal CER at most 5% on each English
+EML bytes when OCR startup stalls, no false CID warnings for a matching supported
+image while a missing reference is disclosed, no unexpected Han characters on
+English controls, and literal CER at most 5% on each English
 text control and 40% on the Chinese text control. CER preserves punctuation,
 case and whitespace. The Chinese ceiling preserves the current limited
 synthetic behavior; it is deliberately not a production acceptance target.

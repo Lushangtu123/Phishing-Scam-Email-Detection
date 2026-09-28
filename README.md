@@ -1157,6 +1157,17 @@ The submission and nested messages share a 64-part / 2 Mi-character HTML budget;
 excess parts produce an incomplete-coverage warning while earlier evidence and
 image attachments remain available. The part adapter uses pinned postal-mime
 3.0.0 internals and must be rechecked when that dependency changes.
+CID image references are checked against Content-ID metadata in their own MIME
+context. Missing, ambiguous, malformed, empty or unsupported targets produce
+coverage warnings. Percent escapes are decoded once and identifier case is
+preserved. References cannot borrow images from a nested message, a parallel
+related group or a mutually exclusive alternative. An inner related group can
+use an enclosing related group's resource. Without related groups, matching is
+limited to local candidates in the same message. This checks resource metadata,
+not client rendering or successful image decoding; format, image-count and OCR
+limits still apply. The bounded matcher permits 4,096 MIME nodes, 32 nesting
+levels, 4,096 unique lookups and 200,000 candidate/path steps per parsed message;
+reaching a limit reports incomplete coverage while attachment scanning continues.
 Inline HTML images are collected with self-hosted HTML/CSS syntax parsers.
 Comments, scripts, templates, literal examples and non-resource attributes do
 not supply image evidence. Actual image sources, responsive candidates, CSS

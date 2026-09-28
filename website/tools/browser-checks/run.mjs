@@ -267,6 +267,41 @@ try {
         original_email_retained: true, text_coverage_warning: true, blocked_core_requests: blocked, elapsed_ms: elapsed};
     } finally { release(); await context.unroute(pattern, stall); }
   });
+  await check('missing CID coverage reaches the public API and UI without discarding QR evidence', async () => {
+    const qr = (await readFile(path.join(fixtureDir, 'synthetic-qr.png'))).toString('base64');
+    const mail = id => ['MIME-Version: 1.0', 'Subject: Synthetic CID coverage control',
+      'Content-Type: multipart/related; boundary="cid-coverage"', '', '--cid-coverage',
+      'Content-Type: text/html', '', `<p>Review the image.</p><img src="cid:${id}">`,
+      '--cid-coverage', 'Content-Type: image/png', 'Content-ID: <available@example.test>',
+      'Content-Transfer-Encoding: base64', '', qr, '--cid-coverage--', ''].join('\r\n');
+    const matched = await page.evaluate(async raw => window.PhishGuardVision.recognize(
+      new File([raw], 'matched-cid.eml', {type: 'message/rfc822'})), mail('available@example.test'));
+    assert.equal(matched.observations.length, 1);
+    assert.deepEqual(matched.observations[0].qr_payloads, ['https://paypa1.example/login']);
+    assert(!matched.warnings.some(warning => /CID/.test(warning)), 'A supported matching CID should not claim missing coverage');
+    const raw = mail('missing@example.test');
+    await page.locator('#raw-email-file').setInputFiles({name: 'missing-cid.eml', mimeType: 'message/rfc822', buffer: Buffer.from(raw)});
+    await page.waitForFunction(() => document.getElementById('raw-email-status').textContent.includes('loaded'));
+    const posted = page.waitForRequest(request => new URL(request.url()).pathname === '/api/analyze-visual' && request.method() === 'POST');
+    const [data, request] = await Promise.all([
+      responseFor(page, '/api/analyze-visual', () => page.locator('#content-analyze-btn').click()), posted,
+    ]);
+    const submitted = JSON.parse(request.postData());
+    assert.equal(submitted.eml_base64, Buffer.from(raw).toString('base64'));
+    assert(submitted.warnings.some(warning => /CID.*incomplete/.test(warning)));
+    validateVisual(data, ['https://paypa1.example/login']);
+    assert.equal(data.visual_analysis.observations.length, 1);
+    assert(data.visual_analysis.warnings.some(warning => /CID.*incomplete/.test(warning)));
+    assert.equal(data.input_mode, 'raw-email');
+    assert.equal(data.analysis_complete, false);
+    await page.waitForFunction(() => /CID.*incomplete/.test(document.getElementById('visual-evidence').textContent));
+    // The new warning is coverage metadata, not a client-supplied risk signal.
+    const control = await context.request.post(appURL + '/api/analyze-visual', {data: {...submitted, warnings: []}});
+    assert.equal(control.status(), 200);
+    assert.equal(data.risk_level, (await control.json()).risk_level);
+    summary.cid_coverage_control = {matched_without_cid_warning: true, missing_warning_in_api_and_ui: true,
+      original_email_retained: true, unrelated_qr_retained: true, coverage_warning_preserves_risk: true};
+  });
   await check('real visual API keeps OCR and QR phrases independent', async () => {
     async function analyze(ocr_text, qr_payloads) {
       const response = await context.request.post(appURL + '/api/analyze-visual', {data: {observations: [{

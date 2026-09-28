@@ -396,6 +396,49 @@ so this regression fix does not establish a measured corpus accuracy improvement
 
 ## 2. Browser OCR and QR controls
 
+### Missing CID image coverage (2026-09-28)
+
+At `main@c4ae4ca`, a resource reference such as `cid:missing@example.test` was
+silently skipped by browser extraction. An unrelated image attachment could
+still produce an observation without disclosing the missing resource. This
+was a coverage-reporting defect; the original EML's server analysis already
+had its own unresolved-image handling.
+
+Browser extraction now checks CID references in their original MIME context.
+Only a nonempty supported image candidate can match; missing, malformed,
+ambiguous, unsupported and non-image targets produce coverage warnings.
+Warnings omit raw identifiers and do not add risk scores. All image attachments
+still undergo the existing collection, format, budget and recognition stages.
+A metadata match does not establish that pixels were decoded or displayed.
+
+The adapter preserves postal-mime's existing grouped HTML order while mapping
+each entry back to its exact source node. It refuses unverifiable mappings and
+retains independent data images and attachments. Scope and comparison controls
+follow [RFC 2392](https://www.rfc-editor.org/rfc/rfc2392.html#section-2) and
+[RFC 2557](https://www.rfc-editor.org/rfc/rfc2557.html#section-7): decode CID URL
+escapes once, preserve identifier case, separate nested messages and parallel
+related groups, allow enclosing related resources, and respect mutually exclusive
+alternatives. Common opaque IDs and same-message candidates without related
+groups are supported conservatively. This is not a complete email-client renderer.
+
+Fifty-seven new helper/collector tests cover these boundaries, inert examples,
+empty/unsupported resources, malformed metadata, limits, grouped ordering and
+callback failures. Eighteen initial controls failed on the prior implementation;
+review added failing-then-passing controls for unescaped fragment delimiters,
+non-ASCII header padding and unexpected resolver results.
+
+The actual-browser check compares a valid CID with a missing one beside the
+same QR attachment, verifies the missing warning through the public API/UI,
+preserves original EML bytes and QR payloads, and confirms that the coverage
+warning alone does not change risk. The remaining limitations include client
+layout/visibility, Content-Location image resolution and literal OCR errors.
+Validation passes: 358 frontend tests, 17 Chromium checks, three local harness
+checks and all 34 recognition asset hashes. The 671-test backend suite passes
+with 10 local Redis integration skips. The paired five-image comparison has no
+regression: exact QR sets 5/5, exact OCR texts 2/5, exact OCR URL sets 1/3 and
+23/238 character edits. These synthetic controls verify coverage reporting;
+they do not establish a real-mail accuracy improvement.
+
 ### OCR failure preserves partial evidence (2026-09-28)
 
 At `main@d36eb80`, four images could each retry a stalled 45-second OCR

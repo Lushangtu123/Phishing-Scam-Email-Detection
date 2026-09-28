@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 10:09 PT] — Disclose missing and ambiguous CID image coverage
+
+### Why
+- Browser image extraction silently skipped unresolved CID references. An unrelated attachment could produce image observations without warning that the referenced resource was missing.
+
+### Files changed
+- `website/static/vision-cid.mjs` — add bounded MIME-context matching with exact identifiers, single percent decoding, related/alternative scope rules and explicit coverage warnings.
+- `website/static/vision-email.mjs`, `website/static/vision-core.mjs` — associate independently parsed HTML with its source MIME node without changing collection order; report unresolved or unverifiable CID references while preserving other images.
+- `website/static/vision-cid.test.mjs`, `website/static/vision-email-cid.test.mjs` — add 57 controls for identifiers, message/scope boundaries, duplicate alternatives, metadata failures and resource limits.
+- `website/static/vision.js`, `website/static/index.html`, `website/static/cases.html` — refresh browser asset versions.
+- `website/tools/browser-checks/*`, `website/tools/vision-benchmark/serve.py`, `website/tools/vision-benchmark/test_server.py`, `README.md`, `docs/evaluation.md` — add a real worker/API/UI coverage check, include the new module in benchmark identity and document limits.
+
+### Effect
+- Missing, malformed, ambiguous, unsupported, empty or non-image CID targets now disclose incomplete coverage. Valid image candidates remain inspectable, and an unrelated attachment or another nested message cannot hide a missing reference.
+- Matching is metadata verification only; image decoding, four-image budgets and OCR limits still apply. Coverage warnings do not add phishing risk, fetch remote resources or establish real-mail accuracy.
+- Validation: 358 frontend tests, 17 Chromium checks, three local harness checks and 34 asset hashes pass. The 671-test backend suite passes with 10 local Redis integration skips. The paired five-image comparison passes with unchanged exact QR sets 5/5, OCR texts 2/5, OCR URL sets 1/3 and 23/238 character edits.
+
 ## [2026-09-28 09:40 PT] — Preserve QR and email results when OCR fails
 
 ### Why

@@ -52,6 +52,7 @@ class LocalHarnessTests(unittest.TestCase):
         self.assertGreater(identity['asset_count'], 20)
         self.assertIn('vision-worker.mjs', identity['extraction_sha256'])
         self.assertIn('vision-html.mjs', identity['extraction_sha256'])
+        self.assertIn('vision-cid.mjs', identity['extraction_sha256'])
         self.assertFalse(identity['risk_enabled'])
         self.assertNotIn('Access-Control-Allow-Origin', headers)
 
