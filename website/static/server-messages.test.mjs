@@ -10,13 +10,14 @@ import {loadPage, memoryStorage} from '../tests/fixtures/i18n/scenarios.mjs';
 const WEBSITE = new URL('../', import.meta.url);
 const REGISTRY = JSON.parse(readFileSync(new URL('data/server_messages.json', WEBSITE), 'utf8'));
 const source = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
-const PAGE = ['i18n.js', 'app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
+const PAGE = ['i18n-zh.js', 'i18n.js', 'app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
   'app-content.js', 'app-content-render.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
 const fields = text => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort();
 
 function loadI18n(languages) {
   const window = {};
-  vm.runInContext(source('i18n.js'), vm.createContext({window, navigator: {languages}, localStorage: memoryStorage(), console}));
+  const context = vm.createContext({window, navigator: {languages}, localStorage: memoryStorage(), console});
+  for (const name of ['i18n-zh.js', 'i18n.js']) vm.runInContext(source(name), context);
   return window.PhishGuardI18n;
 }
 const {en, zh} = loadI18n(['en-US']).DICTIONARY;
@@ -227,7 +228,7 @@ test('image evidence localizes coded assessment and enhancement warnings; cases.
     walk(root);
     return texts;
   };
-  const chinese = render(['i18n.js', 'vision.js'], ['zh-CN']);
+  const chinese = render(['i18n-zh.js', 'i18n.js', 'vision.js'], ['zh-CN']);
   assert.ok(chinese.includes(zh['server.warning.ocr_verify_urls']));
   assert.ok(chinese.includes('增强识别失败；已保留浏览器端的 OCR 和二维码结果。'));
   assert.ok(chinese.includes('OCR confidence is low; verify the extracted text.'), 'browser worker warnings stay as sent');

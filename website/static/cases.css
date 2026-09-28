@@ -800,6 +800,8 @@ select:hover { border-color: var(--line-strong); }
   white-space: nowrap;
 }
 .lang-toggle:hover { color: var(--text); }
+/* i18n.js marks the toggle busy while the other language's strings load. */
+.lang-toggle[aria-busy="true"] { cursor: progress; opacity: 0.6; }
 .lang-option.is-active { color: var(--text); font-weight: 750; }
 .lang-sep { color: var(--faint); }
 @media (max-width: 680px) {

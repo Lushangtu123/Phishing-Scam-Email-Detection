@@ -8,7 +8,7 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   setupPageActions();
   setupDemoTabs();
   setupRecentChecks();
@@ -19,9 +19,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupMobileNav();
   setupCaseLoginLink();
   setupShortcuts();
-  await loadPublicConfig();
-  await loadMetrics();
   setupSmoothScroll();
+  setupMetricsChartLoader();
+  // Independent requests: each renders its own part of the page and handles
+  // its own errors, so they run in parallel and no page control waits on them.
+  return Promise.all([loadPublicConfig(), loadMetrics()]);
 });
 
 // ── Page actions ─────────────────────────────────────────────────────────────
@@ -80,6 +82,8 @@ function rerenderForLanguage() {
 }
 
 document.addEventListener('phishguard:languagechange', rerenderForLanguage);
+// i18n.js could not fetch the Chinese strings; the page stayed in English.
+document.addEventListener('phishguard:languageerror', () => announce(t('nav.lang.failed')));
 
 // ── Navbar ───────────────────────────────────────────────────────────────────
 window.addEventListener('scroll', () => {

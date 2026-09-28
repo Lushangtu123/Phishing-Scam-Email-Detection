@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {checkManifest, updateManifest} from '../tools/asset-versions/asset-versions.mjs';
+import {checkManifest, collectReferences, updateManifest} from '../tools/asset-versions/asset-versions.mjs';
 
 const staticDir = fileURLToPath(new URL('./', import.meta.url));
 const manifest = JSON.parse(readFileSync(new URL('../tools/asset-versions/manifest.json', import.meta.url), 'utf8'));
@@ -59,4 +59,30 @@ test('non-integer versions, disagreeing references and stale pins are reported',
   assert.throws(() => updateManifest(dir, pins), /x\.js is referenced with different versions/);
   writeFileSync(path.join(dir, 'other.html'), '<script src="/static/x.js?v=1"></script>');
   assert.throws(() => updateManifest(dir, pins), /lib\.js changed but \?v=4\.4\.0 is not an integer/);
+});
+
+test('URLs that scripts load at run time are versioned like markup references', () => {
+  // i18n-zh.js and Chart.js are inserted by scripts, not by the HTML; a change
+  // to either must still bump every script that embeds its URL.
+  const references = collectReferences(staticDir);
+  assert.deepEqual([...references.get('i18n-zh.js').sources].sort(), ['i18n.js', 'lang-init.js']);
+  assert.deepEqual([...references.get('vendor/chart/chart.umd.min.js').sources], ['app-metrics.js']);
+  for (const html of ['index.html', 'cases.html']) {
+    assert.doesNotMatch(readFileSync(path.join(staticDir, html), 'utf8'), /i18n-zh\.js|chart\.umd/, html);
+  }
+});
+
+test('a script-embedded URL is bumped with its file, and the embedding script cascades', t => {
+  const dir = fixture(t, {
+    'index.html': '<script src="/static/lang.js?v=2"></script>',
+    'lang.js': "const SOURCES = {zh: '/static/zh.js?v=1'};",
+    'zh.js': 'one',
+  });
+  const pins = {};
+  updateManifest(dir, pins);
+  writeFileSync(path.join(dir, 'zh.js'), 'two');
+  assert.deepEqual(checkManifest(dir, pins), ['zh.js changed without a new ?v= (still 1)']);
+  assert.deepEqual(updateManifest(dir, pins), ['bumped zh.js ?v=1 -> 2', 'bumped lang.js ?v=2 -> 3']);
+  assert.equal(readFileSync(path.join(dir, 'lang.js'), 'utf8'), "const SOURCES = {zh: '/static/zh.js?v=2'};");
+  assert.equal(readFileSync(path.join(dir, 'index.html'), 'utf8'), '<script src="/static/lang.js?v=3"></script>');
 });

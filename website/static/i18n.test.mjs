@@ -7,17 +7,21 @@ import {FakeElement, loadPage, memoryStorage, runScenarios, runVisionScenario} f
 const source = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
 const APP_SCRIPTS = ['app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
   'app-content.js', 'app-content-render.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
-const PAGE = ['i18n.js', ...APP_SCRIPTS];
+// A Chinese page runs i18n-zh.js (requested by lang-init.js) before i18n.js;
+// the English snapshot runs without it, as an English visitor does.
+const PAGE = ['i18n-zh.js', 'i18n.js', ...APP_SCRIPTS];
+const EN_PAGE = ['i18n.js', ...APP_SCRIPTS];
 // Homepage scripts whose strings come from the dictionary.
 const T_FILES = [...APP_SCRIPTS, 'feedback.js'];
 // Shared with cases.html: tr('key', 'English', params), whose inline English is
 // the fallback if i18n.js failed to load.
 const TR_FILES = ['vision.js', 'file-intake.js', 'confirm-dialog.js'];
 
-function loadI18n({languages = ['en-US'], storage = memoryStorage(), document, console: con = console} = {}) {
+function loadI18n({languages = ['en-US'], storage = memoryStorage(), document, console: con = console, zh = true} = {}) {
   const window = {};
   const context = vm.createContext({window, navigator: {languages, language: languages[0]}, localStorage: storage,
     console: con, CustomEvent, ...(document ? {document} : {})});
+  if (zh) vm.runInContext(source('i18n-zh.js'), context, {filename: 'i18n-zh.js'});
   vm.runInContext(source('i18n.js'), context, {filename: 'i18n.js'});
   return {i18n: window.PhishGuardI18n, context, storage};
 }
@@ -349,7 +353,7 @@ test('localized server wording matches what the backend sends', () => {
 const snapshot = JSON.parse(readFileSync(new URL('../tests/fixtures/i18n/en-snapshot.json', import.meta.url), 'utf8'));
 
 test('English rendering is byte-for-byte the pre-translation output (sender, content, verification, reports…)', async () => {
-  const results = JSON.parse(JSON.stringify(await runScenarios(PAGE)));
+  const results = JSON.parse(JSON.stringify(await runScenarios(EN_PAGE)));
   assert.deepEqual(Object.keys(results), Object.keys(snapshot.app));
   for (const name of Object.keys(snapshot.app)) assert.deepEqual(results[name], snapshot.app[name], name);
 });
@@ -437,6 +441,256 @@ test('a Chinese page is translated on load, before any script renders', () => {
   assert.equal(english.nodes.html[0].innerHTML, '');
   assert.equal(english.document.documentElement.lang, 'en');
   assert.equal(english.attrs.has('data-i18n-pending'), false);
+});
+
+// ── Chinese strings load separately (i18n-zh.js) ────────────────────────────
+// A page in the fake DOM with a <head>, script elements whose load/error the
+// test fires, and document.readyState, so lang-init.js, i18n.js and
+// i18n-zh.js can run in one context in any order, as in a browser.
+const ZH_URL = source('i18n.js').match(/const SOURCES = \{zh: '([^']+)'\}/)[1];
+
+function browserPage({languages = ['en-US'], stored, readyState = 'loading'} = {}) {
+  const page = fakeDocument();
+  page.attrs.delete('data-i18n-pending');
+  const {document} = page;
+  const head = {children: [], appendChild(child) { this.children.push(child); return child; }};
+  const created = [];
+  document.head = head;
+  document.readyState = readyState;
+  document.createElement = tag => {
+    const attributes = {}, listeners = {};
+    const element = {tagName: tag.toUpperCase(), attributes,
+      setAttribute(name, value) { attributes[name] = String(value); },
+      getAttribute: name => (Object.hasOwn(attributes, name) ? attributes[name] : null),
+      addEventListener(type, fn) { (listeners[type] ??= []).push(fn); },
+      fire(type) { (listeners[type] || []).forEach(fn => fn({type})); },
+      remove() { element.removed = true; head.children = head.children.filter(child => child !== element); }};
+    created.push(element);
+    return element;
+  };
+  document.querySelector = selector => {
+    const match = selector.match(/^script\[data-i18n-dictionary="(\w+)"\]$/);
+    return match ? head.children.find(child => child.getAttribute('data-i18n-dictionary') === match[1]) ?? null : null;
+  };
+  page.toggle.removeAttribute = name => { delete page.toggle.attributesMap[name]; };
+  const storage = memoryStorage(stored ? {'phishguard-lang': stored} : {});
+  const errors = [], events = [];
+  const window = {};
+  const context = vm.createContext({window, document, navigator: {languages, language: languages[0]}, localStorage: storage,
+    console: {...console, error: (...args) => errors.push(args.join(' '))}, CustomEvent});
+  const run = name => vm.runInContext(source(name), context, {filename: name});
+  document.addEventListener('phishguard:languagechange', event => events.push(['change', event.detail.lang]));
+  document.addEventListener('phishguard:languageerror', event => events.push(['error', event.detail.lang]));
+  const contentLoaded = () => { document.readyState = 'interactive'; (page.listeners.DOMContentLoaded || []).forEach(fn => fn()); };
+  // The dictionary file runs, then its load event fires, as in a browser.
+  const deliver = script => { run('i18n-zh.js'); script.fire('load'); };
+  return {...page, head, created, run, storage, errors, events, window, contentLoaded, deliver,
+    i18n: () => window.PhishGuardI18n, pending: () => page.attrs.has('data-i18n-pending'),
+    text: () => page.nodes.text[0].textContent, busy: () => page.toggle.attributesMap['aria-busy'] ?? null};
+}
+
+test('an English visitor never requests i18n-zh.js', () => {
+  for (const html of ['index.html', 'cases.html']) assert.doesNotMatch(source(html), /i18n-zh/, `${html} has no static reference`);
+  for (const options of [{languages: ['en-US']}, {languages: ['zh-CN'], stored: 'en'}, {languages: ['fr-FR']}]) {
+    const page = browserPage(options);
+    page.run('lang-init.js');
+    page.run('i18n.js');
+    page.contentLoaded();
+    assert.equal(page.created.length, 0, JSON.stringify(options));
+    assert.equal(page.i18n().lang(), 'en');
+    assert.equal(page.pending(), false);
+    assert.equal(page.i18n().DICTIONARY.zh, undefined);
+  }
+});
+
+test('a Chinese visitor: lang-init.js requests i18n-zh.js in <head>, and the page stays hidden until it is applied', () => {
+  for (const arrives of ['before DOMContentLoaded', 'after DOMContentLoaded']) {
+    const page = browserPage({languages: ['zh-CN']});
+    page.run('lang-init.js');
+    assert.equal(page.document.documentElement.lang, 'zh-CN');
+    assert.equal(page.pending(), true);
+    assert.equal(page.created.length, 1);
+    const [script] = page.head.children;
+    assert.equal(script.src, ZH_URL);
+    assert.equal(script.getAttribute('data-i18n-dictionary'), 'zh');
+    assert.equal(script.fetchPriority, 'high');
+
+    // i18n.js runs first (the dictionary is still downloading): no English
+    // flash, since the page stays hidden, and no second request.
+    page.run('i18n.js');
+    assert.equal(page.pending(), true, arrives);
+    assert.equal(page.text(), 'Live Demo');
+    assert.equal(page.i18n().lang(), 'en', 'English strings until Chinese arrives');
+    assert.equal(page.created.length, 1, 'the request lang-init.js started is reused');
+    if (arrives === 'after DOMContentLoaded') {
+      page.contentLoaded();
+      assert.equal(page.pending(), true, 'DOMContentLoaded waits for the Chinese file');
+    }
+
+    page.deliver(script);
+    assert.equal(page.i18n().lang(), 'zh');
+    assert.equal(page.text(), '在线演示');
+    assert.equal(page.document.documentElement.lang, 'zh-CN');
+    assert.equal(page.document.title, zh['meta.title']);
+    assert.equal(page.pending(), false, 'revealed once translated');
+    // Before DOMContentLoaded no script has rendered yet; after it, they re-render.
+    assert.deepEqual(page.events, arrives === 'after DOMContentLoaded' ? [['change', 'zh']] : []);
+    if (arrives === 'before DOMContentLoaded') page.contentLoaded();
+    assert.equal(page.pending(), false);
+    assert.equal(page.storage.getItem('phishguard-lang'), null, 'loading does not store a choice');
+    assert.deepEqual(page.errors, []);
+  }
+});
+
+test('a Chinese dictionary that arrives before i18n.js is applied as i18n.js starts', () => {
+  const page = browserPage({languages: ['en-US'], stored: 'zh'});
+  page.run('lang-init.js');
+  page.deliver(page.head.children[0]);
+  assert.equal(page.pending(), true);
+  page.run('i18n.js');
+  assert.equal(page.i18n().lang(), 'zh');
+  assert.equal(page.text(), '在线演示');
+  assert.equal(page.pending(), false);
+  assert.equal(page.created.length, 1);
+  assert.equal(page.window.PhishGuardI18nDictionaries, undefined, 'the hand-over global is cleared');
+});
+
+test('if i18n-zh.js fails on load, the page is revealed in English and the failure is logged', () => {
+  // Fails while i18n.js waits for it.
+  const waiting = browserPage({languages: ['zh-CN']});
+  waiting.run('lang-init.js');
+  waiting.run('i18n.js');
+  waiting.head.children[0].fire('error');
+  assert.equal(waiting.pending(), false);
+  assert.equal(waiting.document.documentElement.lang, 'en');
+  assert.equal(waiting.i18n().lang(), 'en');
+  assert.equal(waiting.text(), 'Live Demo');
+  assert.equal(waiting.errors.length, 1);
+  assert.match(waiting.errors[0], /zh strings could not be loaded/);
+  assert.deepEqual(waiting.events, [['error', 'zh']]);
+
+  // Failed before i18n.js ran: i18n.js sees lang-init.js's finished request.
+  const early = browserPage({languages: ['zh-CN']});
+  early.run('lang-init.js');
+  const [script] = early.head.children;
+  script.fire('error');
+  assert.equal(script.getAttribute('data-state'), 'error');
+  early.run('i18n.js');
+  assert.equal(early.pending(), false);
+  assert.equal(early.i18n().lang(), 'en');
+  assert.equal(script.removed, true, 'a later switch requests the file again');
+  assert.equal(early.created.length, 1);
+
+  // i18n.js never ran: DOMContentLoaded still reveals the page once the file settles.
+  const alone = browserPage({languages: ['zh-CN']});
+  alone.run('lang-init.js');
+  alone.contentLoaded();
+  assert.equal(alone.pending(), true);
+  alone.head.children[0].fire('error');
+  assert.equal(alone.pending(), false);
+  const settled = browserPage({languages: ['zh-CN']});
+  settled.run('lang-init.js');
+  settled.head.children[0].fire('load');
+  settled.contentLoaded();
+  assert.equal(settled.pending(), false, 'already settled: revealed at DOMContentLoaded');
+});
+
+test('switching to 中文 loads i18n-zh.js once, keeping English and a busy toggle until it arrives', () => {
+  const page = browserPage();
+  page.run('lang-init.js');
+  page.run('i18n.js');
+  page.contentLoaded();
+  page.toggle.listeners.click();
+  assert.equal(page.created.length, 1);
+  const [script] = page.head.children;
+  assert.equal(script.src, ZH_URL);
+  assert.equal(page.busy(), 'true');
+  assert.equal(page.i18n().lang(), 'en');
+  assert.equal(page.text(), 'Live Demo');
+  assert.equal(page.document.documentElement.lang, 'en');
+  page.toggle.listeners.click();
+  assert.equal(page.created.length, 1, 'clicks while loading are ignored');
+  assert.deepEqual(page.events, []);
+
+  page.deliver(script);
+  assert.equal(page.i18n().lang(), 'zh');
+  assert.equal(page.text(), '在线演示');
+  assert.equal(page.document.documentElement.lang, 'zh-CN');
+  assert.equal(page.busy(), null);
+  assert.equal(page.storage.getItem('phishguard-lang'), 'zh');
+  assert.deepEqual(page.events, [['change', 'zh']]);
+  page.toggle.listeners.click();
+  page.toggle.listeners.click();
+  assert.equal(page.i18n().lang(), 'zh');
+  assert.equal(page.created.length, 1, 'loaded once');
+  assert.deepEqual(page.events, [['change', 'zh'], ['change', 'en'], ['change', 'zh']]);
+  assert.deepEqual(page.errors, []);
+});
+
+test('a failed switch stays in English, announces the failure and can be retried', () => {
+  const page = browserPage();
+  page.run('lang-init.js');
+  page.run('i18n.js');
+  page.toggle.listeners.click();
+  page.head.children[0].fire('error');
+  assert.equal(page.i18n().lang(), 'en');
+  assert.equal(page.text(), 'Live Demo');
+  assert.equal(page.busy(), null);
+  assert.equal(page.storage.getItem('phishguard-lang'), null);
+  assert.deepEqual(page.events, [['error', 'zh']]);
+  assert.equal(page.errors.length, 1);
+  assert.equal(page.head.children.length, 0, 'the failed request is removed');
+  page.toggle.listeners.click();
+  assert.equal(page.created.length, 2);
+  page.deliver(page.head.children[0]);
+  assert.equal(page.i18n().lang(), 'zh');
+  // A file that loads without registering (e.g. a stale copy) counts as a failure.
+  const stale = browserPage();
+  stale.run('i18n.js');
+  stale.toggle.listeners.click();
+  stale.head.children[0].fire('load');
+  assert.equal(stale.i18n().lang(), 'en');
+  assert.deepEqual(stale.events, [['error', 'zh']]);
+});
+
+test('a later choice wins over a Chinese file that is still loading', () => {
+  const page = browserPage();
+  page.run('i18n.js');
+  page.i18n().setLang('zh');
+  assert.equal(page.i18n().setLang('en'), 'en');
+  page.deliver(page.head.children[0]);
+  assert.equal(page.i18n().lang(), 'en');
+  assert.equal(page.text(), 'Live Demo');
+  assert.equal(page.busy(), null);
+  assert.deepEqual(page.events, []);
+  assert.ok(page.i18n().DICTIONARY.zh, 'kept for the next switch');
+});
+
+test('the i18n-zh.js URL is the same in lang-init.js and i18n.js and matches the asset manifest', () => {
+  const urls = ['lang-init.js', 'i18n.js'].map(name => [...source(name).matchAll(/'(\/static\/i18n-zh\.js\?v=[^']+)'/g)].map(match => match[1]));
+  assert.deepEqual(urls.map(list => list.length), [1, 1]);
+  assert.equal(urls[0][0], urls[1][0]);
+  assert.equal(urls[0][0], ZH_URL);
+  const manifest = JSON.parse(readFileSync(new URL('../tools/asset-versions/manifest.json', import.meta.url), 'utf8'));
+  assert.equal(ZH_URL, `/static/i18n-zh.js?v=${manifest['i18n-zh.js'].version}`);
+});
+
+test('the meta description follows the language on both pages', () => {
+  for (const [html, key] of [['index.html', 'meta.description'], ['cases.html', 'cases.meta.description']]) {
+    const markup = source(html).match(new RegExp(`<meta name="description" content="([^"]+)" data-i18n-attr="content:${key.replace(/\./g, '\\.')}"`));
+    assert.ok(markup, html);
+    assert.equal(decode(markup[1]), en[key]);
+    const page = fakeDocument();
+    const meta = Object.assign(new FakeElement('meta'), {attributesMap: {'data-i18n-attr': `content:${key}`, content: en[key]}});
+    meta.getAttribute = name => meta.attributesMap[name] ?? null;
+    meta.setAttribute = (name, value) => { meta.attributesMap[name] = String(value); };
+    page.nodes.attr.push(meta);
+    const {i18n} = loadI18n({document: page.document});
+    i18n.setLang('zh');
+    assert.equal(meta.attributesMap.content, zh[key]);
+    i18n.setLang('en');
+    assert.equal(meta.attributesMap.content, en[key]);
+  }
 });
 
 test('the toggle switches language, persists the choice and announces the change', () => {
@@ -736,6 +990,7 @@ test('Chinese image evidence and the unchanged English fallback for cases.html',
     document: {createElement: tag => ({tag, children: [], textContent: '', append(...n) { this.children.push(...n); },
       replaceChildren(...n) { this.children = n; }})}, URL: {createObjectURL: () => 'blob:x', revokeObjectURL() {}},
     setTimeout, clearTimeout});
+  vm.runInContext(source('i18n-zh.js'), context);
   vm.runInContext(source('i18n.js'), context);
   vm.runInContext(source('vision.js'), context);
   const root = {children: [], append(...n) { this.children.push(...n); }, replaceChildren(...n) { this.children = n; }};
@@ -758,6 +1013,7 @@ test('worker progress is shown in the page language', async () => {
     class Worker { constructor() { workers.push(this); } postMessage() {} terminate() {} }
     const context = vm.createContext({window, navigator: {languages}, localStorage: memoryStorage(), Worker,
       setTimeout, clearTimeout, Uint8Array, btoa: text => Buffer.from(text, 'binary').toString('base64')});
+    vm.runInContext(source('i18n-zh.js'), context);
     vm.runInContext(source('i18n.js'), context);
     vm.runInContext(source('vision.js'), context);
     return {api: window.PhishGuardVision, workers};
@@ -786,7 +1042,7 @@ test('shared components fall back to English without i18n.js and translate with 
     const window = {};
     const context = vm.createContext({window, navigator: {languages}, localStorage: memoryStorage(), HTMLDialogElement: function () {},
       document: {createElement: element, body: {append() {}}}, console});
-    if (languages) vm.runInContext(source('i18n.js'), context);
+    if (languages) for (const name of ['i18n-zh.js', 'i18n.js']) vm.runInContext(source(name), context);
     vm.runInContext(confirmSource, context);
     window.PhishGuardConfirm('Message');
     return created.slice(1);

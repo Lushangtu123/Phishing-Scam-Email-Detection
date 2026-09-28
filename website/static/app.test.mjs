@@ -578,10 +578,15 @@ test('scripts are same-origin and the vendored chart library matches its integri
   const sources = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map(match => match[1]);
   assert.ok(sources.length > 0);
   for (const src of sources) assert.match(src, /^\/(static|_vercel)\//, src);
-  const chart = html.match(/<script defer src="\/static\/(vendor\/chart\/chart\.umd\.min\.js)\?v=[^"]+" integrity="(sha384-[A-Za-z0-9+/]{64})"><\/script>/);
-  assert.ok(chart, 'vendored Chart.js is deferred (it is first used after metrics load) and keeps its SRI pin');
-  const bytes = readFileSync(new URL(`./${chart[1]}`, import.meta.url));
-  assert.equal(`sha384-${createHash('sha384').update(bytes).digest('base64')}`, chart[2]);
+  // Chart.js is not in the initial HTML; app-metrics.js inserts it on demand
+  // with the same same-origin URL and SRI pin.
+  assert.doesNotMatch(html, /chart\.umd/);
+  const metrics = appSource('app-metrics.js');
+  const src = metrics.match(/const CHART_SRC = '\/static\/(vendor\/chart\/chart\.umd\.min\.js)\?v=[^']+';/);
+  const integrity = metrics.match(/const CHART_INTEGRITY = '(sha384-[A-Za-z0-9+/]{64})';/);
+  assert.ok(src && integrity, 'vendored Chart.js keeps its SRI pin');
+  const bytes = readFileSync(new URL(`./${src[1]}`, import.meta.url));
+  assert.equal(`sha384-${createHash('sha384').update(bytes).digest('base64')}`, integrity[1]);
 });
 
 test('the hidden clear control leaves the tab order and is a usable touch target when shown', () => {
@@ -1312,7 +1317,7 @@ test('benchmark load failures replace the loading row, but a chart failure keeps
 
   // FakeElement has no canvas context, so the chart step throws after the table rendered.
   const metrics = { 'Random Forest': { Accuracy: 0.97, Precision: 0.96, Recall: 0.95, F1: 0.94, ROC_AUC: 0.99 } };
-  const { context, elements } = loadFrontend({ fetch: async () => response({ metrics }), console: quiet });
+  const { context, elements } = loadFrontend({ fetch: async () => response({ metrics }), console: quiet, Chart: function Chart() {} });
   await context.loadMetrics();
   assert.match(elements.get('metrics-tbody').innerHTML, /Random Forest/);
   assert.doesNotMatch(elements.get('metrics-tbody').innerHTML, /unavailable/);

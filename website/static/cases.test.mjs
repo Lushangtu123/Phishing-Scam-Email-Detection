@@ -994,18 +994,20 @@ test('case workspace faint text meets WCAG AA and fields avoid iOS focus zoom', 
 });
 
 // ── Language ─────────────────────────────────────────────────────────────────
-const PAGE = ['i18n.js', ...CASE_SCRIPTS];
+// A Chinese workspace runs i18n-zh.js (requested by lang-init.js) first; the
+// English snapshot runs without it, as an English visitor does.
+const PAGE = ['i18n-zh.js', 'i18n.js', ...CASE_SCRIPTS];
+const EN_PAGE = ['i18n.js', ...CASE_SCRIPTS];
 const zhDictionary = (() => {
   const window = {};
-  vm.runInNewContext(readFileSync(new URL('./i18n.js', import.meta.url), 'utf8'),
-    {window, navigator: {languages: ['en-US']}, localStorage: memoryStorage(), console});
-  return window.PhishGuardI18n.DICTIONARY.zh;
+  vm.runInNewContext(readFileSync(new URL('./i18n-zh.js', import.meta.url), 'utf8'), {window});
+  return window.PhishGuardI18nDictionaries.zh;
 })();
 const texts = nodes => nodes.flatMap(node => [node.textContent, ...texts(node.children || [])]).filter(Boolean);
 
 test('English rendering is byte-for-byte the output of the pre-i18n cases.js', async () => {
   const snapshot = JSON.parse(readFileSync(new URL('../tests/fixtures/i18n/cases-en-snapshot.json', import.meta.url), 'utf8'));
-  const results = JSON.parse(JSON.stringify(await runCaseScenarios(PAGE)));
+  const results = JSON.parse(JSON.stringify(await runCaseScenarios(EN_PAGE)));
   assert.deepEqual(Object.keys(results), Object.keys(snapshot));
   for (const name of Object.keys(snapshot)) assert.deepEqual(results[name], snapshot[name], name);
   // An English browser with a stored English choice renders the same.
@@ -1182,8 +1184,8 @@ test('a Chinese workspace is translated before first paint, including <title>, a
   const document = {title: 'Cases · PhishGuard', documentElement: {lang: 'en', removeAttribute: name => pending.delete(name)},
     querySelectorAll: selector => ({'[data-i18n]': text, '[data-i18n-attr]': attr})[selector] || [],
     querySelector: selector => (selector === 'title[data-i18n]' ? title : null), getElementById: () => null};
-  vm.runInNewContext(readFileSync(new URL('./i18n.js', import.meta.url), 'utf8'),
-    {window: {}, document, navigator: {languages: ['en-US']}, localStorage: memoryStorage({'phishguard-lang': 'zh'}), console});
+  const context = vm.createContext({window: {}, document, navigator: {languages: ['en-US']}, localStorage: memoryStorage({'phishguard-lang': 'zh'}), console});
+  for (const name of ['i18n-zh.js', 'i18n.js']) vm.runInContext(readFileSync(new URL(`./${name}`, import.meta.url), 'utf8'), context);
   assert.equal(document.documentElement.lang, 'zh-CN');
   assert.equal(pending.size, 0);
   assert.equal(title.textContent, '案例 · PhishGuard');

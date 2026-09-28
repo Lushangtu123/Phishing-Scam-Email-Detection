@@ -20,6 +20,47 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 16:30 PT] — Lighter first load: per-language dictionary, on-demand Chart.js, earlier in-page links, heading and metadata fixes
+
+### Why
+- Every visitor downloaded both languages' strings (`i18n.js`, 195,993 B) and Chart.js (205,222 B) on load, although only one language is shown and the chart sits below the fold.
+- In-page navigation (`setupSmoothScroll()`) was bound only after `/api/config` and then `/api/metrics` answered, one after the other; with a slow metrics response the nav links fell back to the browser's instant jump, without smooth scrolling (or reduced-motion handling) and without moving keyboard focus.
+- The disposable-email card jumped from the demo `h2` to `h4` subheadings (its title was a `div`), and neither page had a meta description; the private case workspace had no `noindex` (no `X-Robots-Tag` header is sent either).
+
+### Files changed
+- `website/static/i18n.js` — keeps the runtime and the English dictionary (fallback and English-match reference); new `register()`, `SOURCES = {zh: '/static/i18n-zh.js?v=1'}` and an on-demand loader that reuses the request `lang-init.js` started (marked `data-i18n-dictionary`/`data-state`). A Chinese page whose strings have not arrived stays `data-i18n-pending` and is translated (and revealed) when `i18n-zh.js` registers, dispatching `phishguard:languagechange` only after `DOMContentLoaded`; if the file fails the page is revealed in English, `console.error` is logged and `phishguard:languageerror` is dispatched. `setLang('zh')` keeps English while loading, marks `#lang-toggle` `aria-busy` and ignores clicks, applies once loaded (unless another language was chosen meanwhile), and removes a failed request so a later click retries. Public API unchanged apart from the added `register`; `DICTIONARY.zh` appears once loaded. New keys `meta.description`, `nav.lang.failed`, `cases.meta.description`.
+- `website/static/i18n-zh.js` (new) — the Chinese dictionary only; registers with a running `i18n.js`, or leaves itself in `window.PhishGuardI18nDictionaries` for `i18n.js` to pick up (then cleared).
+- `website/static/lang-init.js` — for a zh visitor inserts `<script src="/static/i18n-zh.js?v=1" fetchpriority=high>` into `<head>` (external, so CSP `script-src 'self'` holds; no `document.write`); its `DOMContentLoaded` reveal now waits until that request has loaded or failed. English visitors request nothing extra. The stylesheets' 2 s reveal is unchanged.
+- `website/static/app-metrics.js` — Chart.js is inserted (same URL, same `sha384-e6nU…W5d1g` SRI, no `crossorigin` since it is same-origin) when `#performance` is within 600 px of the viewport (`IntersectionObserver`), or at once without it. The table renders as soon as `/api/metrics` answers; `drawMetricsChart()` draws when both metrics and library are present, in either order. A load or integrity failure logs a warning and keeps the table. The chart skips its entry animation under `prefers-reduced-motion`, as it is now drawn on screen.
+- `website/static/app.js` — `setupSmoothScroll()` and `setupMetricsChartLoader()` run with the other synchronous setup; `loadPublicConfig()` and `loadMetrics()` start together (`Promise.all`), each keeping its own error handling. Announces `nav.lang.failed` on `phishguard:languageerror`.
+- `website/static/cases.js` — shows `nav.lang.failed` as an error notice on `phishguard:languageerror`.
+- `website/static/index.html` — eager Chart.js `<script defer … integrity>` removed; `<meta name="description">` (localized via `data-i18n-attr`), `og:type`, `og:site_name`, `og:title`, `og:description`, `twitter:card=summary` (no `og:image`: no suitable same-origin image); `.di-title` is now an `h3` above its `h4`s.
+- `website/static/cases.html` — localized `<meta name="description">` and `<meta name="robots" content="noindex">`.
+- `website/static/style.css`, `website/static/cases.css` — `.di-title` keeps `text-wrap: wrap` so the new `h3` looks as before; `.lang-toggle[aria-busy="true"]` shows a progress cursor.
+- `website/static/page-loading.test.mjs` (new, 11 tests) — smooth scroll bound and both requests started before either answers; config/metrics failures independent; Chart.js absent from the HTML, requested once with its SRI on intersection (or without IntersectionObserver); table without Chart.js; chart drawn after a late load in the current theme and language and re-styled after it; library before metrics; load/integrity failure safe; heading order on both pages including rendered image evidence; meta tags.
+- `website/static/i18n.test.mjs` — 9 new tests: English visitors never request `i18n-zh.js`; zh page hidden until applied whether the file arrives before or after `DOMContentLoaded` or before `i18n.js`; initial and runtime load failures; one load per page; a later choice wins; `?v=` identical in `lang-init.js`, `i18n.js` and the manifest; meta description follows the language. Harnesses load `i18n-zh.js` before `i18n.js` for Chinese; the English snapshots run with `i18n.js` alone and still match byte for byte.
+- `website/static/cases.test.mjs`, `website/static/server-messages.test.mjs`, `website/static/app.test.mjs` — load `i18n-zh.js` for Chinese; the SRI test reads the pin from `app-metrics.js`.
+- `website/static/asset-versions.test.mjs` — the manifest tracks `i18n-zh.js` from `lang-init.js` and `i18n.js` and Chart.js from `app-metrics.js`; a script-embedded URL bump cascades (the tool already scanned `.js` sources).
+- `website/tools/asset-versions/manifest.json` — `i18n-zh.js` pinned at `?v=1`; `i18n.js` 3→4, `lang-init.js` 2→3, `app.js` 51→52, `app-metrics.js` 2→3, `cases.js` 24→25, `style.css` 47→48, `cases.css` 18→19.
+- `.github/workflows/ci.yml`, `README.md` — `node --check website/static/i18n-zh.js`; README notes the split dictionary and on-demand Chart.js.
+
+### Effect
+- Chromium, fresh profile, uncompressed response bytes (gzip-9 estimate in brackets):
+
+  | Visit | Before | After |
+  |---|---|---|
+  | Homepage, English, initial load | 26 requests, 717,334 B (208,521) | 25 requests, 431,891 B (113,793) |
+  | Homepage, English, after scrolling to #performance | 26 requests, 717,334 B | 26 requests, 637,113 B (183,486) |
+  | Homepage, Chinese, initial load | 26 requests, 717,334 B | 26 requests, 522,548 B (143,054) |
+  | Homepage, Chinese, after scrolling | 26 requests, 717,334 B | 27 requests, 727,770 B (212,747) |
+  | /cases, English | 9 requests, 326,282 B (94,214) | 9 requests, 242,976 B (68,147) |
+  | /cases, Chinese | 9 requests, 326,282 B | 10 requests, 333,633 B (97,408) |
+
+  `i18n.js` 195,993 → 110,938 B (gzip 58,632 → 31,930); `i18n-zh.js` 90,657 B (gzip 28,661). A Chinese visitor fetches 5,602 B more in total (loader, comments, new keys) in one extra, parallel request.
+- First visible (translated) frame, Chromium median, throttled to 150 ms RTT / 1.6 Mbps: homepage English 2,220 → 1,708 ms, Chinese 3,918 → 2,933 ms; /cases unchanged within noise (en 662 → 660, zh 1,916 → 1,945 ms). Unthrottled local: unchanged within noise. No English frame is painted on a Chinese page, including with `i18n-zh.js` delayed 1.5 s; with it blocked the page appears in English at ~150 ms.
+- With `/api/metrics` delayed 10 s, clicking "Features" right after load scrolls to `#features` and focuses it (before: native jump only; focus stayed on `<body>`). A tampered Chart.js is blocked by SRI and the table stays.
+- `node --test website/static/*.test.mjs`: 472 pass, 0 fail (450 before). `python -m unittest discover -s website/tests`: 690 OK, 10 skipped.
+
 ## [2026-09-28 16:20 PT] — Case queue columns fit their card at every width
 
 ### Why

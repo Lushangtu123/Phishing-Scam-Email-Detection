@@ -568,6 +568,15 @@ verdicts, review reasons, evidence bases, report types, history action and field
 names, and reported signal codes. Analyst notes, subjects, message bodies, actor
 names, API `detail` errors and the audit JSON are shown as stored.
 
+Only the active language's strings are downloaded. `website/static/i18n.js`
+holds the runtime and the English dictionary (the fallback, and the reference
+for the English-match check); the Chinese dictionary is `i18n-zh.js`. For a
+visitor whose language resolves to Chinese, `lang-init.js` requests it in
+`<head>` and the page stays hidden until it is applied (or has failed, in which
+case the page is shown in English); switching to 中文 loads it once, on demand.
+On the homepage, Chart.js is likewise fetched only when the benchmark section
+nears the viewport; the benchmark table does not wait for it.
+
 Example raw-message request:
 
 ```json
@@ -1114,8 +1123,8 @@ bucket.
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
 python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
-node --test website/static/app.test.mjs website/static/i18n.test.mjs website/static/cases.test.mjs
-for f in website/static/app*.js website/static/i18n.js website/static/lang-init.js website/static/cases.js website/tests/fixtures/i18n/*cases*.mjs; do node --check "$f"; done
+node --test website/static/app.test.mjs website/static/i18n.test.mjs website/static/cases.test.mjs website/static/page-loading.test.mjs
+for f in website/static/app*.js website/static/i18n.js website/static/i18n-zh.js website/static/lang-init.js website/static/cases.js website/tests/fixtures/i18n/*cases*.mjs; do node --check "$f"; done
 node website/tools/asset-versions/update.mjs   # after editing a versioned static file
 git diff --check
 ```

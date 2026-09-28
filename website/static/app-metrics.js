@@ -1,5 +1,8 @@
 /* ──────────────────────────────────────────────────────────────────────────
    app-metrics.js – benchmark metrics table and chart
+   The table renders as soon as /api/metrics answers. Chart.js is fetched only
+   when the benchmark section comes near the viewport; the chart is drawn once
+   both the metrics and the library are here, in whichever order they arrive.
    ────────────────────────────────────────────────────────────────────────── */
 
 let metricsChart = null;
@@ -32,12 +35,64 @@ async function loadMetrics() {
     renderMetricsUnavailable();
     return;
   }
-  // A chart failure must not replace the table that already rendered.
+  drawMetricsChart();
+}
+
+// Draws (or redraws) the chart from the last metrics once Chart.js is here.
+// A chart failure must not replace the table that already rendered.
+function drawMetricsChart() {
+  if (!_lastMetrics || typeof Chart !== 'function') return;
   try {
-    renderMetricsChart(metrics);
+    renderMetricsChart(_lastMetrics);
   } catch (e) {
     console.error('Failed to render metrics chart:', e);
   }
+}
+
+// ── Chart.js, on demand ──────────────────────────────────────────────────────
+// The vendored file and its SRI pin; the request is same-origin, so the
+// integrity check needs no crossorigin attribute.
+const CHART_SRC = '/static/vendor/chart/chart.umd.min.js?v=4.4.0';
+const CHART_INTEGRITY = 'sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g';
+// 'idle' until requested, then 'loading', 'ready' or 'failed'.
+let _chartLibrary = 'idle';
+
+function loadChartLibrary() {
+  if (_chartLibrary !== 'idle') return;
+  if (typeof Chart === 'function') { _chartLibrary = 'ready'; drawMetricsChart(); return; }
+  _chartLibrary = 'loading';
+  const failed = error => {
+    _chartLibrary = 'failed';
+    console.warn('Benchmark chart unavailable; the table shows the same results.', error || '');
+  };
+  try {
+    const script = document.createElement('script');
+    script.src = CHART_SRC;
+    script.integrity = CHART_INTEGRITY;
+    script.addEventListener('load', () => {
+      if (typeof Chart !== 'function') { failed(); return; }
+      _chartLibrary = 'ready';
+      if (!metricsChart) drawMetricsChart();
+    });
+    // A network or integrity failure: the table stays, nothing is drawn.
+    script.addEventListener('error', () => failed());
+    (document.head || document.body).appendChild(script);
+  } catch (error) {
+    failed(error);
+  }
+}
+
+// Requests Chart.js when #performance is within 600px of the viewport (at
+// once if it already is, or without IntersectionObserver).
+function setupMetricsChartLoader() {
+  const section = document.getElementById('performance');
+  if (typeof IntersectionObserver === 'undefined' || !section) { loadChartLibrary(); return; }
+  const observer = new IntersectionObserver(entries => {
+    if (!entries.some(entry => entry.isIntersecting)) return;
+    observer.disconnect();
+    loadChartLibrary();
+  }, { rootMargin: '600px 0px' });
+  observer.observe(section);
 }
 
 function renderMetricsTable(metrics) {
@@ -137,6 +192,8 @@ function renderMetricsChart(metrics) {
     data: { labels, datasets },
     options: {
       responsive: true,
+      // Drawn as the section scrolls into view, so its entry animation can be seen.
+      ...(prefersReducedMotion() ? { animation: false } : {}),
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, boxHeight: 12 } },
         tooltip: {

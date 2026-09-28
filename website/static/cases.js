@@ -797,4 +797,6 @@
     renderDraftState(); setJevStatus(jevStatus); renderJevResults();
   }
   document.addEventListener('phishguard:languagechange', relocalize);
+  // i18n.js could not fetch the Chinese strings; the workspace stayed in English.
+  document.addEventListener('phishguard:languageerror', () => notice(() => t('nav.lang.failed'), true));
 })();
