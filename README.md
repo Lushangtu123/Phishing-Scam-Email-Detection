@@ -1157,7 +1157,8 @@ Decoded links are plain text; the app never opens them. See
 
 Limits: 2 MiB input file, four images per submission, 4,096 pixels per side and
 8 megapixels before decoding, eight QR codes per image, 6,000 OCR characters per
-image. Recognition resizes images above 2,000 pixels and reports this. One job has
+image. QR scanning uses original pixels within those bounds; only the masked OCR
+copy is resized above 2,000 pixels, with a small-text warning. One job has
 a 150-second deadline; OCR initialization/recognition have their own deadlines.
 Cancel, clear, file changes and case sign-out discard pending results. Recent
 browsers supporting Workers, OffscreenCanvas and WebAssembly are required.

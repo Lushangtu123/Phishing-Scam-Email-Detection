@@ -39,16 +39,30 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
       try {
         progress(`Reading image ${observations.length} of ${Math.min(images.length, LIMITS.images)}…`);
         bitmap = await createImageBitmap(new Blob([image.buffer], {type: info.mime}));
-        const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
-        const canvas = new OffscreenCanvas(Math.max(1, Math.round(bitmap.width * scale)), Math.max(1, Math.round(bitmap.height * scale)));
+        if (bitmap.width > LIMITS.side || bitmap.height > LIMITS.side || bitmap.width * bitmap.height > LIMITS.pixels)
+          throw new Error('Decoded image exceeds recognition limits.');
+        // QR modules can disappear when a large screenshot is reduced for OCR.
+        // The original bitmap already passed the 8 MP / 4096-side bounds.
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
         const ctx = canvas.getContext('2d', {willReadFrequently: true});
         ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        if (scale < 1) item.warnings.push('Large image was resized for recognition; small details may be missed.');
-        const qr = decodeQRs(ctx.getImageData(0, 0, canvas.width, canvas.height), self.jsQR);
-        item.qr_payloads = qr.values; item.warnings.push(...qr.warnings);
-        if (qr.values.length) {
-          ctx.putImageData(new ImageData(qr.ocrImage.data, canvas.width, canvas.height), 0, 0);
+        bitmap.close(); bitmap = null;
+        {
+          const qr = decodeQRs(ctx.getImageData(0, 0, canvas.width, canvas.height), self.jsQR);
+          item.qr_payloads = qr.values; item.warnings.push(...qr.warnings);
+          if (qr.values.length) {
+            ctx.putImageData(new ImageData(qr.ocrImage.data, canvas.width, canvas.height), 0, 0);
+          }
+        }
+        const scale = Math.min(1, 2000 / Math.max(canvas.width, canvas.height));
+        let textCanvas = canvas;
+        if (scale < 1) {
+          textCanvas = new OffscreenCanvas(Math.max(1, Math.round(canvas.width * scale)), Math.max(1, Math.round(canvas.height * scale)));
+          textCanvas.getContext('2d').drawImage(canvas, 0, 0, textCanvas.width, textCanvas.height);
+          // Release the large drawing buffer before starting the OCR worker.
+          canvas.width = canvas.height = 1;
+          item.warnings.push('QR codes were scanned at original resolution. The image was resized for text recognition; small text may be missed.');
         }
         const languageLabel = {eng: 'English', chi_sim: 'Simplified Chinese', 'eng+chi_sim': 'English and Simplified Chinese'}[language];
         progress(`Reading ${languageLabel} text…`);
@@ -61,7 +75,7 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
           await ocr.setParameters({tessedit_pageseg_mode: '11'});
         }
         // Encode locally; no object URLs or remote image loads.
-        const result = await deadline(ocr.recognize(new Uint8Array(await (await canvas.convertToBlob({type: 'image/png'})).arrayBuffer()), {}, {blocks: true}), 20000, 'OCR timed out.');
+        const result = await deadline(ocr.recognize(new Uint8Array(await (await textCanvas.convertToBlob({type: 'image/png'})).arrayBuffer()), {}, {blocks: true}), 20000, 'OCR timed out.');
         item.ocr_text = result.data.text.slice(0, 6000);
         item.ocr_confidence = Math.max(0, Math.min(100, result.data.confidence || 0));
         item.ocr_url_line_confidence = result.data.text.length > 6000 ? null : urlLineConfidence(result.data.blocks);

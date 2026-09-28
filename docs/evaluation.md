@@ -380,6 +380,28 @@ holdout. In particular, undetermined is not counted as a correct nonalert.
 
 ## 2. Browser OCR and QR controls
 
+### Remote-image follow-up and native QR scanning (2026-09-27)
+
+A local diagnostic against `main@79865eb` temporarily removed the image-alt
+rendering exclusion from text scoring. On the 244 historical `hard_ham` messages, 84 unknown results became
+low risk, but one became an alert, increasing normal-mail alerts from 114 to 115.
+The 199-message two-class pilot's alert/nonalert/unknown counts were unchanged.
+The false-alert regression rejects that relaxation; it is **not** in serving
+code. The [HTML image specification](https://html.spec.whatwg.org/multipage/embedded-content.html#the-img-element)
+defines alt text as replacement content, so ignoring it does not establish
+coverage of what a recipient may see. Remote pixels remain unavailable in these
+EML files, and the preceding 20 newly unknown messages remain unresolved.
+
+The adopted fix instead corrects a reproduced browser extraction defect. A
+4,096 × 1,600 authored image has two QR codes, at two and eight pixels per module,
+and a separate caption. The old worker found only the larger QR after resizing
+to a 2,000-pixel width. Scanning the bounded original pixels before resizing the
+masked OCR copy recovers both exact payloads and preserves the exact caption.
+The unchanged five-image benchmark retains 5/5 exact QR sets, 2/5 exact OCR texts,
+1/3 exact OCR URL sets and 23/238 character edits. The paired visual comparison
+passes. These are synthetic controls, not a measured change in real-mail error
+rate; native QR scanning can consume more resources on large inputs.
+
 ```sh
 python3 website/tools/vision-benchmark/serve.py --port 8930
 ```

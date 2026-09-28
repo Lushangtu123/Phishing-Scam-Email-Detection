@@ -296,6 +296,31 @@ try {
     assert(observation.ocr_text.includes('KEEP'), 'Text inside a rotated QR bounding box must survive polygon masking');
     assert(observation.ocr_text.includes('Review notes'), 'Scattered text must remain readable');
   });
+  await check('large screenshots preserve small and large QR codes before OCR resizing', async () => {
+    const matrices = JSON.parse(await readFile(path.join(fixtureDir, 'qr-matrices.json'), 'utf8'));
+    const evidence = await page.evaluate(async matrices => {
+      const canvas = new OffscreenCanvas(4096, 1600), ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      for (const [index, x, y, module] of [[0, 100, 100, 2], [1, 3000, 1100, 8]]) {
+        matrices[index].matrix.forEach((row, dy) => row.forEach((on, dx) => {
+          if (on) ctx.fillRect(x + dx * module, y + dy * module, module, module);
+        }));
+      }
+      ctx.font = '48px Arial'; ctx.fillText('Review notes', 100, 500);
+      const file = new File([await canvas.convertToBlob({type: 'image/png'})], 'large-qr-control.png', {type: 'image/png'});
+      const start = performance.now();
+      const result = await window.PhishGuardVision.recognize(file);
+      return {...result, elapsed_ms: Math.round(performance.now() - start)};
+    }, matrices);
+    assert.equal(evidence.observations.length, 1);
+    const observation = evidence.observations[0];
+    assert.deepEqual([...observation.qr_payloads].sort(), matrices.map(item => item.text).sort(),
+      'Both literal QR payloads must survive, including the two-pixel modules');
+    assert.equal(observation.ocr_text.trim(), 'Review notes', 'QR masking must preserve caption text without QR noise');
+    summary.large_image_qr_control = {width: 4096, height: 1600, expected_qr_count: 2,
+      exact_qr_set: true, exact_caption: true, elapsed_ms: evidence.elapsed_ms};
+  });
   await check('authored URL lookalikes and dotted non-URLs keep line diagnostics honest', async () => {
     const controls = [];
     for (const font of ['32px Arial', 'bold 32px Georgia']) for (const [id, literal] of [

@@ -6,13 +6,15 @@ pages and vendored module workers. It uses no API response mocks, personal mail,
 cloud credentials or remote uploads. Its temporary SQLite database is deleted and
 both servers and the browser are stopped in `finally`.
 
-The ten checks cover sender analysis, manual message analysis, English and Chinese
+The eleven checks cover sender analysis, manual message analysis, English and Chinese
 image URL-line confidence displayed through the real API/UI, image upload,
 local-only original-image preview beside the OCR result,
 worker cancellation followed by a successful retry, EML embedded-image extraction,
 analyst image-case creation and reload, all five existing synthetic benchmark
 images, an additional authored rotated QR with adjacent and scattered text, and
-ten browser-authored font/text controls for URL lookalikes and non-URL prose.
+ten browser-authored font/text controls for URL lookalikes and non-URL prose,
+and a 4,096 × 1,600 screenshot with two-pixel and eight-pixel QR modules beside
+ordinary caption text.
 Case creation uses a synthetic token generated only for this run's local
 server. The script verifies that the token is absent from browser storage.
 
@@ -94,6 +96,15 @@ polygon, and scattered text all survive. Only decoded polygons are masked;
 undecodable regions remain visible to OCR. Original bytes, resource versions,
 language selection, sparse-text segmentation and literal scoring are unchanged.
 These are synthetic regression results, not real-world accuracy estimates.
+
+The large-screenshot control initially lost its smaller QR because the worker
+reduced the entire image to 2,000 pixels before QR decoding. The worker now decodes
+and masks QR polygons at original resolution, then reduces the masked copy for
+OCR. The same control changes from one of two exact QR payloads to both, while
+retaining the exact `Review notes` caption without QR noise. File, pixel, image,
+QR-count and job-time limits still apply; the decoded bitmap is checked against
+the pixel limits and released before OCR. The report records elapsed time as a
+diagnostic rather than a portable performance guarantee.
 
 The next Chromium 148 run added URL-line diagnostics without changing OCR text,
 QR extraction or risk scoring. The synthetic English phishing image had 92%

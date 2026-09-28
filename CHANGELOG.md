@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-27 22:31 PT] — Preserve small QR codes in large screenshots
+
+### Why
+- Resizing a screenshot to 2,000 pixels before QR decoding could erase small QR modules. A real browser regression found only one of two codes in a 4,096 × 1,600 synthetic screenshot.
+
+### Files changed
+- `website/static/vision-worker.mjs`, `website/static/vision.js` — scan and mask bounded original pixels before reducing the OCR copy, check decoded dimensions, release bitmap/canvas memory, and refresh the worker cache version.
+- `website/tools/browser-checks/run.mjs`, `website/tools/browser-checks/README.md` — add the small/large QR and exact-caption control, with diagnostic elapsed time.
+- `README.md`, `docs/evaluation.md` — document separate QR/OCR resizing and the rejected image-alt relaxation experiment.
+
+### Effect
+- The new browser control recovers 2/2 literal QR payloads instead of 1/2 and preserves its caption without QR noise. The original five-image benchmark remains at 5/5 exact QR sets, 2/5 exact OCR texts, 1/3 exact OCR URL sets and 23/238 character edits. Larger native QR scans retain the existing size and time limits; mobile resource use is not benchmarked.
+- Removing the remote-image-alt exclusion in an offline experiment increased historical normal-mail alerts from 114 to 115, so that policy remains unchanged. The 20 newly undetermined historical messages are not counted as resolved.
+- Validation: 213 frontend tests and 11 Chromium integration checks pass; the 662-test backend suite passes with 10 local Redis integration skips. The fixed five-image visual comparison passes without extraction regressions.
+
 ## [2026-09-27 22:15 PT] — Avoid high-risk sender flags for routine role mailboxes
 
 ### Why
