@@ -9,8 +9,12 @@ function deadline(promise, ms, message) {
   let timer;
   return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); })]).finally(() => clearTimeout(timer));
 }
+function terminateOCR(worker) {
+  // Cleanup must not delay or discard evidence when the OCR runtime is broken.
+  try { Promise.resolve(worker?.terminate()).catch(() => {}); } catch {}
+}
 self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
-  let ocr, pendingOCR;
+  let ocr, ocrUnavailable = false;
   const warnings = [], observations = [];
   try {
     if (!['eng', 'chi_sim', 'eng+chi_sim'].includes(language)) throw new Error('Choose a supported OCR language.');
@@ -64,30 +68,46 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
           canvas.width = canvas.height = 1;
           item.warnings.push('QR codes were scanned at original resolution. The image was resized for text recognition; small text may be missed.');
         }
-        const languageLabel = {eng: 'English', chi_sim: 'Simplified Chinese', 'eng+chi_sim': 'English and Simplified Chinese'}[language];
-        progress(`Reading ${languageLabel} text…`);
-        if (!ocr) {
-          pendingOCR = Tesseract.createWorker(language, 1, {
-            workerPath: assets + 'worker.min.js', corePath: assets + 'core', langPath: assets + 'lang',
-            workerBlobURL: false, cacheMethod: 'none', logger: () => {}, errorHandler: () => {},
-          });
-          ocr = await deadline(pendingOCR, 45000, 'OCR initialization timed out.');
-          await ocr.setParameters({tessedit_pageseg_mode: '11'});
+        if (ocrUnavailable) {
+          item.status = item.qr_payloads.length ? 'partial' : 'failed';
+          item.warnings.push('Text recognition was skipped because OCR is unavailable for this task; any decoded QR payloads were retained.');
+        } else try {
+          const languageLabel = {eng: 'English', chi_sim: 'Simplified Chinese', 'eng+chi_sim': 'English and Simplified Chinese'}[language];
+          progress(`Reading ${languageLabel} text…`);
+          if (!ocr) {
+            // Startup and parameter setup share one deadline. Do not restart a
+            // failed runtime per image: four startup waits exceed the page limit.
+            await deadline((async () => {
+              const worker = await Tesseract.createWorker(language, 1, {
+                workerPath: assets + 'worker.min.js', corePath: assets + 'core', langPath: assets + 'lang',
+                workerBlobURL: false, cacheMethod: 'none', logger: () => {}, errorHandler: () => {},
+              });
+              if (ocrUnavailable) { terminateOCR(worker); return; }
+              ocr = worker;
+              await worker.setParameters({tessedit_pageseg_mode: '11'});
+            })(), 45000, 'OCR initialization timed out.');
+          }
+          // Encode locally within the recognition deadline; no remote loads.
+          const result = await deadline((async () => {
+            const bytes = new Uint8Array(await (await textCanvas.convertToBlob({type: 'image/png'})).arrayBuffer());
+            if (ocrUnavailable) return;
+            return ocr.recognize(bytes, {}, {blocks: true});
+          })(), 20000, 'OCR timed out.');
+          item.ocr_text = result.data.text.slice(0, 6000);
+          item.ocr_confidence = Math.max(0, Math.min(100, result.data.confidence || 0));
+          item.ocr_url_line_confidence = result.data.text.length > 6000 ? null : urlLineConfidence(result.data.blocks);
+          if (result.data.text.length > 6000) item.warnings.push('OCR text exceeded 6,000 characters and was truncated.');
+          if (item.ocr_text.trim() && item.ocr_confidence < 60) item.warnings.push('OCR confidence is low; verify the extracted text.');
+          if (!item.ocr_text.trim() && !item.qr_payloads.length) item.warnings.push('No readable text or QR code was found; image content remains unverified.');
+        } catch {
+          ocrUnavailable = true;
+          terminateOCR(ocr); ocr = null;
+          item.status = item.qr_payloads.length ? 'partial' : 'failed';
+          item.warnings.push('Text recognition failed or timed out; image text was not fully checked. Any decoded QR payloads were retained.');
         }
-        // Encode locally; no object URLs or remote image loads.
-        const result = await deadline(ocr.recognize(new Uint8Array(await (await textCanvas.convertToBlob({type: 'image/png'})).arrayBuffer()), {}, {blocks: true}), 20000, 'OCR timed out.');
-        item.ocr_text = result.data.text.slice(0, 6000);
-        item.ocr_confidence = Math.max(0, Math.min(100, result.data.confidence || 0));
-        item.ocr_url_line_confidence = result.data.text.length > 6000 ? null : urlLineConfidence(result.data.blocks);
-        if (result.data.text.length > 6000) item.warnings.push('OCR text exceeded 6,000 characters and was truncated.');
-        if (item.ocr_text.trim() && item.ocr_confidence < 60) item.warnings.push('OCR confidence is low; verify the extracted text.');
-        if (!item.ocr_text.trim() && !item.qr_payloads.length) item.warnings.push('No readable text or QR code was found; image content remains unverified.');
       } catch {
         item.status = item.qr_payloads.length ? 'partial' : 'failed';
         item.warnings.push('Image/OCR recognition failed or timed out; any decoded QR payloads were retained.');
-        if (ocr) { await ocr.terminate(); ocr = null; }
-        // Terminate an initialization that resolves after its deadline.
-        if (pendingOCR) pendingOCR.then(worker => worker.terminate()).catch(() => {});
       } finally { bitmap?.close(); }
       if (item.warnings.length && item.status === 'processed') item.status = 'partial';
       item.warnings = item.warnings.slice(0, 6);
@@ -97,5 +117,5 @@ self.onmessage = async ({data: {buffer, kind, name, language = 'eng'}}) => {
     if (uniqueWarnings.length > 8) uniqueWarnings.splice(7, Infinity, 'Additional recognition warnings were omitted; coverage is incomplete.');
     postMessage({result: {observations, warnings: uniqueWarnings}});
   } catch (error) { postMessage({error: error.message || 'Image recognition failed.'}); }
-  finally { if (ocr) await ocr.terminate(); self.close(); }
+  finally { terminateOCR(ocr); self.close(); }
 };

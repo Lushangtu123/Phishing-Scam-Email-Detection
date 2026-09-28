@@ -6,10 +6,11 @@ pages and vendored module workers. It uses no API response mocks, personal mail,
 cloud credentials or remote uploads. Its temporary SQLite database is deleted and
 both servers and the browser are stopped in `finally`.
 
-The fifteen checks cover sender analysis, manual message analysis, English and Chinese
+The sixteen checks cover sender analysis, manual message analysis, English and Chinese
 image URL-line confidence displayed through the real API/UI, image upload,
 local-only original-image preview beside the OCR result,
 worker cancellation followed by a successful retry, EML embedded-image extraction,
+an OCR startup outage with four distinct QR images and original-message risk preserved,
 six repeated inline images followed by a different QR attachment,
 inert HTML QR decoys versus Outlook/CSS image candidates and bounded parsing,
 independent HTML MIME parts and separate OCR/QR phrase assessment,
@@ -71,7 +72,8 @@ on the two QR-only controls, preservation of the rotated QR's adjacent caption
 and scattered text, recovery of the later QR despite repeated earlier images,
 exclusion of QR decoys in inert HTML while preserving conditional/CSS candidates, no unexpected
 cross-source credential phrases or negation, recovery of a QR after a separate
-MIME part with unclosed markup, no unexpected
+MIME part with unclosed markup, retention of all four QR observations and original
+EML bytes when OCR startup stalls, no unexpected
 Han characters on English controls, and literal CER at most 5% on each English
 text control and 40% on the Chinese text control. CER preserves punctuation,
 case and whitespace. The Chinese ceiling preserves the current limited
@@ -136,6 +138,16 @@ the two local origins; the existing chart CDN is blocked, and chart rendering is
 outside these checks. No recognized link is opened. This is an optional integration
 command for CI environments with Playwright and Chromium installed; Node's VM
 unit tests remain useful but cannot replace it.
+
+The OCR outage control holds the actual local Tesseract core request pending.
+It adds roughly 45 seconds to the run, then requires four partial observations,
+literal QR payloads, explicit text-coverage warnings and unchanged original EML
+bytes submitted through the public form to the real API. A credential request
+in the EML body must still be detected. The core route is released afterward;
+subsequent normal checks exercise OCR recovery in a fresh job. The report records
+elapsed time and blocked-request count. VM tests separately exercise parameter
+setup, recognition, late initialization and cleanup failures without wall-clock
+waits. Fault injection is local; no OCR assets or API responses are replaced.
 
 ## Optional GitHub Actions run
 

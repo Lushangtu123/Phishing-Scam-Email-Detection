@@ -1178,7 +1178,14 @@ Limits: 2 MiB input file, four distinct images per submission, 4,096 pixels per 
 8 megapixels before decoding, eight QR codes per image, 6,000 OCR characters per
 image. QR scanning uses original pixels within those bounds; only the masked OCR
 copy is resized above 2,000 pixels, with a small-text warning. One job has
-a 150-second deadline; OCR initialization/recognition have their own deadlines.
+a 150-second deadline. OCR startup and parameter setup share a 45-second
+deadline; image encoding and recognition share 20 seconds per image. If either
+OCR stage fails or times out, the task stops attempting OCR on later images,
+continues QR scanning and returns the original EML and any extracted evidence.
+Each affected image reports that its text was not checked; it is partial when
+a QR was decoded and failed otherwise. A damaged image does not disable OCR
+for other decodable images. A new scan can try OCR again. These stage deadlines
+do not guarantee completion on every device; the overall cancellation limit remains.
 Cancel, clear, file changes and case sign-out discard pending results. Recent
 browsers supporting Workers, OffscreenCanvas and WebAssembly are required.
 Exact image bytes share one slot across inline images, attachments and nested

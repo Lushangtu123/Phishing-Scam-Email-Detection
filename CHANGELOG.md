@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 09:40 PT] — Preserve QR and email results when OCR fails
+
+### Why
+- Four repeated 45-second OCR startup waits exceeded the page's 150-second limit and discarded decoded QR evidence. Parameter setup could wait indefinitely, and failed or stalled worker cleanup could suppress the result.
+
+### Files changed
+- `website/static/vision-worker.mjs` — stop OCR retries within a failed task, share deadlines across startup/setup and encoding/recognition, retain QR evidence, and make cleanup nonblocking while handling late initialization.
+- `website/static/vision-worker-failure.test.mjs` — add 13 controls for startup/recognition/cleanup failures, late workers, normal reuse, damaged-image isolation and preservation of earlier text.
+- `website/static/vision.js`, `website/static/index.html`, `website/static/cases.html` — refresh browser asset versions.
+- `website/tools/browser-checks/run.mjs`, `website/tools/browser-checks/README.md`, `README.md`, `docs/evaluation.md` — add an actual OCR resource-outage integration check and document the behavior, evidence and limits.
+
+### Effect
+- OCR failure now produces explicit text-coverage warnings while later images still receive QR scanning. Unreadable images do not disable an otherwise healthy OCR worker; a new task can attempt OCR again.
+- In Chromium, a held local OCR core request returned all four QR observations and original EML bytes in 45,974 ms, preserving the original credential-request risk. Later normal OCR checks pass after the fault is removed.
+- Validation: 301 frontend tests, 16 browser integration checks and 34 asset hashes pass. The 671-test backend suite passes with 10 local Redis integration skips. Five fault controls failed before the fix. The fixed five-image visual comparison passes with unchanged QR sets 5/5, OCR texts 2/5, OCR URL sets 1/3 and 23/238 character edits.
+- This improves failure recovery, not OCR spelling or measured real-mail accuracy. The overall 150-second limit remains; missing CID image coverage is not addressed in this change.
+
 ## [2026-09-28 09:25 PT] — Preserve independent MIME and visual text boundaries
 
 ### Why

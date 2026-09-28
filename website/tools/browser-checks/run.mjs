@@ -209,6 +209,64 @@ try {
     validateVisual(data, ['https://paypa1.example/login']);
     assert.equal(data.visual_analysis.observations.length, 2);
   });
+  await check('stalled OCR startup preserves four QR images and original email through the public API', async () => {
+    const matrix = JSON.parse(await readFile(path.join(fixtureDir, 'qr-matrices.json'), 'utf8'))[0];
+    const pictures = await page.evaluate(async matrix => {
+      const images = [];
+      for (let i = 0; i < 4; i++) {
+        const canvas = new OffscreenCanvas(240 + i, 240), ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000';
+        matrix.forEach((row, y) => row.forEach((on, x) => {if (on) ctx.fillRect(30 + x * 6, 30 + y * 6, 6, 6);}));
+        const bytes = new Uint8Array(await (await canvas.convertToBlob({type: 'image/png'})).arrayBuffer());
+        images.push(btoa(String.fromCharCode(...bytes)));
+      }
+      return images;
+    }, matrix.matrix);
+    const raw = ['MIME-Version: 1.0', 'Subject: Synthetic OCR outage control',
+      'Content-Type: multipart/mixed; boundary="ocr-outage"', '',
+      '--ocr-outage', 'Content-Type: text/plain', '', 'Urgent account suspended. Enter your password.',
+      ...pictures.flatMap((bytes, i) => ['--ocr-outage', 'Content-Type: image/png',
+        `Content-Disposition: attachment; filename="qr-${i}.png"`, 'Content-Transfer-Encoding: base64', '', bytes]),
+      '--ocr-outage--', ''].join('\r\n');
+    let release;
+    const held = new Promise(resolve => {release = resolve;});
+    let blocked = 0;
+    const pattern = '**/static/vendor/vision/core/**';
+    const stall = async route => {blocked++; await held; await route.abort().catch(() => {});};
+    await context.route(pattern, stall);
+    try {
+      await page.locator('#raw-email-file').setInputFiles({name: 'ocr-outage.eml', mimeType: 'message/rfc822', buffer: Buffer.from(raw)});
+      await page.waitForFunction(() => document.getElementById('raw-email-status').textContent.includes('loaded'));
+      const posted = page.waitForRequest(request => new URL(request.url()).pathname === '/api/analyze-visual' && request.method() === 'POST', {timeout: 180000});
+      const start = Date.now();
+      const [data, submittedRequest] = await Promise.all([
+        responseFor(page, '/api/analyze-visual', () => page.locator('#content-analyze-btn').click()), posted,
+      ]);
+      const elapsed = Date.now() - start;
+      assert(blocked > 0, 'The actual local OCR core request must be held pending');
+      assert(elapsed < 150000, 'Partial evidence must arrive before the page deadline');
+      const submitted = JSON.parse(submittedRequest.postData());
+      assert.equal(submitted.eml_base64, Buffer.from(raw).toString('base64'), 'Original MIME bytes must reach the API');
+      validateVisual(data, [matrix.text]);
+      const observations = data.visual_analysis.observations;
+      assert.equal(observations.length, 4);
+      assert.equal(new Set(observations.map(item => item.sha256)).size, 4, 'All four distinct images must be inspected');
+      for (const item of observations) {
+        assert.deepEqual(item.qr_payloads, [matrix.text]);
+        assert.equal(item.status, 'partial');
+        assert.equal(item.ocr_text, '');
+        assert(item.warnings.some(warning => /text recognition.*(failed|skipped)/i.test(warning)));
+      }
+      assert.equal(data.input_mode, 'raw-email');
+      assert(['high', 'critical'].includes(data.risk_level), 'The original credential request must retain its risk');
+      assert(data.extra_indicators.some(item => /Direct credential request/.test(item.msg)));
+      assert.equal(data.analysis_complete, false);
+      await page.waitForFunction(() => document.getElementById('visual-evidence').textContent.includes('Text recognition was skipped'));
+      summary.ocr_outage_control = {images_retained: observations.length, exact_qr: true,
+        original_email_retained: true, text_coverage_warning: true, blocked_core_requests: blocked, elapsed_ms: elapsed};
+    } finally { release(); await context.unroute(pattern, stall); }
+  });
   await check('real visual API keeps OCR and QR phrases independent', async () => {
     async function analyze(ocr_text, qr_payloads) {
       const response = await context.request.post(appURL + '/api/analyze-visual', {data: {observations: [{

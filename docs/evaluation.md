@@ -396,6 +396,37 @@ so this regression fix does not establish a measured corpus accuracy improvement
 
 ## 2. Browser OCR and QR controls
 
+### OCR failure preserves partial evidence (2026-09-28)
+
+At `main@d36eb80`, four images could each retry a stalled 45-second OCR
+initialization. The page terminated the job at 150 seconds before the worker
+returned any of its decoded QR evidence. Parameter setup had no deadline, and
+awaiting failed or stalled cleanup could also prevent a partial result.
+Five new regression controls failed on that implementation; the two original
+success/damaged-image controls passed.
+
+The task now stops OCR attempts after the first OCR-stage failure, continues
+QR scanning and labels each affected image's missing text coverage. Startup
+and parameter setup share 45 seconds; encoding and recognition share 20 seconds
+per image. Cleanup cannot block the response. Thirteen VM controls cover these
+failures, late startup cleanup, preservation of earlier recognized text,
+failed images without QR, normal worker reuse and damaged-image isolation.
+
+All 16 Chromium integration checks pass. Holding the actual local OCR core
+request pending returned four distinct QR observations and original EML bytes
+through the public form/API in 45,974 ms on the test machine. The original
+message's credential request remained high risk, and the UI displayed skipped
+text warnings. Later normal jobs recovered OCR after the fault was released.
+This timing is a local observation, not a device-wide guarantee.
+
+The 301 frontend tests pass; the 671-test backend suite passes with 10 local
+Redis integration skips. All 34 asset hashes pass. The paired five-image
+comparison has no regression: exact QR sets 5/5, exact OCR texts 2/5, exact OCR
+URL sets 1/3 and 23/238 character edits. These changes address failure handling;
+they do not improve literal OCR accuracy or measure real-mail detection rates.
+The 150-second overall limit still applies; other browser decoding or resource
+failures can still prevent completion. Missing CID coverage remains unresolved.
+
 ### Independent MIME and extracted-text sources (2026-09-28)
 
 At `main@24a59d6`, postal-mime's joined HTML could let an unclosed script,
