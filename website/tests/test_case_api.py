@@ -87,6 +87,20 @@ class CaseAPITests(unittest.TestCase):
         return self.call('POST', '/api/cases', key='00000000-0000-4000-8000-000000000001',
                          payload={'subject': 'Review', 'body': '<a href="https://paypa1.example">Review</a>'})
 
+    def test_case_reads_derive_warning_codes_without_changing_the_stored_analysis(self):
+        created = self.call('POST', '/api/cases', key='00000000-0000-4000-8000-000000000009', payload={
+            'subject': 'Invoice', 'body': '<p>See below</p><img src="https://images.example/invoice.png">'})[1]
+        status, record, _ = self.call('GET', '/api/cases/' + created['id'])
+        self.assertEqual(status, 200)
+        warnings = record['analysis']['analysis_warnings']
+        self.assertTrue(warnings)
+        self.assertEqual([item['msg'] for item in record['analysis_warning_details']], warnings)
+        self.assertTrue(any(item['code'] for item in record['analysis_warning_details']))
+        self.assertNotIn('analysis_warning_details', record['analysis'])
+        stored = app.app.state.case_service.store.get(created['id'])
+        self.assertNotIn('analysis_warning_details', stored)
+        self.assertNotIn('analysis_warning_details', stored['analysis'])
+
     def test_creation_retry_returns_the_same_record_and_review_capabilities(self):
         first = self.create()[1]
         repeated = self.create()[1]

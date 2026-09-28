@@ -4,8 +4,9 @@ window.PhishGuardVision = (() => {
   let active = null;
   let previewURL = null;
   const MAX_BYTES = 2 * 1024 * 1024;
-  // cases.html loads this file without i18n.js, so every string keeps its
-  // English text inline; i18n.test.mjs checks it matches the dictionary.
+  // Both pages load i18n.js first; every string also keeps its English text
+  // inline as the fallback if it failed to load (i18n.test.mjs checks that the
+  // inline English matches the dictionary).
   // Worker errors and extracted text are shown as received; server warnings
   // with a known code (*_details) are localized, the rest are shown as sent.
   const tr = (key, english, params) => window.PhishGuardI18n ? window.PhishGuardI18n.t(key, params)

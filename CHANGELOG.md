@@ -20,6 +20,29 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 15:51 PT] — Simplified Chinese case workspace (/cases) sharing the homepage language choice
+
+### Why
+- The case workspace was English-only, and the homepage's 中文 "Case login" note said so; analysts using the Chinese homepage switched language when opening a case.
+- English output of the workspace must not change.
+
+### Files changed
+- `website/static/cases.html` — `lang-init.js` in `<head>` after `cases-theme.js`; `i18n.js` is the first deferred script (before `vision.js`, `file-intake.js`, `confirm-dialog.js`, `cases.js`; CSP stays `script-src 'self'`, no inline script); EN / 中文 button (`#lang-toggle`, same markup and `nav.lang.label` as the homepage) next to the theme control; 146 `data-i18n` and 18 `data-i18n-attr` annotations (sidebar, topbar, login, compose drawer, capacity/feedback overview, filters incl. option labels and "(UTC)" labels, queue headers, pagination, empty state, detail sections, Jev panel and disclosure, review form, history, footer, `<title>`); English stays in the markup; risk filter options get explicit `value`s so translated labels cannot change the filter.
+- `website/static/cases.js` — every user-visible string through `t()`; renders split from fetches (`renderQueue`, `renderCapacity`, `renderFeedbackOverview`, `renderCaseView`), notices / Jev status / file status / localized errors kept as re-renderable text; on `phishguard:languagechange` the list, capacity, overview, open case, review-status option labels, draft status, Jev status and results are re-rendered from loaded data — no request, no reset of form values, drafts, pending saves or consent; times use the active locale (English still the browser default) and keep the zone name, UTC `title` and ISO `datetime`.
+- `website/static/i18n.js` — 283 `cases.*` keys in `en` and `zh` (1,124 per language); `riskLabel(label, level)` (moved from `app-content-render.js`, also knows the sender verdict labels kept in feedback reports); `<title data-i18n>` pages keep their own title; the pending flag is cleared in a `finally`; 案件 → 案例 and 分析人员 → 分析员 throughout zh; `nav.caseLogin.aria` no longer says the workspace is English-only.
+- `website/static/lang-init.js` — also clears `data-i18n-pending` at `DOMContentLoaded` (after deferred scripts), so the page is revealed even when `i18n.js` fails and reduced motion disables the CSS reveal.
+- `website/static/cases.css` — `.lang-toggle`; span-wrapped text keeps its old styling (`workflow-preview`, footer separator, `#logout`, new-case "+", review labels); pending/reveal rule (`!important` so reduced motion keeps it); `:lang(zh-CN)` sizes for 9 px monospace capitals, badges and dates.
+- `website/case_api.py` — case reads add top-level `analysis_warning_details` and `source_preview.warning_details` via `server_messages.details()` (stored analysis and audit JSON unchanged).
+- `website/static/app-content-render.js` — `contentRiskLabel` delegates to `PhishGuardI18n.riskLabel`.
+- `website/static/vision.js`, `file-intake.js`, `confirm-dialog.js` — comments: `i18n.js` now loads on both pages; the inline English `tr()` text remains the fallback.
+- `website/tests/fixtures/i18n/cases-scenarios.mjs`, `capture-cases.mjs`, `cases-en-snapshot.json` (new) — 15 fake-DOM scenarios / 81 captures (login, all kinds/statuses/risks, partial/empty/unstable queues, pagination, filters, capacity and overview states, detail with coded indicators, warnings and categories, feedback records incl. EML preview, history incl. Jev saved, history-capacity limits, review/draft/conflict/errors, Jev availability, all 17 skip reasons, save/confirm prompts, case creation, image input errors, sign-out) captured from the pre-change scripts (commit 23110af).
+- `website/static/cases.test.mjs` (+8 tests), `i18n.test.mjs` (+5), `website/tests/test_case_api.py` (+1); `.github/workflows/ci.yml`, `README.md` — syntax checks for the new fixtures, workspace localization and read-time warning codes documented; `?v=` bumps via `website/tools/asset-versions/update.mjs`.
+
+### Effect
+- English workspace output is byte-identical to 23110af across all 81 captures; `node --test website/static/*.test.mjs` 449/449 (was 436), `python -m unittest discover -s website/tests` 690 OK, 10 skipped (was 689).
+- In 中文 mode, e.g. the queue shows `严重 · 用户反馈 · 漏报 · 已关闭 · 正常 · 2026年9月12日 UTC 02:05`, history shows `状态：待处理 → 处理中`, and a stored `Attachment content was not inspected; …` warning renders as its Chinese template; subjects, notes, actor names, API errors and the audit JSON stay as stored.
+- Chromium (Playwright): en/zh × light/dark × 1280/390 sign-in, create from the homepage phishing example, open, save review, paginate, filter, keyboard language switch mid-draft (draft kept, 0 API calls), homepage ↔ workspace carry-over both ways, blocked `i18n.js` still reveals the page — 137 checks, no console errors, CSP violations or horizontal scroll.
+
 ## [2026-09-28 15:14 PT] — Stable codes for server messages; Chinese indicator, warning and verification text
 
 ### Why

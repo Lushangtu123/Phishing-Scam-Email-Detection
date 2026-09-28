@@ -10,7 +10,8 @@ const APP_SCRIPTS = ['app-core.js', 'app-theme.js', 'app-layout.js', 'app-config
 const PAGE = ['i18n.js', ...APP_SCRIPTS];
 // Homepage scripts whose strings come from the dictionary.
 const T_FILES = [...APP_SCRIPTS, 'feedback.js'];
-// Shared with cases.html (which has no i18n.js): tr('key', 'English', params).
+// Shared with cases.html: tr('key', 'English', params), whose inline English is
+// the fallback if i18n.js failed to load.
 const TR_FILES = ['vision.js', 'file-intake.js', 'confirm-dialog.js'];
 
 function loadI18n({languages = ['en-US'], storage = memoryStorage(), document, console: con = console} = {}) {
@@ -56,7 +57,8 @@ test('only <kbd> markup appears in dictionary strings, and only in the data-i18n
 
 test('Chinese strings keep the product name, protocol names and the key safety caveats', () => {
   for (const key of Object.keys(en)) {
-    for (const term of ['PhishGuard', 'SPF', 'DKIM', 'DMARC', 'SMTP', 'WHOIS', 'OCR', 'MX', 'PTR', 'TF-IDF', 'RFC 5321', 'RFC 5322', 'Null MX']) {
+    for (const term of ['PhishGuard', 'SPF', 'DKIM', 'DMARC', 'SMTP', 'WHOIS', 'OCR', 'MX', 'PTR', 'TF-IDF', 'RFC 5321', 'RFC 5322', 'Null MX',
+      'Jev', 'TypeSafe', 'UTC', 'Vercel']) {
       if (en[key].includes(term)) assert.ok(zh[key].includes(term), `${key} keeps "${term}"`);
     }
     for (const number of en[key].match(/\b\d+(?:[.,]\d+)?\b/g) || []) {
@@ -73,6 +75,27 @@ test('Chinese strings keep the product name, protocol names and the key safety c
   assert.match(zh['recent.note'], /绝不保存邮箱地址或邮件内容/);
   assert.match(zh['content.privacy'], /假名化/);
   assert.match(zh['feedback.privacy2'], /不会自动重新训练模型/);
+  // Case workspace: the same caveats, retention and privacy notices.
+  assert.match(zh['cases.footer.caveat'], /低风险结果并不代表一定安全/);
+  assert.match(zh['cases.compose.privacy'], /原始附件数据不会保存[\s\S]*仅提交您有权保留的邮件/);
+  assert.match(zh['cases.jev.disclosureText'], /其他个人信息可能仍然保留[\s\S]*不会改变案例的风险或判定[\s\S]*缓存 24 小时[\s\S]*案例保留政策/);
+  assert.match(zh['cases.jev.probability'], /这不是严重程度评分/);
+  assert.match(zh['cases.jev.result'], /并非已核实的结论/);
+  assert.match(zh['cases.overview.status'], /不是模型的总体错误率/);
+  assert.match(zh['cases.capacity.advice'], /关闭记录不会释放空间/);
+  assert.match(zh['cases.login.tokenHelp'], /不会吊销/);
+  // The homepage no longer calls the workspace English-only.
+  assert.doesNotMatch(zh['nav.caseLogin.aria'], /英文/);
+});
+
+test('Chinese UI terminology is consistent (案例, 分析员, 判定, statuses)', () => {
+  for (const [key, value] of Object.entries(zh)) {
+    assert.doesNotMatch(value, /案件|分析人员|分析师/, key);
+  }
+  assert.deepEqual(['pending', 'in_progress', 'closed'].map(status => zh[`cases.status.${status}`]), ['待处理', '处理中', '已关闭']);
+  assert.equal(zh['cases.reason.false_alert'], '误报');
+  assert.equal(zh['cases.reason.missed_threat'], '漏报');
+  assert.equal(zh['cases.review.verdictLabel'], '人工判定');
 });
 
 // ── Static markup ────────────────────────────────────────────────────────────
@@ -129,6 +152,65 @@ test('all visible homepage text is translatable except language-neutral names', 
   assert.deepEqual(leftovers.filter(text => !allowed.test(text)), []);
 });
 
+// ── Case workspace markup (cases.html) ──────────────────────────────────────
+test('every data-i18n key in cases.html exists and its English is the markup text itself', () => {
+  const html = source('cases.html');
+  const elements = [...html.matchAll(/<([a-z0-9]+)\b([^>]*?)\sdata-i18n="([^"]+)"([^>]*)>([\s\S]*?)<\/\1>/g)];
+  assert.ok(elements.length > 110, `${elements.length} data-i18n elements`);
+  for (const [, tag, , key, , inner] of elements) {
+    assert.ok(Object.hasOwn(en, key), `missing key ${key}`);
+    assert.doesNotMatch(inner, /<[a-z]/i, `<${tag} data-i18n="${key}"> must contain text only`);
+    assert.equal(normalize(inner), en[key], key);
+  }
+  assert.doesNotMatch(html, /data-i18n-html=/, 'the workspace writes no dictionary HTML');
+  assert.match(html, /<title data-i18n="cases\.meta\.title">Cases · PhishGuard<\/title>/);
+  // Option labels are translated, so every option carries an explicit value.
+  for (const [option] of html.matchAll(/<option\b[^>]*>/g)) assert.match(option, /\svalue="/, option);
+  for (const label of ['From (UTC)', 'Through (UTC)']) assert.match(html, new RegExp(`data-i18n="[^"]+">${label.replace(/[()]/g, '\\$&')}<`));
+});
+
+test('every data-i18n-attr key in cases.html exists and its English equals the attribute', () => {
+  const html = source('cases.html');
+  const tags = [...html.matchAll(/<[a-z]+\b[^>]*data-i18n-attr="([^"]+)"[^>]*>/g)];
+  assert.ok(tags.length >= 15, `${tags.length} tags`);
+  for (const [tag, spec] of tags) {
+    for (const pair of spec.split(';')) {
+      const [attr, key] = pair.split(':');
+      assert.ok(Object.hasOwn(en, key), `missing key ${key}`);
+      const value = tag.match(new RegExp(`\\s${attr}="([^"]*)"`));
+      assert.ok(value, `${attr} present on ${tag.slice(0, 60)}`);
+      assert.equal(decode(value[1]), en[key], key);
+    }
+  }
+  // Every accessible name and placeholder in the workspace is translatable.
+  for (const [tag] of html.matchAll(/<[a-z]+\b[^>]*\s(?:aria-label|placeholder|title)="[^"]*"[^>]*>/g)) {
+    if (/aria-hidden="true"/.test(tag)) continue;
+    for (const [, attr] of tag.matchAll(/\s(aria-label|placeholder|title)="/g)) {
+      assert.match(tag, new RegExp(`data-i18n-attr="[^"]*${attr}:`), `${attr} on ${tag.slice(0, 70)}`);
+    }
+  }
+});
+
+test('all visible workspace text is translatable except language-neutral names', () => {
+  const html = source('cases.html').replace(/<!--[\s\S]*?-->|<!doctype[^>]*>/gi, '')
+    .replace(/<(script|style|svg|title)\b[\s\S]*?<\/\1>/g, '');
+  const stack = [];
+  const leftovers = [];
+  for (const [, close, tag, attrs, textNode] of html.matchAll(/<(\/?)([a-z0-9]+)\b([^>]*)>|([^<]+)/g)) {
+    if (textNode !== undefined) {
+      const text = normalize(textNode);
+      if (text && !stack.some(entry => entry.covered)) leftovers.push(text);
+    } else if (close) {
+      while (stack.length && stack.pop().tag !== tag);
+    } else if (!/^(meta|link|input|br|img|source|hr)$/.test(tag) && !attrs.endsWith('/')) {
+      stack.push({tag, covered: /\sdata-i18n="/.test(attrs) || /aria-hidden="true"/.test(attrs) && tag !== 'button'});
+    }
+  }
+  // The brand, section numbers, the "AI" section mark, count placeholders and
+  // the dismiss glyph stay as they are.
+  assert.deepEqual(leftovers.filter(text => !/^(PhishGuard|PHISHGUARD|0\d|AI|—|×)$/.test(text)), []);
+});
+
 // ── Script keys ──────────────────────────────────────────────────────────────
 const exists = key => Object.hasOwn(en, key) || (Object.hasOwn(en, `${key}.one`) && Object.hasOwn(en, `${key}.other`));
 const namespaces = new Set(Object.keys(en).map(key => key.split('.')[0]));
@@ -143,6 +225,50 @@ test('every dictionary-shaped string literal in the homepage scripts is a real k
     }
   }
   assert.ok(checked > 200, `${checked} literals checked`);
+});
+
+test('every key cases.js can ask for exists, including the families built from codes', () => {
+  const text = source('cases.js');
+  let checked = 0;
+  for (const [, literal] of text.matchAll(/'([a-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+)'/g)) {
+    if (!namespaces.has(literal.split('.')[0])) continue;
+    assert.ok(exists(literal), `cases.js: '${literal}' is not in the dictionary`);
+    checked++;
+  }
+  assert.ok(checked > 120, `${checked} literals checked`);
+  // Computed keys, with every code the script can pass.
+  const families = {
+    'cases.status.${status}': ['pending', 'in_progress', 'closed'],
+    'cases.risk.${level}': ['critical', 'high', 'medium', 'low', 'safe', 'unknown'],
+    'cases.reportType.${type}': ['false_positive', 'false_negative', 'incorrect_risk', 'incorrect_evidence', 'other'],
+    'cases.history.action.${event.action}': ['created', 'reviewed', 'reopened', 'auxiliary_saved'],
+    'cases.capacity.warning.${key}.${level}': ['cases.near', 'cases.full', 'feedback.near', 'feedback.full'],
+    'cases.jev.status.${jevConfig.status}': ['disabled', 'configuration_error', 'control_unavailable', 'quota_exhausted', 'available'],
+    'cases.jev.signal.${key}': ['credential_request', 'payment_redirection', 'authority_pressure', 'phishing_intent', 'insufficient_evidence'],
+    'cases.jev.reason.${result.reason}': ['no_cached_opinion', 'provider_authentication', 'provider_access_denied',
+      'provider_request_invalid', 'provider_rate_limited', 'provider_overloaded', 'provider_timeout', 'provider_tls_error',
+      'provider_network_error', 'provider_http_error', 'provider_invalid_response', 'local_capacity_exhausted',
+      'call_budget_exhausted', 'daily_quota_exhausted', 'request_pending', 'empty_or_oversized_text', 'legacy_source_format'],
+    // Looked up only after i18n.has() confirms them, or through known(), which
+    // requires the server's English to match.
+    'category.${code}.label': [], 'feature.${code}.label': [],
+    'category.${category.key}.label': [], 'category.${category.key}.description': [],
+  };
+  const computed = [...new Set([...text.matchAll(/`((?:cases|category|feature)\.[^`]*\$\{[^`]+)`/g)].map(match => match[1]))];
+  assert.deepEqual(computed.sort(), Object.keys(families).sort());
+  for (const [pattern, codes] of Object.entries(families)) {
+    for (const code of codes) {
+      const key = pattern.replace(/\$\{[^}]+\}(\.\$\{[^}]+\})?/, code);
+      assert.ok(exists(key), key);
+    }
+  }
+  // The code lists in cases.js are exactly the families above.
+  for (const name of ['JEV_REASONS', 'JEV_SIGNALS', 'JEV_STATUSES', 'REPORT_TYPES', 'STATUSES']) {
+    const list = text.match(new RegExp(`const ${name} = \\[([^\\]]+)\\]`))[1].match(/'([^']+)'/g).map(item => item.slice(1, -1));
+    const family = Object.entries(families).find(([pattern]) => pattern.startsWith({JEV_REASONS: 'cases.jev.reason', JEV_SIGNALS: 'cases.jev.signal',
+      JEV_STATUSES: 'cases.jev.status', REPORT_TYPES: 'cases.reportType', STATUSES: 'cases.status'}[name]))[1];
+    assert.deepEqual(list, family, name);
+  }
 });
 
 test('keys built from codes cover every code the scripts can pass', () => {
@@ -173,7 +299,7 @@ test('keys built from codes cover every code the scripts can pass', () => {
   assert.deepEqual([...new Set(computed)].filter(key => !allowed.includes(key)), []);
 });
 
-test('shared components carry the dictionary English inline for cases.html', () => {
+test('shared components carry the dictionary English inline as their fallback', () => {
   let pairs = 0;
   for (const name of TR_FILES) {
     const text = source(name);
@@ -230,7 +356,7 @@ test('English rendering is byte-for-byte the pre-translation output (sender, con
 
 test('English image evidence matches the pre-translation output, with and without i18n.js', () => {
   assert.deepEqual(runVisionScenario(['i18n.js', 'vision.js']), snapshot.vision);
-  // cases.html loads vision.js without i18n.js: the inline English must match too.
+  // Without i18n.js (failed to load) the inline English must match too.
   assert.deepEqual(runVisionScenario(['vision.js']), snapshot.vision);
 });
 

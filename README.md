@@ -555,7 +555,18 @@ The catalogue of codes and English templates is
 `prefix.`, `verify.`); `msg` is always rendered from it. The homepage dictionary
 holds the same English as `server.<code>`, and
 `website/static/server-messages.test.mjs` fails when the two differ. Saved cases
-keep indicator codes but not the `*_details` lists.
+keep indicator codes but not the `*_details` lists; case reads (`GET /api/cases/{id}`
+and responses that return a record) derive a top-level `analysis_warning_details`
+(and `source_preview.warning_details` for retained feedback email) again for
+display, outside the stored `analysis`.
+
+The case workspace (`/cases`) uses the same dictionary and EN / 中文 switch as the
+homepage and shares its stored choice (`localStorage` `phishguard-lang`). It
+localizes its own interface text, coded indicators and warnings (English-match
+check), risk labels and levels, category labels and descriptions, statuses,
+verdicts, review reasons, evidence bases, report types, history action and field
+names, and reported signal codes. Analyst notes, subjects, message bodies, actor
+names, API `detail` errors and the audit JSON are shown as stored.
 
 Example raw-message request:
 
@@ -1103,8 +1114,8 @@ bucket.
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
 python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
-node --test website/static/app.test.mjs website/static/i18n.test.mjs
-for f in website/static/app*.js website/static/i18n.js website/static/lang-init.js; do node --check "$f"; done
+node --test website/static/app.test.mjs website/static/i18n.test.mjs website/static/cases.test.mjs
+for f in website/static/app*.js website/static/i18n.js website/static/lang-init.js website/static/cases.js website/tests/fixtures/i18n/*cases*.mjs; do node --check "$f"; done
 node website/tools/asset-versions/update.mjs   # after editing a versioned static file
 git diff --check
 ```

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import {CASE_SCRIPTS, capture, caseRecord, loadCases, router, runCaseScenarios, tick as settle} from '../tests/fixtures/i18n/cases-scenarios.mjs';
+import {memoryStorage} from '../tests/fixtures/i18n/scenarios.mjs';
 
 class Element {
   constructor() { this.value = ''; this.textContent = ''; this.className = ''; this.hidden = false; this.disabled = false; this.open = false; this.dataset = {}; this.listeners = {}; this.children = []; this.files = []; this.attrs = {}; this.classList = {add(){},remove(){}}; }
@@ -20,7 +22,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 const caseValue = () => ({id: 'case-1', title: '<img src=x onerror=alert(1)>', risk: 'high', status: 'pending', verdict: null, version: 1,
   created_by: 'alice', created_at: '2026-09-20T00:00:00Z', source: {subject: 'Synthetic', body: '<script>bad()</script>'},
   analysis: {extra_indicators: ['<iframe src=x>']}, provenance: {}, events: [{actor: 'alice', action: 'created', happened_at: '2026-09-20T00:00:00Z', changes: {}, note: '<svg onload=bad()>'}]});
-function setup(handler, vision = {cancel() {}, render() {}}) {
+function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-US'], storage = new Map()} = {}) {
   const elements = new Map(), calls = [], windowEvents = {};
   const el = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const source = readFileSync(new URL('./cases.js', import.meta.url), 'utf8');
@@ -28,7 +30,10 @@ function setup(handler, vision = {cancel() {}, render() {}}) {
   const window = {addEventListener(name, callback) { windowEvents[name] = callback; }, confirm: () => true, PhishGuardVision: vision};
   let uuid = 0;
   const context=vm.createContext({document: {getElementById: el, createElement: () => new Element(), addEventListener() {}}, window,
+    navigator: {languages, language: languages[0]}, localStorage: {getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value)},
     DataTransfer, Event, URLSearchParams, crypto: {randomUUID: () => 'synthetic-uuid-' + (++uuid)}, fetch: async (url, options) => { calls.push({url, options}); const result = await handler(url, options); return {ok: result.status < 400, status: result.status, json: async () => result.data}; }});
+  // cases.html loads i18n.js before the other scripts.
+  vm.runInContext(readFileSync(new URL('./i18n.js',import.meta.url),'utf8'),context);
   vm.runInContext(readFileSync(new URL('./file-intake.js',import.meta.url),'utf8'),context);
   vm.runInContext(source,context);
   const fire = async (id, name = 'click') => { el(id).listeners[name]({preventDefault() {}, submitter: el(id === 'create-form' ? 'create-case' : id + '-submit'), currentTarget: el(id)}); await tick(); };
@@ -941,7 +946,7 @@ test('the signed-out view has its own h1 and headings do not skip a level', () =
   // The intro column is display:none at <=680px, so the h1 must live in the always-visible form panel.
   const intro = login.slice(login.indexOf('class="login-intro"'), login.indexOf('class="login-form-panel"'));
   assert.doesNotMatch(intro, /<h[1-6]\b/);
-  assert.match(login.slice(login.indexOf('class="login-form-panel"')), /<h1>Analyst sign in<\/h1>/);
+  assert.match(login.slice(login.indexOf('class="login-form-panel"')), /<h1 data-i18n="cases\.login\.title">Analyst sign in<\/h1>/);
   levels.reduce((previous, level) => { assert.ok(level <= previous + 1, `h${previous} -> h${level}`); return level; }, 0);
 });
 
@@ -966,8 +971,8 @@ test('timestamps name their time zone and time elements carry ISO UTC values', a
   ui.el('jev-consent').checked = true; await ui.fire('jev-run');
   assert.ok(ui.el('jev-status').textContent.includes(`${zone};`), ui.el('jev-status').textContent);
   const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
-  assert.match(html, /<span>From \(UTC\)<\/span><input id="filter-from" type="date"/);
-  assert.match(html, /<span>Through \(UTC\)<\/span><input id="filter-to" type="date"/);
+  assert.match(html, /<span data-i18n="cases\.filters\.from">From \(UTC\)<\/span><input id="filter-from" type="date"/);
+  assert.match(html, /<span data-i18n="cases\.filters\.through">Through \(UTC\)<\/span><input id="filter-to" type="date"/);
 });
 
 test('case workspace faint text meets WCAG AA and fields avoid iOS focus zoom', () => {
@@ -986,4 +991,216 @@ test('case workspace faint text meets WCAG AA and fields avoid iOS focus zoom', 
   const touch = css.match(/@media \(hover: none\) and \(pointer: coarse\) \{\n([\s\S]*?)\n\}/)[1];
   assert.match(touch, /\.filter-grid input, \.filter-grid select[^{]*\{ font-size: 16px; \}/);
   assert.match(touch, /input:not\(\[type="checkbox"\], \[type="file"\]\), select, textarea/);
+});
+
+// ── Language ─────────────────────────────────────────────────────────────────
+const PAGE = ['i18n.js', ...CASE_SCRIPTS];
+const zhDictionary = (() => {
+  const window = {};
+  vm.runInNewContext(readFileSync(new URL('./i18n.js', import.meta.url), 'utf8'),
+    {window, navigator: {languages: ['en-US']}, localStorage: memoryStorage(), console});
+  return window.PhishGuardI18n.DICTIONARY.zh;
+})();
+const texts = nodes => nodes.flatMap(node => [node.textContent, ...texts(node.children || [])]).filter(Boolean);
+
+test('English rendering is byte-for-byte the output of the pre-i18n cases.js', async () => {
+  const snapshot = JSON.parse(readFileSync(new URL('../tests/fixtures/i18n/cases-en-snapshot.json', import.meta.url), 'utf8'));
+  const results = JSON.parse(JSON.stringify(await runCaseScenarios(PAGE)));
+  assert.deepEqual(Object.keys(results), Object.keys(snapshot));
+  for (const name of Object.keys(snapshot)) assert.deepEqual(results[name], snapshot[name], name);
+  // An English browser with a stored English choice renders the same.
+  const stored = JSON.parse(JSON.stringify(await runCaseScenarios(PAGE, {languages: ['zh-CN'], storage: memoryStorage({'phishguard-lang': 'en'})})));
+  assert.deepEqual(stored, snapshot);
+});
+
+test('Chinese queue, detail, review form and history render from codes; free text stays as sent', async () => {
+  const ui = loadCases(PAGE, {handler: router(), languages: ['zh-CN']});
+  assert.equal(ui.document.documentElement.lang, 'zh-CN');
+  await ui.login();
+  assert.equal(ui.el('count').textContent, '60 条匹配记录');
+  assert.equal(ui.el('page').textContent, '第 1 页');
+  assert.equal(ui.el('case-capacity').textContent, '案例：已存储 85 / 100 条 · 剩余 15 条。');
+  assert.equal(ui.el('capacity-warning').textContent, '案例存储即将用尽。' + zhDictionary['cases.capacity.advice']);
+  const rows = ui.el('case-list').children.map(row => texts([row]));
+  assert.deepEqual(rows[0].slice(0, 5), ['严重', 'Subject 0', '案例', '待处理', '未复核']);
+  assert.deepEqual(rows[2].slice(0, 5), ['中', '用户反馈 · 漏报', '用户反馈', '已关闭', '正常']);
+  assert.deepEqual(rows[6].slice(0, 1), ['未确定'], 'an unknown risk is undetermined');
+  assert.match(rows[0][5], /^2026年9月10日 UTC 00:05$/);
+  assert.equal(ui.el('case-list').children[0].children[4].title, '2026年9月10日 UTC 00:05');
+  assert.equal(ui.el('case-list').children[0].children[4].attrs.datetime, '2026-09-10T00:05:00.000Z');
+
+  await ui.open(0);
+  assert.equal(ui.el('case-title').textContent, 'Your account will be suspended', 'subjects are shown as sent');
+  assert.equal(ui.el('case-meta').textContent, 'case-1 · 修订版本 4 · 创建者 alice');
+  assert.deepEqual(texts(ui.el('badges').children), ['高', '处理中', '未复核']);
+  assert.equal(ui.el('analysis-summary').textContent, '高风险 — 可能是钓鱼邮件。请先审阅证据再做决定。');
+  const evidence = texts(ui.el('evidence').children);
+  assert.deepEqual(evidence.slice(0, 6), [
+    zhDictionary['server.warning.attachments_uninspected'], 'A browser warning without a code',
+    '包含短链接 URL（bit.ly、tinyurl 等）— 隐藏了真实的目标域名',
+    '发件人：域名包含连字符（paypa1-verify.xyz）— 主流服务商的域名通常不使用连字符',
+    'A reworded server message', '潜在危险附件：<img src=x>。']);
+  assert.equal(evidence.at(-2), '紧迫感与施压：钓鱼邮件会制造人为的时间压力，让人来不及仔细思考。 匹配：urgent、suspended');
+  assert.match(evidence.at(-1), /^凭据窃取：A reworded description from an older release\. 匹配：verify$/, 'reworded server text is shown as sent');
+  assert.match(ui.el('analysis-json').textContent, /"risk_label": "High Risk — Likely Phishing"/, 'the audit JSON is untouched');
+  assert.deepEqual(ui.el('review-status').children.map(option => [option.value, option.textContent]), [['in_progress', '处理中'], ['closed', '已关闭']]);
+  const history = texts(ui.el('history').children);
+  for (const line of ['alice · 已创建', '状态：— → 待处理', 'bob · 已复核', '状态：待处理 → 处理中', '人工判定：— → 钓鱼', 'Looks like a lure.',
+    'carol · 已重新打开', 'bob · 已保存 Jev 意见', '欺骗意图：估计概率 75.0%。这不是严重程度评分。', '原始证据不完整。', '意见来源信息',
+    'dave · custom_action', 'unknown_field：x → —']) assert.ok(history.includes(line), line);
+  assert.ok(history.includes('jev-1.13.0 · 请求时间 2026年9月22日 UTC 09:15。已保存的模型意见；风险和人工判定均未改变。'));
+  assert.match(ui.el('jev-availability').textContent, /^Jev 已配置。[\s\S]*工作区今日尝试次数：3\/20。重置时间：2026年9月23日 UTC 00:00。$/);
+
+  await ui.open(2);
+  assert.equal(ui.el('feedback-context').textContent,
+    '用户报告：误报 · 原始输入未包含。报告者备注：“This is my bank.”此诊断快照由浏览器提供；依赖它之前请先核实。');
+  assert.deepEqual(texts(ui.el('evidence').children), ['报告的信号：紧迫感与施压', '报告的信号：品牌域名仿冒', '报告的信号：mystery code']);
+  assert.ok(texts(ui.el('history').children).includes('复核原因：— → 误报'));
+  assert.ok(texts(ui.el('history').children).includes('证据依据：— → 已保留的邮件'));
+  assert.equal(ui.el('case-title').textContent, '用户反馈 · 误报');
+});
+
+test('a Chinese review save, conflict and server error keep server detail text as sent', async () => {
+  let patch = () => ({status: 409, data: {detail: 'Case changed'}});
+  const ui = loadCases(PAGE, {languages: ['zh-CN'], handler: router({record: (url, options) => options?.method === 'PATCH' ? patch()
+    : {status: 200, data: caseRecord({status: 'pending'})}})});
+  await ui.login(); await ui.open(0);
+  ui.el('review-status').value = 'in_progress'; ui.el('note').value = '草稿'; await ui.fire('review-form', 'input');
+  assert.equal(ui.el('draft-status').textContent, '未保存的草稿保留在此标签页中。离开前请保存。');
+  await ui.fire('review-form', 'submit');
+  assert.equal(ui.el('notice').textContent, zhDictionary['cases.error.conflict']);
+  patch = () => ({status: 422, data: {detail: 'A human verdict is required to close a case'}});
+  await ui.fire('review-form', 'submit');
+  assert.equal(ui.el('notice').textContent, 'A human verdict is required to close a case');
+  patch = () => ({status: 200, data: caseRecord({status: 'in_progress', version: 5})});
+  await ui.fire('review-form', 'submit');
+  assert.equal(ui.el('notice').textContent, '复核已保存。');
+  ui.window.answer = false; ui.el('subject').value = 'x'; await ui.fire('logout');
+  assert.deepEqual(ui.prompts, ['退出登录并放弃此标签页中未保存的草稿？']);
+});
+
+test('switching language re-renders loaded data without refetching or losing drafts and form input', async () => {
+  const storage = memoryStorage();
+  const ui = loadCases(PAGE, {handler: router({any: url => url.endsWith('/auxiliary')
+    ? {status: 200, data: {...caseRecord().events[3].changes.auxiliary_opinion.to, status: 'available', case_id: 'case-1', case_version: 4}} : null}),
+    storage});
+  await ui.login(); await ui.open(0);
+  await ui.fire('jev-read');
+  ui.el('filter-risk').value = 'high'; await ui.fire('filters', 'submit');
+  ui.el('verdict').value = 'phishing'; ui.el('note').value = 'Unsaved analyst note'; await ui.fire('review-form', 'input');
+  ui.el('subject').value = 'Composer subject'; ui.el('body').value = 'Composer body';
+  ui.el('feedback-reason').value = '';
+  ui.el('jev-consent').checked = true;
+  const english = capture(ui), calls = ui.calls.length;
+
+  ui.context.window.PhishGuardI18n.setLang('zh');
+  await settle();
+  assert.equal(ui.calls.length, calls, 'nothing is refetched');
+  assert.equal(storage.getItem('phishguard-lang'), 'zh');
+  assert.equal(ui.document.documentElement.lang, 'zh-CN');
+  assert.equal(ui.el('note').value, 'Unsaved analyst note');
+  assert.equal(ui.el('verdict').value, 'phishing');
+  assert.equal(ui.el('review-status').value, 'in_progress');
+  assert.equal(ui.el('subject').value, 'Composer subject');
+  assert.equal(ui.el('body').value, 'Composer body');
+  assert.equal(ui.el('jev-consent').checked, true, 'consent is not reset');
+  assert.equal(ui.el('draft-status').textContent, '未保存的草稿保留在此标签页中。离开前请保存。');
+  assert.equal(ui.el('filter-summary').textContent, '1 项生效');
+  assert.equal(ui.el('count').textContent, '60 条匹配记录');
+  assert.equal(ui.el('case-list').children[0].attrs['aria-pressed'], 'false');
+  assert.equal(ui.el('case-list').children.find(row => row.dataset.caseId === 'row-0') !== undefined, true);
+  assert.deepEqual(ui.el('review-status').children.map(option => option.textContent), ['处理中', '已关闭']);
+  assert.match(ui.el('jev-status').textContent, /^jev-1\.13\.0 · 模型意见，并非已核实的结论。/);
+  assert.equal(ui.el('jev-results').children[0].children.length, 5);
+  assert.equal(ui.el('jev-save').hidden, false, 'the retrieved opinion can still be saved');
+  assert.match(ui.el('feedback-overview-status').textContent, /^所有日期共保留 7 份报告/);
+
+  // The switch persists: the saved review and a reload stay in Chinese.
+  ui.el('case-list').children[0].listeners.click(); await settle(); await settle();
+  assert.equal(ui.el('case-meta').textContent, 'case-1 · 修订版本 4 · 创建者 alice');
+
+  ui.context.window.PhishGuardI18n.setLang('en');
+  await settle();
+  assert.equal(ui.calls.length, calls + 1, 'only the explicit case open fetched');
+  const back = capture(ui);
+  for (const key of Object.keys(english)) {
+    if (!['jev-status', 'jev-results', 'jev-save.flags', 'case-list'].includes(key)) assert.deepEqual(back[key], english[key], key);
+  }
+  assert.equal(ui.el('note').value, 'Unsaved analyst note');
+});
+
+test('language switches keep a pending draft save and an open notice, and work with throwing storage', async () => {
+  const blocked = {getItem() { throw new Error('SecurityError'); }, setItem() { throw new Error('QuotaExceeded'); }};
+  let release;
+  const ui = loadCases(PAGE, {storage: blocked, handler: router({record: (url, options) => options?.method === 'PATCH'
+    ? new Promise(resolve => { release = resolve; }) : {status: 200, data: caseRecord({status: 'pending'})}})});
+  await ui.login(); await ui.open(0);
+  ui.el('review-status').value = 'in_progress'; ui.el('note').value = 'Starting'; await ui.fire('review-form', 'input');
+  const saving = ui.fire('review-form', 'submit');
+  ui.el('note').value = 'Typed while saving'; await ui.fire('review-form', 'input');
+  assert.doesNotThrow(() => ui.context.window.PhishGuardI18n.setLang('zh'));
+  assert.equal(ui.document.documentElement.lang, 'zh-CN');
+  assert.equal(ui.el('save-review').disabled, true, 'the save stays in flight');
+  assert.equal(ui.el('note').value, 'Typed while saving');
+  release({status: 200, data: caseRecord({status: 'in_progress', version: 5})});
+  await saving; await settle();
+  assert.equal(ui.el('notice').textContent, '复核已保存。您之后的修改仍未保存。');
+  assert.equal(ui.el('note').value, 'Typed while saving');
+  ui.context.window.PhishGuardI18n.setLang('en');
+  assert.equal(ui.el('notice').textContent, 'Review saved. Your newer edits are still unsaved.', 'the notice follows the language');
+  assert.equal(ui.document.documentElement.lang, 'en');
+});
+
+test('the workspace loads lang-init.js in <head> and i18n.js before every other script, with a language switch', () => {
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.match(head, /<script src="\/static\/cases-theme\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
+  const deferred = [...head.matchAll(/<script src="\/static\/([a-z0-9-]+\.js)\?v=\d+" defer><\/script>/g)].map(match => match[1]);
+  assert.deepEqual(deferred, ['i18n.js', 'vision.js', 'file-intake.js', 'confirm-dialog.js', 'cases.js']);
+  assert.equal((html.match(/<script\b/g) || []).length, 7, 'no other (inline) scripts: CSP is script-src \'self\'');
+  const topbar = html.slice(html.indexOf('<header class="topbar">'), html.indexOf('</header>', html.indexOf('<header class="topbar">')));
+  const toggle = topbar.match(/<button class="lang-toggle" id="lang-toggle" type="button"([^>]*)>([\s\S]*?)<\/button>/);
+  assert.ok(toggle, 'a real <button> in the topbar');
+  assert.match(toggle[1], /aria-label="Language: English\. Switch to Simplified Chinese \(中文\)"/);
+  assert.match(toggle[1], /data-i18n-attr="aria-label:nav\.lang\.label;title:nav\.lang\.label"/);
+  assert.match(toggle[2], /data-lang-option="en" lang="en"[^>]*>EN</);
+  assert.match(toggle[2], /data-lang-option="zh" lang="zh-CN"[^>]*>中文</);
+  assert.ok(topbar.indexOf('id="case-theme"') < topbar.indexOf('id="lang-toggle"'), 'next to the theme control');
+  const css = readFileSync(new URL('./cases.css', import.meta.url), 'utf8');
+  assert.match(css, /:root\[data-i18n-pending\] body \{[^}]*visibility: hidden;[^}]*animation: i18n-reveal[^}]*!important/);
+  assert.match(css, /\.lang-toggle \{[^}]*min-height: 32px/);
+});
+
+test('a Chinese workspace is translated before first paint, including <title>, and revealed', () => {
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  const make = (key, attrs = {}) => ({attributes: {'data-i18n': key, ...attrs}, textContent: '', classList: {toggle() {}},
+    getAttribute(name) { return this.attributes[name] ?? null; }, setAttribute(name, value) { this.attributes[name] = value; }});
+  const text = [...html.matchAll(/\sdata-i18n="([^"]+)"/g)].map(match => make(match[1]));
+  const attr = [...html.matchAll(/\sdata-i18n-attr="([^"]+)"/g)].map(match => make(null, {'data-i18n-attr': match[1]}));
+  const title = text.find(node => node.attributes['data-i18n'] === 'cases.meta.title');
+  const pending = new Set(['data-i18n-pending']);
+  const document = {title: 'Cases · PhishGuard', documentElement: {lang: 'en', removeAttribute: name => pending.delete(name)},
+    querySelectorAll: selector => ({'[data-i18n]': text, '[data-i18n-attr]': attr})[selector] || [],
+    querySelector: selector => (selector === 'title[data-i18n]' ? title : null), getElementById: () => null};
+  vm.runInNewContext(readFileSync(new URL('./i18n.js', import.meta.url), 'utf8'),
+    {window: {}, document, navigator: {languages: ['en-US']}, localStorage: memoryStorage({'phishguard-lang': 'zh'}), console});
+  assert.equal(document.documentElement.lang, 'zh-CN');
+  assert.equal(pending.size, 0);
+  assert.equal(title.textContent, '案例 · PhishGuard');
+  assert.equal(document.title, 'Cases · PhishGuard', 'the homepage title is not applied');
+  for (const node of text) assert.equal(node.textContent, zhDictionary[node.attributes['data-i18n']]);
+  assert.ok(attr.every(node => node.attributes['data-i18n-attr'].split(';').every(pair => {
+    const [name, key] = pair.split(':'); return node.attributes[name] === zhDictionary[key];
+  })));
+});
+
+test('lang-init.js reveals a pending page at DOMContentLoaded even if i18n.js never runs', () => {
+  const attrs = new Set(), listeners = {};
+  const documentElement = {lang: '', setAttribute: name => attrs.add(name), removeAttribute: name => attrs.delete(name)};
+  vm.runInNewContext(readFileSync(new URL('./lang-init.js', import.meta.url), 'utf8'), {navigator: {languages: ['zh-CN']},
+    localStorage: {getItem: () => null}, document: {documentElement, addEventListener: (type, fn) => { listeners[type] = fn; }}});
+  assert.equal(documentElement.lang, 'zh-CN');
+  assert.ok(attrs.has('data-i18n-pending'));
+  listeners.DOMContentLoaded();
+  assert.equal(attrs.has('data-i18n-pending'), false);
 });

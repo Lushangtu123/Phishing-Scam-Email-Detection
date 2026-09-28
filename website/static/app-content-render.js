@@ -32,17 +32,9 @@ function contentModelName(data) {
 
 // The server's English risk_label is shown as-is in English. Other languages
 // use the exact translation of a known label, else a label for the risk_level
-// code, else the server's text.
-const CONTENT_RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'low', 'safe',
-  'remoteUnchecked', 'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`);
-
+// code, else the server's text (PhishGuardI18n.riskLabel, shared with cases.js).
 function contentRiskLabel(label, level) {
-  if (uiLang() === 'en') return label;
-  for (const key of CONTENT_RISK_LABEL_KEYS) {
-    const localized = knownText(key, label);
-    if (localized !== label) return localized;
-  }
-  return i18n()?.has(`content.level.${level}`) ? t(`content.level.${level}`) : label;
+  return i18n() ? i18n().riskLabel(label, level) : label;
 }
 
 function mlLabelText(label) {

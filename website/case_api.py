@@ -22,6 +22,7 @@ from jev import JevClient, MODEL, QUESTIONS_SHA256, input_state, _encoded, prepa
 from jev_control import JevControl, DAY, request_identity, receipt_identity
 from case_opinions import saved_opinion
 from feedback_preview import eml_preview
+from server_messages import details as message_details
 
 
 @dataclass
@@ -164,9 +165,17 @@ def make_case_router(analyze, *, visible_text, mask_inline_data):
         record['kind'] = kind
         if 'events' in record:
             record['history_capacity'] = history_capacity(record)
+            # Storage drops the derived *_details lists; derive them again for
+            # display (message codes let the Chinese UI localize known
+            # wording), beside rather than inside the retained analysis.
+            warnings = (record.get('analysis') or {}).get('analysis_warnings')
+            if isinstance(warnings, list):
+                record['analysis_warning_details'] = message_details(
+                    [warning for warning in warnings if isinstance(warning, str)])
             if kind == 'feedback' and record['provenance'].get('input_mode') == 'eml' and record['provenance'].get('source_consent') is True:
-                record['source_preview'] = eml_preview(record['source'], visible_text=visible_text,
-                                                      mask_inline_data=mask_inline_data)
+                preview = eml_preview(record['source'], visible_text=visible_text, mask_inline_data=mask_inline_data)
+                preview['warning_details'] = message_details(preview['warnings'])
+                record['source_preview'] = preview
         return record
 
     async def find_record(service, case_id, kind=None):

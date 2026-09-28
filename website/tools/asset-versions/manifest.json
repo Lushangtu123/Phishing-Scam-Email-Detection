@@ -8,8 +8,8 @@
     "sha256": "b11baf9a4b986702aaa3299c3da14fc2fdd13981aa3418db7ee9c0be7c0900fb"
   },
   "app-content-render.js": {
-    "version": "3",
-    "sha256": "6165ffe79c0c1272d1edfb84746ebda1c7e2fa23aee6971d117f61e1315e8692"
+    "version": "4",
+    "sha256": "b31cab0e23120a7fa78908f0e6dd6ad0ca9bff32c5ba082d1462a8bbd2a553b5"
   },
   "app-content.js": {
     "version": "2",
@@ -52,32 +52,32 @@
     "sha256": "0063880df85f7931e32af1d00b4b2ead6751cf722ebad6f162586a0076e89950"
   },
   "cases.css": {
-    "version": "16",
-    "sha256": "41d34d4276e36b356fa6f62dd2e4658b3b099f7537a712244e4be1eac84f294e"
+    "version": "17",
+    "sha256": "aa472e2c6f057117f89fdf91bbf81953aa61decc5e638d756d91edc9c9805aa0"
   },
   "cases.js": {
-    "version": "23",
-    "sha256": "20ad0341ce2c9984621ddb062653c3b12cd4f7960871257f968394fe50ade168"
+    "version": "24",
+    "sha256": "627e4a10eb506b5ba1dc32d5a3a937d568c9236a529e70c596abbdaa59ccc936"
   },
   "confirm-dialog.js": {
-    "version": "2",
-    "sha256": "4355b22fc907433a273c84dbb3fda99289f4249beb646bddaba61f7a6c327ee6"
+    "version": "3",
+    "sha256": "d7878504dee780bfb81f3a1f80d8058bf66c1a58234fe9c4b99b8b75c4c319e2"
   },
   "feedback.js": {
     "version": "9",
     "sha256": "438f968458990dc9482c64172840b4b284eac805647bade8782954f3c6bc8409"
   },
   "file-intake.js": {
-    "version": "2",
-    "sha256": "531b36c7ef0593da17f94bb7759087dc8e91e1d1c6843a02715052def75a479d"
+    "version": "3",
+    "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n.js": {
-    "version": "2",
-    "sha256": "7709c3c74683212c132e8d198ca27e5c20798dd81f370a8b19b24a22daf8b505"
+    "version": "3",
+    "sha256": "d8aa92b1c504bf4cf0e6823d576192ab4b41c452baaa629456455468b9310130"
   },
   "lang-init.js": {
-    "version": "1",
-    "sha256": "e11eecaf0656cc63b43d3e5743ea000a6ca9538dc2943db0dc8b041dd3de18a1"
+    "version": "2",
+    "sha256": "77432c88d3ac014d8f3c540316cefba664a6f57175cd0d6253120d1fed54c118"
   },
   "style.css": {
     "version": "47",
@@ -96,7 +96,7 @@
     "sha256": "144f1780bec74ce698ef643736c49eee23dbd6f0b44cccec576ab1892a673a2a"
   },
   "vision.js": {
-    "version": "11",
-    "sha256": "912859410579affd412af51008f26785651f14bc85fecd9dd393c25843a3d729"
+    "version": "12",
+    "sha256": "d94e860ae33267c86f42e22f58dbb0d31d616db719b1e8efb585b09cb6ee89f6"
   }
 }

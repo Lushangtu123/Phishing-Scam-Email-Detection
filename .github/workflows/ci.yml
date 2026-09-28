@@ -118,6 +118,8 @@ jobs:
           node --check website/static/file-intake.js
           node --check website/static/confirm-dialog.js
           node --check website/static/feedback.js
+          node --check website/tests/fixtures/i18n/cases-scenarios.mjs
+          node --check website/tests/fixtures/i18n/capture-cases.mjs
           node --check website/static/vision-core.mjs
           node --check website/static/vision-email.mjs
           node --check website/static/vision-worker.mjs
