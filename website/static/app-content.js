@@ -9,6 +9,20 @@ let _visualFile = null;
 let _rawReadId = 0;
 let _rawReadPending = false;
 let _contentRequestId = 0;
+// The file status line: null shows the page's default hint (static markup),
+// '' shows nothing, otherwise { key, params } for t(). Kept so a language
+// switch can re-render it.
+let _rawStatus = null;
+
+function setRawStatus(status) {
+  _rawStatus = status;
+  renderRawStatus();
+}
+
+function renderRawStatus() {
+  if (_rawStatus === null) return;
+  document.getElementById('raw-email-status').textContent = _rawStatus ? t(_rawStatus.key, _rawStatus.params) : '';
+}
 
 function invalidateContent() {
   window.PhishGuardFeedback?.clear('content');
@@ -22,7 +36,7 @@ function invalidateContent() {
   document.getElementById('content-result-area').classList.add('hidden');
   document.getElementById('content-loading-area').classList.add('hidden');
   document.getElementById('content-analyze-btn').disabled = false;
-  document.getElementById('content-btn-text').textContent = 'Analyze Content';
+  document.getElementById('content-btn-text').textContent = t('content.analyze');
   setError('content-error');
 }
 
@@ -37,7 +51,7 @@ function clearRawEmail() {
   if (semantics) { semantics.checked = false; semantics.disabled = true; }
   window.PhishGuardVision?.cancel();
   document.getElementById('raw-email-file').value = '';
-  document.getElementById('raw-email-status').textContent = '';
+  setRawStatus('');
   ['content-subject', 'content-body'].forEach(id => {
     document.getElementById(id).disabled = false;
   });
@@ -75,34 +89,33 @@ function setupInputEvents() {
       ['content-subject', 'content-body'].forEach(id => {
         document.getElementById(id).disabled = !!file;
       });
-      document.getElementById('raw-email-status').textContent = file ? `Reading ${file.name}…` : '';
+      setRawStatus(file ? { key: 'content.file.reading', params: { name: file.name } } : '');
       try {
         if (file?.size > 2 * 1024 * 1024) {
           clearRawEmail();
-          setError('content-error', 'File exceeds the 2 MiB limit.');
+          setError('content-error', t('content.file.tooLarge'));
           return;
         }
         const source = file ? await file.arrayBuffer() : '';
         if (readId !== _rawReadId) return;
         if (file && source.byteLength > 2 * 1024 * 1024) {
           clearRawEmail();
-          setError('content-error', 'File exceeds the 2 MiB limit.');
+          setError('content-error', t('content.file.tooLarge'));
           return;
         }
         if (file && new Uint8Array(source).every(byte => [9, 10, 13, 32].includes(byte))) {
           clearRawEmail();
-          setError('content-error', 'The email file is empty. Please select a message with content or attachments.');
+          setError('content-error', t('content.file.empty'));
           return;
         }
         _rawEmailSource = source;
         _visualFile = file || null;
         refreshEnhancedOptions();
-        document.getElementById('raw-email-status').textContent = file
-          ? `${file.name} loaded — QR and text recognition will use the selected OCR language when you analyze. Manual fields are ignored.` : '';
+        setRawStatus(file ? { key: 'content.file.loaded', params: { name: file.name } } : '');
       } catch (_error) {
         if (readId !== _rawReadId) return;
         clearRawEmail();
-        setError('content-error', 'The email file could not be read. Please select it again.');
+        setError('content-error', t('content.file.unreadable'));
       } finally {
         if (readId === _rawReadId) _rawReadPending = false;
       }
@@ -125,6 +138,8 @@ function refreshEnhancedOptions() {
 
 // ── Email Content Analysis ────────────────────────────────────────────────────
 
+// Sample messages stay in English in every UI language: they exercise the
+// English content rules and text model the analysis is built on.
 const CONTENT_EXAMPLES = {
   'phishing-account': {
     subject: 'URGENT: Your P@yP@l account has been SUSPENDED!!!',
@@ -205,13 +220,13 @@ async function runContentAnalysis() {
   invalidateContent();
   const requestId = _contentRequestId;
   if (_rawReadPending) {
-    setError('content-error', 'Please wait for the email file to finish loading.');
+    setError('content-error', t('content.error.pending'));
     return;
   }
   const subject = document.getElementById('content-subject').value.trim();
   const body    = document.getElementById('content-body').value.trim();
   if (!subject && !body && !_rawEmailSource) {
-    setError('content-error', 'Paste a subject or body, or upload an .eml or image file, before analyzing.');
+    setError('content-error', t('content.error.empty'));
     document.getElementById('content-body').classList.add('shake');
     setTimeout(() => document.getElementById('content-body').classList.remove('shake'), 500);
     return;
@@ -220,7 +235,7 @@ async function runContentAnalysis() {
   const btn = document.getElementById('content-analyze-btn');
   const btnText = document.getElementById('content-btn-text');
   btn.disabled = true;
-  btnText.textContent = 'Scanning…';
+  btnText.textContent = t('content.scanning');
 
   document.getElementById('content-result-area').classList.add('hidden');
   document.getElementById('content-loading-area').classList.remove('hidden');
@@ -229,7 +244,7 @@ async function runContentAnalysis() {
     let data;
     let recognitionPayload = null;
     if (_visualFile) {
-      if (!window.PhishGuardVision) throw new Error('Image recognition is unavailable. Reload the page.');
+      if (!window.PhishGuardVision) throw new Error(t('content.error.visionUnavailable'));
       document.getElementById('cancel-content-scan').hidden = false;
       const payload = await window.PhishGuardVision.recognize(_visualFile, message => {
         if (requestId === _contentRequestId) document.getElementById('visual-progress').textContent = message;
@@ -266,7 +281,7 @@ async function runContentAnalysis() {
   } finally {
     if (requestId === _contentRequestId) {
       btn.disabled = false;
-      btnText.textContent = 'Analyze Content';
+      btnText.textContent = t('content.analyze');
       document.getElementById('visual-progress').textContent = '';
       document.getElementById('content-loading-area').classList.add('hidden');
       document.getElementById('cancel-content-scan').hidden = true;

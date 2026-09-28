@@ -1,9 +1,23 @@
 /* ──────────────────────────────────────────────────────────────────────────
    app-core.js – shared helpers for the PhishGuard homepage
-   Errors, requests, HTML escaping, icons, motion and the live region.
-   Loaded first; the app-*.js files are classic scripts that share one
-   global scope, and app.js (loaded last) wires them up.
+   Translation helpers, errors, requests, HTML escaping, icons, motion and
+   the live region. Loaded first of the app-*.js files (after i18n.js); they
+   are classic scripts that share one global scope, and app.js (loaded last)
+   wires them up.
    ────────────────────────────────────────────────────────────────────────── */
+
+// ── Language ─────────────────────────────────────────────────────────────────
+// i18n.js owns the dictionary and the active language. These wrappers keep the
+// call sites short; t() returns the key itself only if i18n.js failed to load.
+const i18n = () => window.PhishGuardI18n;
+function t(key, params) { return i18n() ? i18n().t(key, params) : key; }
+function tPlural(key, count, params) { return i18n() ? i18n().plural(key, count, params) : key; }
+function uiLang() { return i18n() ? i18n().lang() : 'en'; }
+// Server text identified by a stable code is localized only while it matches
+// the dictionary's English; anything else is shown exactly as the server sent it.
+function knownText(key, serverText) { return i18n() ? i18n().known(key, serverText) : serverText; }
+// Risk level codes (high, medium, …) are shown raw in English, localized otherwise.
+function levelName(level) { return knownText(`level.${level}`, level); }
 
 // ── Errors & requests ────────────────────────────────────────────────────────
 function setError(id, message = '') {
@@ -23,25 +37,26 @@ async function postRequest(url, body, contentType) {
       method: 'POST', headers: { 'Content-Type': contentType }, body,
     });
   } catch (_error) {
-    throw new Error('Cannot reach the service. Check your connection and try again.');
+    throw new Error(t('request.error.network'));
   }
   if (res.status === 429) {
     const retry = res.headers?.get('Retry-After');
     const seconds = /^\d+$/.test(retry || '') ? Number(retry)
       : Math.ceil((Date.parse(retry) - Date.now()) / 1000);
     throw new Error(Number.isFinite(seconds) && seconds > 0
-      ? `Too many requests. Try again in ${seconds} seconds.`
-      : 'Too many requests. Please wait before trying again.');
+      ? t('request.error.retryIn', { seconds })
+      : t('request.error.retryLater'));
   }
   if (res.status === 404 || res.status >= 500) {
-    throw new Error('This service is currently unavailable. Reload the page or try again later.');
+    throw new Error(t('request.error.unavailable'));
   }
   let data;
   try { data = await res.json(); } catch (_error) {
-    throw new Error('The service returned an unreadable response. Please try again.');
+    throw new Error(t('request.error.unreadable'));
   }
   if (!res.ok) {
-    throw new Error(typeof data.detail === 'string' ? data.detail : 'The submitted input is invalid. Please check it and try again.');
+    // A string detail is the server's own (English) message and is shown as sent.
+    throw new Error(typeof data.detail === 'string' ? data.detail : t('request.error.invalid'));
   }
   return data;
 }
@@ -138,7 +153,7 @@ function setupCountUps() {
     const suffix = el.dataset.suffix || '';
     if (Number.isNaN(target)) return;
     animateNumber(el, target, value =>
-      value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix,
+      value.toLocaleString(i18n() ? i18n().locale() : 'en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + suffix,
       1400);
   });
 }

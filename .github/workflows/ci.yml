@@ -99,6 +99,8 @@ jobs:
 
       - name: Check JavaScript syntax
         run: |
+          node --check website/static/lang-init.js
+          node --check website/static/i18n.js
           node --check website/static/app-core.js
           node --check website/static/app-theme.js
           node --check website/static/app-layout.js
@@ -114,6 +116,8 @@ jobs:
           node --check website/static/cases-theme.js
           node --check website/static/vision.js
           node --check website/static/file-intake.js
+          node --check website/static/confirm-dialog.js
+          node --check website/static/feedback.js
           node --check website/static/vision-core.mjs
           node --check website/static/vision-email.mjs
           node --check website/static/vision-worker.mjs

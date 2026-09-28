@@ -8,12 +8,13 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
+  <script src="/static/lang-init.js?v=1"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=45" />
+  <link rel="stylesheet" href="/static/style.css?v=47" />
   <script defer src="/static/vendor/chart/chart.umd.min.js?v=4.4.0" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"></script>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to main content</a>
+<a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
 
 <!-- Fluid ambient background: three slow-drifting colour fields -->
 <div class="bg-fluid" aria-hidden="true">
@@ -33,18 +34,21 @@
     </div>
     <div class="nav-right">
       <ul class="nav-links" id="nav-links">
-        <li><a href="#demo">Live Demo</a></li>
-        <li><a href="#performance">Performance</a></li>
-        <li><a href="#features">Features</a></li>
-        <li><a href="#about">How It Works</a></li>
+        <li><a href="#demo" data-i18n="nav.demo">Live Demo</a></li>
+        <li><a href="#performance" data-i18n="nav.performance">Performance</a></li>
+        <li><a href="#features" data-i18n="nav.features">Features</a></li>
+        <li><a href="#about" data-i18n="nav.about">How It Works</a></li>
       </ul>
-      <a class="case-login" href="https://phishguard-email-analyzer.vercel.app/cases" aria-label="Case login — open the case workspace">Case login <span aria-hidden="true">↗</span></a>
-      <button class="theme-toggle" id="theme-toggle" type="button" data-action="cycle-theme" aria-label="Switch colour theme" title="Theme: auto">
+      <a class="case-login" href="https://phishguard-email-analyzer.vercel.app/cases" aria-label="Case login — open the case workspace" data-i18n-attr="aria-label:nav.caseLogin.aria"><span data-i18n="nav.caseLogin">Case login</span> <span aria-hidden="true">↗</span></a>
+      <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Language: English. Switch to Simplified Chinese (中文)" title="Language: English. Switch to Simplified Chinese (中文)" data-i18n-attr="aria-label:nav.lang.label;title:nav.lang.label">
+        <span class="lang-option is-active" data-lang-option="en" lang="en" aria-hidden="true">EN</span><span class="lang-sep" aria-hidden="true">/</span><span class="lang-option" data-lang-option="zh" lang="zh-CN" aria-hidden="true">中文</span>
+      </button>
+      <button class="theme-toggle" id="theme-toggle" type="button" data-action="cycle-theme" aria-label="Switch colour theme" title="Theme: auto" data-i18n-attr="aria-label:nav.theme.aria">
         <svg class="ico ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
         <svg class="ico ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
         <span class="theme-toggle-auto" aria-hidden="true">A</span>
       </button>
-      <button class="nav-menu-toggle" id="nav-menu-toggle" type="button" aria-label="Open section menu" aria-expanded="false" aria-controls="nav-links">
+      <button class="nav-menu-toggle" id="nav-menu-toggle" type="button" aria-label="Open section menu" aria-expanded="false" aria-controls="nav-links" data-i18n-attr="aria-label:nav.menu.open">
         <svg class="ico ico-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         <svg class="ico ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
@@ -57,12 +61,12 @@
 <!-- ── Hero ────────────────────────────────────────────────────────────────── -->
 <section class="hero">
   <div class="hero-content">
-    <div class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> Layered detection · rules, structure, optional ML</div>
+    <div class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> <span data-i18n="hero.badge">Layered detection · rules, structure, optional ML</span></div>
     <h1 class="hero-title">
-      Phishing email detection,<br>
-      <span class="gradient-text">explained.</span>
+      <span data-i18n="hero.title.lead">Phishing email detection,</span><br>
+      <span class="gradient-text" data-i18n="hero.title.accent">explained.</span>
     </h1>
-    <p class="hero-subtitle">
+    <p class="hero-subtitle" data-i18n="hero.subtitle">
       Analyze sender/domain risk or upload a complete email for authentication-header,
       identity-alignment, link, attachment, and content checks. An optional text model
       is evaluated with campaign-isolated splits and a phishing-recall-first threshold.
@@ -70,24 +74,24 @@
     <div class="hero-stats">
       <div class="stat-card">
         <div class="stat-value" data-count="30" data-decimals="0">30</div>
-        <div class="stat-label">Sender risk signals</div>
+        <div class="stat-label" data-i18n="hero.stat.signals">Sender risk signals</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" data-count="6" data-decimals="0">6</div>
-        <div class="stat-label">Detection layers</div>
+        <div class="stat-label" data-i18n="hero.stat.layers">Detection layers</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value stat-text">Auth headers</div>
-        <div class="stat-label">SPF, DKIM &amp; DMARC in .eml</div>
+        <div class="stat-value stat-text" data-i18n="hero.stat.auth.value">Auth headers</div>
+        <div class="stat-label" data-i18n="hero.stat.auth.label">SPF, DKIM &amp; DMARC in .eml</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value stat-text">OCR + QR</div>
-        <div class="stat-label">Run in your browser</div>
+        <div class="stat-value stat-text" data-i18n="hero.stat.ocr.value">OCR + QR</div>
+        <div class="stat-label" data-i18n="hero.stat.ocr.label">Run in your browser</div>
       </div>
     </div>
     <div class="hero-actions">
-      <a href="#demo" class="btn btn-primary">Check an Email Address</a>
-      <a href="#about" class="btn btn-outline">How It Works</a>
+      <a href="#demo" class="btn btn-primary" data-i18n="hero.cta.check">Check an Email Address</a>
+      <a href="#about" class="btn btn-outline" data-i18n="hero.cta.how">How It Works</a>
     </div>
   </div>
   <div class="hero-visual" aria-hidden="true">
@@ -116,10 +120,10 @@
         </span>
         <div class="scan-beam"></div>
       </div>
-      <div class="orb-chip chip-1"><span class="chip-dot"></span>Domain</div>
-      <div class="orb-chip chip-2"><span class="chip-dot"></span>Authentication</div>
-      <div class="orb-chip chip-3"><span class="chip-dot"></span>Links & keywords</div>
-      <div class="orb-chip chip-4"><span class="chip-dot"></span>Structure</div>
+      <div class="orb-chip chip-1"><span class="chip-dot"></span><span data-i18n="hero.chip.domain">Domain</span></div>
+      <div class="orb-chip chip-2"><span class="chip-dot"></span><span data-i18n="hero.chip.auth">Authentication</span></div>
+      <div class="orb-chip chip-3"><span class="chip-dot"></span><span data-i18n="hero.chip.links">Links & keywords</span></div>
+      <div class="orb-chip chip-4"><span class="chip-dot"></span><span data-i18n="hero.chip.structure">Structure</span></div>
     </div>
   </div>
 </section>
@@ -128,18 +132,18 @@
 <section class="section" id="demo">
   <div class="container">
     <div class="section-header">
-      <div class="section-eyebrow">Try it</div>
-      <h2>Live Demo</h2>
-      <p>Analyze a sender address, paste subject/body text, or upload the original .eml message for the strongest available evidence.</p>
+      <div class="section-eyebrow" data-i18n="demo.eyebrow">Try it</div>
+      <h2 data-i18n="demo.title">Live Demo</h2>
+      <p data-i18n="demo.lead">Analyze a sender address, paste subject/body text, or upload the original .eml message for the strongest available evidence.</p>
     </div>
 
     <!-- Tab Switcher -->
-    <div class="demo-tabs" role="tablist" aria-label="Analysis mode">
+    <div class="demo-tabs" role="tablist" aria-label="Analysis mode" data-i18n-attr="aria-label:demo.tabs.aria">
       <button class="demo-tab active" id="tab-email-address" type="button" role="tab" aria-selected="true" aria-controls="panel-email-address" data-action="switch-tab" data-arg="email-address">
-        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg> Email Address
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg> <span data-i18n="demo.tab.address">Email Address</span>
       </button>
       <button class="demo-tab" id="tab-email-content" type="button" role="tab" aria-selected="false" aria-controls="panel-email-content" tabindex="-1" data-action="switch-tab" data-arg="email-content">
-        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg> Email Content
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg> <span data-i18n="demo.tab.content">Email Content</span>
       </button>
     </div>
 
@@ -158,29 +162,30 @@
             aria-describedby="email-error"
             class="email-input"
             placeholder="Enter an email address, e.g. support@paypa1-verify.xyz"
+            data-i18n-attr="aria-label:sender.input.aria;placeholder:sender.input.placeholder"
             autocomplete="off"
             spellcheck="false"
           />
-          <button class="btn-clear" id="btn-clear" type="button" data-action="clear-email" title="Clear" aria-label="Clear email address"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          <button class="btn-clear" id="btn-clear" type="button" data-action="clear-email" title="Clear" aria-label="Clear email address" data-i18n-attr="title:sender.clear.title;aria-label:sender.clear.aria"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <button class="btn btn-primary btn-analyze" id="analyze-btn" data-action="analyze-email">
-          <span id="analyze-btn-text">Analyze</span>
+          <span id="analyze-btn-text" data-i18n="sender.analyze">Analyze</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </button>
       </div>
 
       <p id="email-error" class="request-error hidden" role="alert"></p>
       <div class="quick-examples">
-        <span class="examples-label">Quick examples:</span>
+        <span class="examples-label" data-i18n="examples.label">Quick examples:</span>
         <button class="example-tag legit-tag" data-action="set-example" data-arg="user@gmail.com">user@gmail.com</button>
         <button class="example-tag legit-tag" data-action="set-example" data-arg="john.doe@microsoft.com">john.doe@microsoft.com</button>
         <button class="example-tag phish-tag" data-action="set-example" data-arg="security-alert@paypa1-verify.xyz">security-alert@paypa1-verify.xyz</button>
         <button class="example-tag phish-tag" data-action="set-example" data-arg="support@apple-id-locked.tk">support@apple-id-locked.tk</button>
         <button class="example-tag phish-tag" data-action="set-example" data-arg="admin99@192.168.1.1">admin99@192.168.1.1</button>
-        <button class="example-tag disp-tag" data-action="set-example" data-arg="user@mailinator.com" title="Confirmed disposable">mailinator.com</button>
-        <button class="example-tag susp-tag" data-action="set-example" data-arg="oncw3kjobqxb@randominbox.net" title="Suspected disposable (auto-generated username)">Suspected disposable</button>
+        <button class="example-tag disp-tag" data-action="set-example" data-arg="user@mailinator.com" title="Confirmed disposable" data-i18n-attr="title:sender.example.disposable.title">mailinator.com</button>
+        <button class="example-tag susp-tag" data-action="set-example" data-arg="oncw3kjobqxb@randominbox.net" title="Suspected disposable (auto-generated username)" data-i18n-attr="title:sender.example.suspected.title" data-i18n="sender.example.suspected">Suspected disposable</button>
       </div>
-      <p class="kbd-hint">Press <kbd>/</kbd> to jump to the input</p>
+      <p class="kbd-hint" data-i18n-html="sender.hint.slash">Press <kbd>/</kbd> to jump to the input</p>
     </div>
 
     <!-- Loading -->
@@ -194,19 +199,19 @@
         </div>
         <div class="sk-beam"></div>
       </div>
-      <div class="loading-text">Analyzing email features…</div>
+      <div class="loading-text" data-i18n="sender.loading">Analyzing email features…</div>
     </div>
 
     <!-- Result Area -->
     <div id="result-area" class="result-area hidden">
       <div class="result-actions">
-        <button type="button" class="report-trigger copy-trigger" data-action="copy-summary" data-arg="sender"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg> <span class="copy-label">Copy summary</span></button>
+        <button type="button" class="report-trigger copy-trigger" data-action="copy-summary" data-arg="sender"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg> <span class="copy-label" data-i18n="result.copy">Copy summary</span></button>
         <div class="download-group" role="group" aria-labelledby="sender-download-label">
-          <span class="download-label" id="sender-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> Download report</span>
+          <span class="download-label" id="sender-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> <span data-i18n="result.download">Download report</span></span>
           <button type="button" class="download-option" data-action="download-report" data-arg="sender:md">Markdown</button>
           <button type="button" class="download-option" data-action="download-report" data-arg="sender:json">JSON</button>
         </div>
-        <div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="sender">Report an issue <span aria-hidden="true">↗</span></button></div>
+        <div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="sender"><span data-i18n="result.report">Report an issue</span> <span aria-hidden="true">↗</span></button></div>
       </div>
 
       <div class="verdict-banner" id="verdict-banner">
@@ -226,12 +231,12 @@
             </svg>
             <div class="vb-prob" id="vb-prob"></div>
           </div>
-          <div class="vb-prob-label" id="vb-prob-label">Sender Risk Score</div>
+          <div class="vb-prob-label" id="vb-prob-label" data-i18n="sender.riskScoreLabel">Sender Risk Score</div>
         </div>
       </div>
 
       <details class="score-breakdown" id="score-breakdown" hidden>
-        <summary>Why this score?</summary>
+        <summary data-i18n="sender.breakdown.summary">Why this score?</summary>
         <div class="sb-body">
           <ul class="sb-list" id="score-breakdown-list"></ul>
           <p class="sb-formula" id="score-breakdown-formula"></p>
@@ -243,10 +248,10 @@
         <!-- Col 1: Probability Bars + Risk Pills + Disposable Check -->
         <div class="result-col">
           <div class="col-card">
-            <h3 class="col-title">Heuristic Evidence</h3>
+            <h3 class="col-title" data-i18n="sender.col.evidence">Heuristic Evidence</h3>
             <div class="prob-bars">
               <div class="prob-row">
-                <span class="prob-label phish-label">Risk</span>
+                <span class="prob-label phish-label" data-i18n="sender.bar.risk">Risk</span>
                 <div class="prob-bar-track">
                   <div class="prob-bar phish-bar" id="phish-bar"></div>
                 </div>
@@ -258,7 +263,7 @@
 
           <!-- Disposable Check Card — always visible -->
           <div class="col-card disposable-check-card" id="disposable-check-card">
-            <h3 class="col-title">Mailbox Service Type</h3>
+            <h3 class="col-title" data-i18n="sender.col.mailbox">Mailbox Service Type</h3>
             <div class="disp-check-row" id="disp-check-row">
               <div class="disp-check-icon" id="disp-check-icon"></div>
               <div class="disp-check-body">
@@ -266,22 +271,22 @@
                 <div class="disp-check-detail" id="disp-check-detail"></div>
               </div>
             </div>
-            <a href="#disposable-info" class="disp-learn-sm">Learn about disposable emails →</a>
+            <a href="#disposable-info" class="disp-learn-sm" data-i18n="sender.learnDisposable">Learn about disposable emails →</a>
           </div>
         </div>
 
         <!-- Col 2: Risk Indicators + Sender History -->
         <div class="result-col">
           <div class="col-card">
-            <h3 class="col-title">Risk Indicators <span class="col-count" id="risk-count"></span></h3>
+            <h3 class="col-title"><span data-i18n="sender.col.indicators">Risk Indicators</span> <span class="col-count" id="risk-count"></span></h3>
             <div id="risk-indicators-list" class="risk-list">
-              <div class="no-risk">No risk indicators found</div>
+              <div class="no-risk" data-i18n="sender.noRiskStatic">No risk indicators found</div>
             </div>
           </div>
 
           <!-- Deployment-local sender observation history -->
           <div class="col-card sender-history-card" id="sender-history-card">
-            <h3 class="col-title">Sender Observation History</h3>
+            <h3 class="col-title" data-i18n="sender.col.history">Sender Observation History</h3>
             <div class="sender-history-row" id="sender-history-row">
               <div class="sender-history-icon" id="sender-history-icon"></div>
               <div class="sender-history-body">
@@ -295,7 +300,7 @@
         <!-- Col 3: Feature Breakdown -->
         <div class="result-col">
           <div class="col-card">
-            <h3 class="col-title">Most Relevant Sender Signals</h3>
+            <h3 class="col-title" data-i18n="sender.col.signals">Most Relevant Sender Signals</h3>
             <div id="feature-breakdown-list" class="feature-breakdown"></div>
           </div>
         </div>
@@ -304,53 +309,53 @@
 
       <!-- Email Authenticity Verification Card (full width: its step list is long) -->
       <div class="col-card verify-card-wide" id="verify-card">
-        <h3 class="col-title">Email Authenticity Verification</h3>
+        <h3 class="col-title" data-i18n="verify.title">Email Authenticity Verification</h3>
         <p id="verify-error" class="request-error hidden" role="alert"></p>
         <div id="verification-local-notice" class="verify-idle hidden">
-          <p class="verify-desc">Checking mailbox verification availability…</p>
+          <p class="verify-desc" data-i18n="verify.checking">Checking mailbox verification availability…</p>
         </div>
         <div id="verify-idle" class="verify-idle">
-          <p class="verify-desc">Check domain records and attempt an SMTP mailbox probe. Results may be inconclusive and do not authenticate a specific message.</p>
+          <p class="verify-desc" data-i18n="verify.desc">Check domain records and attempt an SMTP mailbox probe. Results may be inconclusive and do not authenticate a specific message.</p>
           <button class="btn-verify" data-action="verify-email">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg> Run Verification
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg> <span data-i18n="verify.run">Run Verification</span>
           </button>
         </div>
         <div id="verify-loading" class="verify-loading hidden">
           <div class="verify-spinner"></div>
-          <span>Probing mail server… this may take up to 10 seconds</span>
+          <span data-i18n="verify.probing">Probing mail server… this may take up to 10 seconds</span>
         </div>
         <div id="verify-result" class="verify-result hidden">
           <div class="verify-groups">
 
             <!-- Section A: Mailbox Existence -->
             <div class="verify-group">
-              <div class="verify-section-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13.5h5l1.8 2.5h4.4l1.8-2.5h5"/><path d="M5.5 5h13l2.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19v-5.5z"/></svg> Mailbox Existence</div>
+              <div class="verify-section-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13.5h5l1.8 2.5h4.4l1.8-2.5h5"/><path d="M5.5 5h13l2.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19v-5.5z"/></svg> <span data-i18n="verify.section.mailbox">Mailbox Existence</span></div>
               <div class="verify-steps">
                 <div class="verify-step" id="vstep-format">
                   <span class="vstep-icon" id="vstep-format-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">Format Validation</div>
+                    <div class="vstep-label" data-i18n="verify.step.format">Format Validation</div>
                     <div class="vstep-detail" id="vstep-format-detail"></div>
                   </div>
                 </div>
                 <div class="verify-step" id="vstep-mx">
                   <span class="vstep-icon" id="vstep-mx-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">DNS / MX Records</div>
+                    <div class="vstep-label" data-i18n="verify.step.mx">DNS / MX Records</div>
                     <div class="vstep-detail" id="vstep-mx-detail"></div>
                   </div>
                 </div>
                 <div class="verify-step" id="vstep-smtp">
                   <span class="vstep-icon" id="vstep-smtp-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">SMTP Mailbox Probe</div>
+                    <div class="vstep-label" data-i18n="verify.step.smtp">SMTP Mailbox Probe</div>
                     <div class="vstep-detail" id="vstep-smtp-detail"></div>
                   </div>
                 </div>
                 <div class="verify-step" id="vstep-ptr">
                   <span class="vstep-icon" id="vstep-ptr-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">MX Reverse DNS (PTR)</div>
+                    <div class="vstep-label" data-i18n="verify.step.ptr">MX Reverse DNS (PTR)</div>
                     <div class="vstep-detail" id="vstep-ptr-detail"></div>
                   </div>
                 </div>
@@ -359,19 +364,19 @@
 
             <!-- Section B: Email Security Policy -->
             <div class="verify-group">
-              <div class="verify-section-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.6 7.5 9.9 4.3-1.3 7.5-5.3 7.5-9.9v-6L12 2.5z"/><path d="m9 12 2 2 4-4.5"/></svg> Email Security Policy</div>
+              <div class="verify-section-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.6 7.5 9.9 4.3-1.3 7.5-5.3 7.5-9.9v-6L12 2.5z"/><path d="m9 12 2 2 4-4.5"/></svg> <span data-i18n="verify.section.policy">Email Security Policy</span></div>
               <div class="verify-steps">
                 <div class="verify-step" id="vstep-spf">
                   <span class="vstep-icon" id="vstep-spf-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">SPF Record <span class="vstep-badge">Sender Policy Framework</span></div>
+                    <div class="vstep-label"><span data-i18n="verify.step.spf">SPF Record</span> <span class="vstep-badge" data-i18n="verify.badge.spf">Sender Policy Framework</span></div>
                     <div class="vstep-detail" id="vstep-spf-detail"></div>
                   </div>
                 </div>
                 <div class="verify-step" id="vstep-dmarc">
                   <span class="vstep-icon" id="vstep-dmarc-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">DMARC Policy <span class="vstep-badge">Anti-Spoofing</span></div>
+                    <div class="vstep-label"><span data-i18n="verify.step.dmarc">DMARC Policy</span> <span class="vstep-badge" data-i18n="verify.badge.dmarc">Anti-Spoofing</span></div>
                     <div class="vstep-detail" id="vstep-dmarc-detail"></div>
                   </div>
                 </div>
@@ -380,12 +385,12 @@
 
             <!-- Section C: Domain Intelligence -->
             <div class="verify-group">
-              <div class="verify-section-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 0 18M12 3a13.5 13.5 0 0 0 0 18"/></svg> Domain Intelligence</div>
+              <div class="verify-section-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 0 18M12 3a13.5 13.5 0 0 0 0 18"/></svg> <span data-i18n="verify.section.domain">Domain Intelligence</span></div>
               <div class="verify-steps">
                 <div class="verify-step" id="vstep-age">
                   <span class="vstep-icon" id="vstep-age-icon"></span>
                   <div class="vstep-body">
-                    <div class="vstep-label">Domain Age (WHOIS)</div>
+                    <div class="vstep-label" data-i18n="verify.step.age">Domain Age (WHOIS)</div>
                     <div class="vstep-detail" id="vstep-age-detail"></div>
                   </div>
                 </div>
@@ -396,7 +401,7 @@
           <!-- Overall verdict -->
           <div class="verify-footer">
             <div class="verify-verdict" id="verify-verdict"></div>
-            <button class="btn-verify btn-verify-sm" data-action="verify-email"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg> Re-run</button>
+            <button class="btn-verify btn-verify-sm" data-action="verify-email"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg> <span data-i18n="verify.rerun">Re-run</span></button>
           </div>
         </div>
       </div>
@@ -407,28 +412,28 @@
       <div class="di-header">
         <span class="di-icon icon-tile tile-purple"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></svg></span>
         <div>
-          <div class="di-title">What Are Disposable Email Addresses?</div>
-          <div class="di-sub">And why are they a security concern?</div>
+          <div class="di-title" data-i18n="di.title">What Are Disposable Email Addresses?</div>
+          <div class="di-sub" data-i18n="di.sub">And why are they a security concern?</div>
         </div>
       </div>
       <div class="di-body">
         <div class="di-col">
-          <h4>Definition</h4>
-          <p>Disposable-email services provide shared, masked, or short-lived
+          <h4 data-i18n="di.definition.title">Definition</h4>
+          <p data-i18n="di.definition.body">Disposable-email services provide shared, masked, or short-lived
           addresses. A provider-domain match identifies the service category but
           does not prove that an individual mailbox expires.</p>
         </div>
         <div class="di-col">
-          <h4>Why They Are Risky</h4>
+          <h4 data-i18n="di.risky.title">Why They Are Risky</h4>
           <ul>
-            <li>Temporary inboxes can reduce sender accountability</li>
-            <li>They may be used to bypass account-verification policies</li>
-            <li>Privacy relays also have legitimate safety and privacy uses</li>
-            <li>A domain match is evidence, not proof of malicious intent</li>
+            <li data-i18n="di.risky.1">Temporary inboxes can reduce sender accountability</li>
+            <li data-i18n="di.risky.2">They may be used to bypass account-verification policies</li>
+            <li data-i18n="di.risky.3">Privacy relays also have legitimate safety and privacy uses</li>
+            <li data-i18n="di.risky.4">A domain match is evidence, not proof of malicious intent</li>
           </ul>
         </div>
         <div class="di-col">
-          <h4>Known Temporary-Email Examples</h4>
+          <h4 data-i18n="di.examples.title">Known Temporary-Email Examples</h4>
           <div class="di-domains">
             <code>mailinator.com</code>
             <code>guerrillamail.com</code>
@@ -442,7 +447,7 @@
         </div>
       </div>
       <div class="di-quick-test">
-        <span class="di-test-label">Test a disposable address:</span>
+        <span class="di-test-label" data-i18n="di.test.label">Test a disposable address:</span>
         <button class="example-tag disp-tag" data-action="set-example" data-arg="user@mailinator.com">user@mailinator.com</button>
         <button class="example-tag disp-tag" data-action="set-example" data-arg="hello@guerrillamail.com">hello@guerrillamail.com</button>
         <button class="example-tag disp-tag" data-action="set-example" data-arg="test@10minutemail.com">test@10minutemail.com</button>
@@ -457,61 +462,63 @@
     <div class="tab-panel hidden" id="panel-email-content" role="tabpanel" aria-labelledby="tab-email-content">
 
       <div class="content-input-card">
-        <div class="raw-email-upload-row file-dropzone" id="content-file-dropzone" tabindex="0" role="group" aria-label="Screenshot upload area" aria-describedby="content-drop-help">
+        <div class="raw-email-upload-row file-dropzone" id="content-file-dropzone" tabindex="0" role="group" aria-label="Screenshot upload area" aria-describedby="content-drop-help" data-i18n-attr="aria-label:content.drop.aria">
           <span class="drop-icon" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5V4.5"/><path d="m7.5 9 4.5-4.5L16.5 9"/><path d="M4.5 14.5v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3"/></svg></span>
-          <p id="content-drop-help" class="file-drop-hint">Drop a screenshot or email here, or click this area and paste a screenshot (Ctrl / ⌘ + V). One file, up to 2 MiB. Then click Analyze Content.</p>
-          <label class="content-label" for="raw-email-file">Email or image file</label>
+          <p id="content-drop-help" class="file-drop-hint" data-i18n="content.drop.help">Drop a screenshot or email here, or click this area and paste a screenshot (Ctrl / ⌘ + V). One file, up to 2 MiB. Then click Analyze Content.</p>
+          <label class="content-label" for="raw-email-file" data-i18n="content.file.label">Email or image file</label>
           <input id="raw-email-file" class="raw-email-file" type="file" accept=".eml,.png,.jpg,.jpeg,.webp,message/rfc822,image/png,image/jpeg,image/webp" />
-          <div id="raw-email-status" class="raw-email-status" role="status">Upload an .eml email or PNG/JPEG/WebP image, up to 2 MiB. QR and text recognition runs in your browser (up to four images). Email images are extracted locally; remote images are not loaded. Manual fields are ignored while a file is selected.</div>
+          <div id="raw-email-status" class="raw-email-status" role="status" data-i18n="content.file.status">Upload an .eml email or PNG/JPEG/WebP image, up to 2 MiB. QR and text recognition runs in your browser (up to four images). Email images are extracted locally; remote images are not loaded. Manual fields are ignored while a file is selected.</div>
         </div>
         <div class="content-input-subject-row">
-          <label class="content-label" for="content-ocr-language">Image text language (OCR)</label>
-          <select id="content-ocr-language" class="ocr-language-select" aria-describedby="content-ocr-help"><option value="eng">English</option><option value="chi_sim">简体中文 · Simplified Chinese</option><option value="eng+chi_sim">中英混合 · English + Chinese</option></select>
+          <label class="content-label" for="content-ocr-language" data-i18n="content.ocr.label">Image text language (OCR)</label>
+          <select id="content-ocr-language" class="ocr-language-select" aria-describedby="content-ocr-help"><option value="eng" data-i18n="content.ocr.eng">English</option><option value="chi_sim" data-i18n="content.ocr.chi">简体中文 · Simplified Chinese</option><option value="eng+chi_sim" data-i18n="content.ocr.mixed">中英混合 · English + Chinese</option></select>
           <div id="content-enhancement-options" hidden>
-            <label><input type="checkbox" id="content-enhanced-vision" disabled> Enhanced recognition — I agree to send this image to the configured image-processing service.</label>
-            <p>Optional, for one PNG/JPEG/WebP image. Original image bytes are not saved with a case. Browser OCR and QR results remain available for comparison.</p>
-            <label><input type="checkbox" id="content-image-understanding" disabled> Also request model-generated image observations.</label>
-            <p>Additional readings can be wrong. They do not change the risk verdict; verify website addresses against the original image.</p>
+            <label><input type="checkbox" id="content-enhanced-vision" disabled> <span data-i18n="content.enhance.consent">Enhanced recognition — I agree to send this image to the configured image-processing service.</span></label>
+            <p data-i18n="content.enhance.note">Optional, for one PNG/JPEG/WebP image. Original image bytes are not saved with a case. Browser OCR and QR results remain available for comparison.</p>
+            <label><input type="checkbox" id="content-image-understanding" disabled> <span data-i18n="content.semantics.consent">Also request model-generated image observations.</span></label>
+            <p data-i18n="content.semantics.note">Additional readings can be wrong. They do not change the risk verdict; verify website addresses against the original image.</p>
           </div>
-          <p id="content-ocr-help" class="raw-email-status">Choose the language visible in the image. English avoids unrelated Chinese characters in English screenshots. Use mixed mode for bilingual images; always check extracted text.</p>
+          <p id="content-ocr-help" class="raw-email-status" data-i18n="content.ocr.help">Choose the language visible in the image. English avoids unrelated Chinese characters in English screenshots. Use mixed mode for bilingual images; always check extracted text.</p>
         </div>
         <div class="content-input-subject-row">
-          <label class="content-label" for="content-subject">Subject</label>
+          <label class="content-label" for="content-subject" data-i18n="content.subject.label">Subject</label>
           <input
             type="text"
             id="content-subject"
             aria-describedby="raw-email-status"
             class="content-subject-input"
             placeholder="e.g. URGENT: Your account has been suspended"
+            data-i18n-attr="placeholder:content.subject.placeholder"
             autocomplete="off"
             spellcheck="false"
           />
         </div>
         <div class="content-input-body-row">
-          <label class="content-label" for="content-body">Email Body</label>
+          <label class="content-label" for="content-body" data-i18n="content.body.label">Email Body</label>
           <textarea
             id="content-body"
             aria-describedby="raw-email-status"
             class="content-body-textarea"
             rows="9"
             placeholder="Paste the full email body text here…"
+            data-i18n-attr="placeholder:content.body.placeholder"
             spellcheck="false"
           ></textarea>
         </div>
         <p class="raw-email-status content-privacy-notice">
-          Content is processed on this server. Ordinary analysis does not retain the
+          <span data-i18n="content.privacy">Content is processed on this server. Ordinary analysis does not retain the
           message body or attachment content. A report is saved only if you submit one;
           original input is included only with your explicit consent. When sender history is enabled, a
           pseudonymous sender observation may be retained for abuse detection.
           Remove unrelated personal content before submitting an email.
-          The Recent checks list keeps only verdicts and scores in this browser.
+          The Recent checks list keeps only verdicts and scores in this browser.</span>
         </p>
         <div class="content-input-actions">
-          <p class="kbd-hint kbd-hint-inline"><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> to analyze</p>
-          <button id="cancel-content-scan" type="button" class="btn btn-ghost" hidden>Cancel scan</button>
-          <button class="btn-ghost" data-action="clear-content">Clear</button>
+          <p class="kbd-hint kbd-hint-inline" data-i18n-html="content.hint.submit"><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> to analyze</p>
+          <button id="cancel-content-scan" type="button" class="btn btn-ghost" hidden data-i18n="content.cancelScan">Cancel scan</button>
+          <button class="btn-ghost" data-action="clear-content" data-i18n="content.clear">Clear</button>
           <button class="btn btn-primary btn-analyze" id="content-analyze-btn" data-action="analyze-content">
-            <span id="content-btn-text">Analyze Content</span>
+            <span id="content-btn-text" data-i18n="content.analyze">Analyze Content</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </button>
         </div>
@@ -519,23 +526,23 @@
         <p id="content-error" class="request-error hidden" role="alert"></p>
 
         <div class="quick-examples">
-          <span class="examples-label">Quick examples:</span>
-          <button class="example-tag phish-tag" data-action="set-content-example" data-arg="phishing-account">Account suspension phish</button>
-          <button class="example-tag phish-tag" data-action="set-content-example" data-arg="phishing-lottery">Lottery scam</button>
-          <button class="example-tag legit-tag" data-action="set-content-example" data-arg="legit-newsletter">Legitimate newsletter</button>
+          <span class="examples-label" data-i18n="examples.label">Quick examples:</span>
+          <button class="example-tag phish-tag" data-action="set-content-example" data-arg="phishing-account" data-i18n="content.example.account">Account suspension phish</button>
+          <button class="example-tag phish-tag" data-action="set-content-example" data-arg="phishing-lottery" data-i18n="content.example.lottery">Lottery scam</button>
+          <button class="example-tag legit-tag" data-action="set-content-example" data-arg="legit-newsletter" data-i18n="content.example.newsletter">Legitimate newsletter</button>
         </div>
       </div>
 
       <!-- Content Result Area -->
       <div id="content-result-area" class="content-result-area hidden">
         <div class="result-actions">
-          <button type="button" class="report-trigger copy-trigger" data-action="copy-summary" data-arg="content"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg> <span class="copy-label">Copy summary</span></button>
+          <button type="button" class="report-trigger copy-trigger" data-action="copy-summary" data-arg="content"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg> <span class="copy-label" data-i18n="result.copy">Copy summary</span></button>
           <div class="download-group" role="group" aria-labelledby="content-download-label">
-            <span class="download-label" id="content-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> Download report</span>
+            <span class="download-label" id="content-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> <span data-i18n="result.download">Download report</span></span>
             <button type="button" class="download-option" data-action="download-report" data-arg="content:md">Markdown</button>
             <button type="button" class="download-option" data-action="download-report" data-arg="content:json">JSON</button>
           </div>
-          <div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="content">Report an issue <span aria-hidden="true">↗</span></button></div>
+          <div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="content"><span data-i18n="result.report">Report an issue</span> <span aria-hidden="true">↗</span></button></div>
         </div>
         <section id="visual-evidence" class="visual-evidence" hidden></section>
 
@@ -556,7 +563,7 @@
               </svg>
               <div class="crb-score" id="crb-score"></div>
             </div>
-            <div class="crb-score-label">Risk Score</div>
+            <div class="crb-score-label" data-i18n="content.riskScore">Risk Score</div>
           </div>
         </div>
 
@@ -574,14 +581,14 @@
           </div>
           <div class="prob-bars" id="content-ml-prob-bars">
             <div class="prob-row">
-              <span class="prob-label phish-label">Phishing</span>
+              <span class="prob-label phish-label" data-i18n="content.ml.phishing">Phishing</span>
               <div class="prob-bar-track">
                 <div class="prob-bar phish-bar" id="content-phish-bar"></div>
               </div>
               <span class="prob-pct" id="content-phish-pct"></span>
             </div>
             <div class="prob-row">
-              <span class="prob-label legit-label">Legit</span>
+              <span class="prob-label legit-label" data-i18n="content.ml.legit">Legit</span>
               <div class="prob-bar-track">
                 <div class="prob-bar legit-bar" id="content-legit-bar"></div>
               </div>
@@ -597,7 +604,7 @@
         <!-- Extra Indicators + Safety Signals row -->
         <div class="content-bottom-row">
           <div class="col-card sender-history-card hidden" id="content-sender-history-card">
-            <h3 class="col-title">Sender Observation History</h3>
+            <h3 class="col-title" data-i18n="sender.col.history">Sender Observation History</h3>
             <div class="sender-history-row" id="content-sender-history-row">
               <div class="sender-history-icon" id="content-sender-history-icon"></div>
               <div class="sender-history-body">
@@ -607,16 +614,16 @@
             </div>
           </div>
           <div class="col-card" id="content-extra-card" style="display:none">
-            <h3 class="col-title">Technical Indicators</h3>
+            <h3 class="col-title" data-i18n="content.col.technical">Technical Indicators</h3>
             <div id="content-extra-list" class="risk-list"></div>
           </div>
           <div class="col-card" id="content-safety-card" style="display:none">
-            <h3 class="col-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg> Safety Signals Found</h3>
+            <h3 class="col-title"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg> <span data-i18n="content.col.safety">Safety Signals Found</span></h3>
             <div id="content-safety-list" class="safety-list"></div>
           </div>
           <div class="col-card content-method-note">
-            <h3 class="col-title">About This Analysis</h3>
-            <p class="method-note-text">
+            <h3 class="col-title" data-i18n="content.col.about">About This Analysis</h3>
+            <p class="method-note-text" data-i18n="content.about.body">
               This analysis combines RFC 5322 headers, sender alignment, HTML links,
               attachments, and explainable content signals. When a validated text model
               is configured, its group-isolated model score and learned threshold are
@@ -638,19 +645,19 @@
           </div>
           <div class="sk-beam"></div>
         </div>
-        <div class="loading-text">Scanning email content…</div>
+        <div class="loading-text" data-i18n="content.loading">Scanning email content…</div>
       </div>
 
     </div><!-- end panel-email-content -->
 
     <!-- Recent checks: kept in this browser's localStorage only (see app-reports.js). -->
     <details class="recent-checks" id="recent-checks">
-      <summary>Recent checks <span class="recent-count" id="recent-checks-count"></span></summary>
+      <summary><span data-i18n="recent.summary">Recent checks</span> <span class="recent-count" id="recent-checks-count"></span></summary>
       <div class="recent-body">
-        <p class="recent-note">Saved only in this browser: verdicts, scores and sender domains, never addresses or message text.</p>
-        <p class="recent-empty" id="recent-checks-empty">No checks yet. Results you analyze here will be listed.</p>
+        <p class="recent-note" data-i18n="recent.note">Saved only in this browser: verdicts, scores and sender domains, never addresses or message text.</p>
+        <p class="recent-empty" id="recent-checks-empty" data-i18n="recent.empty">No checks yet. Results you analyze here will be listed.</p>
         <ol class="recent-list" id="recent-checks-list" hidden></ol>
-        <button type="button" class="report-trigger recent-clear" id="recent-checks-clear" data-action="clear-recent" hidden>Clear recent checks</button>
+        <button type="button" class="report-trigger recent-clear" id="recent-checks-clear" data-action="clear-recent" hidden data-i18n="recent.clear">Clear recent checks</button>
       </div>
     </details>
 
@@ -661,9 +668,9 @@
 <section class="section section-dark" id="performance">
   <div class="container">
     <div class="section-header">
-      <div class="section-eyebrow">Benchmark</div>
-      <h2>Archived Website Benchmark</h2>
-      <p>Historical course-notebook results on the UCI Phishing Websites dataset (2,211 held-out rows). These are not email-sender accuracy claims.</p>
+      <div class="section-eyebrow" data-i18n="perf.eyebrow">Benchmark</div>
+      <h2 data-i18n="perf.title">Archived Website Benchmark</h2>
+      <p data-i18n="perf.lead">Historical course-notebook results on the UCI Phishing Websites dataset (2,211 held-out rows). These are not email-sender accuracy claims.</p>
     </div>
 
     <div class="metrics-grid">
@@ -671,28 +678,28 @@
         <table class="metrics-table">
           <thead>
             <tr>
-              <th>Classifier</th>
-              <th>Accuracy</th>
-              <th>Precision</th>
-              <th>Recall</th>
-              <th>F1</th>
-              <th>ROC AUC</th>
+              <th data-i18n="perf.th.classifier">Classifier</th>
+              <th data-i18n="metric.Accuracy">Accuracy</th>
+              <th data-i18n="metric.Precision">Precision</th>
+              <th data-i18n="metric.Recall">Recall</th>
+              <th data-i18n="metric.F1">F1</th>
+              <th data-i18n="metric.ROC_AUC">ROC AUC</th>
             </tr>
           </thead>
           <tbody id="metrics-tbody">
-            <tr><td colspan="6" class="loading-cell">Loading…</td></tr>
+            <tr><td colspan="6" class="loading-cell" data-i18n="perf.loading">Loading…</td></tr>
           </tbody>
         </table>
       </div>
 
       <div class="charts-row">
         <div class="chart-card">
-          <h3 class="chart-title">Classifier Performance Comparison</h3>
-          <canvas id="metricsChart" role="img" aria-label="Bar chart of accuracy, precision, recall, F1 and ROC AUC for each archived classifier; the same values are in the table above."></canvas>
+          <h3 class="chart-title" data-i18n="perf.chart.title">Classifier Performance Comparison</h3>
+          <canvas id="metricsChart" role="img" aria-label="Bar chart of accuracy, precision, recall, F1 and ROC AUC for each archived classifier; the same values are in the table above." data-i18n-attr="aria-label:perf.chart.aria"></canvas>
         </div>
         <div class="chart-card">
-          <h3 class="chart-title">Scope Matters</h3>
-          <p class="method-note-text">
+          <h3 class="chart-title" data-i18n="perf.scope.title">Scope Matters</h3>
+          <p class="method-note-text" data-i18n="perf.scope.body">
             The UCI model learned URL and web-page features. PhishGuard does not reuse
             those learned weights for sender addresses. Sender checks are explicitly
             labeled heuristics; email-text metrics appear only when that model is enabled.
@@ -707,104 +714,104 @@
 <section class="section" id="features">
   <div class="container">
     <div class="section-header">
-      <div class="section-eyebrow">Signals</div>
-      <h2>Explainable Sender Signals</h2>
-      <p>The sender-only mode evaluates 30 address and domain indicators. They are heuristic evidence—not probabilities learned from the UCI website dataset.</p>
+      <div class="section-eyebrow" data-i18n="features.eyebrow">Signals</div>
+      <h2 data-i18n="features.title">Explainable Sender Signals</h2>
+      <p data-i18n="features.lead">The sender-only mode evaluates 30 address and domain indicators. They are heuristic evidence—not probabilities learned from the UCI website dataset.</p>
     </div>
 
     <div class="bento">
       <article class="bento-card bento-hero">
         <div class="bento-head">
           <span class="icon-tile tile-grad-cyan"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 0 18M12 3a13.5 13.5 0 0 0 0 18"/></svg></span>
-          <div><h3 class="bento-title">Brand &amp; look-alike domains</h3><p class="bento-kicker">High-risk heuristic</p></div>
+          <div><h3 class="bento-title" data-i18n="bento.brand.title">Brand &amp; look-alike domains</h3><p class="bento-kicker" data-i18n="bento.brand.kicker">High-risk heuristic</p></div>
         </div>
-        <p class="bento-desc">Flags brand names embedded in unrelated or look-alike domains—a more direct sender-risk signal than username length alone.</p>
+        <p class="bento-desc" data-i18n="bento.brand.desc">Flags brand names embedded in unrelated or look-alike domains—a more direct sender-risk signal than username length alone.</p>
         <div class="bento-demo lookalike">
-          <div class="lk-row"><span class="lk-label">Sender</span><code class="lk-domain">paypa<mark>1</mark>-verify<mark>.xyz</mark></code><span class="demo-tag tag-bad">Homoglyph · risky TLD</span></div>
-          <div class="lk-row"><span class="lk-label">Brand</span><code class="lk-domain">paypal.com</code><span class="demo-tag tag-good">Expected domain</span></div>
+          <div class="lk-row"><span class="lk-label" data-i18n="bento.lk.sender">Sender</span><code class="lk-domain">paypa<mark>1</mark>-verify<mark>.xyz</mark></code><span class="demo-tag tag-bad" data-i18n="bento.lk.homoglyph">Homoglyph · risky TLD</span></div>
+          <div class="lk-row"><span class="lk-label" data-i18n="bento.lk.brand">Brand</span><code class="lk-domain">paypal.com</code><span class="demo-tag tag-good" data-i18n="bento.lk.expected">Expected domain</span></div>
         </div>
       </article>
 
       <article class="bento-card bento-tall">
         <div class="bento-head">
           <span class="icon-tile tile-grad-violet"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c0-3.9 3.4-6.5 7.5-6.5s7.5 2.6 7.5 6.5"/></svg></span>
-          <div><h3 class="bento-title">Randomized usernames</h3><p class="bento-kicker">Six-factor pattern check</p></div>
+          <div><h3 class="bento-title" data-i18n="bento.random.title">Randomized usernames</h3><p class="bento-kicker" data-i18n="bento.random.kicker">Six-factor pattern check</p></div>
         </div>
-        <p class="bento-desc">Entropy, vowel ratio, digit mix, and repetition flag mailboxes that look machine-generated. Major providers need more factors before anything is reported.</p>
+        <p class="bento-desc" data-i18n="bento.random.desc">Entropy, vowel ratio, digit mix, and repetition flag mailboxes that look machine-generated. Major providers need more factors before anything is reported.</p>
         <div class="bento-demo randomness">
           <code class="rnd-name">xq7m9v2k4p8z<span>@gmail.com</span></code>
-          <div class="rnd-meter" role="img" aria-label="5 of 6 randomness factors matched">
+          <div class="rnd-meter" role="img" aria-label="5 of 6 randomness factors matched" data-i18n-attr="aria-label:bento.random.meter">
             <span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span>
           </div>
-          <p class="rnd-caption">5 / 6 factors · reported as suspicious, not confirmed disposable</p>
+          <p class="rnd-caption" data-i18n="bento.random.caption">5 / 6 factors · reported as suspicious, not confirmed disposable</p>
         </div>
       </article>
 
       <article class="bento-card">
         <div class="bento-head">
           <span class="icon-tile tile-high"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.8 2.9 19.5h18.2z"/><path d="M12 10v4.2"/><path d="M12 17.3h.01"/></svg></span>
-          <div><h3 class="bento-title">Risky TLDs</h3><p class="bento-kicker">Domain reputation</p></div>
+          <div><h3 class="bento-title" data-i18n="bento.tld.title">Risky TLDs</h3><p class="bento-kicker" data-i18n="bento.tld.kicker">Domain reputation</p></div>
         </div>
-        <p class="bento-desc">Free or cheap extensions that are heavily abused in phishing raise the score.</p>
+        <p class="bento-desc" data-i18n="bento.tld.desc">Free or cheap extensions that are heavily abused in phishing raise the score.</p>
         <div class="tld-chips"><code>.tk</code><code>.xyz</code><code>.top</code><code>.gq</code><code>.ml</code></div>
       </article>
 
       <article class="bento-card">
         <div class="bento-head">
           <span class="icon-tile tile-purple"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13.5h5l1.8 2.5h4.4l1.8-2.5h5"/><path d="M5.5 5h13l2.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19v-5.5z"/></svg></span>
-          <div><h3 class="bento-title">Mailbox service type</h3><p class="bento-kicker">Evidence-scoped</p></div>
+          <div><h3 class="bento-title" data-i18n="bento.svc.title">Mailbox service type</h3><p class="bento-kicker" data-i18n="bento.svc.kicker">Evidence-scoped</p></div>
         </div>
         <div class="svc-list">
-          <div class="svc-row"><code>mailinator.com</code><span class="demo-tag tag-purple">Disposable provider</span></div>
-          <div class="svc-row"><code>relay.firefox.com</code><span class="demo-tag tag-info">Privacy relay</span></div>
+          <div class="svc-row"><code>mailinator.com</code><span class="demo-tag tag-purple" data-i18n="bento.svc.disposable">Disposable provider</span></div>
+          <div class="svc-row"><code>relay.firefox.com</code><span class="demo-tag tag-info" data-i18n="bento.svc.relay">Privacy relay</span></div>
         </div>
-        <p class="bento-note">A relay protects a real inbox and is not phishing evidence by itself.</p>
+        <p class="bento-note" data-i18n="bento.svc.note">A relay protects a real inbox and is not phishing evidence by itself.</p>
       </article>
 
       <article class="bento-card">
         <div class="bento-head">
           <span class="icon-tile tile-low"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg></span>
-          <div><h3 class="bento-title">Known provider context</h3><p class="bento-kicker">Explainable heuristic</p></div>
+          <div><h3 class="bento-title" data-i18n="bento.provider.title">Known provider context</h3><p class="bento-kicker" data-i18n="bento.provider.kicker">Explainable heuristic</p></div>
         </div>
-        <p class="bento-desc">Recognizes common providers as context while still requiring users to inspect the complete message for spoofing and compromised-account attacks.</p>
+        <p class="bento-desc" data-i18n="bento.provider.desc">Recognizes common providers as context while still requiring users to inspect the complete message for spoofing and compromised-account attacks.</p>
       </article>
 
       <article class="bento-card bento-wide">
         <div class="bento-head">
           <span class="icon-tile tile-grad-mint"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.6 7.5 9.9 4.3-1.3 7.5-5.3 7.5-9.9v-6L12 2.5z"/><path d="m9 12 2 2 4-4.5"/></svg></span>
-          <div><h3 class="bento-title">Authentication &amp; identity alignment</h3><p class="bento-kicker">Available with raw .eml input</p></div>
+          <div><h3 class="bento-title" data-i18n="bento.auth.title">Authentication &amp; identity alignment</h3><p class="bento-kicker" data-i18n="bento.auth.kicker">Available with raw .eml input</p></div>
         </div>
         <div class="auth-layout">
-          <p class="bento-desc">Checks SPF, DKIM, and DMARC results plus From, Reply-To, and Return-Path domain mismatches.</p>
+          <p class="bento-desc" data-i18n="bento.auth.desc">Checks SPF, DKIM, and DMARC results plus From, Reply-To, and Return-Path domain mismatches.</p>
           <div class="bento-demo auth-demo">
-            <div class="auth-pills"><span class="demo-tag tag-good">SPF pass</span><span class="demo-tag tag-bad">DKIM fail</span><span class="demo-tag tag-bad">DMARC fail</span></div>
+            <div class="auth-pills"><span class="demo-tag tag-good" data-i18n="bento.auth.spf">SPF pass</span><span class="demo-tag tag-bad" data-i18n="bento.auth.dkim">DKIM fail</span><span class="demo-tag tag-bad" data-i18n="bento.auth.dmarc">DMARC fail</span></div>
             <div class="align-row"><span class="lk-label">From</span><code>billing@paypal.com</code></div>
-            <div class="align-row"><span class="lk-label">Reply-To</span><code>support@paypa1-help.top</code><span class="demo-tag tag-bad">Mismatch</span></div>
+            <div class="align-row"><span class="lk-label">Reply-To</span><code>support@paypa1-help.top</code><span class="demo-tag tag-bad" data-i18n="bento.auth.mismatch">Mismatch</span></div>
           </div>
         </div>
       </article>
     </div>
 
     <details class="signals-all">
-      <summary><span class="signals-all-title">View all 30 sender signals</span><span class="signals-all-sub">URL / address structure · domain reputation · username patterns</span></summary>
+      <summary><span class="signals-all-title" data-i18n="signals.all.title">View all 30 sender signals</span><span class="signals-all-sub" data-i18n="signals.all.sub">URL / address structure · domain reputation · username patterns</span></summary>
       <div class="feature-cards-grid">
         <div class="feature-category-card">
           <div class="fc-header url-header">
             <span class="fc-icon icon-tile tile-grad-cyan"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/></svg></span>
             <div>
-              <div class="fc-title">URL / Address Structure</div>
-              <div class="fc-count">8 features</div>
+              <div class="fc-title" data-i18n="signals.url.title">URL / Address Structure</div>
+              <div class="fc-count" data-i18n="signals.url.count">8 features</div>
             </div>
           </div>
           <ul class="fc-list">
-            <li>IP address used as domain</li>
-            <li>Total email address length</li>
-            <li>URL shortener service domain</li>
-            <li>Multiple @ symbols</li>
-            <li>Double slash in domain</li>
-            <li>Hyphen in domain name</li>
-            <li>Subdomain depth</li>
-            <li>"http" token inside address</li>
+            <li data-i18n="signals.url.1">IP address used as domain</li>
+            <li data-i18n="signals.url.2">Total email address length</li>
+            <li data-i18n="signals.url.3">URL shortener service domain</li>
+            <li data-i18n="signals.url.4">Multiple @ symbols</li>
+            <li data-i18n="signals.url.5">Double slash in domain</li>
+            <li data-i18n="signals.url.6">Hyphen in domain name</li>
+            <li data-i18n="signals.url.7">Subdomain depth</li>
+            <li data-i18n="signals.url.8">"http" token inside address</li>
           </ul>
         </div>
 
@@ -812,19 +819,19 @@
           <div class="fc-header domain-header">
             <span class="fc-icon icon-tile tile-grad-mint"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 0 18M12 3a13.5 13.5 0 0 0 0 18"/></svg></span>
             <div>
-              <div class="fc-title">Domain Reputation</div>
-              <div class="fc-count">8 features · Highest signal</div>
+              <div class="fc-title" data-i18n="signals.domain.title">Domain Reputation</div>
+              <div class="fc-count" data-i18n="signals.domain.count">8 features · Highest signal</div>
             </div>
           </div>
           <ul class="fc-list">
-            <li>Known legitimate mail provider</li>
-            <li>Top-level domain type (TLD)</li>
-            <li>Domain label character length</li>
-            <li>Digits mixed into domain</li>
-            <li>High-traffic mail platform</li>
-            <li>Phishing keywords in domain</li>
-            <li>Phishing keywords in username</li>
-            <li>Suspicious / high-risk TLD</li>
+            <li data-i18n="signals.domain.1">Known legitimate mail provider</li>
+            <li data-i18n="signals.domain.2">Top-level domain type (TLD)</li>
+            <li data-i18n="signals.domain.3">Domain label character length</li>
+            <li data-i18n="signals.domain.4">Digits mixed into domain</li>
+            <li data-i18n="signals.domain.5">High-traffic mail platform</li>
+            <li data-i18n="signals.domain.6">Phishing keywords in domain</li>
+            <li data-i18n="signals.domain.7">Phishing keywords in username</li>
+            <li data-i18n="signals.domain.8">Suspicious / high-risk TLD</li>
           </ul>
         </div>
 
@@ -832,22 +839,22 @@
           <div class="fc-header html-header">
             <span class="fc-icon icon-tile tile-grad-violet"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c0-3.9 3.4-6.5 7.5-6.5s7.5 2.6 7.5 6.5"/></svg></span>
             <div>
-              <div class="fc-title">Username Patterns</div>
-              <div class="fc-count">14 features</div>
+              <div class="fc-title" data-i18n="signals.user.title">Username Patterns</div>
+              <div class="fc-count" data-i18n="signals.user.count">14 features</div>
             </div>
           </div>
           <ul class="fc-list">
-            <li>Digit ratio in username</li>
-            <li>Username randomness (entropy)</li>
-            <li>Non-standard special characters</li>
-            <li>Username length</li>
-            <li>Brand domain spoofing</li>
-            <li>noreply / system sender type</li>
-            <li>Repeated character ratio</li>
-            <li>Digit-letter mix in domain</li>
-            <li>Abused country-code TLD</li>
-            <li>Auto-generated username pattern</li>
-            <li>… and composite risk features</li>
+            <li data-i18n="signals.user.1">Digit ratio in username</li>
+            <li data-i18n="signals.user.2">Username randomness (entropy)</li>
+            <li data-i18n="signals.user.3">Non-standard special characters</li>
+            <li data-i18n="signals.user.4">Username length</li>
+            <li data-i18n="signals.user.5">Brand domain spoofing</li>
+            <li data-i18n="signals.user.6">noreply / system sender type</li>
+            <li data-i18n="signals.user.7">Repeated character ratio</li>
+            <li data-i18n="signals.user.8">Digit-letter mix in domain</li>
+            <li data-i18n="signals.user.9">Abused country-code TLD</li>
+            <li data-i18n="signals.user.10">Auto-generated username pattern</li>
+            <li data-i18n="signals.user.11">… and composite risk features</li>
           </ul>
         </div>
       </div>
@@ -859,58 +866,58 @@
 <section class="section section-dark" id="about">
   <div class="container">
     <div class="section-header">
-      <div class="section-eyebrow">Pipeline</div>
-      <h2>How It Works</h2>
-      <p>A layered detection pipeline designed to preserve strong phishing evidence.</p>
+      <div class="section-eyebrow" data-i18n="about.eyebrow">Pipeline</div>
+      <h2 data-i18n="about.title">How It Works</h2>
+      <p data-i18n="about.lead">A layered detection pipeline designed to preserve strong phishing evidence.</p>
     </div>
 
     <div class="pipeline-steps">
       <div class="step">
         <div class="step-num">01</div>
         <div class="step-body">
-          <div class="step-title">Input Parsing</div>
-          <div class="step-desc">Accept a sender address, subject/body text, or a complete RFC 5322 message. Raw messages expose headers, MIME parts, HTML, and attachment names.</div>
+          <div class="step-title" data-i18n="about.step1.title">Input Parsing</div>
+          <div class="step-desc" data-i18n="about.step1.desc">Accept a sender address, subject/body text, or a complete RFC 5322 message. Raw messages expose headers, MIME parts, HTML, and attachment names.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">02</div>
         <div class="step-body">
-          <div class="step-title">Sender Identity Checks</div>
-          <div class="step-desc">Evaluate suspicious domains, look-alike brands, risky TLDs, disposable patterns, and From / Reply-To / Return-Path alignment.</div>
+          <div class="step-title" data-i18n="about.step2.title">Sender Identity Checks</div>
+          <div class="step-desc" data-i18n="about.step2.desc">Evaluate suspicious domains, look-alike brands, risky TLDs, disposable patterns, and From / Reply-To / Return-Path alignment.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">03</div>
         <div class="step-body">
-          <div class="step-title">Message Structure Checks</div>
-          <div class="step-desc">Inspect SPF/DKIM/DMARC results, dangerous attachments, IP and shortened URLs, and visible-link versus destination mismatches.</div>
+          <div class="step-title" data-i18n="about.step3.title">Message Structure Checks</div>
+          <div class="step-desc" data-i18n="about.step3.desc">Inspect SPF/DKIM/DMARC results, dangerous attachments, IP and shortened URLs, and visible-link versus destination mismatches.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">04</div>
         <div class="step-body">
-          <div class="step-title">Explainable Content Rules</div>
-          <div class="step-desc">Score urgency, credential requests, threats, obfuscation, and other suspicious behaviors. Attacker-controlled footer text cannot lower the score.</div>
+          <div class="step-title" data-i18n="about.step4.title">Explainable Content Rules</div>
+          <div class="step-desc" data-i18n="about.step4.desc">Score urgency, credential requests, threats, obfuscation, and other suspicious behaviors. Attacker-controlled footer text cannot lower the score.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">05</div>
         <div class="step-body">
-          <div class="step-title">Optional Text Model</div>
-          <div class="step-desc">Fit TF-IDF inside group-isolated cross-validation, keep campaign/template families together, and learn an F2-optimized phishing threshold from training folds.</div>
+          <div class="step-title" data-i18n="about.step5.title">Optional Text Model</div>
+          <div class="step-desc" data-i18n="about.step5.desc">Fit TF-IDF inside group-isolated cross-validation, keep campaign/template families together, and learn an F2-optimized phishing threshold from training folds.</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">06</div>
         <div class="step-body">
-          <div class="step-title">Conservative Evidence Fusion</div>
-          <div class="step-desc">Use the strongest credible evidence so a weak model score cannot average away clear structural or authentication risk.</div>
+          <div class="step-title" data-i18n="about.step6.title">Conservative Evidence Fusion</div>
+          <div class="step-desc" data-i18n="about.step6.desc">Use the strongest credible evidence so a weak model score cannot average away clear structural or authentication risk.</div>
         </div>
       </div>
     </div>
 
     <div class="tech-stack">
-      <div class="tech-label">Tech Stack</div>
+      <div class="tech-label" data-i18n="about.tech">Tech Stack</div>
       <div class="tech-items">
         <span class="tech-badge">Python 3.13</span>
         <span class="tech-badge">scikit-learn</span>
@@ -937,78 +944,80 @@
         <div class="footer-brand">
           <span class="brand-mark" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.6 7.5 9.9 4.3-1.3 7.5-5.3 7.5-9.9v-6L12 2.5z"/><path d="m9 12 2 2 4-4.5"/></svg></span> PhishGuard
         </div>
-        <p class="footer-tagline">Explainable phishing and scam email detection. Detection supports your judgment—a low-risk result is not a guarantee of safety.</p>
+        <p class="footer-tagline" data-i18n="footer.tagline">Explainable phishing and scam email detection. Detection supports your judgment—a low-risk result is not a guarantee of safety.</p>
       </div>
-      <nav class="footer-cols" aria-label="Footer">
+      <nav class="footer-cols" aria-label="Footer" data-i18n-attr="aria-label:footer.nav.aria">
         <div class="footer-col">
-          <h2>Product</h2>
-          <a href="#demo">Live demo</a>
-          <a href="#features">Sender signals</a>
-          <a href="#about">How it works</a>
-          <a href="#performance">Benchmark</a>
+          <h2 data-i18n="footer.product">Product</h2>
+          <a href="#demo" data-i18n="footer.demo">Live demo</a>
+          <a href="#features" data-i18n="footer.signals">Sender signals</a>
+          <a href="#about" data-i18n="footer.how">How it works</a>
+          <a href="#performance" data-i18n="footer.benchmark">Benchmark</a>
         </div>
         <div class="footer-col">
-          <h2>Analysts</h2>
-          <a class="case-login-link" href="https://phishguard-email-analyzer.vercel.app/cases">Case workspace</a>
-          <a href="#disposable-info">Disposable email guide</a>
+          <h2 data-i18n="footer.analysts">Analysts</h2>
+          <a class="case-login-link" href="https://phishguard-email-analyzer.vercel.app/cases" data-i18n="footer.workspace">Case workspace</a>
+          <a href="#disposable-info" data-i18n="footer.disposable">Disposable email guide</a>
         </div>
         <div class="footer-col">
-          <h2>Project</h2>
+          <h2 data-i18n="footer.project">Project</h2>
           <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection#readme" target="_blank" rel="noopener">Documentation</a>
-          <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+          <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection#readme" target="_blank" rel="noopener" data-i18n="footer.docs">Documentation</a>
+          <a href="https://github.com/Lushangtu123/Phishing-Scam-Email-Detection/blob/main/CHANGELOG.md" target="_blank" rel="noopener" data-i18n="footer.changelog">Changelog</a>
         </div>
       </nav>
     </div>
     <div class="footer-bottom">
-      <span>CS 166 – Information Security · Final Project</span>
-      <span>Ordinary analysis does not retain message content; a report is saved only when you submit one.</span>
+      <span data-i18n="footer.course">CS 166 – Information Security · Final Project</span>
+      <span data-i18n="footer.privacy">Ordinary analysis does not retain message content; a report is saved only when you submit one.</span>
     </div>
   </div>
 </footer>
 
 <dialog id="feedback-dialog" class="feedback-dialog" aria-labelledby="feedback-title">
   <form id="feedback-form">
-    <div class="feedback-head"><div><p class="feedback-eyebrow">HELP IMPROVE DETECTION</p><h2 id="feedback-title">Report an issue</h2></div><button type="button" id="feedback-close" class="feedback-close" aria-label="Close report">×</button></div>
+    <div class="feedback-head"><div><p class="feedback-eyebrow" data-i18n="feedback.eyebrow">HELP IMPROVE DETECTION</p><h2 id="feedback-title" data-i18n="feedback.title">Report an issue</h2></div><button type="button" id="feedback-close" class="feedback-close" aria-label="Close report" data-i18n-attr="aria-label:feedback.close.aria">×</button></div>
     <div id="feedback-fields">
-      <p class="feedback-intro">Tell our analysts what looks wrong. A report does not change this result.</p>
-      <label for="feedback-type">What happened?</label>
+      <p class="feedback-intro" data-i18n="feedback.intro">Tell our analysts what looks wrong. A report does not change this result.</p>
+      <label for="feedback-type" data-i18n="feedback.type.label">What happened?</label>
       <select id="feedback-type" required>
-        <option value="" disabled selected>Select an issue type</option>
-        <option value="false_positive">False positive · legitimate email flagged</option>
-        <option value="false_negative">False negative · suspicious email missed</option>
-        <option value="incorrect_risk">Risk level looks inaccurate</option>
-        <option value="incorrect_evidence">Evidence looks incorrect</option>
-        <option value="other">Other issue</option>
+        <option value="" disabled selected data-i18n="feedback.type.placeholder">Select an issue type</option>
+        <option value="false_positive" data-i18n="feedback.type.false_positive">False positive · legitimate email flagged</option>
+        <option value="false_negative" data-i18n="feedback.type.false_negative">False negative · suspicious email missed</option>
+        <option value="incorrect_risk" data-i18n="feedback.type.incorrect_risk">Risk level looks inaccurate</option>
+        <option value="incorrect_evidence" data-i18n="feedback.type.incorrect_evidence">Evidence looks incorrect</option>
+        <option value="other" data-i18n="feedback.type.other">Other issue</option>
       </select>
-      <label for="feedback-note">Details <span class="feedback-optional">optional</span></label>
-      <textarea id="feedback-note" rows="4" maxlength="2000" placeholder="What should our analysts check?"></textarea>
-      <label class="feedback-consent"><input id="feedback-consent" type="checkbox"><span>Include the original input for private review.</span></label>
-      <label class="feedback-consent" id="feedback-evaluation-consent-row"><input id="feedback-evaluation-consent" type="checkbox"><span>Also allow this email and the analyst's verdict to be used in private detection evaluation.</span></label>
-      <p class="feedback-privacy">By default, we save only the risk summary, issue type and your note. The original-input checkbox also saves the address or email text you analyzed. For images, only extracted text and QR evidence are saved; the image file is never saved.</p>
-      <p class="feedback-privacy">Evaluation is separate from private review. It requires both checkboxes, does not retrain the model automatically, and does not send your email to an external AI provider.</p>
+      <label for="feedback-note"><span data-i18n="feedback.note.label">Details</span> <span class="feedback-optional" data-i18n="feedback.optional">optional</span></label>
+      <textarea id="feedback-note" rows="4" maxlength="2000" placeholder="What should our analysts check?" data-i18n-attr="placeholder:feedback.note.placeholder"></textarea>
+      <label class="feedback-consent"><input id="feedback-consent" type="checkbox"><span data-i18n="feedback.consent">Include the original input for private review.</span></label>
+      <label class="feedback-consent" id="feedback-evaluation-consent-row"><input id="feedback-evaluation-consent" type="checkbox"><span data-i18n="feedback.evaluation">Also allow this email and the analyst's verdict to be used in private detection evaluation.</span></label>
+      <p class="feedback-privacy" data-i18n="feedback.privacy1">By default, we save only the risk summary, issue type and your note. The original-input checkbox also saves the address or email text you analyzed. For images, only extracted text and QR evidence are saved; the image file is never saved.</p>
+      <p class="feedback-privacy" data-i18n="feedback.privacy2">Evaluation is separate from private review. It requires both checkboxes, does not retrain the model automatically, and does not send your email to an external AI provider.</p>
     </div>
     <p id="feedback-error" class="request-error hidden" role="alert"></p>
     <div id="feedback-success" class="feedback-success hidden" role="status"></div>
-    <div class="feedback-actions"><button type="button" id="feedback-cancel" class="btn-ghost">Cancel</button><button type="button" id="feedback-new-report" class="btn btn-primary" hidden>Start new report</button><button type="submit" id="feedback-submit" class="btn btn-primary">Submit report</button></div>
+    <div class="feedback-actions"><button type="button" id="feedback-cancel" class="btn-ghost" data-i18n="feedback.cancel">Cancel</button><button type="button" id="feedback-new-report" class="btn btn-primary" hidden data-i18n="feedback.newReport">Start new report</button><button type="submit" id="feedback-submit" class="btn btn-primary" data-i18n="feedback.submit">Submit report</button></div>
   </form>
 </dialog>
-<script src="/static/vision.js?v=9"></script>
-<script src="/static/file-intake.js?v=1"></script>
-<script src="/static/confirm-dialog.js?v=1"></script>
-<script src="/static/feedback.js?v=8"></script>
+<!-- i18n.js translates the markup above before first paint; every later script uses it. -->
+<script src="/static/i18n.js?v=1"></script>
+<script src="/static/vision.js?v=10"></script>
+<script src="/static/file-intake.js?v=2"></script>
+<script src="/static/confirm-dialog.js?v=2"></script>
+<script src="/static/feedback.js?v=9"></script>
 <!-- Homepage logic: classic scripts sharing one global scope; app.js (last) wires them up on DOMContentLoaded. -->
-<script src="/static/app-core.js?v=1"></script>
-<script src="/static/app-theme.js?v=1"></script>
-<script src="/static/app-layout.js?v=1"></script>
-<script src="/static/app-config.js?v=1"></script>
-<script src="/static/app-sender.js?v=1"></script>
-<script src="/static/app-verify.js?v=1"></script>
-<script src="/static/app-content.js?v=1"></script>
-<script src="/static/app-content-render.js?v=1"></script>
-<script src="/static/app-reports.js?v=1"></script>
-<script src="/static/app-metrics.js?v=1"></script>
-<script src="/static/app.js?v=50"></script>
+<script src="/static/app-core.js?v=2"></script>
+<script src="/static/app-theme.js?v=2"></script>
+<script src="/static/app-layout.js?v=2"></script>
+<script src="/static/app-config.js?v=2"></script>
+<script src="/static/app-sender.js?v=2"></script>
+<script src="/static/app-verify.js?v=2"></script>
+<script src="/static/app-content.js?v=2"></script>
+<script src="/static/app-content-render.js?v=2"></script>
+<script src="/static/app-reports.js?v=2"></script>
+<script src="/static/app-metrics.js?v=2"></script>
+<script src="/static/app.js?v=51"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>

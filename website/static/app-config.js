@@ -6,6 +6,9 @@
 // ── Public configuration ─────────────────────────────────────────────────────
 let _emailVerificationEnabled = false;
 let _publicConfig = {};
+// Dictionary key of the verification notice; null until the config is applied,
+// '' when no notice is shown. Kept so a language switch can re-render it.
+let _verificationNoticeKey = null;
 
 function applyPublicConfig(config) {
   _publicConfig = config;
@@ -26,16 +29,23 @@ function applyPublicConfig(config) {
   });
   notice.classList.toggle('hidden', enabled && smtpEnabled);
   if (enabled && !smtpEnabled) {
-    notice.textContent = 'Domain checks are enabled. SMTP mailbox probing is unavailable on this deployment, so mailbox existence cannot be confirmed.';
+    _verificationNoticeKey = 'config.notice.smtpOff';
   } else if (enabled) {
-    notice.textContent = '';
+    _verificationNoticeKey = '';
   } else if (config.deployment_profile === 'development' || config.deployment_profile === 'test') {
-    notice.textContent = 'Network-based mailbox verification is disabled in this local configuration. Enable it in the local server settings and restart the service, then reload this page.';
+    _verificationNoticeKey = 'config.notice.local';
   } else if (config.deployment_profile === 'demo' || config.deployment_profile === 'production') {
-    notice.textContent = 'Network-based mailbox verification is disabled on this public service. Deploy on your own computer to enable SMTP, DNS, and WHOIS checks.';
+    _verificationNoticeKey = 'config.notice.public';
   } else {
-    notice.textContent = 'Mailbox verification availability could not be confirmed. Reload this page to retry. Sender and message analysis remain available.';
+    _verificationNoticeKey = 'config.notice.unknown';
   }
+  renderVerificationNotice();
+}
+
+function renderVerificationNotice() {
+  if (_verificationNoticeKey === null) return;
+  document.getElementById('verification-local-notice').textContent =
+    _verificationNoticeKey ? t(_verificationNoticeKey) : '';
 }
 
 async function loadPublicConfig() {

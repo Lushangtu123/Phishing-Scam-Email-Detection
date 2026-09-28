@@ -7,6 +7,8 @@ window.PhishGuardFeedback = (() => {
   const sessions = {sender: null, content: null};
   let active = null;
   const $ = id => document.getElementById(id);
+  // Homepage only: i18n.js loads first. Server `detail` messages stay as sent.
+  const t = (key, params) => (window.PhishGuardI18n ? window.PhishGuardI18n.t(key, params) : key);
   const askConfirm = (message, options) => window.PhishGuardConfirm
     ? window.PhishGuardConfirm(message, options) : Promise.resolve(window.confirm(message));
 
@@ -51,15 +53,15 @@ window.PhishGuardFeedback = (() => {
     $('feedback-error').textContent = session.error;
     $('feedback-error').classList[session.error ? 'remove' : 'add']('hidden');
     const edited = session.submitted && session.revision !== session.retry.revision;
-    $('feedback-success').textContent = session.submitted ? 'Report received. Reference: ' + session.receipt +
-      (edited ? '. Later edits were not sent. Start a new report to submit them.' : '') : '';
+    $('feedback-success').textContent = session.submitted
+      ? t(edited ? 'feedback.successEdited' : 'feedback.success', {id: session.receipt}) : '';
     $('feedback-success').classList[session.submitted ? 'remove' : 'add']('hidden');
     $('feedback-fields').hidden = session.submitted && !edited;
-    $('feedback-cancel').textContent = session.submitted ? 'Close' : 'Cancel';
+    $('feedback-cancel').textContent = t(session.submitted ? 'feedback.close' : 'feedback.cancel');
     $('feedback-submit').hidden = session.submitted;
     $('feedback-submit').disabled = !!session.pending;
-    $('feedback-submit').textContent = session.pending ? 'Submitting report…'
-      : session.retry?.sent ? 'Retry original report' : 'Submit report';
+    $('feedback-submit').textContent = t(session.pending ? 'feedback.submitting'
+      : session.retry?.sent ? 'feedback.retry' : 'feedback.submit');
     $('feedback-new-report').hidden = !session.submitted;
   }
   function open(kind) {
@@ -86,17 +88,17 @@ window.PhishGuardFeedback = (() => {
   }
   function consentedSource(context) {
     if (context.inputMode === 'eml' && context.fingerprintInput.byteLength > 60000) {
-      throw new Error('This email file exceeds the 60 KB report retention limit. Uncheck original input to submit a source-free report.');
+      throw new Error(t('feedback.error.emlTooLarge'));
     }
     const source = context.buildSource();
     if (context.inputMode === 'image' && !source.ocr_text && !source.qr_text) {
-      throw new Error('No text or QR evidence was extracted from this image. Uncheck original input to submit a source-free report.');
+      throw new Error(t('feedback.error.noImageText'));
     }
     const limits = {email:320, subject:500, body:50000, ocr_text:12000, qr_text:4000};
     for (const [key, value] of Object.entries(source)) {
       if (key === 'eml_base64') continue;
       if (typeof value !== 'string' || new TextEncoder().encode(value).length > limits[key] || value.toLowerCase().includes('data:')) {
-        throw new Error('Original input exceeds report limits or contains inline image data. Uncheck original input to submit a source-free report.');
+        throw new Error(t('feedback.error.limits'));
       }
     }
     return source;
@@ -114,10 +116,10 @@ window.PhishGuardFeedback = (() => {
       let submission = session.retry;
       if (submission?.sent && submission.revision !== revision) {
         const original = JSON.parse(submission.body);
-        const retry = await askConfirm('Retry the originally submitted report' + (original.include_source
-          ? ', including the original input you previously agreed to retain' : ', without original input') +
-          (original.evaluation_consent ? ' and allowing its use in private detection evaluation' : '') +
-          '? Your later edits and consent changes will not be sent.', {confirmLabel: 'Retry original report'});
+        const retry = await askConfirm(t('feedback.retryConfirm', {
+          source: t(original.include_source ? 'feedback.retryConfirm.withSource' : 'feedback.retryConfirm.withoutSource'),
+          evaluation: original.evaluation_consent ? t('feedback.retryConfirm.evaluation') : '',
+        }), {confirmLabel: t('feedback.retry')});
         if (!retry || !current()) return;
       }
       session.error = '';
@@ -144,11 +146,11 @@ window.PhishGuardFeedback = (() => {
         headers: {'Content-Type': 'application/json', 'Idempotency-Key': submission.key},
         body: submission.body});
       let result;
-      try { result = await response.json(); } catch (_error) { throw new Error('The server returned an unreadable response.'); }
+      try { result = await response.json(); } catch (_error) { throw new Error(t('feedback.error.unreadable')); }
       if (!response.ok) {
         // A definite rejection cannot settle an earlier ambiguous attempt.
         if ([400, 413, 422, 429].includes(response.status) && !submission.uncertain) session.retry = null;
-        throw new Error(typeof result.detail === 'string' ? result.detail : 'Report could not be saved.');
+        throw new Error(typeof result.detail === 'string' ? result.detail : t('feedback.error.notSaved'));
       }
       // Save the receipt even with no active modal. Rendering remains isolated
       // from sessions belonging to replaced or cleared analysis contexts.
@@ -157,8 +159,8 @@ window.PhishGuardFeedback = (() => {
     } catch (error) {
       if (session.pending !== attempt) return;
       if (session.retry?.sent) session.retry.uncertain = true;
-      session.error = (error.message || 'Report could not be saved.') +
-        (session.retry?.sent ? ' The outcome is unconfirmed. Retry checks the original submission; later edits are not sent.' : ' Correct the report and try again.');
+      session.error = (error.message || t('feedback.error.notSaved')) +
+        t(session.retry?.sent ? 'feedback.error.unconfirmed' : 'feedback.error.correct');
     } finally {
       if (session.pending === attempt) {
         session.pending = null;

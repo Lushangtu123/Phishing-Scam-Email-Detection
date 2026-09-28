@@ -3,6 +3,16 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 let metricsChart = null;
+// The last loaded metrics, or null (loading) / false (failed), for re-rendering
+// the table and chart labels after a language switch.
+let _lastMetrics = null;
+const METRIC_KEYS = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC_AUC'];
+const metricLabel = key => t(`metric.${key}`);
+
+function renderMetricsUnavailable() {
+  document.getElementById('metrics-tbody').innerHTML =
+    `<tr><td colspan="6" class="loading-cell">${escapeHtml(t('perf.unavailable'))}</td></tr>`;
+}
 
 // ── Metrics Table ─────────────────────────────────────────────────────────────
 async function loadMetrics() {
@@ -15,10 +25,11 @@ async function loadMetrics() {
       throw new Error('Response has no metrics');
     }
     renderMetricsTable(metrics);
+    _lastMetrics = metrics;
   } catch (e) {
     console.error('Failed to load metrics:', e);
-    document.getElementById('metrics-tbody').innerHTML =
-      '<tr><td colspan="6" class="loading-cell">Benchmark results are unavailable right now.</td></tr>';
+    _lastMetrics = false;
+    renderMetricsUnavailable();
     return;
   }
   // A chart failure must not replace the table that already rendered.
@@ -32,8 +43,7 @@ async function loadMetrics() {
 function renderMetricsTable(metrics) {
   const tbody = document.getElementById('metrics-tbody');
   const classifiers = Object.keys(metrics);
-  const cols = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC_AUC'];
-  const colLabels = { ROC_AUC: 'ROC AUC' };
+  const cols = METRIC_KEYS;
   const best = {};
   cols.forEach(col => { best[col] = Math.max(...classifiers.map(c => metrics[c][col])); });
   // The overall "Best" row is the highest F1; a tie goes to the higher ROC_AUC.
@@ -46,8 +56,8 @@ function renderMetricsTable(metrics) {
     const isBest = clf === bestClf;
     return `
       <tr class="${isBest ? 'row-best' : ''}">
-        <td class="clf-name">${escapeHtml(clf)}${isBest ? ` <span class="best-badge">${icon('award')} Best</span>` : ''}</td>
-        ${cols.map(col => `<td class="${m[col] === best[col] ? 'cell-best' : ''}" data-label="${colLabels[col] || col}">${m[col].toFixed(4)}</td>`).join('')}
+        <td class="clf-name">${escapeHtml(clf)}${isBest ? ` <span class="best-badge">${icon('award')} ${escapeHtml(t('perf.best'))}</span>` : ''}</td>
+        ${cols.map(col => `<td class="${m[col] === best[col] ? 'cell-best' : ''}" data-label="${escapeHtml(metricLabel(col))}">${m[col].toFixed(4)}</td>`).join('')}
       </tr>
     `;
   }).join('');
@@ -100,14 +110,24 @@ function restyleMetricsChart() {
   metricsChart.update('none');
 }
 
+// Re-renders the benchmark table and chart axis labels in the current language.
+// Classifier names are model names from the API and stay as sent.
+function relabelMetrics() {
+  if (_lastMetrics === false) renderMetricsUnavailable();
+  if (!_lastMetrics) return;
+  renderMetricsTable(_lastMetrics);
+  if (!metricsChart) return;
+  metricsChart.data.labels = METRIC_KEYS.map(metricLabel);
+  metricsChart.update('none');
+}
+
 function renderMetricsChart(metrics) {
   const ctx = document.getElementById('metricsChart').getContext('2d');
   const classifiers = Object.keys(metrics);
-  const metricKeys = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC_AUC'];
-  const labels = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC AUC'];
+  const labels = METRIC_KEYS.map(metricLabel);
   const datasets = classifiers.map(clf => ({
     label: clf,
-    data: metricKeys.map(k => metrics[clf][k]),
+    data: METRIC_KEYS.map(k => metrics[clf][k]),
     borderWidth: 1.5,
     borderRadius: 4,
   }));

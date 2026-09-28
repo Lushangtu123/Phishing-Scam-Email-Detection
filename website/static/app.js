@@ -1,9 +1,10 @@
 /* ──────────────────────────────────────────────────────────────────────────
    app.js – PhishGuard frontend entry point
-   Loaded last, after app-core, app-theme, app-layout, app-config,
-   app-sender, app-verify, app-content, app-content-render, app-reports
-   and app-metrics (classic scripts sharing one global scope). It binds
-   page actions and runs the setup functions on DOMContentLoaded.
+   Loaded last, after i18n.js and app-core, app-theme, app-layout,
+   app-config, app-sender, app-verify, app-content, app-content-render,
+   app-reports and app-metrics (classic scripts sharing one global scope).
+   It binds page actions, runs the setup functions on DOMContentLoaded and
+   re-renders script-written text when the language changes.
    ────────────────────────────────────────────────────────────────────────── */
 
 // ── Init ─────────────────────────────────────────────────────────────────────
@@ -52,6 +53,33 @@ function setupPageActions() {
     if (event.key === 'Enter') runEmailAnalysis();
   });
 }
+
+// ── Language switch ──────────────────────────────────────────────────────────
+// i18n.js has already re-applied the static markup. Re-render what scripts
+// wrote from the last API responses; no analysis request is repeated.
+function rerenderForLanguage() {
+  const hidden = id => document.getElementById(id).classList.contains('hidden');
+  refreshMobileNavLabel();
+  updateThemeToggleTitle(document.documentElement?.dataset?.themeMode || 'auto');
+  renderVerificationNotice();
+  renderRawStatus();
+  document.getElementById('analyze-btn-text').textContent =
+    t(document.getElementById('analyze-btn').disabled ? 'sender.analyzing' : 'sender.analyze');
+  document.getElementById('content-btn-text').textContent =
+    t(document.getElementById('content-analyze-btn').disabled ? 'content.scanning' : 'content.analyze');
+  if (lastResults.sender && !hidden('result-area')) {
+    renderResult(lastResults.sender, { languageOnly: true });
+    if (_lastVerifyResult && !hidden('verify-result')) renderVerifyResult(_lastVerifyResult);
+  }
+  if (lastResults.content && !hidden('content-result-area')) {
+    renderContentResult(lastResults.content, { languageOnly: true });
+    window.PhishGuardVision?.render(document.getElementById('visual-evidence'), lastResults.content.visual_analysis, _visualFile);
+  }
+  renderRecentChecks();
+  relabelMetrics();
+}
+
+document.addEventListener('phishguard:languagechange', rerenderForLanguage);
 
 // ── Navbar ───────────────────────────────────────────────────────────────────
 window.addEventListener('scroll', () => {

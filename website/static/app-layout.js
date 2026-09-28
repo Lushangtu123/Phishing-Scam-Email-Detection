@@ -92,6 +92,15 @@ function setupCaseLoginLink() {
 }
 
 // ── Mobile section menu ──────────────────────────────────────────────────────
+function mobileNavLabel(open) { return t(open ? 'nav.menu.close' : 'nav.menu.open'); }
+
+// Re-labels the menu button for its current state, e.g. after a language switch.
+function refreshMobileNavLabel() {
+  const navbar = document.querySelector('.navbar');
+  const toggle = document.getElementById('nav-menu-toggle');
+  if (navbar && toggle) toggle.setAttribute('aria-label', mobileNavLabel(navbar.classList.contains('menu-open')));
+}
+
 function setupMobileNav() {
   const navbar = document.querySelector('.navbar');
   const toggle = document.getElementById('nav-menu-toggle');
@@ -99,7 +108,7 @@ function setupMobileNav() {
   const setOpen = open => {
     navbar.classList.toggle('menu-open', open);
     toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Close section menu' : 'Open section menu');
+    toggle.setAttribute('aria-label', mobileNavLabel(open));
   };
   toggle.addEventListener('click', () => setOpen(!navbar.classList.contains('menu-open')));
   document.querySelectorAll('.nav-links a').forEach(link => link.addEventListener('click', () => setOpen(false)));

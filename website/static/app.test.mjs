@@ -36,6 +36,7 @@ class FakeElement {
 
 // The homepage scripts, in the order index.html loads them. They are classic
 // scripts sharing one global scope, so they run in one context like the page.
+// i18n.js loads before them (see the script-order test) and provides t().
 const APP_SCRIPTS = [
   'app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js',
   'app-verify.js', 'app-content.js', 'app-content-render.js', 'app-reports.js',
@@ -62,7 +63,7 @@ function loadFrontend(overrides = {}) {
     }},
   };
   const context = vm.createContext({ document, window, console, setTimeout: fn => fn(), ...overrides });
-  for (const name of APP_SCRIPTS) vm.runInContext(appSource(name), context, { filename: name });
+  for (const name of ['i18n.js', ...APP_SCRIPTS]) vm.runInContext(appSource(name), context, { filename: name });
   return { context, elements };
 }
 
@@ -73,6 +74,15 @@ test('the page loads the homepage scripts in the order the tests run them', () =
   assert.ok(start > 0);
   assert.deepEqual(scripts.slice(start, start + APP_SCRIPTS.length + 1), [...APP_SCRIPTS, 'analytics-init.js']);
   assert.equal(scripts.filter(name => /^app[-.]/.test(name)).length, APP_SCRIPTS.length);
+  // i18n.js is the first script in <body>, so the markup is translated before
+  // anything renders, and every later script can call it.
+  const body = html.slice(html.indexOf('<body>'));
+  const bodyScripts = [...body.matchAll(/<script src="\/static\/([^"?]+)\?v=[^"]+"><\/script>/g)].map(match => match[1]);
+  assert.equal(bodyScripts[0], 'i18n.js');
+  assert.equal(bodyScripts[1], 'vision.js');
+  // lang-init.js sets <html lang> in <head>, right after the theme bootstrap.
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.match(head, /<script src="\/static\/theme-init\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
 });
 
 test('feedback diagnostics retain signal identifiers without source-bearing messages', () => {
@@ -664,7 +674,7 @@ test('every declared page action calls the handler its inline attribute used to 
 
 test('demo tabs expose tab semantics and keep aria-selected in sync', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-  assert.match(html, /<div class="demo-tabs" role="tablist" aria-label="[^"]+">/);
+  assert.match(html, /<div class="demo-tabs" role="tablist" aria-label="[^"]+"[^>]*>/);
   for (const name of ['email-address', 'email-content']) {
     assert.match(html, new RegExp(`id="tab-${name}"[^>]*role="tab"[^>]*aria-controls="panel-${name}"`));
     assert.match(html, new RegExp(`id="panel-${name}" role="tabpanel" aria-labelledby="tab-${name}"`));
@@ -1238,7 +1248,7 @@ test('decorative button icons are hidden and the benchmark chart has a text alte
   for (const [, inner] of html.matchAll(/<(?:button|a)\b[^>]*>([\s\S]*?)<\/(?:button|a)>/g)) {
     for (const [svg] of inner.matchAll(/<svg\b[^>]*>/g)) assert.match(svg, /aria-hidden="true"/, svg);
   }
-  assert.match(html, /<canvas id="metricsChart" role="img" aria-label="[^"]*table above[^"]*">/);
+  assert.match(html, /<canvas id="metricsChart" role="img" aria-label="[^"]*table above[^"]*"[^>]*>/);
 });
 
 test('public OCR forwards language and discards recognition after the selection changes',async()=>{
@@ -1752,7 +1762,7 @@ test('the recent list and privacy copy say the list stays in this browser', () =
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const recent = html.match(/<details class="recent-checks" id="recent-checks">[\s\S]*?<\/details>/);
   assert.ok(recent, 'recent checks disclosure exists');
-  assert.match(recent[0], /<summary>Recent checks/);
+  assert.match(recent[0], /<summary>(?:<span[^>]*>)?Recent checks/);
   assert.match(recent[0], /only in this browser/i);
   assert.match(recent[0], /id="recent-checks-clear" data-action="clear-recent"/);
   assert.ok(html.indexOf('end panel-email-content') < html.indexOf('id="recent-checks"'));
@@ -1814,8 +1824,9 @@ test('content reports download as JSON with the API response and no *_base64 fie
   const text = await h.blobs[0].text();
   assert.doesNotMatch(text, /_base64|AAAA|BBBB|CCCC/i);
   const report = JSON.parse(text);
-  assert.deepEqual(Object.keys(report), ['generated_at', 'tool', 'mode', 'result']);
+  assert.deepEqual(Object.keys(report), ['generated_at', 'tool', 'language', 'mode', 'result']);
   assert.equal(report.tool, 'PhishGuard');
+  assert.equal(report.language, 'en');
   assert.equal(report.mode, 'image');
   assert.match(report.generated_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   assert.equal(report.result.risk_label, 'Medium Risk — Suspicious Content');

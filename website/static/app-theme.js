@@ -18,9 +18,13 @@ function applyTheme(mode) {
   if (!root || !root.dataset) return;
   root.dataset.theme = resolveTheme(mode);
   root.dataset.themeMode = mode;
-  const toggle = document.getElementById('theme-toggle');
-  if (toggle) toggle.title = `Theme: ${mode}`;
+  updateThemeToggleTitle(mode);
   restyleMetricsChart();
+}
+
+function updateThemeToggleTitle(mode) {
+  const toggle = document.getElementById('theme-toggle');
+  if (toggle) toggle.title = t('nav.theme.title', { mode: knownText(`theme.mode.${mode}`, mode) });
 }
 
 function cycleTheme(event) {

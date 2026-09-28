@@ -29,32 +29,32 @@ function encodeFeedbackEmail(buffer) {
 }
 
 // ── Copy summary ─────────────────────────────────────────────────────────────
+// Copies and reports follow the UI language; indicator messages, warnings and
+// other free text from the server stay as sent. The JSON report is raw data.
 const lastResults = { sender: null, content: null };
-const MAILBOX_LABELS = {
-  known_disposable_provider: 'Known disposable-email provider',
-  privacy_relay: 'Privacy relay / masked address',
-  suspicious_mailbox_pattern: 'Suspicious mailbox pattern (not confirmed)',
-  suspicious_domain_pattern: 'Disposable-style domain (not confirmed)',
-  no_known_match: 'No known disposable-provider match',
-};
-const SUMMARY_DISCLAIMER = 'Heuristic result from PhishGuard; it does not prove a message is safe or malicious.';
+const MAILBOX_STATUSES = new Set(['known_disposable_provider', 'privacy_relay',
+  'suspicious_mailbox_pattern', 'suspicious_domain_pattern', 'no_known_match']);
+
+function mailboxLabel(status) {
+  return t(MAILBOX_STATUSES.has(status) ? `mailbox.${status}` : 'mailbox.unknown');
+}
 
 function senderSummaryText(data) {
   const indicators = (data.risk_indicators || []).filter(r => r.level !== 'info');
   return [
-    `PhishGuard sender check: ${data.email}`,
-    `Verdict: ${data.label} (${data.risk_score}/100)`,
-    `Mailbox type: ${MAILBOX_LABELS[data.disposable_status] || 'Unknown'}`,
-    indicators.length ? 'Indicators:' : 'Indicators: none detected',
-    ...indicators.map(r => `- [${r.level}] ${r.msg}`),
-    '', SUMMARY_DISCLAIMER,
+    t('summary.sender.heading', { email: data.email }),
+    t('summary.verdict', { label: senderVerdictLabel(data), score: `${data.risk_score}/100` }),
+    t('summary.mailbox', { type: mailboxLabel(data.disposable_status) }),
+    t(indicators.length ? 'summary.indicators' : 'summary.indicatorsNone'),
+    ...indicators.map(r => t('summary.indicatorLine', { level: levelName(r.level), msg: r.msg })),
+    '', t('summary.disclaimer'),
   ].join('\n');
 }
 
 function contentScoreText(data) {
   return data.combined_phishing_score != null
-    ? `${Math.round(data.combined_phishing_score)}% risk`
-    : `heuristic score ${data.total_score}`;
+    ? t('summary.score.percent', { score: Math.round(data.combined_phishing_score) })
+    : t('summary.score.heuristic', { score: data.total_score });
 }
 
 function contentSummaryText(data) {
@@ -62,12 +62,14 @@ function contentSummaryText(data) {
   const categories = data.category_results || [];
   const extras = data.extra_indicators || [];
   return [
-    'PhishGuard content check',
-    `Verdict: ${data.risk_label} (${score})`,
-    categories.length ? 'Categories:' : 'Categories: none matched',
-    ...categories.map(c => `- ${c.label} (${c.level}, ${c.count} signal${c.count === 1 ? '' : 's'})`),
-    ...(extras.length ? ['Technical indicators:', ...extras.map(r => `- [${r.level}] ${r.msg}`)] : []),
-    '', SUMMARY_DISCLAIMER,
+    t('summary.content.heading'),
+    t('summary.verdict', { label: contentRiskLabel(data.risk_label, data.risk_level), score }),
+    t(categories.length ? 'summary.categories' : 'summary.categoriesNone'),
+    ...categories.map(c => tPlural('summary.categoryLine', c.count,
+      { label: categoryText(c, 'label'), level: levelName(c.level), count: c.count })),
+    ...(extras.length ? [t('summary.technical'),
+      ...extras.map(r => t('summary.indicatorLine', { level: levelName(r.level), msg: r.msg }))] : []),
+    '', t('summary.disclaimer'),
   ].join('\n');
 }
 
@@ -90,19 +92,19 @@ async function copySummary(kind, button) {
   if (!data) return;
   const text = kind === 'sender' ? senderSummaryText(data) : contentSummaryText(data);
   const label = button && button.querySelector('.copy-label');
-  let message = 'Copied', announcement = 'Summary copied to clipboard';
+  let message = t('result.copied'), announcement = t('result.copyAnnounce');
   try {
     await navigator.clipboard.writeText(text);
   } catch (error) {
     // navigator.clipboard is missing on non-secure origins (e.g. a LAN IP over http).
-    if (!copyWithSelection(text)) message = announcement = 'Copy failed';
+    if (!copyWithSelection(text)) message = announcement = t('result.copyFailed');
   }
   // The label swap is not reliably announced; the live region is.
   announce(announcement);
   if (!label) return;
   label.textContent = message;
   clearTimeout(button._copyTimer);
-  button._copyTimer = setTimeout(() => { label.textContent = 'Copy summary'; }, 1800);
+  button._copyTimer = setTimeout(() => { label.textContent = t('result.copy'); }, 1800);
 }
 
 // ── Download report ──────────────────────────────────────────────────────────
@@ -116,19 +118,22 @@ function markdownText(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().replace(/[\\`*_[\]<>|~#]/g, '\\$&');
 }
 
+// One "- **Label:** value" line; values must already be Markdown-safe.
+const reportField = (labelKey, value) => t('report.field', { label: t(labelKey), value });
+const reportIndicator = r => t('report.indicatorLine', { level: markdownText(levelName(r.level)), msg: markdownText(r.msg) });
+
 function senderReportMarkdown(data, generatedAt) {
   const indicators = (data.risk_indicators || []).filter(r => r.level !== 'info');
   return [
-    '# PhishGuard sender check', '',
-    `- **Sender:** ${markdownText(data.email)}`,
-    `- **Verdict:** ${markdownText(data.label)} (${markdownText(data.risk_score)}/100)`,
-    `- **Mailbox type:** ${MAILBOX_LABELS[data.disposable_status] || 'Unknown'}`,
-    `- **Generated:** ${generatedAt.toISOString()}`, '',
-    '## Indicators', '',
-    ...(indicators.length
-      ? indicators.map(r => `- **${markdownText(r.level)}** — ${markdownText(r.msg)}`)
-      : ['None detected.']),
-    '', '---', '', `_${SUMMARY_DISCLAIMER}_`, '',
+    `# ${t('report.sender.title')}`, '',
+    reportField('report.sender', markdownText(data.email)),
+    reportField('report.verdict', t('report.verdictValue',
+      { label: markdownText(senderVerdictLabel(data)), score: `${markdownText(data.risk_score)}/100` })),
+    reportField('report.mailbox', mailboxLabel(data.disposable_status)),
+    reportField('report.generated', generatedAt.toISOString()), '',
+    `## ${t('report.indicators')}`, '',
+    ...(indicators.length ? indicators.map(reportIndicator) : [t('report.noneDetected')]),
+    '', '---', '', `_${t('summary.disclaimer')}_`, '',
   ].join('\n');
 }
 
@@ -138,22 +143,27 @@ function contentReportMarkdown(data, generatedAt) {
   const extras = data.extra_indicators || [];
   const warnings = data.analysis_warnings || [];
   const model = mode !== 'image' && data.ml_label != null
-    ? [`- **Text model:** ${contentModelName(data)} — ${markdownText(data.ml_phishing_probability)}% model risk score`]
+    ? [reportField('report.model', t('report.modelValue',
+      { model: contentModelName(data), score: markdownText(data.ml_phishing_probability) }))]
     : [];
   return [
-    '# PhishGuard content check', '',
-    `- **Input:** ${RECENT_MODES[mode]}`,
-    `- **Verdict:** ${markdownText(data.risk_label)} (${markdownText(contentScoreText(data))})`,
+    `# ${t('report.content.title')}`, '',
+    reportField('report.input', t(RECENT_MODES[mode])),
+    reportField('report.verdict', t('report.verdictValue', {
+      label: markdownText(contentRiskLabel(data.risk_label, data.risk_level)),
+      score: markdownText(contentScoreText(data)),
+    })),
     ...model,
-    `- **Generated:** ${generatedAt.toISOString()}`, '',
-    '## Categories', '',
+    reportField('report.generated', generatedAt.toISOString()), '',
+    `## ${t('report.categories')}`, '',
     ...(categories.length
-      ? categories.map(c => `- ${markdownText(c.label)} (${markdownText(c.level)}, ${markdownText(c.count)} signal${c.count === 1 ? '' : 's'})`)
-      : ['None matched.']),
-    ...(extras.length ? ['', '## Technical indicators', '',
-      ...extras.map(r => `- **${markdownText(r.level)}** — ${markdownText(r.msg)}`)] : []),
-    ...(warnings.length ? ['', '## Analysis warnings', '', ...warnings.map(w => `- ${markdownText(w)}`)] : []),
-    '', '---', '', `_${SUMMARY_DISCLAIMER}_`, '',
+      ? categories.map(c => tPlural('summary.categoryLine', c.count, {
+        label: markdownText(categoryText(c, 'label')), level: markdownText(levelName(c.level)), count: markdownText(c.count),
+      }))
+      : [t('report.noneMatched')]),
+    ...(extras.length ? ['', `## ${t('report.technical')}`, '', ...extras.map(reportIndicator)] : []),
+    ...(warnings.length ? ['', `## ${t('report.warnings')}`, '', ...warnings.map(w => `- ${markdownText(w)}`)] : []),
+    '', '---', '', `_${t('summary.disclaimer')}_`, '',
   ].join('\n');
 }
 
@@ -177,7 +187,9 @@ function buildReport(kind, format, data, generatedAt) {
   const mode = kind === 'sender' ? 'sender' : contentMode(data);
   const text = format === 'json'
     ? JSON.stringify({
-      generated_at: generatedAt.toISOString(), tool: 'PhishGuard', mode, result: withoutBase64(data),
+      // `language` records the UI language; `result` is the raw (English) API response.
+      generated_at: generatedAt.toISOString(), tool: 'PhishGuard', language: i18n() ? i18n().languageTag() : 'en',
+      mode, result: withoutBase64(data),
     }, null, 2) + '\n'
     : (kind === 'sender' ? senderReportMarkdown : contentReportMarkdown)(data, generatedAt);
   return { text, filename: reportFilename(mode, format, generatedAt), type: REPORT_TYPES[format] };
@@ -198,22 +210,24 @@ function downloadReport(kind, format) {
     link.remove();
   } catch (_error) {
     if (url) URL.revokeObjectURL(url);
-    announce('Download failed');
+    announce(t('result.downloadFailed'));
     return;
   }
   // Revoke once the click has handed the URL to the browser's download manager.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  announce('Report downloaded');
+  announce(t('result.downloaded'));
 }
 
 // ── Recent checks (this browser only) ────────────────────────────────────────
 // The last few verdicts are kept in localStorage so a user can compare checks.
 // Each entry holds only the mode, verdict label and level, score and time, plus
 // the sender's *domain*: never the local part, a subject, body, file name or
-// extracted text. Entries are display-only and cannot be re-run.
+// extracted text. Entries are display-only and cannot be re-run. The stored
+// label is the server's English text; other languages render one from the
+// level code at display time (recentLabel), so storage is language-neutral.
 const RECENT_KEY = 'phishguard-recent-checks';
 const RECENT_LIMIT = 10;
-const RECENT_MODES = { sender: 'Sender', content: 'Content', eml: 'Email file', image: 'Image' };
+const RECENT_MODES = { sender: 'recent.mode.sender', content: 'recent.mode.content', eml: 'recent.mode.eml', image: 'recent.mode.image' };
 const RECENT_LEVELS = new Set(['safe', 'low', 'medium', 'high', 'critical', 'unknown']);
 let _recentStorageOk = true;
 
@@ -280,17 +294,25 @@ function recordRecentCheck(entry) {
 function clearRecentChecks() {
   try { localStorage.removeItem(RECENT_KEY); } catch (_error) { _recentStorageOk = false; }
   renderRecentChecks();
-  announce('Recent checks cleared');
+  announce(t('recent.cleared'));
   // The Clear button hides itself, so return focus to the disclosure.
   document.querySelector('#recent-checks > summary')?.focus();
 }
 
 function formatRecentTime(at, now) {
   const minutes = Math.floor((now - at) / 60000);
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} h ago`;
-  return new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  if (minutes < 1) return t('recent.time.now');
+  if (minutes < 60) return t('recent.time.minutes', { count: minutes });
+  if (minutes < 24 * 60) return t('recent.time.hours', { count: Math.floor(minutes / 60) });
+  return new Date(at).toLocaleDateString(i18n()?.dateLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function recentLabel(entry) {
+  if (!entry.label) return t('recent.fallbackLabel');
+  if (entry.mode === 'sender' && uiLang() !== 'en' && ['critical', 'high', 'medium', 'low'].includes(entry.level)) {
+    return t(`sender.verdict.${entry.level}`);
+  }
+  return contentRiskLabel(entry.label, entry.level);
 }
 
 function renderRecentChecks() {
@@ -304,10 +326,10 @@ function renderRecentChecks() {
     const domain = entry.domain ? `<span class="recent-domain">${escapeHtml(entry.domain)}</span>` : '';
     return `
       <li class="recent-item recent-${entry.level}">
-        <span class="recent-mode">${escapeHtml(RECENT_MODES[entry.mode])}</span>
-        <span class="recent-main"><span class="recent-label">${escapeHtml(entry.label || 'Result')}</span>${domain}</span>
+        <span class="recent-mode">${escapeHtml(t(RECENT_MODES[entry.mode]))}</span>
+        <span class="recent-main"><span class="recent-label">${escapeHtml(recentLabel(entry))}</span>${domain}</span>
         <span class="recent-score">${escapeHtml(score)}</span>
-        <time class="recent-time" datetime="${when.toISOString()}" title="${escapeHtml(when.toLocaleString())}">${escapeHtml(formatRecentTime(entry.at, now))}</time>
+        <time class="recent-time" datetime="${when.toISOString()}" title="${escapeHtml(when.toLocaleString(i18n()?.dateLocale()))}">${escapeHtml(formatRecentTime(entry.at, now))}</time>
       </li>`;
   }).join('');
   list.hidden = entries.length === 0;
@@ -315,9 +337,7 @@ function renderRecentChecks() {
   document.getElementById('recent-checks-clear').hidden = entries.length === 0;
   const empty = document.getElementById('recent-checks-empty');
   empty.hidden = entries.length > 0;
-  empty.textContent = _recentStorageOk
-    ? 'No checks yet. Results you analyze here will be listed.'
-    : 'This browser is blocking local storage, so recent checks are not kept.';
+  empty.textContent = t(_recentStorageOk ? 'recent.empty' : 'recent.blocked');
 }
 
 function setupRecentChecks() {

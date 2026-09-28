@@ -2,7 +2,13 @@
 'use strict';
 (() => {
   let sequence = 0;
-  window.PhishGuardConfirm = function confirmDialog(message, {confirmLabel = 'Continue', cancelLabel = 'Cancel'} = {}) {
+  // cases.html loads this file without i18n.js, so every string keeps its
+  // English text inline; i18n.test.mjs checks it matches the dictionary.
+  const tr = (key, english, params) => window.PhishGuardI18n ? window.PhishGuardI18n.t(key, params)
+    : english.replace(/\{(\w+)\}/g, (match, name) => (params && Object.hasOwn(params, name) ? String(params[name]) : match));
+  window.PhishGuardConfirm = function confirmDialog(message, {
+    confirmLabel = tr('confirm.continue', 'Continue'), cancelLabel = tr('confirm.cancel', 'Cancel'),
+  } = {}) {
     if (typeof HTMLDialogElement !== 'function' || typeof document.createElement('dialog').showModal !== 'function') {
       return Promise.resolve(window.confirm(message));
     }

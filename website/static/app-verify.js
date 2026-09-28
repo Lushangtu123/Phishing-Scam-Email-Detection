@@ -5,9 +5,11 @@
 // ── Email Authenticity Verification ──────────────────────────────────────────
 let _verifyEmail = null;   // remember which email was last analyzed
 let _verificationRequestId = 0;
+let _lastVerifyResult = null;   // re-rendered after a language switch
 
 function resetVerifyCard() {
   _verificationRequestId++;
+  _lastVerifyResult = null;
   setError('verify-error');
   if (!_emailVerificationEnabled) {
     applyPublicConfig(_publicConfig);
@@ -44,6 +46,7 @@ async function runVerification() {
 }
 
 function renderVerifyResult(data) {
+  _lastVerifyResult = data;
   const ICONS = {
     ok:   { icon: 'check', cls: 'vstep-ok'   },
     warn: { icon: 'alert', cls: 'vstep-warn' },
@@ -66,11 +69,11 @@ function renderVerifyResult(data) {
   // ── Section A: Mailbox Existence ────────────────────────────────────────
   // Step 1 – Format
   if (data.format_valid) {
-    setStep('format', 'ok', 'Address conforms to RFC 5321 format.');
+    setStep('format', 'ok', t('verify.detail.formatOk'));
   } else {
-    setStep('format', 'fail', data.smtp_message || 'Invalid email format.');
+    setStep('format', 'fail', data.smtp_message || t('verify.detail.formatInvalid'));
     ['mx', 'smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s =>
-      setStep(s, 'skip', 'Skipped.'));
+      setStep(s, 'skip', t('verify.detail.skipped')));
     showVerifyVerdict('invalid_format');
     return;
   }
@@ -78,18 +81,18 @@ function renderVerifyResult(data) {
   // Step 2 – DNS / MX
   if (data.null_mx && data.overall === 'no_mail_service') {
     setStep('mx', 'info', data.smtp_message);
-    ['smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s => setStep(s, 'skip', 'Skipped: domain declares no mail service.'));
+    ['smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s => setStep(s, 'skip', t('verify.detail.skippedNoMail')));
     showVerifyVerdict('no_mail_service');
     return;
   }
   if (data.mx_found) {
     const recs = (data.mx_records || [])
-      .map(r => `${r[1]} (pref ${r[0]})`).join(' · ');
-    setStep('mx', 'ok', `MX records: ${recs || data.email.split('@')[1]}`);
+      .map(r => t('verify.detail.mxPref', { host: r[1], pref: r[0] })).join(' · ');
+    setStep('mx', 'ok', t('verify.detail.mxRecords', { records: recs || data.email.split('@')[1] }));
   } else {
     const inconclusive = data.overall === 'unverifiable';
-    setStep('mx', inconclusive ? 'warn' : 'fail', data.smtp_message || 'No MX or A records found.');
-    ['smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s => setStep(s, 'skip', 'Skipped.'));
+    setStep('mx', inconclusive ? 'warn' : 'fail', data.smtp_message || t('verify.detail.noMx'));
+    ['smtp', 'ptr', 'spf', 'dmarc', 'age'].forEach(s => setStep(s, 'skip', t('verify.detail.skipped')));
     showVerifyVerdict(inconclusive ? 'unverifiable' : 'likely_invalid');
     return;
   }
@@ -104,23 +107,20 @@ function renderVerifyResult(data) {
   } else if (smtpResult === 'temporarily_unavailable') {
     setStep('smtp', 'warn', smtpMsg);
   } else if (data.smtp_status === 'skipped' || data.mailbox_verification?.status === 'unavailable') {
-    setStep('smtp', 'info', smtpMsg || 'SMTP mailbox probing is unavailable on this deployment.');
+    setStep('smtp', 'info', smtpMsg || t('verify.detail.smtpUnavailable'));
   } else {
     setStep('smtp', 'warn',
-      smtpMsg || (!data.smtp_connectable
-        ? 'Port 25 appears blocked — probe skipped. Domain MX exists, mailbox unconfirmed.'
-        : 'Server gave no definitive response.'));
+      smtpMsg || t(!data.smtp_connectable ? 'verify.detail.port25' : 'verify.detail.noResponse'));
   }
 
   // Step 4 – MX PTR (reverse DNS)
   const ptr = data.mx_ptr || {};
   if (ptr.found) {
-    setStep('ptr', 'ok', ptr.message || `PTR: ${ptr.ptr}`);
+    setStep('ptr', 'ok', ptr.message || t('verify.detail.ptr', { ptr: ptr.ptr }));
   } else if (ptr.message && ptr.message.includes('timed out')) {
     setStep('ptr', 'skip', ptr.message);
   } else {
-    setStep('ptr', 'warn',
-      ptr.message || 'No PTR record — legitimate mail servers should have reverse DNS.');
+    setStep('ptr', 'warn', ptr.message || t('verify.detail.noPtr'));
   }
 
   // ── Section B: Email Security Policy ───────────────────────────────────
@@ -131,9 +131,9 @@ function renderVerifyResult(data) {
     const state  = policy === 'strict'   ? 'ok'   :
                    policy === 'softfail' ? 'warn'  :
                    policy === 'open'     ? 'fail'  : 'warn';
-    setStep('spf', state, spf.message || `Policy: ${policy}`);
+    setStep('spf', state, spf.message || t('verify.detail.policy', { policy }));
   } else {
-    setStep('spf', 'warn', spf.message || 'No SPF record found.');
+    setStep('spf', 'warn', spf.message || t('verify.detail.noSpf'));
   }
 
   // Step 6 – DMARC
@@ -143,9 +143,9 @@ function renderVerifyResult(data) {
     const state  = policy === 'reject'     ? 'ok'   :
                    policy === 'quarantine' ? 'warn'  :
                    policy === 'none'       ? 'warn'  : 'skip';
-    setStep('dmarc', state, dmarc.message || `Policy: ${policy}`);
+    setStep('dmarc', state, dmarc.message || t('verify.detail.policy', { policy }));
   } else {
-    setStep('dmarc', 'warn', dmarc.message || 'No DMARC record found.');
+    setStep('dmarc', 'warn', dmarc.message || t('verify.detail.noDmarc'));
   }
 
   // ── Section C: Domain Intelligence ─────────────────────────────────────
@@ -154,43 +154,37 @@ function renderVerifyResult(data) {
   if (age.found && age.age_days !== null) {
     const d = age.age_days;
     const state = d < 30 ? 'fail' : d < 180 ? 'warn' : 'ok';
-    const detail = age.message + (age.registrar ? ` · Registrar: ${age.registrar}` : '');
+    const detail = age.message + (age.registrar ? t('verify.detail.registrar', { registrar: age.registrar }) : '');
     setStep('age', state, detail);
   } else {
-    setStep('age', 'skip', age.message || 'WHOIS data unavailable.');
+    setStep('age', 'skip', age.message || t('verify.detail.noWhois'));
   }
 
   showVerifyVerdict(data.overall, data.verification_complete, data);
 }
 
 function showVerifyVerdict(overall, complete, data = {}) {
+  // Each overall code's text is `verify.verdict.<code>` in the dictionary.
   const VERDICTS = {
-    verified:    { cls: 'vv-ok',      icon: 'check',
-      text: 'SMTP Accepted — The mail server accepted this address. This does not guarantee mailbox existence, delivery, or sender authenticity.' },
-    no_mail_service: { cls: 'vv-warn', icon: 'info',
-      text: 'No Mail Service — This domain explicitly does not accept email (Null MX). This alone is not evidence of phishing.' },
-    likely_invalid: { cls: 'vv-fail', icon: 'x',
-      text: 'Likely Invalid — This address probably does not exist.' },
-    unverifiable: { cls: 'vv-warn',   icon: 'alert',
-      text: 'Unverifiable — Available checks could not confirm mailbox existence. Review the DNS and SMTP details above; an unavailable or timed-out check does not prove the address is invalid.' },
-    suspicious:  { cls: 'vv-suspicious', icon: 'bell',
-      text: 'Suspicious — Domain was registered very recently (< 30 days). Newly registered domains are a hallmark of phishing campaigns.' },
-    domain_valid: { cls: 'vv-ok', icon: 'check',
-      text: 'Domain Valid — Mail-routing records exist and the available domain checks completed. The mailbox itself is not verified.' },
-    invalid_format: { cls: 'vv-fail', icon: 'x',
-      text: 'Invalid Format — This is not a valid email address.' },
-    temporarily_unavailable: { cls: 'vv-warn', icon: 'alert',
-      text: 'Temporarily Unavailable — The server returned a transient error. Try again later.' },
+    verified:                { cls: 'vv-ok',         icon: 'check' },
+    no_mail_service:         { cls: 'vv-warn',       icon: 'info'  },
+    likely_invalid:          { cls: 'vv-fail',       icon: 'x'     },
+    unverifiable:            { cls: 'vv-warn',       icon: 'alert' },
+    suspicious:              { cls: 'vv-suspicious', icon: 'bell'  },
+    domain_valid:            { cls: 'vv-ok',         icon: 'check' },
+    invalid_format:          { cls: 'vv-fail',       icon: 'x'     },
+    temporarily_unavailable: { cls: 'vv-warn',       icon: 'alert' },
   };
-  const cfg = VERDICTS[overall] || { cls: 'vv-warn', icon: 'minus', text: 'Result inconclusive.' };
+  const known = Object.hasOwn(VERDICTS, overall);
+  const cfg = known ? VERDICTS[overall] : { cls: 'vv-warn', icon: 'minus' };
+  const text = t(known ? `verify.verdict.${overall}` : 'verify.verdict.inconclusive');
   const el  = document.getElementById('verify-verdict');
   const incomplete = complete === false;
   el.className  = 'verify-verdict ' + (incomplete && overall === 'verified' ? 'vv-warn' : cfg.cls);
   const domainOnly = overall === 'domain_valid' && data.domain_verification?.complete === true;
-  const warning = incomplete && !domainOnly
-    ? ' Verification Incomplete — One or more checks failed, timed out, or could not run. See the individual results above.'
-    : '';
-  el.innerHTML  = `${icon(cfg.icon, 'ico-lead')} <span>${cfg.text}${warning}</span>`;
+  const warning = incomplete && !domainOnly ? t('verify.verdict.incomplete') : '';
+  // Verdict text comes only from the trusted dictionary, as the literals did before.
+  el.innerHTML  = `${icon(cfg.icon, 'ico-lead')} <span>${text}${warning}</span>`;
 
   document.getElementById('verify-result').classList.remove('hidden');
 }

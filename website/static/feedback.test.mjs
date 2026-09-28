@@ -30,6 +30,8 @@ function setup(handler, cryptoOverride = {}) {
   const crypto = {subtle: webcrypto.subtle, randomUUID: () => `00000000-0000-4000-8000-${String(++sequence).padStart(12, '0')}`, ...cryptoOverride};
   const context = vm.createContext({document, window, crypto, TextEncoder, Uint8Array,
     fetch: async (url, options) => { requests.push({url, options}); return handler(url, options); }});
+  // The page loads i18n.js first; feedback.js takes its strings from it.
+  vm.runInContext(readFileSync(new URL('./i18n.js', import.meta.url), 'utf8'), context);
   vm.runInContext(readFileSync(new URL('./feedback.js', import.meta.url), 'utf8'), context);
   document.ready();
   element('feedback-type').value = 'false_positive';

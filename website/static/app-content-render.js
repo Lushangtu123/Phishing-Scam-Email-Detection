@@ -21,15 +21,33 @@ const RISK_CONFIG = {
 
 // The API names the selected classifier in ml_metrics.model (see model selection
 // in content_model.py); every candidate there shares the word + character TF-IDF
-// vectorizer. Anything unrecognised falls back to a generic name.
-const CONTENT_MODEL_NAMES = new Map([
-  ['LogisticRegression', 'TF-IDF + Logistic Regression'],
-  ['CalibratedLinearSVC', 'TF-IDF + Linear SVM (calibrated)'],
-  ['ComplementNB', 'TF-IDF + Complement Naive Bayes'],
-]);
+// vectorizer. Display names are `content.ml.model.<id>` in the dictionary;
+// anything unrecognised falls back to a generic name.
+const CONTENT_MODEL_IDS = new Set(['LogisticRegression', 'CalibratedLinearSVC', 'ComplementNB']);
 
 function contentModelName(data) {
-  return CONTENT_MODEL_NAMES.get(data && data.ml_metrics && data.ml_metrics.model) || 'Text model';
+  const id = data && data.ml_metrics && data.ml_metrics.model;
+  return t(CONTENT_MODEL_IDS.has(id) ? `content.ml.model.${id}` : 'content.ml.model.generic');
+}
+
+// The server's English risk_label is shown as-is in English. Other languages
+// use the exact translation of a known label, else a label for the risk_level
+// code, else the server's text.
+const CONTENT_RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'low', 'safe',
+  'remoteUnchecked', 'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`);
+
+function contentRiskLabel(label, level) {
+  if (uiLang() === 'en') return label;
+  for (const key of CONTENT_RISK_LABEL_KEYS) {
+    const localized = knownText(key, label);
+    if (localized !== label) return localized;
+  }
+  return i18n()?.has(`content.level.${level}`) ? t(`content.level.${level}`) : label;
+}
+
+function mlLabelText(label) {
+  const phishing = knownText('content.mlLabel.phishing', label);
+  return phishing !== label ? phishing : knownText('content.mlLabel.legit', label);
 }
 
 // Which input produced a content result, from the server's input_mode.
@@ -38,7 +56,9 @@ function contentMode(data) {
   return inputMode === 'raw-email' ? 'eml' : inputMode === 'image-evidence' ? 'image' : 'content';
 }
 
-function renderContentResult(data) {
+// `languageOnly` re-renders the same result after a language switch without
+// replaying the score animation, scrolling or moving focus.
+function renderContentResult(data, { languageOnly = false } = {}) {
   lastResults.content = data;
   const cfg = RISK_CONFIG[data.risk_level] || RISK_CONFIG.medium;
   const imageOnly = data.input_mode === 'image-evidence';
@@ -47,7 +67,7 @@ function renderContentResult(data) {
   const banner = document.getElementById('content-risk-banner');
   banner.className = 'content-risk-banner crb-' + data.risk_level;
   document.getElementById('crb-icon').innerHTML    = icon(cfg.icon);
-  document.getElementById('crb-title').textContent = data.risk_label;
+  document.getElementById('crb-title').textContent = contentRiskLabel(data.risk_label, data.risk_level);
   // Sub-line: now combines heuristic categories with ML verdict
   const subParts = [];
   if (data.analysis_complete === false) {
@@ -61,43 +81,39 @@ function renderContentResult(data) {
     const unresolvedImageCoverage = data.unresolved_image_coverage?.inspection_status === 'metadata_only' ||
       (data.analysis_warnings || []).some(warning => warning.includes('Unresolved image references were not inspected;'));
     const parseIssues = (data.message_structure?.parse_warnings || []).length > 0;
-    subParts.push(imageOnly
-      ? 'Image risk coverage is limited. Review the recognition status and extracted-text assessment in Image & QR evidence.'
-      : 'Analysis incomplete. Review the warnings below.');
-    if (attachmentCoverage) {
-      subParts.push('Attachment contents were not inspected; only filenames and MIME types were checked.');
-    }
-    if (inlineImageCoverage) subParts.push('Embedded image content was not inspected.');
-    if (remoteImageCoverage) subParts.push('Remote image content was not inspected.');
-    if (unresolvedImageCoverage) subParts.push('Unresolved image references were not inspected.');
-    if (parseIssues) subParts.push('Some message content could not be reliably parsed.');
+    subParts.push(t(imageOnly ? 'content.sub.imageLimited' : 'content.sub.incomplete'));
+    if (attachmentCoverage) subParts.push(t('content.sub.attachments'));
+    if (inlineImageCoverage) subParts.push(t('content.sub.inlineImages'));
+    if (remoteImageCoverage) subParts.push(t('content.sub.remoteImages'));
+    if (unresolvedImageCoverage) subParts.push(t('content.sub.unresolvedImages'));
+    if (parseIssues) subParts.push(t('content.sub.parse'));
     if (!imageOnly && ['insufficient_context', 'insufficient_feature_coverage', 'unverified_rendering'].includes(data.ml_status)) {
-      subParts.push('The text model could not score this message.');
+      subParts.push(t('content.sub.modelUnscored'));
     }
   }
   if (data.ml_label != null) {
-    subParts.push(`ML risk score: ${data.ml_phishing_probability}% — ${data.ml_label}`);
+    subParts.push(t('content.sub.ml', { score: data.ml_phishing_probability, label: mlLabelText(data.ml_label) }));
   }
   if (data.fusion_basis === 'model_only') {
-    subParts.push('Model-only risk signal; no independent rule, sender, or link evidence was found.');
+    subParts.push(t('content.sub.modelOnly'));
   } else if (data.fusion_basis === 'model_led') {
-    subParts.push('Model-led risk signal; no strong independent rule, sender, or link evidence was found.');
+    subParts.push(t('content.sub.modelLed'));
   }
   const categoryCount = data.category_results.length;
   const technicalCount = (data.extra_indicators || []).filter(ind =>
     ['low', 'medium', 'high', 'critical'].includes(ind.level)).length;
-  if (categoryCount) subParts.push(`${categoryCount} suspicious ${categoryCount === 1 ? 'category' : 'categories'} detected.`);
-  if (technicalCount) subParts.push(`${technicalCount} technical risk ${technicalCount === 1 ? 'indicator' : 'indicators'} detected.`);
+  if (categoryCount) subParts.push(tPlural('content.sub.categories', categoryCount));
+  if (technicalCount) subParts.push(tPlural('content.sub.technical', technicalCount));
   if (!categoryCount && !technicalCount && data.analysis_complete !== false &&
       !['model_only', 'model_led'].includes(data.fusion_basis)) {
-    subParts.push(data.risk_level === 'safe'
-      ? 'No indicators detected by the available checks. This does not prove the message is safe.'
-      : 'Risk detected by the combined analysis. Review the evidence below.');
+    subParts.push(t(data.risk_level === 'safe' ? 'content.sub.safe' : 'content.sub.risk'));
   }
   document.getElementById('crb-sub').textContent = subParts.join(' • ');
   const scoreEl = document.getElementById('crb-score');
   // Prefer the blended ML+heuristic score when available; fall back to raw heuristic total.
-  if (data.risk_level === 'unknown') {
+  if (languageOnly) {
+    // Scores are language-neutral; keep the rendered value and ring.
+  } else if (data.risk_level === 'unknown') {
     animateNumber(scoreEl, 0, () => '—');
     setRing('crb-ring', 0, cfg.scoreColor);
   } else if (data.combined_phishing_score != null) {
@@ -132,15 +148,14 @@ function renderContentResult(data) {
     document.getElementById('content-phish-pct').textContent = '—';
     document.getElementById('content-legit-bar').style.width = '0%';
     document.getElementById('content-legit-pct').textContent = '—';
-    document.getElementById('content-ml-sub').textContent = data.ml_status === 'insufficient_context'
-      ? 'The message contains too little text, so ML classification was not applied.'
+    document.getElementById('content-ml-sub').textContent = t(data.ml_status === 'insufficient_context'
+      ? 'content.ml.abstain.context'
       : data.ml_status === 'unverified_rendering'
-        ? 'CSS visibility or image fallback text could not be verified, so ML classification was not applied.'
-        : 'Text-model coverage was insufficient, so ML classification was not applied.';
+        ? 'content.ml.abstain.rendering'
+        : 'content.ml.abstain.coverage');
     document.getElementById('content-ml-metrics').innerHTML = '';
-    document.getElementById('content-ml-contribs').innerHTML = data.ml_status === 'unverified_rendering'
-      ? '<div class="ml-contribs-title">Uncertain HTML text was withheld; independent destinations, sender, and message-structure checks still ran.</div>'
-      : '<div class="ml-contribs-title">Rule, sender, link, and message-structure checks still ran.</div>';
+    document.getElementById('content-ml-contribs').innerHTML = `<div class="ml-contribs-title">${escapeHtml(t(
+      data.ml_status === 'unverified_rendering' ? 'content.ml.contribs.rendering' : 'content.ml.contribs.checks'))}</div>`;
   } else if (data.ml_label != null) {
     mlCard.style.display = '';
     mlProbabilityBars.style.display = '';
@@ -153,17 +168,18 @@ function renderContentResult(data) {
     document.getElementById('content-legit-bar').style.width = legitPct + '%';
     document.getElementById('content-legit-pct').textContent = legitPct + '%';
 
-    const verdict = data.ml_prediction === 1 ? 'Likely phishing' : 'Likely legitimate';
+    const verdict = t(data.ml_prediction === 1 ? 'content.ml.verdict.phishing' : 'content.ml.verdict.legit');
     document.getElementById('content-ml-sub').textContent =
-      `${verdict} — model risk score ${phishPct.toFixed(1)}%`;
+      t('content.ml.sub', { verdict, score: phishPct.toFixed(1) });
 
     // Hold-out evaluation metrics for the content text classifier
     const m = data.ml_metrics || {};
+    const metricLabel = key => escapeHtml(t(`content.ml.metric.${key}`));
     document.getElementById('content-ml-metrics').innerHTML = m.Accuracy != null ? `
-      <div class="ml-metric"><span class="ml-metric-k">Phishing recall</span><span class="ml-metric-v">${(m.Phishing_Recall*100).toFixed(1)}%</span></div>
-      <div class="ml-metric"><span class="ml-metric-k">False-negative rate</span><span class="ml-metric-v">${(m.False_Negative_Rate*100).toFixed(1)}%</span></div>
-      <div class="ml-metric"><span class="ml-metric-k">PR AUC</span><span class="ml-metric-v">${m.PR_AUC.toFixed(4)}</span></div>
-      <div class="ml-metric"><span class="ml-metric-k">Threshold</span><span class="ml-metric-v">${m.decision_threshold.toFixed(3)}</span></div>
+      <div class="ml-metric"><span class="ml-metric-k">${metricLabel('recall')}</span><span class="ml-metric-v">${(m.Phishing_Recall*100).toFixed(1)}%</span></div>
+      <div class="ml-metric"><span class="ml-metric-k">${metricLabel('fnr')}</span><span class="ml-metric-v">${(m.False_Negative_Rate*100).toFixed(1)}%</span></div>
+      <div class="ml-metric"><span class="ml-metric-k">${metricLabel('prauc')}</span><span class="ml-metric-v">${m.PR_AUC.toFixed(4)}</span></div>
+      <div class="ml-metric"><span class="ml-metric-k">${metricLabel('threshold')}</span><span class="ml-metric-v">${m.decision_threshold.toFixed(3)}</span></div>
     ` : '';
 
     // Per-email token contributions (what pushed the score toward "phishing")
@@ -171,15 +187,15 @@ function renderContentResult(data) {
     const contribBox = document.getElementById('content-ml-contribs');
     if (contribs.length > 0) {
       contribBox.innerHTML =
-        `<div class="ml-contribs-title">Top tokens driving the ML score</div>` +
+        `<div class="ml-contribs-title">${escapeHtml(t('content.ml.contribs.title'))}</div>` +
         `<div class="ml-contribs-list">` +
         contribs.map(c =>
-          `<span class="ml-token" title="weighted contribution: ${escapeHtml(c.contribution)}">${escapeHtml(c.term)}</span>`
+          `<span class="ml-token" title="${escapeHtml(t('content.ml.contribs.tokenTitle', { value: c.contribution }))}">${escapeHtml(c.term)}</span>`
         ).join('') +
         `</div>`;
     } else {
       contribBox.innerHTML =
-        `<div class="ml-contribs-title">No phishing-indicative tokens found in this email.</div>`;
+        `<div class="ml-contribs-title">${escapeHtml(t('content.ml.contribs.none'))}</div>`;
     }
   } else {
     mlCard.style.display = 'none';
@@ -189,19 +205,19 @@ function renderContentResult(data) {
   const grid = document.getElementById('content-category-grid');
   grid.style.display = imageOnly ? 'none' : '';
   if (data.category_results.length === 0) {
-    grid.innerHTML = `<div class="cat-empty">No suspicious keyword categories matched in this email.</div>`;
+    grid.innerHTML = `<div class="cat-empty">${escapeHtml(t('content.cat.empty'))}</div>`;
   } else {
     grid.innerHTML = data.category_results.map(cat => `
       <div class="cat-card cat-${escapeHtml(cat.level)}">
         <div class="cat-header">
           <span class="cat-icon icon-tile tile-${escapeHtml(cat.level)}">${icon(CATEGORY_ICONS[cat.key] || 'alert')}</span>
           <div class="cat-title-wrap">
-            <div class="cat-title">${escapeHtml(cat.label)}</div>
-            <div class="cat-count">${escapeHtml(cat.count)} signal${cat.count > 1 ? 's' : ''} matched</div>
+            <div class="cat-title">${escapeHtml(categoryText(cat, 'label'))}</div>
+            <div class="cat-count">${escapeHtml(t(cat.count > 1 ? 'content.cat.count.other' : 'content.cat.count.one', { count: cat.count }))}</div>
           </div>
-          <span class="cat-level-badge level-${escapeHtml(cat.level)}">${escapeHtml(cat.level)}</span>
+          <span class="cat-level-badge level-${escapeHtml(cat.level)}">${escapeHtml(levelName(cat.level))}</span>
         </div>
-        <div class="cat-desc">${escapeHtml(cat.description)}</div>
+        <div class="cat-desc">${escapeHtml(categoryText(cat, 'description'))}</div>
         <div class="cat-keywords">
           ${cat.matched.map(kw => `<span class="kw-pill">${escapeHtml(kw)}</span>`).join('')}
         </div>
@@ -241,6 +257,12 @@ function renderContentResult(data) {
 
   const area = document.getElementById('content-result-area');
   area.classList.remove('hidden');
+  if (languageOnly) return;
   area.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
   document.getElementById('crb-title').focus({ preventScroll: true });
+}
+
+// Category label and description, keyed by the stable category key.
+function categoryText(cat, field) {
+  return knownText(`category.${String(cat.key)}.${field}`, cat[field]);
 }

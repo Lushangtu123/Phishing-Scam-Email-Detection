@@ -1070,8 +1070,8 @@ bucket.
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
 python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
-node --test website/static/app.test.mjs
-for f in website/static/app*.js; do node --check "$f"; done
+node --test website/static/app.test.mjs website/static/i18n.test.mjs
+for f in website/static/app*.js website/static/i18n.js website/static/lang-init.js; do node --check "$f"; done
 node website/tools/asset-versions/update.mjs   # after editing a versioned static file
 git diff --check
 ```

@@ -20,6 +20,34 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 14:37 PT] — Simplified Chinese (zh-CN) homepage UI with an EN / 中文 switch
+
+### Why
+- The homepage was English-only. Chinese-speaking users now get a full Simplified Chinese UI, while English stays the default and renders the same visible text as before.
+- The case workspace (`cases.html` / `cases.js`) is out of scope and stays English.
+
+### Files changed
+- `website/static/i18n.js` (new, 1,539 lines) — `window.PhishGuardI18n` with `t(key, params)` (`{name}` interpolation; missing zh key → English; missing key → the key plus one `console.warn`), `plural` (`.one` / `.other` keys), `known(key, serverText)`, `lang`, `languageTag`, `locale`, `dateLocale`, `setLang`, `apply(root)`, and a flat 652-key dictionary per language (`en`, `zh`). It loads as the first `<body>` script, translates `data-i18n` / `data-i18n-attr` / `data-i18n-html` markup before first paint (English needs no pass), binds `#lang-toggle`, stores the choice in `localStorage['phishguard-lang']` (try/catch) and dispatches `phishguard:languagechange`.
+- `website/static/lang-init.js` (new, 11 lines) — pre-paint `<head>` script, after `theme-init.js`: stored choice, else `navigator.languages[0]` starting with `zh` → `zh-CN`; sets `<html lang>` and, for Chinese, `data-i18n-pending` (cleared by `i18n.js`).
+- `website/static/index.html` — 237 `data-i18n*` annotations (English text kept as the no-JS fallback; mixed-content nodes wrap their text in a `<span>`), the EN / 中文 button next to the theme toggle, `lang-init.js` in `<head>` and `i18n.js` before `vision.js`.
+- `website/static/app-core.js` — `t`, `tPlural`, `uiLang`, `knownText`, `levelName`; localized `postRequest` errors including the 429 “{seconds}” message; count-ups use the active locale.
+- `website/static/app-sender.js`, `app-verify.js`, `app-config.js`, `app-content.js`, `app-content-render.js`, `app-reports.js`, `app-metrics.js`, `app-theme.js`, `app-layout.js` — every user-visible literal now comes from `t()`; `renderResult` / `renderContentResult` take `{ languageOnly }` to re-render without resetting verification, re-animating scores, scrolling or moving focus; the verification notice, file-status line, last verification result and last metrics are kept so they can be re-rendered.
+- `website/static/app.js` — `rerenderForLanguage()` on `phishguard:languagechange`: re-renders visible sender/verification/content/visual-evidence results, recent checks, benchmark table and Chart.js axis labels, busy button labels and the menu/theme labels from stored responses — no request is repeated.
+- `website/static/feedback.js` — dialog states, errors and the retry confirmation from `t()`; server `detail` messages stay as sent.
+- `website/static/vision.js`, `file-intake.js`, `confirm-dialog.js` — shared with `cases.html`, which does not load `i18n.js`, so they use `tr(key, 'English', params)`; worker progress messages are localized in `vision.js`.
+- `website/static/style.css` — `.lang-toggle` (only the target language shows at ≤ 480 px), the `data-i18n-pending` no-flash guard with a 2 s reveal fallback, `:lang(zh-CN)` letter-spacing for eyebrow/uppercase labels; `.case-login span` → `.case-login span[aria-hidden="true"]` (it would otherwise hide the new label span on phones); removed the unused `.demo-tab span { font-size: 15px; }`; `.report-trigger > span[data-i18n]:first-child` keeps the ↗ spacing on the icon only.
+- `website/static/i18n.test.mjs` (new, 28 tests), `website/tests/fixtures/i18n/{scenarios.mjs,capture.mjs,en-snapshot.json}` (new) — the snapshot was captured from the pre-change scripts (41 app scenarios + 3 image-evidence renders).
+- `website/static/app.test.mjs` — loads `i18n.js` before the app scripts; the script-order test also checks `lang-init.js` in `<head>` and `i18n.js` as the first `<body>` script; three markup regexes accept the new attributes/span; the JSON report keys now include `language`.
+- `website/static/feedback.test.mjs` — loads `i18n.js` before `feedback.js`, as the page does.
+- `website/static/cases.html` — only the `?v=` bumps of the three shared scripts.
+- `website/tools/asset-versions/manifest.json` — pins `i18n.js`/`lang-init.js` at `?v=1` and the bumped files.
+- `.github/workflows/ci.yml`, `README.md` — `node --check` for `lang-init.js`, `i18n.js`, `confirm-dialog.js`, `feedback.js`; README runs `i18n.test.mjs` too.
+
+### Effect
+- Localized server text, only by stable code and only while the server's English still matches the dictionary (`known()`): sender `verdict` → label; content `risk_label` (9 known labels, else a label from `risk_level`); `ml_label` (2); category `key` → label/description (10); feature `name` → label/description (30); `disposable_status`, `sender_history_status`, verification `overall`, level codes. Left in English as sent: risk-indicator/technical-indicator `msg`, safety signals, `analysis_warnings`, matched keywords, SMTP/DNS/SPF/DMARC/WHOIS/PTR `message`s, API `detail` errors, feedback receipts, OCR/QR text, worker errors and warnings, classifier names in the benchmark, and the English sample emails.
+- Copy summaries and Markdown reports follow the UI language; the JSON report keeps the raw API response and adds `"language": "en" | "zh-CN"`. Recent-check entries are unchanged in storage (same allow-list) and localized at render time from `mode`/`level`.
+- Tests: `node --test website/static/*.test.mjs` 428/428 (was 400); `python -m unittest discover -s website/tests` 675 OK (10 skipped). Chromium: the previous English script 130/130; a Chinese run 122/122 (zh/en × light/dark × 1280/390, no console errors, no CSP violations, no horizontal scroll, no clipped controls); English pixel comparison against `origin/main` identical except sub-pixel (≤ 0.02 px) anti-aliasing where a text node became a span.
+
 ## [2026-09-28 13:37 PT] — Split the homepage script into cohesive files (no behaviour change)
 
 ### Why

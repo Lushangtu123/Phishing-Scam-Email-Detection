@@ -874,7 +874,6 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 }
 .demo-tab:hover { color: var(--text); }
 .demo-tab.active { color: var(--text); }
-.demo-tab span { font-size: 15px; }
 
 .tab-panel.hidden { display: none; }
 
@@ -1028,6 +1027,8 @@ kbd {
 .report-trigger { min-height: 40px; padding: 8px 15px; border: 1px solid var(--border-hi); border-radius: var(--pill); background: var(--surface); color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
 .report-trigger:hover { color: var(--accent); border-color: var(--accent); }
 .report-trigger span { margin-left: 9px; }
+/* Translatable label text leading a trigger is not the trailing ↗ icon. */
+.report-trigger > span[data-i18n]:first-child { margin-left: 0; }
 .feedback-dialog { width: min(520px, calc(100vw - 28px)); max-height: min(88vh, 800px); overflow: auto; margin: auto; padding: 27px; border: 1px solid var(--border-hi); border-radius: var(--radius); background: var(--bg-card2); color: var(--text); box-shadow: var(--shadow); }
 .feedback-dialog [hidden] { display: none !important; }
 .feedback-dialog::backdrop { background: rgba(2, 6, 15, .78); backdrop-filter: blur(5px); }
@@ -1378,6 +1379,36 @@ kbd {
 }
 :root[data-theme-mode="auto"] .theme-toggle-auto { opacity: 1; transform: none; }
 
+/* ── Language toggle (EN / 中文) ─────────────────────────────────────────── */
+.lang-toggle {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+  height: 36px; padding: 0 10px; border-radius: var(--pill); cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--text-muted);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.lang-toggle:hover { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.lang-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lang-option.is-active { color: var(--text); font-weight: 750; }
+.lang-sep { color: var(--text-dim); }
+/* Phones: show only the language to switch to, so the navbar still fits. */
+@media (max-width: 480px) {
+  .lang-toggle { padding: 0 8px; min-width: 40px; justify-content: center; }
+  .lang-option.is-active, .lang-sep { display: none; }
+}
+
+/* lang-init.js hides a non-English page until i18n.js has translated it, so
+   English never flashes first; the delayed animation reveals the page anyway
+   if i18n.js cannot load. */
+:root[data-i18n-pending] body { visibility: hidden; animation: i18n-reveal 0s linear 2s forwards; }
+@keyframes i18n-reveal { to { visibility: visible; } }
+
+/* Chinese text: wide tracking and forced capitals are Latin conventions. */
+:lang(zh-CN) .feedback-eyebrow { letter-spacing: 0.08em; font-size: 11px; }
+:lang(zh-CN) .footer-col h2,
+:lang(zh-CN) .recent-mode,
+:lang(zh-CN) .cat-level-badge { letter-spacing: 0.02em; }
+
 /* ── Light theme ─────────────────────────────────────────────────────────── */
 :root[data-theme="light"] {
   color-scheme: light;
@@ -1626,7 +1657,7 @@ kbd {
 }
 @media (max-width: 640px) {
   .case-login { min-height: 40px; padding: 8px 10px; font-size: 11px; }
-  .case-login span { display: none; }
+  .case-login span[aria-hidden="true"] { display: none; }
   .nav-brand { gap: 7px; font-size: 16px; }
   .theme-toggle { flex-shrink: 0; }
 }
