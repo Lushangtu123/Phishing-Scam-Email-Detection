@@ -2997,9 +2997,12 @@ async def _analyze_content(
         + (structure['parse_warnings'] if structure else [])))
     result['analysis_complete'] = not bool(result['analysis_warnings'])
     # Weak routing/text evidence cannot establish low risk when the main visible
-    # content is an uninspected image. Keep independently supported alerts.
+    # content is an uninspected image, or when the model could not score the text
+    # (e.g. Han script); a clean result already becomes unknown in that case.
+    # Keep independently supported alerts.
+    model_unscored = result.get('ml_status') in {'insufficient_context', 'insufficient_feature_coverage'}
     if not result['analysis_complete'] and (result['risk_level'] == 'safe'
-                                            or (rendering_uncertain or remote_image_dominant)
+                                            or (rendering_uncertain or remote_image_dominant or model_unscored)
                                             and result['risk_level'] == 'low'):
         if result['analysis_warnings'] == [_REMOTE_IMAGE_WARNING] and not remote_image_dominant:
             result['risk_label'] = 'No Indicators in Inspected Text — Remote Image Unchecked'

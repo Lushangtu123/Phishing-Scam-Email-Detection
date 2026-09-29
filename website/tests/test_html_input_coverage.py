@@ -1369,6 +1369,28 @@ class HTMLInputCoverageTests(unittest.TestCase):
                     else:
                         self.assertNotIn(result['risk_level'], {'high', 'critical'})
 
+    def test_weak_rule_points_do_not_establish_low_risk_when_the_model_cannot_score(self):
+        pipeline = self.deployment_pipeline()
+        body = '您好，本周项目进度正常，下周一上午十点继续开会讨论后续安排，请准时参加。'
+        with patch.object(app, '_content_pipeline', pipeline):
+            for prefix, points in (('', 0), ('Dear Customer, ', 2)):
+                with self.subTest(points=points):
+                    result = self.analyze(subject='项目通知', body=prefix + body)
+                    self.assertEqual(result['ml_status'], 'insufficient_feature_coverage')
+                    self.assertEqual(result['total_score'], points)
+                    self.assertEqual(result['risk_level'], 'unknown')
+                    self.assertFalse(result['analysis_complete'])
+
+    def test_scored_low_result_is_not_made_unknown(self):
+        with patch.object(app, 'predict_content', return_value={
+                'ml_prediction': 0, 'ml_label': 'Legitimate', 'ml_phishing_probability': 5.0,
+                'ml_legitimate_probability': 95.0, 'ml_status': 'available', '_phishing_probability': 0.05}), \
+                patch.object(app, '_content_pipeline', {'decision_threshold': 0.3736, 'metrics': {}}):
+            result = self.analyze(subject='Lunch', body='Dear Customer, lunch is at noon today in the usual place.')
+        self.assertEqual(result['ml_status'], 'available')
+        self.assertGreater(result['total_score'], 0)
+        self.assertEqual(result['risk_level'], 'low')
+
     def test_committed_model_routine_invoice_is_not_critical_without_independent_evidence(self):
         pipeline = self.deployment_pipeline()
         with patch.object(app, '_content_pipeline', pipeline):

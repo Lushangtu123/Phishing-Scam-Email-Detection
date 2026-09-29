@@ -436,8 +436,10 @@ Constructed hidden-text controls and the existing committed-model controls pass,
 but the stored offline metrics were measured on their original input pipeline;
 they are not a fresh evaluation of this HTML-serving behavior or provider-specific
 recall.
-With no independent evidence, either abstention produces an incomplete
-`unknown` result rather than claiming the email is safe. The UI labels supported
+With no independent evidence, or with only weak rule points that would otherwise
+make it Low, either abstention produces an incomplete `unknown` result rather
+than claiming the email is safe or low risk. Medium and higher findings from
+rules, sender, links or structure still produce an alert. The UI labels supported
 outputs as a **model risk score**, not a calibrated probability or confidence claim.
 Model classification, MIME-view selection, and final risk fusion use the original
 unrounded model score. API display scores remain rounded to one decimal place;

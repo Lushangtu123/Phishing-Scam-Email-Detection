@@ -1201,6 +1201,36 @@ The remaining list alerts are sums of weak signals:
 Changing those affects phishing from unknown domains too, so it is left for a
 separate evaluation.
 
+### Undetermined and missed phishing (2026-09-29)
+
+Of 1,239 Nazario 2023–25 phishing messages, the deployed pipeline left 74
+undetermined and 28 not alerted.
+
+**Undetermined (74).** In 69 of these, the model did not score an uncertain HTML
+rendering (`unverified_rendering`), because of CSS or inline-style visibility,
+image `alt` fallback or MSO conditionals. Their model scores are mostly
+15–22%, below the 37.4% threshold. Scoring them anyway would not add alerts.
+
+**Missed (28).** The causes are:
+
+- 13 where the model abstained for feature coverage;
+- 12 with the Han-text warning;
+- 9 oversized messages imported as text.
+
+Where the model abstained and weak rule points made the result Low, the page
+still said Low risk. A clean abstention already becomes `unknown`. Low now
+becomes `unknown` in that case too:
+
+| Cohort | Low before → after | Unknown before → after | Alerts |
+|---|---|---|---|
+| Nazario 2023–25 phishing | 28 → 14 | 74 → 88 | 1,137 (unchanged) |
+| Apache user lists (legitimate) | 526 → 492 | 22 → 56 | 44 (unchanged) |
+| UniqueData real legitimate | 13 → 13 | 0 → 0 | 41 (unchanged) |
+
+The Apache cases are short replies and code- or log-heavy messages the model
+cannot score. Detecting Chinese phishing needs a model trained on Chinese mail;
+this change only stops the page from reporting Low for text the model cannot read.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

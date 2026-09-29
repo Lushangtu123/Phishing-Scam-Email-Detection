@@ -20,6 +20,26 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 15:10 PT] — Weak rule points do not establish Low risk when the model cannot score the text
+
+### Why
+- When the model abstained (`insufficient_feature_coverage` or `insufficient_context`, for example for Chinese text), a clean result already became `unknown`, but one or two weak rule points still produced "Low risk".
+- Real Nazario 2023–25 phishing reached Low that way: 13 of the 28 missed messages had coverage abstentions and 12 had the Han-text warning.
+
+### Files changed
+- `website/app.py` — the incomplete-analysis gate also turns Low into `unknown` when the model did not score the text. Medium and higher findings are unchanged.
+- `website/tests/test_html_input_coverage.py`:
+  - a Chinese body with 0 or 2 weak points is `unknown`;
+  - a scored Low result stays Low.
+  - The new test fails with the gate reverted.
+- `README.md`, `docs/evaluation.md` — the behaviour and the undetermined/missed analysis.
+
+### Effect
+- Nazario 2023–25 phishing: Low falls from 28 to 14 and unknown rises from 74 to 88. Alerts are unchanged at 1,137/1,239.
+- Apache user lists: 34 short or code-heavy legitimate messages move from Low to unknown. Alerts are unchanged at 44/602.
+- UniqueData is unchanged.
+- The model is unchanged.
+
 ## [2026-09-29 14:30 PT] — Score mailing-list-rewritten senders by their real domain; numeric QQ IDs are not random usernames
 
 ### Why
