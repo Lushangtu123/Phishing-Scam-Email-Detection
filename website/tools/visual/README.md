@@ -164,6 +164,12 @@ After an intended visual change, or to create the first set:
    into `website/tools/visual/baselines/`, replacing the old set:
    `rm -f website/tools/visual/baselines/*.png && gh run download <run-id> -n visual-baselines -D website/tools/visual/baselines`.
    Check the images, or the **visual-baselines-report** artifact, then commit.
+   If you can reach GitHub over git but not its artifact storage, run the
+   workflow with `push_branch` checked (`gh workflow run visual-baselines.yml
+   --ref <branch> -f push_branch=true`); it also commits the PNGs to the
+   `visual-baselines-update` branch, from which you can
+   `git fetch origin visual-baselines-update` and
+   `git checkout FETCH_HEAD -- website/tools/visual/baselines`.
 
 When the CI job fails, the **visual-regression-diffs** artifact holds the HTML
 report and the expected, actual and diff images of each failed screenshot. The

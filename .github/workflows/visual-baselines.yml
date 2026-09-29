@@ -2,10 +2,18 @@ name: Visual baselines
 
 # Manual only. Renders every screenshot of website/tools/visual in the same
 # pinned Playwright container as the "visual" job in ci.yml and uploads them as
-# the "visual-baselines" artifact. It commits nothing: copy the PNGs into
+# the "visual-baselines" artifact. Copy the PNGs into
 # website/tools/visual/baselines/ and commit them after reviewing them.
+# With push_branch, the PNGs are also committed to the separate
+# visual-baselines-update branch (never the branch it ran on), for reviewers
+# who can fetch git but not download artifacts.
 on:
   workflow_dispatch:
+    inputs:
+      push_branch:
+        description: Also commit the PNGs to the visual-baselines-update branch
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,6 +23,9 @@ jobs:
     name: Render baselines in the Playwright container
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Write access is used only by the optional push to visual-baselines-update.
+    permissions:
+      contents: write
     # Keep identical to the "visual" job in ci.yml and to @playwright/test in
     # website/tools/visual/package.json.
     container:
@@ -42,6 +53,19 @@ jobs:
           path: website/tools/visual/baselines/*.png
           if-no-files-found: error
           retention-days: 14
+
+      - name: Commit the baselines to visual-baselines-update
+        if: inputs.push_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B visual-baselines-update
+          git add -f website/tools/visual/baselines/*.png
+          git commit -m "Visual baselines rendered by run ${{ github.run_id }} from ${{ github.sha }}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" visual-baselines-update
 
       - name: Upload the report for review
         if: always()

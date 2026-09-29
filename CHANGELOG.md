@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 19:35 PT] — Visual baselines: optional push to a review branch
+
+### Why
+- The first baseline run (36512049177) succeeded, but its artifact is served from Azure Blob storage, which the development sandbox's network policy blocks; GitHub over git is reachable.
+
+### Files changed
+- `.github/workflows/visual-baselines.yml` — new `push_branch` input (default off). When set, the job also commits the rendered PNGs to the separate `visual-baselines-update` branch (force-pushed; never the branch it ran on). The job's permission is `contents: write` for that step; the workflow stays manual-only.
+- `website/tools/visual/README.md` — how to use it.
+
+### Effect
+- Baselines can be fetched with `git fetch origin visual-baselines-update` and reviewed before being committed to `website/tools/visual/baselines/`.
+
 ## [2026-09-28 19:20 PT] — Production smoke: accept Vercel's browser cache header
 
 ### Why
