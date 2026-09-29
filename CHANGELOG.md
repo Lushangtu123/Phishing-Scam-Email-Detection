@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 19:20 PT] — Production smoke: accept Vercel's browser cache header
+
+### Why
+- The first production run of `--check-frontend` (c9e2397, run 36509859168) passed compression, the HTML/JSON 404s, CSP and `/cases`, but failed all three assets on `Cache-Control: public, max-age=86400`. That is the documented Vercel behaviour (12:27 correction entry): the CDN acts on `stale-while-revalidate` and strips it from browser responses. The check, not the site, was wrong.
+
+### Files changed
+- `website/tools/post_deploy_smoke.py` — `_versioned_cache_ok` requires `public` and `max-age=86400`, allows `stale-while-revalidate` to be absent (must be 604800 if present) and rejects `no-store`/`no-cache`/`private`.
+- `website/tests/test_post_deploy_smoke.py` — test for the accepted and rejected headers.
+- `README.md` — notes the Vercel header.
+
+### Effect
+- Production evidence from run 36509859168: compressed `style.css`, `i18n.js`, `app-core.js`; unknown page → HTML 404 with `no-store` and CSP; unknown `/api/` path → JSON 404; homepage, 404 page and `/cases` CSP `script-src 'self'`/`style-src 'self'` without `'unsafe-inline'`; `/cases` `no-store` and `noindex`.
+
 ## [2026-09-28 19:05 PT] — Post-deploy smoke checks frontend delivery on production
 
 ### Why

@@ -214,6 +214,25 @@ def _fetch(request: Request, *, opener: Callable, read_body: bool = True) -> tup
     return int(status), headers, body
 
 
+def _directives(value: str) -> dict:
+    pairs = (part.strip().lower().partition("=") for part in value.split(","))
+    return {name.strip(): arg.strip() for name, _, arg in pairs if name.strip()}
+
+
+def _versioned_cache_ok(value: str) -> bool:
+    """The app's versioned-asset header, as a browser receives it.
+
+    Vercel's CDN acts on stale-while-revalidate itself and strips it from the
+    browser response (see the 2026-09-28 12:27 CHANGELOG correction), so only
+    public and max-age are required; any stale-while-revalidate must match.
+    """
+    expected, actual = _directives(VERSIONED_ASSET_CACHE_CONTROL), _directives(value)
+    return ("public" in actual and actual.get("max-age") == expected["max-age"]
+            and actual.get("stale-while-revalidate", expected["stale-while-revalidate"])
+            == expected["stale-while-revalidate"]
+            and not {"no-store", "no-cache", "private"} & actual.keys())
+
+
 def _page_policy_problems(url: str, headers: dict) -> list[str]:
     csp = headers.get("content-security-policy", "")
     problems = [f"{url} CSP lacks {directive!r}: {csp!r}"
@@ -257,9 +276,10 @@ def _check_frontend_delivery(base_url: str, *, opener: Callable, probe_id: str) 
             continue
         if encoding not in COMPRESSED_ENCODINGS:
             problems.append(f"{url} is not compressed (Content-Encoding: {encoding or 'none'})")
-        if headers.get("cache-control") != VERSIONED_ASSET_CACHE_CONTROL:
+        if not _versioned_cache_ok(headers.get("cache-control", "")):
             problems.append(f"{url} has Cache-Control {headers.get('cache-control')!r}, "
-                            f"expected {VERSIONED_ASSET_CACHE_CONTROL!r}")
+                            f"expected {VERSIONED_ASSET_CACHE_CONTROL!r} "
+                            "(Vercel may drop stale-while-revalidate)")
 
     missing_page = f"{base_url}/phishguard-smoke-missing-{probe_id}"
     status, headers, body = _fetch(Request(missing_page, headers=plain), opener=opener)
