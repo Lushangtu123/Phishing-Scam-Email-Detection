@@ -190,6 +190,115 @@ def _check_case_auth_boundary(base_url: str, *, opener: Callable) -> None:
             raise RuntimeError(f"Case login boundary returned HTTP {exc.code}, expected 401") from None
 
 
+# Must equal VERSIONED_ASSET_CACHE_CONTROL in website/app.py (a test pins them).
+VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+COMPRESSED_ENCODINGS = frozenset({"br", "gzip", "zstd"})
+# Large text assets whose delivery is checked; each is referenced as ?v=N.
+FRONTEND_ASSETS = ("style.css", "i18n.js", "app-core.js")
+
+
+def _fetch(request: Request, *, opener: Callable, read_body: bool = True) -> tuple[int, dict, bytes]:
+    """Return status, lower-cased headers and body, treating HTTP errors as responses."""
+    try:
+        response = opener(request, timeout=20)
+    except HTTPError as exc:
+        response = exc
+    with response:
+        final_url = response.geturl() if hasattr(response, "geturl") else request.full_url
+        expected_host = (urlsplit(request.full_url).hostname or "").lower()
+        if (urlsplit(final_url).hostname or "").lower() != expected_host:
+            raise RuntimeError(f"{request.full_url} redirected away from the deployment host")
+        status = getattr(response, "status", None) or getattr(response, "code", None) or response.getcode()
+        headers = {str(name).lower(): str(value) for name, value in response.headers.items()}
+        body = response.read() if read_body else b""
+    return int(status), headers, body
+
+
+def _page_policy_problems(url: str, headers: dict) -> list[str]:
+    csp = headers.get("content-security-policy", "")
+    problems = [f"{url} CSP lacks {directive!r}: {csp!r}"
+                for directive in ("script-src 'self'", "style-src 'self'") if directive not in csp]
+    if "'unsafe-inline'" in csp:
+        problems.append(f"{url} CSP still allows 'unsafe-inline': {csp!r}")
+    if headers.get("x-content-type-options", "").lower() != "nosniff":
+        problems.append(f"{url} is missing X-Content-Type-Options: nosniff")
+    return problems
+
+
+def _check_frontend_delivery(base_url: str, *, opener: Callable, probe_id: str) -> dict:
+    """Check what browsers receive: CSP, compression, caching and 404 handling.
+
+    Every check runs and all problems are reported together, so one deployment
+    run shows the complete delivery picture.
+    """
+    problems: list[str] = []
+    # Bodies that are parsed are requested uncompressed.
+    plain = {"Accept": "text/html", "Accept-Encoding": "identity"}
+
+    status, headers, body = _fetch(Request(base_url + "/", headers=plain), opener=opener)
+    if status != 200 or not headers.get("content-type", "").startswith("text/html"):
+        raise RuntimeError(f"Homepage returned HTTP {status} ({headers.get('content-type', 'no type')})")
+    problems += _page_policy_problems(base_url + "/", headers)
+    html = body.decode("utf-8", "replace")
+
+    compression = {}
+    for name in FRONTEND_ASSETS:
+        match = re.search(r'/static/' + re.escape(name) + r'\?v=([0-9A-Za-z._-]+)"', html)
+        if not match:
+            problems.append(f"Homepage does not reference a versioned /static/{name}")
+            continue
+        url = f"{base_url}/static/{name}?v={match.group(1)}"
+        status, headers, _ = _fetch(Request(url, headers={"Accept-Encoding": "br, gzip"}),
+                                    opener=opener, read_body=False)
+        encoding = headers.get("content-encoding", "").strip().lower()
+        compression[name] = encoding or "none"
+        if status != 200:
+            problems.append(f"{url} returned HTTP {status}")
+            continue
+        if encoding not in COMPRESSED_ENCODINGS:
+            problems.append(f"{url} is not compressed (Content-Encoding: {encoding or 'none'})")
+        if headers.get("cache-control") != VERSIONED_ASSET_CACHE_CONTROL:
+            problems.append(f"{url} has Cache-Control {headers.get('cache-control')!r}, "
+                            f"expected {VERSIONED_ASSET_CACHE_CONTROL!r}")
+
+    missing_page = f"{base_url}/phishguard-smoke-missing-{probe_id}"
+    status, headers, body = _fetch(Request(missing_page, headers=plain), opener=opener)
+    if status != 404 or not headers.get("content-type", "").startswith("text/html"):
+        problems.append(f"Unknown page returned HTTP {status} ({headers.get('content-type', 'no type')}), "
+                        "expected the HTML 404 page")
+    else:
+        if "no-store" not in headers.get("cache-control", ""):
+            problems.append(f"404 page has Cache-Control {headers.get('cache-control')!r}, expected no-store")
+        if b"Page not found" not in body:
+            problems.append("404 page body is not the PhishGuard not-found page")
+        problems += _page_policy_problems(missing_page, headers)
+
+    missing_api = f"{base_url}/api/phishguard-smoke-missing-{probe_id}"
+    status, headers, body = _fetch(Request(missing_api, headers={
+        "Accept": "application/json", "Accept-Encoding": "identity"}), opener=opener)
+    try:
+        detail = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        detail = None
+    if status != 404 or detail != {"detail": "Not Found"}:
+        problems.append(f"Unknown API path returned HTTP {status} {body[:80]!r}, expected JSON 404")
+
+    status, headers, body = _fetch(Request(base_url + "/cases", headers=plain), opener=opener)
+    if status != 200:
+        problems.append(f"/cases returned HTTP {status}")
+    else:
+        if "no-store" not in headers.get("cache-control", ""):
+            problems.append(f"/cases has Cache-Control {headers.get('cache-control')!r}, expected no-store")
+        problems += _page_policy_problems(base_url + "/cases", headers)
+        if b'name="robots" content="noindex"' not in body:
+            problems.append("/cases is missing its noindex robots meta tag")
+
+    if problems:
+        raise RuntimeError("Frontend delivery problems:\n- " + "\n- ".join(problems))
+    return {"compression": compression, "not_found_page": "html", "not_found_api": "json",
+            "versioned_cache_control": VERSIONED_ASSET_CACHE_CONTROL, "cases_cache": "no-store"}
+
+
 def validate_deployment(
     base_url: str,
     *,
@@ -199,6 +308,7 @@ def validate_deployment(
     require_sender_history: bool = False,
     require_cases: bool = False,
     require_jev: bool = False,
+    check_frontend: bool = False,
     history_probe_id: str | None = None,
     readiness_attempts: int = 1,
     retry_delay: float = 0,
@@ -220,6 +330,8 @@ def validate_deployment(
     )
     if require_cases:
         _check_case_auth_boundary(base_url, opener=opener)
+    frontend = (_check_frontend_delivery(base_url, opener=opener, probe_id=history_probe_id or uuid.uuid4().hex)
+                if check_frontend else "not_checked")
 
     analysis = _request_json(Request(
         base_url + "/api/analyze-content",
@@ -316,6 +428,7 @@ def validate_deployment(
         "sender_history_probe": sender_history_probe,
         "case_auth_boundary": "anonymous_denied" if require_cases else "not_checked",
         "jev_configuration": "configured_without_provider_call" if require_jev else "not_checked",
+        "frontend_delivery": frontend,
     }
 
 
@@ -331,6 +444,8 @@ def main() -> None:
     parser.add_argument("--require-sender-history", action="store_true")
     parser.add_argument("--require-cases", action="store_true")
     parser.add_argument("--require-jev", action="store_true", help="Check enabled configuration without calling TypeSafe")
+    parser.add_argument("--check-frontend", action="store_true",
+                        help="Check CSP, compression, versioned-asset caching and 404 handling")
     parser.add_argument("--readiness-attempts", type=int, default=6)
     parser.add_argument("--retry-delay", type=float, default=5.0)
     args = parser.parse_args()
@@ -341,6 +456,7 @@ def main() -> None:
         require_sender_history=args.require_sender_history,
         require_cases=args.require_cases,
         require_jev=args.require_jev,
+        check_frontend=args.check_frontend,
         readiness_attempts=args.readiness_attempts,
         retry_delay=args.retry_delay,
     )

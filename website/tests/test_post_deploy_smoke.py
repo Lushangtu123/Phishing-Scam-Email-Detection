@@ -331,5 +331,108 @@ class PostDeploySmokeTests(unittest.TestCase):
         )
 
 
+class _PageResponse:
+    """A urlopen-style response with arbitrary headers (for frontend checks)."""
+
+    def __init__(self, url, status=200, headers=None, body=b""):
+        self.url, self.status, self.body = url, status, body
+        self.headers = headers or {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def read(self):
+        return self.body
+
+    def geturl(self):
+        return self.url
+
+
+def _http_error(url, status, headers, body):
+    from email.message import Message
+    import io
+    message = Message()
+    for name, value in headers.items():
+        message[name] = value
+    return HTTPError(url, status, "error", message, io.BytesIO(body))
+
+
+class FrontendDeliveryTests(unittest.TestCase):
+    CSP = ("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+           "connect-src 'self'; object-src 'none'")
+    PAGE = {"Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": CSP,
+            "X-Content-Type-Options": "nosniff"}
+
+    def opener(self, **overrides):
+        html = (b'<link rel="stylesheet" href="/static/style.css?v=51" />'
+                b'<script src="/static/i18n.js?v=7"></script><script src="/static/app-core.js?v=5"></script>')
+        requests = []
+
+        def open_(request, timeout):
+            url = request.full_url
+            requests.append((url, request.get_header("Accept-encoding")))
+            path = url.split("vercel.app", 1)[1]
+            if path == "/":
+                return _PageResponse(url, headers=overrides.get("home", self.PAGE), body=html)
+            if path.startswith("/static/"):
+                headers = {"Content-Encoding": "br",
+                           "Cache-Control": post_deploy_smoke.VERSIONED_ASSET_CACHE_CONTROL}
+                return _PageResponse(url, headers=overrides.get("asset", headers))
+            if path.startswith("/phishguard-smoke-missing-"):
+                if "missing_page" in overrides:
+                    raise overrides["missing_page"](url)
+                raise _http_error(url, 404, {**self.PAGE, "Cache-Control": "no-store"},
+                                  b"<h1>Page not found</h1>")
+            if path.startswith("/api/phishguard-smoke-missing-"):
+                raise _http_error(url, 404, {"Content-Type": "application/json"}, b'{"detail":"Not Found"}')
+            if path == "/cases":
+                return _PageResponse(url, headers={**self.PAGE, "Cache-Control": "no-store"},
+                                     body=b'<meta name="robots" content="noindex">')
+            raise AssertionError(f"unexpected request {url}")
+
+        return open_, requests
+
+    def test_passing_deployment_reports_compression_caching_and_404s(self):
+        opener, requests = self.opener()
+        result = post_deploy_smoke._check_frontend_delivery(
+            "https://project.vercel.app", opener=opener, probe_id="p1")
+        self.assertEqual(result["compression"], {"style.css": "br", "i18n.js": "br", "app-core.js": "br"})
+        self.assertEqual(result["not_found_page"], "html")
+        urls = [url for url, _ in requests]
+        self.assertIn("https://project.vercel.app/static/i18n.js?v=7", urls)
+        self.assertIn("https://project.vercel.app/phishguard-smoke-missing-p1", urls)
+        # Assets are requested compressed; parsed bodies uncompressed.
+        self.assertEqual(dict(requests)["https://project.vercel.app/static/style.css?v=51"], "br, gzip")
+        self.assertEqual(dict(requests)["https://project.vercel.app/"], "identity")
+
+    def test_every_problem_is_reported_together(self):
+        json_404 = lambda url: _http_error(url, 404, {"Content-Type": "application/json"},
+                                           b'{"detail":"Not Found"}')
+        opener, _ = self.opener(
+            home={**self.PAGE, "Content-Security-Policy": "script-src 'self'; style-src 'self' 'unsafe-inline'"},
+            asset={"Cache-Control": "public, max-age=0"},
+            missing_page=json_404)
+        with self.assertRaises(RuntimeError) as caught:
+            post_deploy_smoke._check_frontend_delivery(
+                "https://project.vercel.app", opener=opener, probe_id="p2")
+        message = str(caught.exception)
+        self.assertIn("'unsafe-inline'", message)
+        self.assertIn("style.css?v=51 is not compressed (Content-Encoding: none)", message)
+        self.assertIn("app-core.js?v=5 has Cache-Control 'public, max-age=0'", message)
+        self.assertIn("Unknown page returned HTTP 404 (application/json)", message)
+
+    def test_cache_control_matches_the_app(self):
+        source = (WEBSITE_DIR / "app.py").read_text(encoding="utf-8")
+        self.assertIn(f'VERSIONED_ASSET_CACHE_CONTROL = "{post_deploy_smoke.VERSIONED_ASSET_CACHE_CONTROL}"',
+                      source)
+
+    def test_frontend_checks_are_opt_in_and_enabled_after_production_deploys(self):
+        source = (PROJECT_ROOT / ".github" / "workflows" / "post-deploy-smoke.yml").read_text(encoding="utf-8")
+        self.assertIn("--check-frontend", source)
+
+
 if __name__ == "__main__":
     unittest.main()

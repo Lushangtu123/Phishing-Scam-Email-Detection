@@ -768,6 +768,13 @@ so Vercel SSO pages cannot be mistaken for application health output.
 Read-only health/config readiness checks retry briefly while a deployment alias
 converges; phishing, legitimate, and sender-history POST controls run exactly
 once after the expected model and configuration are ready.
+With `--check-frontend` (enabled in the workflow) it also checks what browsers
+receive from the production alias: homepage and `/cases` CSP (`script-src
+'self'`, `style-src 'self'`, no `'unsafe-inline'`) and `nosniff`; `br`/`gzip`/`zstd`
+compression and the versioned-asset `Cache-Control` on `style.css`, `i18n.js`
+and `app-core.js`; an uncached HTML 404 page for unknown page URLs and a JSON
+404 for unknown `/api/` paths; and `no-store` plus `noindex` on `/cases`. Every
+check runs and all problems are reported together.
 Feature-branch pushes run CI, but the production smoke job only runs after a
 successful Production deployment event. After merging a reviewed PR, check
 that `/health` reports the merged commit SHA and that the production smoke job

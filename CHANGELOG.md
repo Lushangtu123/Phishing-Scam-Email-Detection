@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 19:05 PT] — Post-deploy smoke checks frontend delivery on production
+
+### Why
+- Compression, the HTML 404 page and versioned-asset caching could only be verified on the real Vercel deployment, which is not reachable from the development sandbox. The production smoke job already runs on GitHub after every Production deployment.
+
+### Files changed
+- `website/tools/post_deploy_smoke.py` — new opt-in `--check-frontend` (`_check_frontend_delivery`): homepage, 404 page and `/cases` CSP (`script-src 'self'`, `style-src 'self'`, no `'unsafe-inline'`) and `nosniff`; `Content-Encoding` in br/gzip/zstd and `Cache-Control` equal to the app's versioned-asset value for `style.css`, `i18n.js`, `app-core.js` (URLs read from the homepage); unknown page URL → uncached HTML 404 page; unknown `/api/` path → JSON `{"detail": "Not Found"}`; `/cases` `no-store` and `noindex`. Every check runs and all problems are reported in one error. Result JSON gains `frontend_delivery`.
+- `.github/workflows/post-deploy-smoke.yml` — passes `--check-frontend`.
+- `website/tests/test_post_deploy_smoke.py` — 4 tests: passing deployment, all problems reported together, cache value pinned to `website/app.py`, workflow flag.
+- `README.md` — documents the frontend checks.
+
+### Effect
+- Against a local server (no compression locally) every check except compression passes; the next Production deployment reports compression from Vercel itself.
+- `python -m unittest discover -s website/tests`: all pass (10 skipped); `ruff check .` clean.
+
 ## [2026-09-28 18:40 PT] — Fix a timing-dependent feedback timeout test
 
 ### Why

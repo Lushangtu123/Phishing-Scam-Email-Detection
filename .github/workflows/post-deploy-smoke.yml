@@ -34,3 +34,4 @@ jobs:
           --require-sender-history
           --require-cases
           --require-jev
+          --check-frontend
