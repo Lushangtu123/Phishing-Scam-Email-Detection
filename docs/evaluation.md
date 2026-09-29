@@ -1020,16 +1020,17 @@ Three more sources, evaluation only, in the same git-ignored folder:
 | [Nazario phishing corpus](https://monkey.org/~jose/phishing/) yearly mboxes | 2015–2022: 2,153 phishing messages (1,841 after removing families already in training), used for training in C3; 2023–2025: 1,303 (1,297 after removing families in training or C3's additions), test only. Real phishing received by one mailbox; subject plus text body, HTML stripped | per-file SHA-256 in `SOURCES.txt`, fetched 2026-09-29 | CC BY 4.0 |
 | [marketeam/Marketing-Emails](https://huggingface.co/datasets/marketeam/Marketing-Emails) | 16,440 legitimate business emails between marketing colleagues, split by normalized family 80/20 (seed 42) into 13,101 training and 3,339 held-out rows. **Fully synthetic**: the dataset card says every email was produced by generative models | `56377f42` | MIT |
 | [Postmark transactional templates](https://github.com/ActiveCampaign/postmark-templates) | 10 text templates (welcome, receipt, invoice, dunning, trial expiring/expired, password reset ×2, invitation, comment notification) with fixed example placeholder values. The Mailgun and MailPace repositories were also fetched but ship HTML only and are not scored | `fa73527a` | MIT |
+| [UniqueData/email-spam-classification](https://huggingface.co/datasets/UniqueData/email-spam-classification) | The 58 rows labelled "not spam" (one exact duplicate): real mail from around 2023 — account and security notices (Netflix, Steam, Instagram, Twitch, Venmo), statements, orders, job alerts. Test only; the 26 spam rows are not scored. Upstream labels are unreviewed and a few look doubtful (a casting call, a "you have been selected" scholarship) | `f9c3f31e` | CC BY-NC-ND 4.0 (non-commercial) |
 
 `--extended-experiment` scores four training sets. On the recent PhishFuzzer seeds, C2 and C3
 use grouped folds as in the previous section. All other sets are scored by the full model of each condition:
 
-| Training set | Recent seeds: PR AUC / FPR | Nazario 2023–25 recall | Marketing held-out FPR | Templates flagged |
-|---|---|---|---|---|
-| C0: seven training corpora | 0.725 / 67.7% | 97.3% (96.3–98.1%) | 0.8% (26/3,339) | 3/10 |
-| C1: + DiFraud + legacy LLM variants | 0.707 / 53.9% | 96.5% (95.3–97.3%) | 0.0% (1/3,339) | 7/10 |
-| C2: C1 + other recent LLM variants | **0.793** / **32.4%** | 94.5% (93.2–95.6%) | 0.2% (8/3,339) | 3/10 |
-| C3: C2 + Marketing-Emails + Nazario 2015–22 | 0.790 / 37.3% (28.5–46.9%) | 95.2% (93.9–96.3%) | 0.0% (0/3,339) | 5/10 |
+| Training set | Recent seeds: PR AUC / FPR | Nazario 2023–25 recall | Marketing held-out FPR | Templates flagged | UniqueData real legitimate FPR |
+|---|---|---|---|---|---|
+| C0: seven training corpora | 0.725 / 67.7% | 97.3% (96.3–98.1%) | 0.8% (26/3,339) | 3/10 | 69.0% (56.2–79.4%) |
+| C1: + DiFraud + legacy LLM variants | 0.707 / 53.9% | 96.5% (95.3–97.3%) | 0.0% (1/3,339) | 7/10 | 56.9% (44.1–68.8%) |
+| C2: C1 + other recent LLM variants | **0.793** / **32.4%** | 94.5% (93.2–95.6%) | 0.2% (8/3,339) | 3/10 | 53.4% (40.8–65.7%) |
+| C3: C2 + Marketing-Emails + Nazario 2015–22 | 0.790 / 37.3% (28.5–46.9%) | 95.2% (93.9–96.3%) | 0.0% (0/3,339) | 5/10 | 58.6% (45.8–70.4%) |
 
 All rates are at the deployed threshold, 0.3736. Intervals are Wilson 95%.
 
@@ -1048,6 +1049,19 @@ All rates are at the deployed threshold, 0.3736. Intervals are Wilson 95%.
   wording as phishing. Password-reset templates score below 0.09. With 10 templates the
   intervals span roughly 11–89%, so the per-condition counts are anecdotes. The pattern
   matches the 32–68% FPR on the recent seeds.
+- **An independent real set confirms it.** The 58 UniqueData messages come from a different
+  collection than the PhishFuzzer seeds. C0 flags 69% of them, the same level as the
+  seeds' 68%. With C0, account and security notices score highest:
+  - Netflix sign-up confirmation, 0.99;
+  - Twitch email verification, 0.97;
+  - Steam new-device access, 0.97;
+  - Venmo email change, 0.87;
+  - an account statement, 0.85;
+  - Instagram new login, 0.82.
+
+  A pizza order confirmation and terms-of-service updates score below 0.15.
+  C2 lowers the rate only to 53% (intervals overlap). The recent LLM variants help on
+  the seeds they resemble but transfer only partly to other real mail.
 
 Next steps, in order of value:
 1. A **real**, dated sample of recent legitimate transactional and account mail
@@ -1065,6 +1079,7 @@ The served artifact is unchanged.
   --nazario-dir .evaluation-data/external/nazario \
   --marketing-csv .evaluation-data/external/marketing/train.csv \
   --templates-dir .evaluation-data/external/templates \
+  --uniquedata-csv .evaluation-data/external/uniquedata/email_spam.csv \
   --extended-experiment --output .evaluation-data/external/report-extended.json
 ```
 

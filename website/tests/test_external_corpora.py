@@ -130,6 +130,13 @@ class ExternalCorporaTests(unittest.TestCase):
             (folder / "content.txt").write_text("Reset for {{name}}")
         self.assertEqual(external.load_templates(self.dir), ["Password reset\n\nReset for Alex"])
 
+    def test_uniquedata_rows_split_into_legitimate_and_spam(self):
+        csv_path = self.dir / "email_spam.csv"
+        csv_path.write_text('title,text,type\n"New  login\nto Instagram","We noticed a login.",not spam\n'
+                            '"Win now","Claim your prize",spam\n')
+        self.assertEqual(external.load_uniquedata(csv_path),
+                         (["New login to Instagram\n\nWe noticed a login."], ["Win now\n\nClaim your prize"]))
+
     def test_family_split_is_deterministic_and_keeps_families_together(self):
         texts = [f"message about topic {word}" for word in "abcdefghijklmnopqrstuvwxyz"]
         texts += ["Your code is 123", "your code is 999"]

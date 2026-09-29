@@ -195,6 +195,16 @@ def load_marketing(path: Path) -> list[str]:
     return texts
 
 
+def load_uniquedata(path: Path) -> tuple[list[str], list[str]]:
+    """UniqueData/email-spam-classification: (legitimate, spam) texts as 'title\n\ntext'."""
+    legitimate, spam = [], []
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            text = (_SPACE.sub(" ", row["title"]).strip() + "\n\n" + row["text"].strip()).strip()
+            (spam if row["type"].strip() == "spam" else legitimate).append(text)
+    return legitimate, spam
+
+
 _PLACEHOLDER_VALUES = (("name", "Alex"), ("url", "https://app.example.com/account"), ("product", "Acme"),
                        ("company", "Acme Inc."), ("email", "alex@example.com"), ("date", "March 3"),
                        ("amount", "$29.00"), ("total", "$29.00"), ("code", "482913"), ("id", "1042"))
@@ -331,6 +341,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--nazario-dir", type=Path, help="yearly phishing-YYYY.mbox files from monkey.org/~jose/phishing")
     parser.add_argument("--marketing-csv", type=Path, help="marketeam/Marketing-Emails train.csv")
     parser.add_argument("--templates-dir", type=Path, help="directory containing postmark-templates/")
+    parser.add_argument("--uniquedata-csv", type=Path,
+                        help="optional UniqueData/email-spam-classification email_spam.csv (real legitimate mail, test only)")
     parser.add_argument("--extended-experiment", action="store_true",
                         help="C0-C3 training sets scored on recent seeds, Nazario 2023-2025, held-out marketing mail "
                              "and transactional templates")
@@ -373,7 +385,9 @@ def main(argv: list[str] | None = None) -> int:
         test_sets, test_overlap = remove_training_overlap(
             {"nazario_2023_2025": (nazario_test, [1] * len(nazario_test)),
              "marketing_held_out": (marketing_test, [0] * len(marketing_test)),
-             "transactional_templates": (templates, [0] * len(templates))}, seen)
+             "transactional_templates": (templates, [0] * len(templates)),
+             **({"uniquedata_legitimate": (lambda ts: (ts, [0] * len(ts)))(load_uniquedata(args.uniquedata_csv)[0])}
+                if args.uniquedata_csv else {})}, seen)
         base_extra = {"difraud": external["difraud"],
                       "phishfuzzer_llm_from_legacy_seed": external["phishfuzzer_llm_from_legacy_seed"]}
         conditions = {"C0_training_corpora": ({}, False),

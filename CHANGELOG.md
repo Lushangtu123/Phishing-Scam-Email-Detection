@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 10:30 PT] — Real 2023 legitimate mail: account and security notices are flagged 69% of the time
+
+### Why
+- Public real, recent, legitimate transactional mail is scarce. The only usable find was the free UniqueData/email-spam-classification sample (58 real "not spam" emails from around 2023, CC BY-NC-ND 4.0). It is used as an independent test set.
+
+### Files changed
+- `website/tools/evaluate_external_corpora.py` — `load_uniquedata` and optional `--uniquedata-csv`, which adds the legitimate rows as a test-only set to `--extended-experiment`.
+- `website/tests/test_external_corpora.py` — the UniqueData loader splits legitimate and spam rows.
+- `docs/evaluation.md` — source row, per-condition false-positive rates and the highest-scoring notices.
+
+### Effect
+- At 0.3736 the deployed recipe (C0) flags 40/58 (69.0%, Wilson 56.2–79.4%). This matches the 67.7% on the PhishFuzzer seeds from a different collection.
+- C2 flags 53.4% and C3 flags 58.6%.
+- Netflix, Steam, Twitch, Venmo and Instagram account and security notices score 0.82–0.99.
+- The served model is unchanged.
+
 ## [2026-09-29 09:40 PT] — Newer phishing, marketing mail and templates: phishing extrapolates, transactional legitimate mail does not
 
 ### Why
