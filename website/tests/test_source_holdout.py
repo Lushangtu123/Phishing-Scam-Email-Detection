@@ -16,9 +16,11 @@ from tools import evaluate_source_holdout as holdout  # noqa: E402
 class RecordingModel:
     """Scores 'urgent' text as phishing and records every training set it sees."""
     fits: list = []
+    weights: list = []
 
-    def fit(self, texts, labels):
+    def fit(self, texts, labels, sample_weight=None):
         RecordingModel.fits.append(list(texts))
+        RecordingModel.weights.append(sample_weight)
         return self
 
     def predict_proba(self, texts):
@@ -36,6 +38,7 @@ def corpus(prefix, phishing, legitimate):
 class SourceHoldoutTests(unittest.TestCase):
     def setUp(self):
         RecordingModel.fits = []
+        RecordingModel.weights = []
 
     def test_a_held_out_corpus_is_never_part_of_its_training_set(self):
         sources = {"alpha": corpus("alpha", 3, 3), "beta": corpus("beta", 2, 4), "gamma": corpus("gamma", 0, 5)}
@@ -87,6 +90,50 @@ class SourceHoldoutTests(unittest.TestCase):
         self.assertEqual(result["first"][2], ["first:a", "first:c"])
         self.assertEqual(stats, {"input_rows": 6, "duplicate_rows_removed": 1, "label_conflict_rows_removed": 2,
                                  "label_conflict_families": 1, "output_rows": 3})
+
+    def test_excluded_corpora_are_scored_but_never_trained_on(self):
+        sources = {"alpha": corpus("alpha", 6, 6), "noisy": corpus("noisy", 6, 6), "beta": corpus("beta", 6, 6)}
+        report = holdout.evaluate(sources, make_model=RecordingModel, thresholds=(0.5,), folds=2,
+                                  exclude_from_training=["noisy"], progress=lambda _message: None)
+        noisy = set(sources["noisy"][0])
+        self.assertEqual(len(RecordingModel.fits), 2 + 3)
+        for training_texts in RecordingModel.fits:
+            self.assertFalse(set(training_texts) & noisy)
+        self.assertEqual(report["sources"]["noisy"]["held_out"]["rows"], 12)
+        self.assertEqual(report["sources"]["noisy"]["in_distribution"]["rows"], 12)
+        self.assertEqual(len(RecordingModel.fits[-1]), 12)  # holding out beta trains on alpha only
+
+    def test_balanced_weights_give_each_corpus_equal_total_weight(self):
+        origin = np.array(["big"] * 30 + ["small"] * 10)
+        weights = holdout.source_balanced_weights(origin)
+        self.assertAlmostEqual(weights.mean(), 1.0)
+        self.assertAlmostEqual(weights[origin == "big"].sum(), weights[origin == "small"].sum())
+
+        sources = {"big": corpus("big", 15, 15), "small": corpus("small", 5, 5), "other": corpus("other", 4, 4)}
+        holdout.evaluate(sources, make_model=RecordingModel, thresholds=(0.5,), in_distribution=False,
+                         balance_sources=True, progress=lambda _message: None)
+        first = RecordingModel.weights[0]  # holding out "big": trained on small (10) + other (8)
+        self.assertAlmostEqual(first[:10].sum(), first[10:].sum())
+        holdout.evaluate(sources, make_model=RecordingModel, thresholds=(0.5,), in_distribution=False,
+                         progress=lambda _message: None)
+        self.assertIsNone(RecordingModel.weights[-1])
+
+    def test_weights_reach_the_classifier_inside_a_pipeline(self):
+        from sklearn.base import BaseEstimator, ClassifierMixin
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import FunctionTransformer
+
+        class WeightRecorder(ClassifierMixin, BaseEstimator):
+            def fit(self, X, y, sample_weight=None):
+                self.seen_ = sample_weight
+                return self
+
+        pipeline = make_pipeline(FunctionTransformer(lambda rows: np.zeros((len(rows), 1))), WeightRecorder())
+        weights = np.linspace(0.5, 1.5, 4)
+        holdout._fit(pipeline, ["a", "b", "c", "d"], np.array([1, 0, 1, 0]), weights)
+        np.testing.assert_array_equal(pipeline.steps[-1][1].seen_, weights)
+        holdout._fit(pipeline, ["a", "b", "c", "d"], np.array([1, 0, 1, 0]), None)
+        self.assertIsNone(pipeline.steps[-1][1].seen_)
 
     def test_normalized_model_only_adds_the_normalization_step(self):
         normalized = holdout.make_normalized_model()

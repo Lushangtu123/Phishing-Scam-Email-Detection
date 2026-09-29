@@ -156,16 +156,38 @@ def score_metrics(labels: Iterable[int], scores: Iterable[float], thresholds: It
     return metrics
 
 
+def source_balanced_weights(origin: np.ndarray) -> np.ndarray:
+    """Give every corpus the same total weight; the mean sample weight stays 1."""
+    names, counts = np.unique(origin, return_counts=True)
+    per_row = {name: len(origin) / (len(names) * count) for name, count in zip(names, counts)}
+    return np.array([per_row[name] for name in origin])
+
+
+def _fit(model, texts: list[str], labels: np.ndarray, weights: np.ndarray | None):
+    if weights is None:
+        return model.fit(texts, labels)
+    if hasattr(model, "steps"):  # scikit-learn Pipeline: route weights to the classifier
+        return model.fit(texts, labels, **{f"{model.steps[-1][0]}__sample_weight": weights})
+    return model.fit(texts, labels, sample_weight=weights)
+
+
 def evaluate(sources: Sources, *, make_model: Callable = make_production_model,
              thresholds: Iterable[float] = DEFAULT_THRESHOLDS, folds: int = 5, seed: int = 42,
-             in_distribution: bool = True, progress: Callable[[str], None] = print) -> dict:
-    """Per-source metrics for the in-distribution baseline and leave-one-source-out."""
+             in_distribution: bool = True, progress: Callable[[str], None] = print,
+             exclude_from_training: Iterable[str] = (), balance_sources: bool = False) -> dict:
+    """Per-source metrics for the in-distribution baseline and leave-one-source-out.
+
+    Corpora in exclude_from_training are still scored but never trained on.
+    balance_sources gives each training corpus the same total sample weight.
+    """
     thresholds = tuple(thresholds)
     names = list(sources)
     texts = [t for name in names for t in sources[name][0]]
     labels = np.array([y for name in names for y in sources[name][1]], dtype=int)
     groups = np.array([g for name in names for g in sources[name][2]])
     origin = np.array([name for name in names for _ in sources[name][0]])
+    excluded = np.isin(origin, list(exclude_from_training))
+    weigh = (lambda rows: source_balanced_weights(origin[rows])) if balance_sources else (lambda rows: None)
     report: dict = {"sources": {}}
 
     if in_distribution:
@@ -173,14 +195,16 @@ def evaluate(sources: Sources, *, make_model: Callable = make_production_model,
         splitter = StratifiedGroupKFold(n_splits=folds, shuffle=True, random_state=seed)
         for fold, (train, test) in enumerate(splitter.split(texts, labels, groups), 1):
             started = time.monotonic()
-            model = make_model().fit([texts[i] for i in train], labels[train])
+            train = train[~excluded[train]]
+            model = _fit(make_model(), [texts[i] for i in train], labels[train], weigh(train))
             oof[test] = model.predict_proba([texts[i] for i in test])[:, 1]
             progress(f"in-distribution fold {fold}/{folds} ({time.monotonic() - started:.0f}s)")
         report["pooled_in_distribution"] = score_metrics(labels, oof, thresholds)
 
     for name in names:
         held = origin == name
-        train_labels = labels[~held]
+        train_rows = np.flatnonzero(~held & ~excluded)
+        train_labels = labels[train_rows]
         entry: dict = {}
         if in_distribution:
             entry["in_distribution"] = score_metrics(labels[held], oof[held], thresholds)
@@ -189,7 +213,7 @@ def evaluate(sources: Sources, *, make_model: Callable = make_production_model,
             entry["skipped"] = "remaining corpora lack one of the two labels"
         else:
             started = time.monotonic()
-            model = make_model().fit([texts[i] for i in np.flatnonzero(~held)], train_labels)
+            model = _fit(make_model(), [texts[i] for i in train_rows], train_labels, weigh(train_rows))
             scores = model.predict_proba([texts[i] for i in np.flatnonzero(held)])[:, 1]
             entry["held_out"] = score_metrics(labels[held], scores, thresholds)
             progress(f"held out {name} ({int(held.sum())} rows, {time.monotonic() - started:.0f}s)")
@@ -229,6 +253,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--skip-in-distribution", action="store_true")
+    parser.add_argument("--exclude-from-training", action="append", default=[], metavar="CORPUS",
+                        help="score this corpus but never train on it (repeatable)")
+    parser.add_argument("--balance-sources", action="store_true",
+                        help="give every training corpus the same total sample weight")
     parser.add_argument("--normalize", action="store_true",
                         help="apply model_text.normalize_for_model to every message before vectorizing")
     args = parser.parse_args(argv)
@@ -238,11 +266,12 @@ def main(argv: list[str] | None = None) -> int:
     sources = _sample(sources, args.max_per_source, args.seed)
     print("corpora:", ", ".join(f"{n}={len(s[0])}" for n, s in sources.items()))
     report = evaluate(sources, make_model=make_normalized_model if args.normalize else make_production_model,
-                      folds=args.folds, seed=args.seed,
-                      in_distribution=not args.skip_in_distribution)
+                      folds=args.folds, seed=args.seed, in_distribution=not args.skip_in_distribution,
+                      exclude_from_training=args.exclude_from_training, balance_sources=args.balance_sources)
     report["settings"] = {
         "model": "TF-IDF word(1-2)+char_wb(3-5) FeatureUnion + LogisticRegression(C=4, balanced)",
         "normalization": "model_text.normalize_for_model" if args.normalize else None,
+        "exclude_from_training": args.exclude_from_training, "balance_sources": args.balance_sources,
         "thresholds": list(DEFAULT_THRESHOLDS), "folds": args.folds, "seed": args.seed,
         "max_per_source": args.max_per_source, "deduplication": dedup,
         "source_sha256": {p.name: content_model._file_sha256(p)

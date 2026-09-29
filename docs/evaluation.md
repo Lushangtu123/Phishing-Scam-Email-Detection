@@ -902,6 +902,40 @@ normalization renames these cues without removing them; corpus composition is
 the lever to test next. The option is kept only to reproduce this result; the
 served model does not use it.
 
+### Corpus composition experiments, 2026-09-29 (no gain)
+
+Two options reweight or drop existing public corpora; each corpus is still held
+out in turn, on the same 56,232 messages and seed (held-out only,
+`--skip-in-distribution`):
+
+- A: `--balance-sources` gives every training corpus the same total weight.
+- B: `--exclude-from-training CEAS_08` never trains on CEAS_08 (its phishing
+  labels likely mark spam) but still scores it.
+- C: both.
+
+| Held-out corpus | PR AUC base / A / B / C | FPR @0.3736 base / A / B / C |
+|---|---|---|
+| Phishing_Email | 0.832 / 0.793 / 0.551 / 0.553 | 19.4% / 23.8% / 89.1% / 89.0% |
+| CEAS_08 | 0.971 / 0.954 / 0.971 / 0.954 | 9.4% / 10.5% / 9.4% / 10.5% |
+| phishnchips_core | 0.746 / 0.760 / 0.730 / 0.755 | 1.7% / 1.2% / 3.1% / 1.9% |
+| SpaPhish | 0.597 / 0.597 / 0.569 / 0.561 | 96.5% / 98.2% / 98.8% / 98.8% |
+| synthetic_hard_negatives | — | 60.3% / 60.7% / 67.3% / 66.2% |
+
+Recall at 0.3736 rose where FPR rose (Phishing_Email 78.0% → 95.5% with B), so
+PR AUC is the comparison to trust. Balancing trades a small gain on
+`phishnchips_core` for losses on the two large corpora. Dropping CEAS_08 removes
+17,114 of the 30,519 legitimate training messages, and legitimate
+`Phishing_Email` mail is then flagged 89% of the time: whatever its phishing
+labels mean, its legitimate half is most of what the model knows about normal
+mail. CEAS_08's own row in B equals the baseline, as expected, because a held-out
+corpus is never trained on in either run.
+
+With the normalization result, this points away from reshaping the available
+public corpora and towards data they lack: modern legitimate mail (notifications,
+transactional and workplace mail) and non-English legitimate mail, consented
+and dated, measured with this tool and `evaluate_serving_pipeline.py` before any
+retraining.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 07:48 PT] — Corpus reweighting and CEAS_08 removal do not improve transfer (negative result)
+
+### Why
+- After text normalization failed, the next candidate was corpus composition: 91% of legitimate training mail comes from two older corpora, and CEAS_08's phishing labels likely mark spam.
+
+### Files changed
+- `website/tools/evaluate_source_holdout.py` — `--balance-sources` (equal total sample weight per training corpus, mean weight 1, routed to the classifier inside the pipeline) and repeatable `--exclude-from-training CORPUS` (scored, never trained on, in both the pooled folds and the held-out runs); both recorded in the report settings.
+- `website/tests/test_source_holdout.py` — excluded corpora never enter any training set yet are scored; balanced weights sum equally per corpus and reach the final pipeline step; no weights without the option. The exclusion test fails when the exclusion is removed from the held-out loop.
+- `docs/evaluation.md` — results and conclusion (§4).
+
+### Effect
+- Held-out PR AUC, baseline / balanced / without CEAS_08 / both: Phishing_Email 0.832 / 0.793 / 0.551 / 0.553; CEAS_08 0.971 / 0.954 / 0.971 / 0.954; phishnchips_core 0.746 / 0.760 / 0.730 / 0.755; SpaPhish 0.597 / 0.597 / 0.569 / 0.561. Hard-negative FPR 60.3% / 60.7% / 67.3% / 66.2%.
+- Without CEAS_08 the model loses 17,114 of 30,519 legitimate examples and flags 89% of legitimate `Phishing_Email` mail. Not adopted; the missing ingredient is modern and non-English legitimate mail, which the public corpora do not supply.
+- Validation: 10 evaluator tests pass.
+
 ## [2026-09-28 20:35 PT] — Surface-token text normalization does not improve transfer (negative result)
 
 ### Why
