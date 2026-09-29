@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 19:45 PT] — Commit container visual baselines and enable the visual CI job
+
+### Why
+- The screenshot suite needs baselines rendered in the same pinned Playwright container as CI before its job can block merges.
+
+### Files changed
+- `website/tools/visual/baselines/*.png` — 17 baselines rendered by **Visual baselines** run 36512371739 (`mcr.microsoft.com/playwright:v1.62.1-noble`, from e6edb8a), fetched from `visual-baselines-update` and reviewed (English and Chinese sender results, content results, hero, mobile menu, 404).
+- `.github/workflows/ci.yml` — the blocking `visual` job (compare against the committed baselines in the same container; upload expected/actual/diff images on failure).
+
+### Effect
+- Layout or style changes that move the homepage results, hero, mobile menu or 404 page now fail CI with diff images.
+
 ## [2026-09-28 19:35 PT] — Visual baselines: optional push to a review branch
 
 ### Why

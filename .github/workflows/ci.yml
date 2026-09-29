@@ -141,6 +141,43 @@ jobs:
           node --check website/tools/visual/capture-fixtures.mjs
           node --check website/tools/visual/server.test.mjs
 
+  visual:
+    name: Visual regression (Playwright container)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Chromium build, fonts and OS libraries are part of every screenshot, so the
+    # suite runs only in this pinned image; the committed baselines come from the
+    # same image (visual-baselines.yml). Keep the tag equal to @playwright/test
+    # in website/tools/visual/package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node comes from the image; this step only caches npm downloads.
+      - uses: actions/setup-node@v7
+        with:
+          cache: npm
+          cache-dependency-path: website/tools/visual/package-lock.json
+
+      - name: Install the pinned Playwright test runner
+        run: npm ci --prefix website/tools/visual --no-audit --no-fund
+
+      - name: Compare screenshots with the committed baselines
+        run: node website/tools/visual/run.mjs --committed
+
+      - name: Upload expected, actual and diff images
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-diffs
+          path: website/tools/visual/.output/
+          if-no-files-found: ignore
+          retention-days: 14
+
   optional-vision:
     runs-on: ubuntu-latest
     steps:
