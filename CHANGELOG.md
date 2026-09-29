@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 09:40 PT] — Newer phishing, marketing mail and templates: phishing extrapolates, transactional legitimate mail does not
+
+### Why
+- The previous round showed recent legitimate mail is the missing ingredient. Newer public data (Nazario 2015–2025 phishing, Marketing-Emails, Postmark transactional templates) was added to test time extrapolation and whether more data closes the gap.
+
+### Files changed
+- `website/tools/evaluate_external_corpora.py` — mbox loader for Nazario yearly files (charset fallback, HTML stripped from every text body, unfolded subjects), Marketing-Emails CSV loader, Postmark template loader with placeholder filling (demo template skipped), deterministic family split, and `--extended-experiment`. The option compares C0–C3 on recent PhishFuzzer seeds (grouped folds), Nazario 2023–2025, held-out marketing mail and templates, after removing family overlap with training.
+- `website/tests/test_external_corpora.py` — malformed mbox messages, marketing/template parsing, family split, and grouped-fold isolation in the extended experiment.
+- `docs/evaluation.md` — sources, licenses, revisions, C0–C3 results and limits.
+
+### Effect
+- With no change to its training data (C0), the recipe detects 97.3% of 2023–2025 Nazario phishing.
+- C3 (C2 + 13,101 synthetic marketing emails + 1,841 Nazario 2015–2022 messages) does not beat C2: recent-seed PR AUC 0.790 vs 0.793, FPR 37.3% vs 32.4%.
+- Marketing-Emails turned out to be fully synthetic and is flagged under 1% even by C0.
+- Transactional templates for dunning and trial expiry are flagged: 3/10 with C0, 5/10 with C3.
+- The served model is unchanged. The next useful data is real, recent, legitimate transactional mail.
+
 ## [2026-09-29 08:22 PT] — External public corpora: recent legitimate mail is the missing training ingredient
 
 ### Why

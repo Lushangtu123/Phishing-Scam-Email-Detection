@@ -22,8 +22,14 @@ artifact is never touched. Reports hold aggregate counts and rates.
 from __future__ import annotations
 
 import argparse
+import codecs
+import csv
 import json
+import mailbox
+import re
 import sys
+from email.header import decode_header, make_header
+from html import unescape
 from pathlib import Path
 from typing import Callable
 
@@ -130,6 +136,142 @@ def augmentation_experiment(training: holdout.Sources, extra_training: Sets, rec
     return {name: holdout.score_metrics(labels, values, thresholds) for name, values in scores.items()}
 
 
+# ── Additional public sources (Nazario yearly mbox, Marketing-Emails, templates) ──
+_TAGS = re.compile(r"<[^>]+>")
+_SCRIPT_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.I | re.S)
+_SPACE = re.compile(r"\s+")
+
+
+def _codec(charset: str | None) -> str:
+    """Declared charset if Python knows it; phishing mail often declares broken ones."""
+    try:
+        return codecs.lookup(charset).name if charset else "utf-8"
+    except LookupError:
+        return "utf-8"
+
+
+def _message_text(message) -> str:
+    """Subject, blank line, plain body; HTML-only bodies have tags stripped.
+
+    Matches the whitespace-collapsed plain text of the training Nazario.csv.
+    """
+    plain, html = [], []
+    for part in (message.walk() if message.is_multipart() else [message]):
+        if part.get_content_maintype() != "text" or part.get_filename():
+            continue
+        payload = part.get_payload(decode=True) or b""
+        text = payload.decode(_codec(part.get_content_charset()), errors="replace")
+        (plain if part.get_content_subtype() == "plain" else html if part.get_content_subtype() == "html" else []).append(text)
+    # Phishing often puts HTML in the text/plain part; strip tags everywhere, as Nazario.csv has none.
+    raw = " ".join(plain) if plain else " ".join(html)
+    body = unescape(_TAGS.sub(" ", _SCRIPT_STYLE.sub(" ", raw)))
+    try:
+        subject = str(make_header(decode_header(message.get("Subject", "") or "")))
+    except (LookupError, UnicodeError, ValueError):  # malformed headers are common in phishing
+        subject = str(message.get("Subject", "") or "")
+    return (_SPACE.sub(" ", subject).strip() + "\n\n" + _SPACE.sub(" ", body).strip()).strip()
+
+
+def load_nazario_years(directory: Path, years) -> list[str]:
+    texts = []
+    for year in years:
+        path = directory / f"phishing-{year}.mbox"
+        if path.exists():
+            texts += [text for text in (_message_text(m) for m in mailbox.mbox(str(path))) if len(text) > 20]
+    return texts
+
+
+def load_marketing(path: Path) -> list[str]:
+    """marketeam/Marketing-Emails rows are 'Subject: ...' then the body."""
+    csv.field_size_limit(sys.maxsize)
+    texts = []
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.reader(handle):
+            raw = row[0] if row else ""
+            if raw == "0" or not raw.strip():
+                continue
+            match = re.match(r"\s*Subject:\s*(.*?)\n(.*)", raw, re.S)
+            texts.append(((match.group(1) + "\n\n" + match.group(2).strip()) if match else raw).strip())
+    return texts
+
+
+_PLACEHOLDER_VALUES = (("name", "Alex"), ("url", "https://app.example.com/account"), ("product", "Acme"),
+                       ("company", "Acme Inc."), ("email", "alex@example.com"), ("date", "March 3"),
+                       ("amount", "$29.00"), ("total", "$29.00"), ("code", "482913"), ("id", "1042"))
+
+
+def fill_template(text: str) -> str:
+    """Remove mustache sections and replace variables with neutral example values."""
+    text = re.sub(r"\{\{\s*[#/^][^}]*\}\}", " ", text)
+
+    def value(match):
+        key = match.group(1).lower()
+        return next((v for k, v in _PLACEHOLDER_VALUES if k in key), "details")
+    return re.sub(r"\{\{\{?\s*([^}]+?)\s*\}?\}\}", value, text)
+
+
+def load_templates(directory: Path) -> list[str]:
+    """Distinct Postmark plain-text transactional templates, placeholders filled."""
+    seen, texts = set(), []
+    for path in sorted(directory.glob("postmark-templates/templates/*/*/content.txt")):
+        if path.parent.name == "example":  # the library's demo template, not a transactional message
+            continue
+        text = (path.parent.name.replace("-", " ").capitalize() + "\n\n" + fill_template(path.read_text(encoding="utf-8"))).strip()
+        key = _SPACE.sub(" ", text.lower())
+        if key not in seen:
+            seen.add(key); texts.append(text)
+    return texts
+
+
+def split_by_family(texts: list[str], test_fraction: float, seed: int) -> tuple[list[str], list[str]]:
+    """Deterministic split that keeps each normalized family on one side."""
+    import hashlib
+    train, test = [], []
+    for text in texts:
+        digest = hashlib.sha256(f"{seed}:{content_model._normalized_text_family(text)}".encode()).digest()
+        (test if digest[0] < 256 * test_fraction else train).append(text)
+    return train, test
+
+
+def extended_experiment(training: holdout.Sources, conditions: dict, recent_seeds, recent_variants,
+                        test_sets: Sets, *, make_model: Callable = holdout.make_production_model, folds: int = 5,
+                        seed: int = 42, thresholds=holdout.DEFAULT_THRESHOLDS,
+                        progress: Callable[[str], None] = print) -> dict:
+    """Score recent seeds (grouped folds when a condition trains on recent variants) and other test sets.
+
+    conditions maps a name to (extra training Sets, include_recent_variants).
+    """
+    from sklearn.model_selection import StratifiedGroupKFold
+    base_texts = [t for texts, _l, _g in training.values() for t in texts]
+    base_labels = [y for _t, labels, _g in training.values() for y in labels]
+    seed_texts, seed_labels, seed_ids = recent_seeds
+    variant_texts, variant_labels, variant_ids = recent_variants
+    labels = np.asarray(seed_labels)
+    results = {}
+    for name, (extra, with_variants) in conditions.items():
+        texts = base_texts + [t for ts, _l in extra.values() for t in ts]
+        ys = base_labels + [y for _t, ls in extra.values() for y in ls]
+        full = make_model().fit(texts + (variant_texts if with_variants else []),
+                                ys + (list(variant_labels) if with_variants else []))
+        progress(f"{name}: full model fitted ({len(texts) + (len(variant_texts) if with_variants else 0)} rows)")
+        if with_variants:
+            seed_scores = np.full(labels.size, np.nan)
+            splitter = StratifiedGroupKFold(n_splits=folds, shuffle=True, random_state=seed)
+            for fold, (_train_idx, test_idx) in enumerate(splitter.split(seed_texts, labels, seed_ids), 1):
+                held = {seed_ids[i] for i in test_idx}
+                keep = [i for i, sid in enumerate(variant_ids) if sid not in held]
+                model = make_model().fit(texts + [variant_texts[i] for i in keep], ys + [variant_labels[i] for i in keep])
+                seed_scores[test_idx] = model.predict_proba([seed_texts[i] for i in test_idx])[:, 1]
+                progress(f"{name}: fold {fold}/{folds}")
+        else:
+            seed_scores = full.predict_proba(seed_texts)[:, 1]
+        results[name] = {"recent_seeds": holdout.score_metrics(labels, seed_scores, thresholds)}
+        for set_name, (set_texts, set_labels) in test_sets.items():
+            if set_texts:
+                results[name][set_name] = holdout.score_metrics(set_labels, full.predict_proba(set_texts)[:, 1], thresholds)
+    return results
+
+
 def remove_training_overlap(external: Sets, training_families: set[str]) -> tuple[Sets, dict]:
     kept: Sets = {}
     removed: dict = {}
@@ -186,6 +328,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--augmentation-experiment", action="store_true",
                         help="also score recent PhishFuzzer seeds with DiFraud and LLM variants added to training")
+    parser.add_argument("--nazario-dir", type=Path, help="yearly phishing-YYYY.mbox files from monkey.org/~jose/phishing")
+    parser.add_argument("--marketing-csv", type=Path, help="marketeam/Marketing-Emails train.csv")
+    parser.add_argument("--templates-dir", type=Path, help="directory containing postmark-templates/")
+    parser.add_argument("--extended-experiment", action="store_true",
+                        help="C0-C3 training sets scored on recent seeds, Nazario 2023-2025, held-out marketing mail "
+                             "and transactional templates")
     args = parser.parse_args(argv)
 
     training, dedup = holdout.deduplicate_across_sources(holdout.load_sources(args.data_dir, seed=args.seed))
@@ -211,9 +359,42 @@ def main(argv: list[str] | None = None) -> int:
                  "phishfuzzer_llm_from_legacy_seed": external["phishfuzzer_llm_from_legacy_seed"]}
         seeds, variants = load_recent_families(args.phishfuzzer_dir)
         report["augmentation_experiment"] = augmentation_experiment(training, extra, seeds, variants, seed=args.seed)
+    if args.extended_experiment:
+        if not all((args.difraud_dir, args.phishfuzzer_dir, args.nazario_dir, args.marketing_csv, args.templates_dir)):
+            parser.error("--extended-experiment needs all five source options")
+        seeds, variants = load_recent_families(args.phishfuzzer_dir)
+        marketing_train, marketing_test = split_by_family(load_marketing(args.marketing_csv), 0.2, args.seed)
+        extra_sets = {"nazario_2015_2022": (lambda ts: (ts, [1] * len(ts)))(load_nazario_years(args.nazario_dir, range(2015, 2023))),
+                      "marketing_train": (marketing_train, [0] * len(marketing_train))}
+        extra_sets, extra_overlap = remove_training_overlap(extra_sets, families)
+        seen = families | {content_model._normalized_text_family(t) for ts, _l in extra_sets.values() for t in ts}
+        nazario_test = load_nazario_years(args.nazario_dir, range(2023, 2026))
+        templates = load_templates(args.templates_dir)
+        test_sets, test_overlap = remove_training_overlap(
+            {"nazario_2023_2025": (nazario_test, [1] * len(nazario_test)),
+             "marketing_held_out": (marketing_test, [0] * len(marketing_test)),
+             "transactional_templates": (templates, [0] * len(templates))}, seen)
+        base_extra = {"difraud": external["difraud"],
+                      "phishfuzzer_llm_from_legacy_seed": external["phishfuzzer_llm_from_legacy_seed"]}
+        conditions = {"C0_training_corpora": ({}, False),
+                      "C1_plus_difraud_and_legacy_llm": (base_extra, False),
+                      "C2_plus_recent_llm_variants": (base_extra, True),
+                      "C3_plus_marketing_and_nazario_2015_2022": ({**base_extra, **extra_sets}, True)}
+        print("extended extras:", {k: len(v[0]) for k, v in extra_sets.items()},
+              "tests:", {k: len(v[0]) for k, v in test_sets.items()})
+        report["extended_experiment"] = {"overlap": {**extra_overlap, **test_overlap},
+                                         "results": extended_experiment(training, conditions, seeds, variants,
+                                                                        test_sets, seed=args.seed)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print("\n" + markdown_table(report) + f"\n\nReport written to {args.output}")
+    key = f"{holdout.DEPLOYED_THRESHOLD:g}"
+    for condition, sets in report.get("extended_experiment", {}).get("results", {}).items():
+        print(condition)
+        for set_name, metrics in sets.items():
+            at = metrics["at_threshold"][key]
+            print(f"  {set_name:26s} PR AUC {metrics['pr_auc']}  recall {holdout._fmt(at['phishing_recall'])}  "
+                  f"FPR {holdout._fmt(at['false_positive_rate'])}")
     for name, metrics in report.get("augmentation_experiment", {}).items():
         at = metrics["at_threshold"][f"{holdout.DEPLOYED_THRESHOLD:g}"]
         print(f"{name}: PR AUC {metrics['pr_auc']}, recall {holdout._fmt(at['phishing_recall'])}, "

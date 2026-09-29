@@ -1011,6 +1011,63 @@ artifact.
   --augmentation-experiment --output .evaluation-data/external/report.json
 ```
 
+### Newer phishing, marketing mail and transactional templates (2026-09-29)
+
+Three more sources, evaluation only, in the same git-ignored folder:
+
+| Source | Contents used | Revision | License |
+|---|---|---|---|
+| [Nazario phishing corpus](https://monkey.org/~jose/phishing/) yearly mboxes | 2015–2022: 2,153 phishing messages (1,841 after removing families already in training), used for training in C3; 2023–2025: 1,303 (1,297 after removing families in training or C3's additions), test only. Real phishing received by one mailbox; subject plus text body, HTML stripped | per-file SHA-256 in `SOURCES.txt`, fetched 2026-09-29 | CC BY 4.0 |
+| [marketeam/Marketing-Emails](https://huggingface.co/datasets/marketeam/Marketing-Emails) | 16,440 legitimate business emails between marketing colleagues, split by normalized family 80/20 (seed 42) into 13,101 training and 3,339 held-out rows. **Fully synthetic**: the dataset card says every email was produced by generative models | `56377f42` | MIT |
+| [Postmark transactional templates](https://github.com/ActiveCampaign/postmark-templates) | 10 text templates (welcome, receipt, invoice, dunning, trial expiring/expired, password reset ×2, invitation, comment notification) with fixed example placeholder values. The Mailgun and MailPace repositories were also fetched but ship HTML only and are not scored | `fa73527a` | MIT |
+
+`--extended-experiment` scores four training sets. On the recent PhishFuzzer seeds, C2 and C3
+use grouped folds as in the previous section. All other sets are scored by the full model of each condition:
+
+| Training set | Recent seeds: PR AUC / FPR | Nazario 2023–25 recall | Marketing held-out FPR | Templates flagged |
+|---|---|---|---|---|
+| C0: seven training corpora | 0.725 / 67.7% | 97.3% (96.3–98.1%) | 0.8% (26/3,339) | 3/10 |
+| C1: + DiFraud + legacy LLM variants | 0.707 / 53.9% | 96.5% (95.3–97.3%) | 0.0% (1/3,339) | 7/10 |
+| C2: C1 + other recent LLM variants | **0.793** / **32.4%** | 94.5% (93.2–95.6%) | 0.2% (8/3,339) | 3/10 |
+| C3: C2 + Marketing-Emails + Nazario 2015–22 | 0.790 / 37.3% (28.5–46.9%) | 95.2% (93.9–96.3%) | 0.0% (0/3,339) | 5/10 |
+
+All rates are at the deployed threshold, 0.3736. Intervals are Wilson 95%.
+
+- **The recipe extrapolates forward on phishing.** Trained only on the existing corpora, it
+  detects 97.3% of 2023–2025 Nazario phishing. Missed phishing is not the main
+  error on recent mail.
+- **C3 does not improve on C2.** On the recent seeds, PR AUC is unchanged
+  (0.790 vs 0.793). C3 detects 4 more phishing seeds and flags 5 more legitimate ones, which is a threshold
+  shift, not better separation. It also costs 1 point of Nazario 2023–25 recall.
+- **Synthetic marketing mail is too easy to be informative.** Every condition,
+  including C0, flags fewer than 1% of the held-out rows. Adding 13,101 of them teaches the model
+  little that transfers to the recent seeds.
+- **Transactional mail is where false alerts concentrate.** With C0, the flagged
+  templates are Dunning (a failed-payment notice, score 0.84), Trial expired
+  (0.47) and Trial expiring (0.45). These use the same urgent account and payment
+  wording as phishing. Password-reset templates score below 0.09. With 10 templates the
+  intervals span roughly 11–89%, so the per-condition counts are anecdotes. The pattern
+  matches the 32–68% FPR on the recent seeds.
+
+Next steps, in order of value:
+1. A **real**, dated sample of recent legitimate transactional and account mail
+   (billing, trials, shipping, security notices), consented and scored with
+   `evaluate_serving_pipeline.py`.
+2. Only then, a retraining decision. The public data here has no recent real legitimate
+   mail of that kind.
+
+The served artifact is unchanged.
+
+```sh
+.venv/bin/python website/tools/evaluate_external_corpora.py \
+  --difraud-dir .evaluation-data/external/difraud \
+  --phishfuzzer-dir .evaluation-data/external/phishfuzzer \
+  --nazario-dir .evaluation-data/external/nazario \
+  --marketing-csv .evaluation-data/external/marketing/train.csv \
+  --templates-dir .evaluation-data/external/templates \
+  --extended-experiment --output .evaluation-data/external/report-extended.json
+```
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

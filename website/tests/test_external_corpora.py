@@ -104,6 +104,69 @@ class ExternalCorporaTests(unittest.TestCase):
         self.assertEqual(seen_variant_ids, {str(i) for i in range(10)})
         self.assertEqual(results["C2_plus_recent_llm_variants_grouped"]["rows"], 10)
 
+    def test_mbox_messages_become_plain_subject_and_body_even_when_malformed(self):
+        from email import message_from_string
+        plain_with_html = message_from_string(
+            "Subject: Billing\n information\nContent-Type: text/plain; charset=utf-8\n\n"
+            "<p><strong>HELLO,</strong></p>\n<p>Pay&amp;go now</p>\n")
+        self.assertEqual(external._message_text(plain_with_html), "Billing information\n\nHELLO, Pay&go now")
+        html_only = message_from_string(
+            "Subject: Reset\nContent-Type: text/html\n\n<html><body><a href='x'>Click</a> here</body></html>\n")
+        self.assertEqual(external._message_text(html_only), "Reset\n\nClick here")
+        broken = message_from_string(
+            'Subject: Hi\nContent-Type: text/plain; charset="utf-8x-priority: 3"\n\nBody text\n')
+        self.assertEqual(external._message_text(broken), "Hi\n\nBody text")
+        self.assertEqual(external._codec("definitely-not-a-codec"), "utf-8")
+
+    def test_marketing_rows_and_templates_are_parsed(self):
+        csv_path = self.dir / "train.csv"
+        csv_path.write_text('0\n"Subject: Spring sale\n\nHi Ana,\nSave 20% today."\n"No subject line here"\n')
+        self.assertEqual(external.load_marketing(csv_path), ["Spring sale\n\nHi Ana,\nSave 20% today.", "No subject line here"])
+        self.assertEqual(external.fill_template("Hi {{name}}, {{#each items}}{{description}}{{/each}} at {{{action_url}}}"),
+                         "Hi Alex,  details  at https://app.example.com/account")
+        for style, kind in (("basic", "password-reset"), ("basic-full", "password-reset"), ("basic", "example")):
+            folder = self.dir / "postmark-templates" / "templates" / style / kind
+            folder.mkdir(parents=True)
+            (folder / "content.txt").write_text("Reset for {{name}}")
+        self.assertEqual(external.load_templates(self.dir), ["Password reset\n\nReset for Alex"])
+
+    def test_family_split_is_deterministic_and_keeps_families_together(self):
+        texts = [f"message about topic {word}" for word in "abcdefghijklmnopqrstuvwxyz"]
+        texts += ["Your code is 123", "your code is 999"]
+        train, test = external.split_by_family(texts, 0.3, 42)
+        self.assertEqual((train, test), external.split_by_family(texts, 0.3, 42))
+        self.assertEqual(sorted(train + test), sorted(texts))
+        self.assertTrue(test and train)
+        self.assertEqual(("Your code is 123" in test), ("your code is 999" in test))
+
+    def test_extended_experiment_keeps_tested_seed_families_out_of_fold_training(self):
+        fits = []
+
+        class Recorder(RecordingModel):
+            def fit(self, texts, labels):
+                fits.append(list(texts))
+                return self
+
+        seeds = ([f"seed urgent {i}" if i % 2 else f"seed notes {i}" for i in range(10)],
+                 [i % 2 for i in range(10)], [str(i) for i in range(10)])
+        variants = ([f"variant {i}" for i in range(10)], [i % 2 for i in range(10)], [str(i) for i in range(10)])
+        training = {"corpus": (["urgent pay", "team lunch"], [1, 0], ["g1", "g2"])}
+        extra = {"marketing_train": (["spring sale"], [0])}
+        tests = {"nazario_2023_2025": (["urgent verify now"], [1]), "templates": (["receipt"], [0])}
+        conditions = {"plain": ({}, False), "with_variants": (extra, True)}
+        results = external.extended_experiment(training, conditions, seeds, variants, tests, make_model=Recorder,
+                                               folds=5, thresholds=(0.5,), progress=lambda _m: None)
+        self.assertEqual(len(fits), 1 + (1 + 5))
+        self.assertEqual(fits[0], ["urgent pay", "team lunch"])
+        self.assertIn("spring sale", fits[1])
+        self.assertEqual(sum(t.startswith("variant") for t in fits[1]), 10)  # full model sees every variant
+        for fold_texts in fits[2:]:
+            self.assertEqual(sum(t.startswith("variant") for t in fold_texts), 8)
+            self.assertFalse(any(t.startswith("seed") for t in fold_texts))
+        self.assertEqual(set(results["with_variants"]), {"recent_seeds", "nazario_2023_2025", "templates"})
+        self.assertEqual(results["plain"]["nazario_2023_2025"]["at_threshold"]["0.5"]["phishing_recall"]["value"], 1.0)
+        self.assertEqual(results["plain"]["templates"]["at_threshold"]["0.5"]["false_positive_rate"]["value"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
