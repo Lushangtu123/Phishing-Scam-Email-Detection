@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 08:22 PT] — External public corpora: recent legitimate mail is the missing training ingredient
+
+### Why
+- Normalization and reweighting of the existing corpora did not improve transfer. Public data with more recent mail (DiFraud, PhishFuzzer, phishing_pot) was obtained to measure the recipe on unseen mail and to test whether adding it helps.
+
+### Files changed
+- `website/tools/evaluate_external_corpora.py` — trains the deployed configuration on the seven training corpora and scores DiFraud and PhishFuzzer (recent real seeds, LLM variants of recent and legacy seeds, spam separately) after removing training-family overlap; `--augmentation-experiment` compares C0/C1/C2 training sets on the recent seeds with grouped folds over seed IDs.
+- `website/tests/test_external_corpora.py` — loaders, provenance split, spam separation, overlap removal, external rows never trained on, and C2 never training on a tested seed's family.
+- `docs/evaluation.md` (§5), `.vercelignore` — sources, licenses, pinned revisions, results and limits; keep the tool out of the deployment.
+
+### Effect
+- Serving pipeline, 500 phishing_pot + 500 easy_ham EML: phishing recall 85.2% (81.8–88.0%), 1.4% not alerted and 13.4% undetermined; legitimate false alerts 5.0% on 2003 mail; 0.4% of phishing analyses complete.
+- Model recipe on unseen corpora: DiFraud PR AUC 0.963, FPR 10.5%; recent real PhishFuzzer seeds PR AUC 0.725, FPR 67.7%; LLM variants of recent seeds FPR 66.8% vs 6.0% for variants of legacy seeds.
+- Training additions on the 205 recent seeds: PR AUC 0.725 → 0.707 (C1: + DiFraud + legacy variants) → 0.793 (C2: + variants of other recent seeds); FPR 67.7% → 53.9% → 32.4%; recall 83.5% → 83.5% → 81.5%. Small, single-collection sample; not adopted into the served model.
+- Validation: 722 backend tests (5 new), 507 frontend tests, `ruff check .` and `git diff --check` pass.
+
 ## [2026-09-29 07:48 PT] — Corpus reweighting and CEAS_08 removal do not improve transfer (negative result)
 
 ### Why

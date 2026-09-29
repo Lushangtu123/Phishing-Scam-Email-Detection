@@ -17,6 +17,7 @@ render.yaml
 website/tools/vision-benchmark/
 website/tools/evaluate_public_corpus.py
 website/tools/evaluate_source_holdout.py
+website/tools/evaluate_external_corpora.py
 website/tools/model_text.py
 website/tools/evaluate_jev.py
 website/tools/evaluation_data.py

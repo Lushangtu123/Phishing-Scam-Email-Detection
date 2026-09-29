@@ -936,6 +936,81 @@ transactional and workplace mail) and non-English legitimate mail, consented
 and dated, measured with this tool and `evaluate_serving_pipeline.py` before any
 retraining.
 
+## 5. External public corpora (2026-09-29)
+
+Three public sources were added for evaluation only; none is used by the served
+model. Files stay in the git-ignored `.evaluation-data/` with pinned revisions and
+SHA-256s:
+
+| Source | Contents used | Revision | License |
+|---|---|---|---|
+| [DiFraud](https://huggingface.co/datasets/redasers/difraud) phishing subset | 15,272 messages (6,074 phishing / 9,198 legitimate). Legitimate mail is mostly 2014–2016 organisational mail (23.5% DNC, 3.2% Sony, 3.0% Hacking Team markers; 8.2% Enron); phishing mostly mentions 2005–2007 | `f8fa04af` | MIT |
+| [PhishFuzzer](https://github.com/DataPhish/PhishFuzzer) | 3,300 seeds (1,126 phishing / 1,100 valid / 1,074 spam) and 19,800 LLM entity-rephrased variants. Only the 300 `Source: Manual` seeds are recent (2022–2026, 102 valid, 103 phishing; English, Norwegian, Hungarian, German); the rest derive from SpamAssassin and a Kaggle phishing set | `1e21dd4e` | No LICENSE file in the repository; the paper states CC BY 4.0 |
+| [phishing_pot](https://github.com/rf-peixoto/phishing_pot) | 500 phishing `.eml` (seed 20260929) via `prepare_public_pilot.py`, paired with 500 SpamAssassin easy_ham (2003) | pinned by the pilot tool | CC BY-NC 4.0 (non-commercial) |
+
+### Serving pipeline on 1,000 original EML files
+
+`evaluate_public_corpus.py` on the phishing_pot/easy_ham pilot (full rules and
+model): phishing alert recall 85.2% (426/500, Wilson 81.8–88.0%); 7 phishing
+messages (1.4%) were not alerted and 67 (13.4%) were undetermined; legitimate
+false-alert rate 5.0% (25/500, 3.4–7.3%) on 2003 mail. Only 0.4% of phishing_pot
+analyses were complete and the text model scored 72.8% of them: most misses
+come from image, remote-resource or attachment coverage, not from a low model
+score. A few of the 500 may overlap the 2026-09-21 pilots drawn from the same
+pool. Labels are upstream and unreviewed.
+
+### Model recipe on external corpora
+
+`evaluate_external_corpora.py` trains the deployed configuration once on the
+seven training corpora and scores each external set, after removing external
+messages whose normalized family is already in training (44 of 15,272 DiFraud
+rows; none from PhishFuzzer):
+
+| External set | Rows (phish/legit) | PR AUC | Recall @0.3736 | FPR @0.3736 |
+|---|---|---|---|---|
+| DiFraud | 15,228 (6,044/9,184) | 0.963 | 93.2% | 10.5% |
+| PhishFuzzer recent real seeds | 205 (103/102) | 0.725 | 83.5% | **67.7%** |
+| LLM variants of recent seeds | 1,230 (618/612) | 0.798 | 86.9% | 66.8% |
+| LLM variants of legacy seeds | 12,126 (6,138/5,988) | 0.998 | 99.3% | 6.0% |
+
+Spam (not part of either label) is scored as phishing 38–53% of the time. The two
+LLM-variant rows differ only in the era of the seed, and the false-positive rate
+moves from 6% to 67%: the recipe keys on era and style. Recent legitimate mail is
+flagged two times in three.
+
+### Adding public data to training
+
+`--augmentation-experiment` scores the 205 recent real seeds under three training
+sets; C2 uses grouped 5-fold cross-validation over seed IDs so no tested seed or
+its variants are trained on (a unit test checks this):
+
+| Training set | PR AUC | Recall @0.3736 | FPR @0.3736 (Wilson 95%) |
+|---|---|---|---|
+| C0: seven training corpora | 0.725 | 83.5% | 67.7% (58.1–75.9%) |
+| C1: + DiFraud + LLM variants of legacy seeds | 0.707 | 83.5% | 53.9% (44.3–63.3%) |
+| C2: C1 + LLM variants of the *other* recent seeds (984 per fold) | **0.793** | 81.5% | **32.4% (24.1–41.9%)** |
+
+This is the first change that improves separation on recent mail: C2 halves the
+false-positive rate with two fewer detected phishing messages and a higher PR
+AUC. C1 alone lowers FPR at this threshold without better separation, so
+2014–2016 mail and legacy-style variants do not substitute for recent examples.
+
+Limits: 205 seeds is small and the intervals are wide. The seeds come from one
+private collection, so seeds in different folds may share senders or
+organisations; grouping is by seed, not by submitter, and C2 may be optimistic.
+A 32% false-positive rate is still far from usable, and training on LLM variants
+risks a new "LLM style" cue. Treat this as evidence that recent-style legitimate
+mail is the missing ingredient, to confirm on an independent, consented, dated
+holdout (`evaluate_serving_pipeline.py`) before any retraining of the served
+artifact.
+
+```sh
+.venv/bin/python website/tools/evaluate_external_corpora.py \
+  --difraud-dir .evaluation-data/external/difraud \
+  --phishfuzzer-dir .evaluation-data/external/phishfuzzer \
+  --augmentation-experiment --output .evaluation-data/external/report.json
+```
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:
