@@ -622,7 +622,7 @@ test('every declared page action calls the handler its inline attribute used to 
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const declared = [...html.matchAll(/data-action="([^"]+)"(?:[^>]*?data-arg="([^"]*)")?/g)]
     .map(([, action, arg]) => ({ action, arg }));
-  assert.equal(declared.length, 33);
+  assert.equal(declared.length, 34);
   const controls = declared.map(({ action, arg }) =>
     Object.assign(new FakeElement(), { dataset: arg === undefined ? { action } : { action, arg } }));
   const elements = new Map();
@@ -635,7 +635,7 @@ test('every declared page action calls the handler its inline attribute used to 
   };
   const { context } = loadFrontend({ document });
   const calls = [];
-  for (const name of ['cycleTheme', 'switchDemoTab', 'clearEmail', 'runEmailAnalysis', 'setExample', 'copySummary',
+  for (const name of ['cycleTheme', 'switchDemoTab', 'clearEmail', 'runEmailAnalysis', 'cancelEmailAnalysis', 'setExample', 'copySummary',
     'openFeedback', 'runVerification', 'clearContent', 'runContentAnalysis', 'setContentExample',
     'downloadReport', 'clearRecentChecks']) {
     context[name] = (...args) => calls.push([name, ...args]);
@@ -647,6 +647,7 @@ test('every declared page action calls the handler its inline attribute used to 
     'switch-tab': arg => ['switchDemoTab', arg],
     'clear-email': () => ['clearEmail'],
     'analyze-email': () => ['runEmailAnalysis'],
+    'cancel-email': () => ['cancelEmailAnalysis'],
     'set-example': arg => ['setExample', arg],
     'copy-summary': (arg, event) => ['copySummary', arg, event.currentTarget],
     'open-feedback': arg => ['openFeedback', arg],
@@ -1893,4 +1894,39 @@ test('download controls sit beside each copy button as a labelled, keyboard-reac
     assert.match(group[1], new RegExp(`<button type="button" class="download-option" data-action="download-report" data-arg="${kind}:md">Markdown</button>`));
     assert.match(group[1], new RegExp(`<button type="button" class="download-option" data-action="download-report" data-arg="${kind}:json">JSON</button>`));
   }
+});
+
+// ── Without JavaScript, and on phones ────────────────────────────────────────
+test('a visible <noscript> notice explains that the analyzer needs JavaScript', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const notices = [...html.matchAll(/<noscript>([\s\S]*?)<\/noscript>/g)].map(match => match[1]);
+  assert.equal(notices.length, 2, 'one at the top of the page, one in place of the demo form');
+  for (const notice of notices) {
+    assert.match(notice, /^<p class="noscript-notice" role="note">[\s\S]*JavaScript[\s\S]*<\/p>$/);
+    // Plain text only: no script, style or translation hooks (nothing runs to translate it).
+    assert.doesNotMatch(notice, /<(script|style|link)\b|data-i18n|\sstyle=/);
+  }
+  assert.ok(html.indexOf('<noscript>') < html.indexOf('class="hero-badge"'), 'the first notice opens the hero');
+  const demo = html.slice(html.indexOf('id="demo"'));
+  assert.ok(demo.indexOf('<noscript>') < demo.indexOf('class="demo-tabs"'), 'the second replaces the demo form');
+  const css = readFileSync(new URL('./style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.noscript-notice \{[^}]*border:[^}]*\}/);
+  // Controls that do nothing without scripts are hidden where `scripting` is supported;
+  // other browsers show the page exactly as before.
+  const noScript = css.match(/@media \(scripting: none\) \{([^}]*)\}/)[1];
+  for (const selector of ['.theme-toggle', '.lang-toggle', '.nav-menu-toggle', '.demo-tabs', '.tab-panel']) {
+    assert.ok(noScript.includes(selector), selector);
+  }
+  // The pre-paint hiding is set only by lang-init.js, so without JavaScript the page is never hidden.
+  assert.doesNotMatch(html, /data-i18n-pending/);
+});
+
+test('the sender address field asks phones for an address keyboard without native email validation', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const input = html.match(/<input\s[^>]*id="email-input"[^>]*>/)[0];
+  for (const attr of ['type="text"', 'inputmode="email"', 'autocapitalize="off"', 'autocorrect="off"',
+    'enterkeyhint="go"', 'autocomplete="off"', 'spellcheck="false"']) {
+    assert.ok(input.includes(attr), attr);
+  }
+  assert.doesNotMatch(input, /type="email"|\srequired|\spattern=/, 'the app keeps its own address rules (IDN, syntax)');
 });

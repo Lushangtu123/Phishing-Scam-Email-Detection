@@ -21,9 +21,10 @@ function renderMetricsUnavailable() {
 async function loadMetrics() {
   let metrics;
   try {
-    const res = await fetch('/api/metrics');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    metrics = (await res.json())?.metrics;
+    metrics = await getRequest('/api/metrics', undefined, async res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return (await res.json())?.metrics;
+    });
     if (!metrics || typeof metrics !== 'object' || !Object.keys(metrics).length) {
       throw new Error('Response has no metrics');
     }

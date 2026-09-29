@@ -9,6 +9,8 @@ let _visualFile = null;
 let _rawReadId = 0;
 let _rawReadPending = false;
 let _contentRequestId = 0;
+// Aborts the content request in flight; null when none is.
+let _contentAbort = null;
 // The file status line: null shows the page's default hint (static markup),
 // '' shows nothing, otherwise { key, params } for t(). Kept so a language
 // switch can re-render it.
@@ -33,6 +35,8 @@ function invalidateContent() {
   const cancel = document.getElementById('cancel-content-scan');
   if (cancel) cancel.hidden = true;
   _contentRequestId++;
+  _contentAbort?.abort();
+  _contentAbort = null;
   document.getElementById('content-result-area').classList.add('hidden');
   document.getElementById('content-loading-area').classList.add('hidden');
   document.getElementById('content-analyze-btn').disabled = false;
@@ -68,7 +72,7 @@ function setupInputEvents() {
   ['content-subject', 'content-body'].forEach(id => {
     document.getElementById(id).addEventListener('input', invalidateContent);
   });
-  document.getElementById('cancel-content-scan')?.addEventListener('click', invalidateContent);
+  document.getElementById('cancel-content-scan')?.addEventListener('click', cancelContentAnalysis);
   document.getElementById('content-ocr-language').addEventListener('change', invalidateContent);
   document.getElementById('content-enhanced-vision')?.addEventListener('change', () => {
     refreshEnhancedOptions();
@@ -239,13 +243,17 @@ async function runContentAnalysis() {
 
   document.getElementById('content-result-area').classList.add('hidden');
   document.getElementById('content-loading-area').classList.remove('hidden');
+  // One Cancel button covers the in-browser image scan and the server request.
+  const controller = newAbortController();
+  _contentAbort = controller;
+  const request = { signal: controller?.signal };
+  if (controller || _visualFile) document.getElementById('cancel-content-scan').hidden = false;
 
   try {
     let data;
     let recognitionPayload = null;
     if (_visualFile) {
       if (!window.PhishGuardVision) throw new Error(t('content.error.visionUnavailable'));
-      document.getElementById('cancel-content-scan').hidden = false;
       const payload = await window.PhishGuardVision.recognize(_visualFile, message => {
         if (requestId === _contentRequestId) document.getElementById('visual-progress').textContent = message;
       }, document.getElementById('content-ocr-language').value || 'eng', {
@@ -254,11 +262,11 @@ async function runContentAnalysis() {
       });
       if (requestId !== _contentRequestId) return;
       recognitionPayload = payload;
-      data = await postJSON('/api/analyze-visual', payload);
+      data = await postJSON('/api/analyze-visual', payload, request);
     } else {
       data = _rawEmailSource
-        ? await postRequest('/api/analyze-eml', _rawEmailSource, 'message/rfc822')
-        : await postJSON('/api/analyze-content', buildContentPayload(subject, body, ''));
+        ? await postRequest('/api/analyze-eml', _rawEmailSource, 'message/rfc822', request)
+        : await postJSON('/api/analyze-content', buildContentPayload(subject, body, ''), request);
     }
     if (requestId !== _contentRequestId) return;
     renderContentResult(data);
@@ -280,6 +288,7 @@ async function runContentAnalysis() {
     if (requestId === _contentRequestId) setError('content-error', e.message);
   } finally {
     if (requestId === _contentRequestId) {
+      _contentAbort = null;
       btn.disabled = false;
       btnText.textContent = t('content.analyze');
       document.getElementById('visual-progress').textContent = '';
@@ -287,4 +296,15 @@ async function runContentAnalysis() {
       document.getElementById('cancel-content-scan').hidden = true;
     }
   }
+}
+
+// The Cancel button: stops the image scan or the server request, restores the
+// idle form (no error) and says so through the live region. A response that
+// still arrives is ignored (the request id changed).
+function cancelContentAnalysis() {
+  const busy = document.getElementById('content-analyze-btn').disabled;
+  invalidateContent();
+  if (!busy) return;
+  announce(t('request.cancelled'));
+  document.getElementById('content-analyze-btn').focus();
 }

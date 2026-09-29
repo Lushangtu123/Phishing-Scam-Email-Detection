@@ -35,6 +35,7 @@ const PAGE_ACTIONS = {
   'switch-tab':          arg => switchDemoTab(arg),
   'clear-email':         () => clearEmail(),
   'analyze-email':       () => runEmailAnalysis(),
+  'cancel-email':        () => cancelEmailAnalysis(),
   'set-example':         arg => setExample(arg),
   'copy-summary':        (arg, event) => copySummary(arg, event.currentTarget),
   'open-feedback':       arg => openFeedback(arg),

@@ -6,8 +6,15 @@
 let _verifyEmail = null;   // remember which email was last analyzed
 let _verificationRequestId = 0;
 let _lastVerifyResult = null;   // re-rendered after a language switch
+let _verificationAbort = null;  // aborts the verification request in flight
+
+function abortVerification() {
+  _verificationAbort?.abort();
+  _verificationAbort = null;
+}
 
 function resetVerifyCard() {
+  abortVerification();
   _verificationRequestId++;
   _lastVerifyResult = null;
   setError('verify-error');
@@ -23,7 +30,10 @@ function resetVerifyCard() {
 async function runVerification() {
   const email = _verifyEmail;
   if (!email || !_emailVerificationEnabled) return;
+  abortVerification();
   const requestId = ++_verificationRequestId;
+  const controller = newAbortController();
+  _verificationAbort = controller;
   setError('verify-error');
 
   document.getElementById('verify-idle').classList.add('hidden');
@@ -31,7 +41,9 @@ async function runVerification() {
   document.getElementById('verify-result').classList.add('hidden');
 
   try {
-    const data = await postJSON('/api/verify-email', { email });
+    // Times out after the action limit (45 s) like the analyses: the server
+    // stops probing after 12 s, so only a request that never answers gets there.
+    const data = await postJSON('/api/verify-email', { email }, { signal: controller?.signal });
     if (requestId !== _verificationRequestId || email !== _verifyEmail) return;
     renderVerifyResult(data);
   } catch (err) {
@@ -40,6 +52,7 @@ async function runVerification() {
     setError('verify-error', err.message);
   } finally {
     if (requestId === _verificationRequestId) {
+      _verificationAbort = null;
       document.getElementById('verify-loading').classList.add('hidden');
     }
   }

@@ -51,8 +51,9 @@ function renderVerificationNotice() {
 async function loadPublicConfig() {
   let config = { email_verification_enabled: false };
   try {
-    const response = await fetch('/api/config', { cache: 'no-store' });
-    if (response.ok) config = await response.json();
+    const loaded = await getRequest('/api/config', { cache: 'no-store' },
+      response => (response.ok ? response.json() : null));
+    if (loaded) config = loaded;
   } catch (error) {
     console.warn('Public configuration unavailable; using safe defaults.', error);
   }

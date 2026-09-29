@@ -822,3 +822,11 @@ select:hover { border-color: var(--line-strong); }
 :lang(zh-CN) :is(.eyebrow, .session-label, .section-number, .filter-grid label, .queue-columns, .record-kind, .empty-note, #page) { font-size: 11px; }
 :lang(zh-CN) footer > span { font: 10px/1.8 var(--font); letter-spacing: .04em; }
 :lang(zh-CN) :is(h1, h2, h3, .login-headline) { letter-spacing: 0; }
+
+/* Shown only with JavaScript off (English only: nothing can translate it).
+   The sign-in form and the theme/language controls do nothing without
+   scripts, so they are hidden where the `scripting` media feature is supported. */
+.noscript-notice { margin: 0 0 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--line)); border-radius: 6px; background: color-mix(in srgb, var(--warning) 10%, var(--surface)); color: var(--text); font-size: 13px; }
+@media (scripting: none) {
+  #login-form, .theme-control, .lang-toggle { display: none; }
+}

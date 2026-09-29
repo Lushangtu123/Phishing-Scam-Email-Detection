@@ -138,8 +138,10 @@ test('every data-i18n-attr key exists and its English equals the attribute in th
 test('all visible homepage text is translatable except language-neutral names', () => {
   // Text nodes outside any data-i18n element: brand/product names, example
   // addresses, numbers, file formats and header names stay as they are.
+  // <noscript> text shows only without JavaScript, when nothing can translate
+  // it, so it is English only (checked in app.test.mjs).
   const html = source('index.html').replace(/<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/g, '')
-    .replace(/<(script|style|svg|code|kbd|title)\b[\s\S]*?<\/\1>/g, '');
+    .replace(/<(script|style|svg|code|kbd|title|noscript)\b[\s\S]*?<\/\1>/g, '');
   const stack = [];
   const leftovers = [];
   for (const [, close, tag, attrs, textNode] of html.matchAll(/<(\/?)([a-z0-9]+)\b([^>]*)>|([^<]+)/g)) {
@@ -197,7 +199,7 @@ test('every data-i18n-attr key in cases.html exists and its English equals the a
 
 test('all visible workspace text is translatable except language-neutral names', () => {
   const html = source('cases.html').replace(/<!--[\s\S]*?-->|<!doctype[^>]*>/gi, '')
-    .replace(/<(script|style|svg|title)\b[\s\S]*?<\/\1>/g, '');
+    .replace(/<(script|style|svg|title|noscript)\b[\s\S]*?<\/\1>/g, '');
   const stack = [];
   const leftovers = [];
   for (const [, close, tag, attrs, textNode] of html.matchAll(/<(\/?)([a-z0-9]+)\b([^>]*)>|([^<]+)/g)) {
@@ -1065,4 +1067,65 @@ test('the language toggle is a named, keyboard-operable button in the navbar', (
   const css = source('style.css');
   assert.match(css, /\.lang-toggle:focus-visible \{[^}]*outline/);
   assert.match(css, /:root\[data-i18n-pending\] body \{[^}]*visibility: hidden;[^}]*animation: i18n-reveal/);
+});
+
+// ── Not-found page (404.html) ────────────────────────────────────────────────
+test('404.html: every key exists in both languages, its English is the markup, and all text is covered', () => {
+  const html = source('404.html');
+  const elements = [...html.matchAll(/<([a-z0-9]+)\b([^>]*?)\sdata-i18n="([^"]+)"([^>]*)>([\s\S]*?)<\/\1>/g)];
+  assert.deepEqual(elements.map(match => match[3]),
+    ['notFound.meta.title', 'notFound.code', 'notFound.title', 'notFound.lead', 'notFound.home', 'notFound.cases']);
+  for (const [, , , key, , inner] of elements) {
+    assert.ok(Object.hasOwn(en, key) && Object.hasOwn(zh, key), key);
+    assert.equal(normalize(inner), en[key], key);
+  }
+  for (const [tag, spec] of html.matchAll(/<[a-z]+\b[^>]*data-i18n-attr="([^"]+)"[^>]*>/g)) {
+    for (const pair of spec.split(';')) {
+      const [attr, key] = pair.split(':');
+      assert.equal(decode(tag.match(new RegExp(`\\s${attr}="([^"]*)"`))[1]), en[key], key);
+    }
+  }
+  const text = html.replace(/<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/g, '').replace(/<(script|style|svg|title)\b[\s\S]*?<\/\1>/g, '');
+  const stack = [], leftovers = [];
+  for (const [, close, tag, attrs, textNode] of text.matchAll(/<(\/?)([a-z0-9]+)\b([^>]*)>|([^<]+)/g)) {
+    if (textNode !== undefined) {
+      const value = normalize(textNode);
+      if (value && !stack.some(entry => entry.covered)) leftovers.push(value);
+    } else if (close) {
+      while (stack.length && stack.pop().tag !== tag);
+    } else if (!/^(meta|link|input|br|img)$/.test(tag) && !attrs.endsWith('/')) {
+      stack.push({tag, covered: /\sdata-i18n="/.test(attrs) || /aria-hidden="true"/.test(attrs) && tag !== 'button'});
+    }
+  }
+  assert.deepEqual(leftovers, ['PhishGuard']);
+});
+
+test('404.html is translated to Chinese on load, <title> included', () => {
+  const html = source('404.html');
+  const make = key => ({attributes: {'data-i18n': key}, textContent: '',
+    getAttribute(name) { return this.attributes[name] ?? null; }, setAttribute(name, value) { this.attributes[name] = value; }});
+  const nodes = [...html.matchAll(/\sdata-i18n="([^"]+)"/g)].map(match => make(match[1]));
+  const title = nodes.find(node => node.attributes['data-i18n'] === 'notFound.meta.title');
+  const root = {lang: 'en', removeAttribute() {}};
+  const document = {documentElement: root, readyState: 'loading', getElementById: () => null,
+    querySelector: selector => (selector === 'title[data-i18n]' ? title : null),
+    querySelectorAll: selector => (selector === '[data-i18n]' ? nodes : [])};
+  loadI18n({languages: ['zh-CN'], document});
+  assert.equal(root.lang, 'zh-CN');
+  assert.deepEqual(nodes.map(node => node.textContent), nodes.map(node => zh[node.attributes['data-i18n']]));
+  assert.equal(title.textContent, '页面未找到 · PhishGuard');
+});
+
+test('404.html: same start-up scripts as the homepage, no inline code, not indexed, links home and to the workspace', () => {
+  const html = source('404.html');
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.match(head, /<script src="\/static\/theme-init\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
+  assert.match(head, /<link rel="stylesheet" href="\/static\/style\.css\?v=\d+" \/>\s*<script src="\/static\/i18n\.js\?v=\d+" defer><\/script>/);
+  assert.equal((html.match(/<script\b/g) || []).length, 3);
+  assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>|<style\b|\sstyle=|\son[a-z]+\s*=/i, 'nothing the CSP would block');
+  assert.match(head, /<meta name="robots" content="noindex" \/>/);
+  assert.match(html, /<a class="btn btn-primary" href="\/" data-i18n="notFound\.home">/);
+  assert.match(html, /<a class="btn btn-outline" href="\/cases" data-i18n="notFound\.cases">/);
+  assert.match(html, /<button class="lang-toggle" id="lang-toggle" type="button"/);
+  assert.match(html, /<main id="main" class="nf-main">[\s\S]*<h1 data-i18n="notFound\.title">/);
 });

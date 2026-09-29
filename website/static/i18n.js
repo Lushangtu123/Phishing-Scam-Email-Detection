@@ -34,6 +34,13 @@ window.PhishGuardI18n = (() => {
     'meta.title': 'PhishGuard – Phishing Email Detector',
     'meta.description': 'Check a sender address or a full email for phishing signals, with each finding explained. PhishGuard’s scores are heuristic evidence, not a guarantee of safety.',
     'nav.skip': 'Skip to main content',
+    // 404.html
+    'notFound.meta.title': 'Page not found · PhishGuard',
+    'notFound.code': 'Error 404',
+    'notFound.title': 'Page not found',
+    'notFound.lead': 'This address does not match any page. Check it for typos, or continue from one of these pages.',
+    'notFound.home': 'Go to the email analyzer',
+    'notFound.cases': 'Open the case workspace',
     'nav.demo': 'Live Demo',
     'nav.performance': 'Performance',
     'nav.features': 'Features',
@@ -84,6 +91,7 @@ window.PhishGuardI18n = (() => {
     'sender.clear.aria': 'Clear email address',
     'sender.analyze': 'Analyze',
     'sender.analyzing': 'Analyzing…',
+    'sender.cancel': 'Cancel',
     'sender.example.disposable.title': 'Confirmed disposable',
     'sender.example.suspected': 'Suspected disposable',
     'sender.example.suspected.title': 'Suspected disposable (auto-generated username)',
@@ -511,6 +519,8 @@ window.PhishGuardI18n = (() => {
     'request.error.unavailable': 'This service is currently unavailable. Reload the page or try again later.',
     'request.error.unreadable': 'The service returned an unreadable response. Please try again.',
     'request.error.invalid': 'The submitted input is invalid. Please check it and try again.',
+    'request.error.timeout': 'The service took too long to respond. Try again.',
+    'request.cancelled': 'Analysis cancelled.',
 
     // ── Benchmark ──
     'perf.eyebrow': 'Benchmark',
@@ -1220,7 +1230,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=1'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=2'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

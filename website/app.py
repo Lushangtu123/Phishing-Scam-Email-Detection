@@ -41,7 +41,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from config import load_settings
@@ -64,6 +65,7 @@ from sender_history import (
     build_sender_history_store,
     canonicalize_sender_address,
 )
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 BASE_DIR = Path(__file__).parent
@@ -620,6 +622,51 @@ async def serve_index():
 @app.get("/favicon.ico", include_in_schema=False)
 async def serve_favicon():
     return FileResponse(str(BASE_DIR / "static" / "favicon.svg"), media_type="image/svg+xml")
+
+
+# ── Not-found page ────────────────────────────────────────────────────────────
+NOT_FOUND_PAGE = BASE_DIR / "static" / "404.html"
+# API errors stay JSON for scripts. A missing static asset (or Vercel collector
+# script) is requested by a <script>/<link>/<img>, never shown as a page, so it
+# keeps the short JSON 404 instead of an HTML document.
+_NOT_FOUND_JSON_PREFIXES = ("/api/", "/static/", "/_vercel/")
+_NOT_FOUND_JSON_PATHS = frozenset({"/api", "/static", "/_vercel"})
+_not_found_page_body: bytes | None = None
+
+
+def _wants_not_found_page(request: Request) -> bool:
+    """A GET/HEAD for a page URL, unless the client asks for JSON and not HTML."""
+    path = request.url.path
+    if request.method not in ("GET", "HEAD"):
+        return False
+    if path in _NOT_FOUND_JSON_PATHS or path.startswith(_NOT_FOUND_JSON_PREFIXES):
+        return False
+    accept = request.headers.get("accept", "").lower()
+    return "text/html" in accept or "application/json" not in accept
+
+
+def _not_found_page() -> bytes | None:
+    global _not_found_page_body
+    if _not_found_page_body is None:
+        try:
+            _not_found_page_body = NOT_FOUND_PAGE.read_bytes()
+        except OSError:
+            return None
+    return _not_found_page_body
+
+
+@app.exception_handler(StarletteHTTPException)
+async def not_found_page(request: Request, exc: StarletteHTTPException):
+    """Unknown page URLs get the HTML 404 page; everything else is unchanged.
+
+    The security middleware adds the usual headers and CSP to this response.
+    """
+    if exc.status_code == 404 and _wants_not_found_page(request):
+        body = _not_found_page()
+        if body is not None:
+            # A 404 page must not be cached as if it were the page asked for.
+            return HTMLResponse(body, status_code=404, headers={"Cache-Control": "no-store"})
+    return await http_exception_handler(request, exc)
 
 
 @app.get("/health")

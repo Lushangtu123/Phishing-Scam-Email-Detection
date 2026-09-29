@@ -18,6 +18,13 @@
   'meta.title': 'PhishGuard – 钓鱼邮件检测',
   'meta.description': '检查发件人地址或完整邮件中的钓鱼信号，并解释每项发现。PhishGuard 的评分是启发式证据，不能保证邮件安全。',
   'nav.skip': '跳到主要内容',
+  // 404.html
+  'notFound.meta.title': '页面未找到 · PhishGuard',
+  'notFound.code': '错误 404',
+  'notFound.title': '页面未找到',
+  'notFound.lead': '此地址没有对应的页面。请检查是否有拼写错误，或从以下页面继续。',
+  'notFound.home': '前往邮件分析器',
+  'notFound.cases': '打开案例工作区',
   'nav.demo': '在线演示',
   'nav.performance': '性能评估',
   'nav.features': '检测信号',
@@ -68,6 +75,7 @@
   'sender.clear.aria': '清除邮箱地址',
   'sender.analyze': '分析',
   'sender.analyzing': '正在分析…',
+  'sender.cancel': '取消',
   'sender.example.disposable.title': '已确认的一次性邮箱',
   'sender.example.suspected': '疑似一次性邮箱',
   'sender.example.suspected.title': '疑似一次性邮箱（自动生成的用户名）',
@@ -495,6 +503,8 @@
   'request.error.unavailable': '服务当前不可用。请重新加载页面或稍后再试。',
   'request.error.unreadable': '服务返回了无法读取的响应。请重试。',
   'request.error.invalid': '提交的输入无效。请检查后重试。',
+  'request.error.timeout': '服务响应时间过长。请重试。',
+  'request.cancelled': '分析已取消。',
 
   // ── Benchmark ──
   'perf.eyebrow': '基准测试',

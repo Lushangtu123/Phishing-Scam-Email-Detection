@@ -102,6 +102,7 @@ jobs:
           node --check website/static/lang-init.js
           node --check website/static/i18n.js
           node --check website/static/i18n-zh.js
+          node --check website/static/request.js
           node --check website/static/app-core.js
           node --check website/static/app-theme.js
           node --check website/static/app-layout.js

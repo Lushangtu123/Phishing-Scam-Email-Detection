@@ -242,11 +242,27 @@
   async function api(path, options = {}) {
     const current = epoch;
     // Preserve same-origin deployment access cookies; the API still requires the analyst bearer token.
-    const response = await fetch('/api/cases' + path, {...options, cache: 'no-store', credentials: 'same-origin',
-      headers: {'Authorization': 'Bearer ' + token, ...options.headers}});
-    // Internal: callers drop this error because the session epoch changed.
-    if (current !== epoch) throw new Error('Session changed');
-    const data = await response.json();
+    const init = {...options, cache: 'no-store', credentials: 'same-origin',
+      headers: {'Authorization': 'Bearer ' + token, ...options.headers}};
+    const exchange = async signal => {
+      const response = await fetch('/api/cases' + path, signal ? {...init, signal} : init);
+      // Internal: callers drop this error because the session epoch changed.
+      if (current !== epoch) throw new Error('Session changed');
+      return {response, data: await response.json()};
+    };
+    // request.js (loaded first) gives up on reads after 15 s and on saves
+    // and analyses after 45 s. A timed-out save is left unconfirmed like any
+    // other failure without a status: case creation keeps its Idempotency-Key
+    // for the retry, and a review save carries expected_version.
+    const request = window.PhishGuardRequest;
+    const timeout = request?.TIMEOUTS[(options.method || 'GET') === 'GET' ? 'read' : 'action'];
+    let response, data;
+    try {
+      ({response, data} = await (request ? request.run(exchange, {timeout}) : exchange()));
+    } catch (error) {
+      if (current !== epoch) throw new Error('Session changed');
+      throw error?.timedOut ? failure('request.error.timeout') : error;
+    }
     if (current !== epoch) throw new Error('Session changed');
     if (!response.ok) {
       if (response.status === 401) signOut();

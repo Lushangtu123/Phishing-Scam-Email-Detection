@@ -14,9 +14,9 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=3"></script>
+  <script src="/static/lang-init.js?v=4"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=48" />
+  <link rel="stylesheet" href="/static/style.css?v=49" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -66,6 +66,8 @@
 <!-- ── Hero ────────────────────────────────────────────────────────────────── -->
 <section class="hero">
   <div class="hero-content">
+    <!-- Shown only with JavaScript off, when nothing can translate it: English only. -->
+    <noscript><p class="noscript-notice" role="note"><strong>JavaScript is turned off.</strong> The PhishGuard analyzer needs JavaScript: turn it on and reload to check a sender address or an email. The rest of this page can be read without it.</p></noscript>
     <div class="hero-badge"><span class="pulse-dot" aria-hidden="true"></span> <span data-i18n="hero.badge">Layered detection · rules, structure, optional ML</span></div>
     <h1 class="hero-title">
       <span data-i18n="hero.title.lead">Phishing email detection,</span><br>
@@ -142,6 +144,8 @@
       <p data-i18n="demo.lead">Analyze a sender address, paste subject/body text, or upload the original .eml message for the strongest available evidence.</p>
     </div>
 
+    <noscript><p class="noscript-notice" role="note"><strong>The live demo needs JavaScript.</strong> Turn JavaScript on and reload this page to analyze a sender address or email content.</p></noscript>
+
     <!-- Tab Switcher -->
     <div class="demo-tabs" role="tablist" aria-label="Analysis mode" data-i18n-attr="aria-label:demo.tabs.aria">
       <button class="demo-tab active" id="tab-email-address" type="button" role="tab" aria-selected="true" aria-controls="panel-email-address" data-action="switch-tab" data-arg="email-address">
@@ -170,6 +174,10 @@
             data-i18n-attr="aria-label:sender.input.aria;placeholder:sender.input.placeholder"
             autocomplete="off"
             spellcheck="false"
+            inputmode="email"
+            autocapitalize="off"
+            autocorrect="off"
+            enterkeyhint="go"
           />
           <button class="btn-clear" id="btn-clear" type="button" data-action="clear-email" title="Clear" aria-label="Clear email address" data-i18n-attr="title:sender.clear.title;aria-label:sender.clear.aria"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
@@ -177,6 +185,8 @@
           <span id="analyze-btn-text" data-i18n="sender.analyze">Analyze</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </button>
+        <!-- Shown while an analysis runs, next to the busy Analyze button. -->
+        <button id="cancel-sender-analysis" type="button" class="btn-ghost btn-cancel" hidden data-action="cancel-email" data-i18n="sender.cancel">Cancel</button>
       </div>
 
       <p id="email-error" class="request-error hidden" role="alert"></p>
@@ -1006,23 +1016,24 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=4"></script>
+<script src="/static/i18n.js?v=5"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
-<script src="/static/feedback.js?v=9"></script>
+<script src="/static/request.js?v=1"></script>
+<script src="/static/feedback.js?v=10"></script>
 <!-- Homepage logic: classic scripts sharing one global scope; app.js (last) wires them up on DOMContentLoaded. -->
-<script src="/static/app-core.js?v=3"></script>
+<script src="/static/app-core.js?v=4"></script>
 <script src="/static/app-theme.js?v=2"></script>
 <script src="/static/app-layout.js?v=2"></script>
-<script src="/static/app-config.js?v=2"></script>
-<script src="/static/app-sender.js?v=3"></script>
-<script src="/static/app-verify.js?v=3"></script>
-<script src="/static/app-content.js?v=2"></script>
+<script src="/static/app-config.js?v=3"></script>
+<script src="/static/app-sender.js?v=4"></script>
+<script src="/static/app-verify.js?v=4"></script>
+<script src="/static/app-content.js?v=3"></script>
 <script src="/static/app-content-render.js?v=4"></script>
 <script src="/static/app-reports.js?v=3"></script>
-<script src="/static/app-metrics.js?v=3"></script>
-<script src="/static/app.js?v=52"></script>
+<script src="/static/app-metrics.js?v=4"></script>
+<script src="/static/app.js?v=53"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>

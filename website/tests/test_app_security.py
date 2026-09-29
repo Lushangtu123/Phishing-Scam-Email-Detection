@@ -79,6 +79,98 @@ class FaviconTests(unittest.TestCase):
         self.assertIn('content-security-policy', response.headers)
 
 
+class NotFoundPageTests(unittest.TestCase):
+    """Unknown page URLs get the HTML 404 page; API and asset misses stay JSON."""
+
+    @staticmethod
+    def _request(method, path, headers=None):
+        async def fetch():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app.app),
+                                         base_url='http://localhost') as client:
+                return await client.request(method, path, headers=headers or {})
+        return asyncio.run(fetch())
+
+    def _assert_page(self, response):
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.headers['content-type'], 'text/html; charset=utf-8')
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+        policy = response.headers['content-security-policy']
+        self.assertEqual(policy, app._with_security_headers(app.Response()).headers['content-security-policy'])
+        self.assertIn("script-src 'self';", policy)
+        for header, value in (('x-content-type-options', 'nosniff'), ('x-frame-options', 'DENY'),
+                              ('referrer-policy', 'strict-origin-when-cross-origin')):
+            self.assertEqual(response.headers[header], value)
+
+    def _assert_json(self, response):
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.headers['content-type'], 'application/json')
+        self.assertEqual(response.json(), {'detail': 'Not Found'})
+        self.assertIn('content-security-policy', response.headers)
+
+    def test_browser_navigations_to_unknown_pages_get_the_html_page(self):
+        page = (WEBSITE_DIR / 'static' / '404.html').read_bytes()
+        for path in ('/nope', '/cases/x', '/cases/x/y?z=1', '/index.html', '/apix', '/staticx'):
+            for accept in ('text/html,application/xhtml+xml,*/*;q=0.8', '*/*', None):
+                with self.subTest(path=path, accept=accept):
+                    response = self._request('GET', path, {'Accept': accept} if accept else {})
+                    self._assert_page(response)
+                    self.assertEqual(response.content, page)
+                    self.assertIn(b'<meta name="robots" content="noindex" />', response.content)
+
+    def test_head_requests_get_the_page_headers_without_a_body(self):
+        response = self._request('HEAD', '/nope', {'Accept': 'text/html'})
+        self._assert_page(response)
+        self.assertEqual(response.content, b'')
+        self.assertEqual(response.headers['content-length'],
+                         str(len((WEBSITE_DIR / 'static' / '404.html').read_bytes())))
+
+    def test_api_json_clients_and_assets_keep_the_json_404(self):
+        for method, path, accept in (
+            ('GET', '/api/nope', 'text/html'),
+            ('GET', '/api', 'text/html'),
+            ('GET', '/api/cases-nope', None),
+            ('HEAD', '/api/nope', None),
+            ('GET', '/nope', 'application/json'),
+            ('GET', '/static/nope.js', 'text/html'),
+            ('GET', '/static/', 'text/html'),
+            ('GET', '/_vercel/unknown/script.js', 'text/html'),
+            ('POST', '/nope', 'text/html'),
+            ('DELETE', '/cases/x', 'text/html'),
+        ):
+            with self.subTest(method=method, path=path, accept=accept):
+                response = self._request(method, path, {'Accept': accept} if accept else {})
+                if method == 'HEAD':
+                    self.assertEqual(response.status_code, 404)
+                    self.assertEqual(response.headers['content-type'], 'application/json')
+                else:
+                    self._assert_json(response)
+
+    def test_json_is_kept_for_clients_that_accept_json_but_not_html(self):
+        self._assert_json(self._request('GET', '/nope', {'Accept': 'application/json, text/plain, */*'}))
+        self._assert_page(self._request('GET', '/nope', {'Accept': 'text/html, application/json'}))
+
+    def test_other_errors_and_existing_routes_are_unchanged(self):
+        self.assertEqual(self._request('GET', '/api/analyze-email').status_code, 405)
+        self.assertEqual(self._request('GET', '/api/analyze-email').json(), {'detail': 'Method Not Allowed'})
+        for path, kind in (('/', 'text/html'), ('/cases', 'text/html'), ('/favicon.ico', 'image/svg+xml'),
+                           ('/static/404.html', 'text/html')):
+            with self.subTest(path=path):
+                response = self._request('GET', path, {'Accept': 'text/html'})
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.headers['content-type'].startswith(kind))
+        cases = self._request('GET', '/cases')
+        self.assertEqual(cases.headers['cache-control'], 'no-store')
+        self.assertIn("style-src 'self';", cases.headers['content-security-policy'])
+        redirect = self._request('GET', '/cases/')
+        self.assertEqual(redirect.status_code, 307)
+        self.assertEqual(redirect.headers['location'], 'http://localhost/cases')
+
+    def test_a_missing_page_file_falls_back_to_the_json_404(self):
+        with patch.object(app, 'NOT_FOUND_PAGE', WEBSITE_DIR / 'static' / 'missing-404.html'), \
+                patch.object(app, '_not_found_page_body', None):
+            self._assert_json(self._request('GET', '/nope', {'Accept': 'text/html'}))
+
+
 class AllowedHostConfigurationTests(unittest.TestCase):
     def test_custom_domains_are_merged_with_base_allowed_hosts(self):
         builder = getattr(app, "_build_allowed_hosts", None)

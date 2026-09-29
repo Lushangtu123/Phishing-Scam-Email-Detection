@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="notFound.meta.title">Page not found · PhishGuard</title>
+  <meta name="robots" content="noindex" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
+  <!-- Served by app.py with status 404 for unknown page URLs. Same theme and
+       language start-up as the homepage; no inline script or style. -->
+  <script src="/static/theme-init.js?v=1"></script>
+  <script src="/static/lang-init.js?v=4"></script>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/static/style.css?v=49" />
+  <script src="/static/i18n.js?v=5" defer></script>
+</head>
+<body>
+<div class="bg-fluid" aria-hidden="true">
+  <span class="blob blob-1"></span>
+  <span class="blob blob-2"></span>
+  <span class="blob blob-3"></span>
+</div>
+
+<header class="navbar">
+  <div class="nav-inner">
+    <a class="nav-brand nf-brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.2 8.6 7.5 9.9 4.3-1.3 7.5-5.3 7.5-9.9v-6L12 2.5z"/><path d="m9 12 2 2 4-4.5"/></svg>
+      </span>
+      <span class="brand-text">PhishGuard</span>
+    </a>
+    <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Language: English. Switch to Simplified Chinese (中文)" title="Language: English. Switch to Simplified Chinese (中文)" data-i18n-attr="aria-label:nav.lang.label;title:nav.lang.label">
+      <span class="lang-option is-active" data-lang-option="en" lang="en" aria-hidden="true">EN</span><span class="lang-sep" aria-hidden="true">/</span><span class="lang-option" data-lang-option="zh" lang="zh-CN" aria-hidden="true">中文</span>
+    </button>
+  </div>
+</header>
+
+<main id="main" class="nf-main">
+  <p class="nf-code" data-i18n="notFound.code">Error 404</p>
+  <h1 data-i18n="notFound.title">Page not found</h1>
+  <p class="nf-lead" data-i18n="notFound.lead">This address does not match any page. Check it for typos, or continue from one of these pages.</p>
+  <div class="nf-actions">
+    <a class="btn btn-primary" href="/" data-i18n="notFound.home">Go to the email analyzer</a>
+    <a class="btn btn-outline" href="/cases" data-i18n="notFound.cases">Open the case workspace</a>
+  </div>
+</main>
+</body>
+</html>

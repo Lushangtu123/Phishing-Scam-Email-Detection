@@ -22,7 +22,8 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 const caseValue = () => ({id: 'case-1', title: '<img src=x onerror=alert(1)>', risk: 'high', status: 'pending', verdict: null, version: 1,
   created_by: 'alice', created_at: '2026-09-20T00:00:00Z', source: {subject: 'Synthetic', body: '<script>bad()</script>'},
   analysis: {extra_indicators: ['<iframe src=x>']}, provenance: {}, events: [{actor: 'alice', action: 'created', happened_at: '2026-09-20T00:00:00Z', changes: {}, note: '<svg onload=bad()>'}]});
-function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-US'], storage = new Map()} = {}) {
+// `clock` (fakeClock()) loads request.js, as cases.html does, with AbortController and manual timers.
+function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-US'], storage = new Map(), clock = null} = {}) {
   const elements = new Map(), calls = [], windowEvents = {};
   const el = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const source = readFileSync(new URL('./cases.js', import.meta.url), 'utf8');
@@ -31,15 +32,38 @@ function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-U
   let uuid = 0;
   const context=vm.createContext({document: {getElementById: el, createElement: () => new Element(), addEventListener() {}}, window,
     navigator: {languages, language: languages[0]}, localStorage: {getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value)},
-    DataTransfer, Event, URLSearchParams, crypto: {randomUUID: () => 'synthetic-uuid-' + (++uuid)}, fetch: async (url, options) => { calls.push({url, options}); const result = await handler(url, options); return {ok: result.status < 400, status: result.status, json: async () => result.data}; }});
+    DataTransfer, Event, URLSearchParams, crypto: {randomUUID: () => 'synthetic-uuid-' + (++uuid)}, fetch: async (url, options) => { calls.push({url, options}); const result = await handler(url, options); return {ok: result.status < 400, status: result.status, json: async () => result.data}; },
+    ...(clock ? {AbortController, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout} : {})});
   // cases.html loads i18n.js before the other scripts.
   vm.runInContext(readFileSync(new URL('./i18n.js',import.meta.url),'utf8'),context);
   vm.runInContext(readFileSync(new URL('./file-intake.js',import.meta.url),'utf8'),context);
+  if (clock) vm.runInContext(readFileSync(new URL('./request.js',import.meta.url),'utf8'),context);
   vm.runInContext(source,context);
   const fire = async (id, name = 'click') => { el(id).listeners[name]({preventDefault() {}, submitter: el(id === 'create-form' ? 'create-case' : id + '-submit'), currentTarget: el(id)}); await tick(); };
   const login = async () => { el('token').value = 'synthetic-access-token-at-least-32-characters'; await fire('login-form', 'submit'); };
   return {el, fire, login, calls, window, windowEvents};
 }
+// A manual clock: setTimeout callbacks run only when advance() passes them.
+function fakeClock() {
+  let now = 0, nextId = 1;
+  const timers = new Map();
+  return {
+    setTimeout: (fn, ms = 0) => { const id = nextId++; timers.set(id, {fn, at: now + ms}); return id; },
+    clearTimeout: id => { timers.delete(id); },
+    async advance(ms) {
+      const until = now + ms;
+      for (;;) {
+        const due = [...timers.entries()].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!due) break;
+        timers.delete(due[0]); now = due[1].at; due[1].fn();
+        await tick();
+      }
+      now = until; await tick(); await tick();
+    },
+  };
+}
+const hang = () => new Promise(() => {});
+const TIMEOUT_TEXT = 'The service took too long to respond. Try again.';
 const standard = async url => ({status: 200, data: url.endsWith('/me') ? {actor: 'alice'} : url.startsWith('/api/cases?') ? {items: [caseValue()], total: 1} : caseValue()});
 
 test('EML feedback displays decoded text and warnings without falling back to transport encoding', async () => {
@@ -1158,8 +1182,8 @@ test('the workspace loads lang-init.js in <head> and i18n.js before every other 
   const head = html.slice(0, html.indexOf('</head>'));
   assert.match(head, /<script src="\/static\/cases-theme\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
   const deferred = [...head.matchAll(/<script src="\/static\/([a-z0-9-]+\.js)\?v=\d+" defer><\/script>/g)].map(match => match[1]);
-  assert.deepEqual(deferred, ['i18n.js', 'vision.js', 'file-intake.js', 'confirm-dialog.js', 'cases.js']);
-  assert.equal((html.match(/<script\b/g) || []).length, 7, 'no other (inline) scripts: CSP is script-src \'self\'');
+  assert.deepEqual(deferred, ['i18n.js', 'vision.js', 'file-intake.js', 'confirm-dialog.js', 'request.js', 'cases.js']);
+  assert.equal((html.match(/<script\b/g) || []).length, 8, 'no other (inline) scripts: CSP is script-src \'self\'');
   const topbar = html.slice(html.indexOf('<header class="topbar">'), html.indexOf('</header>', html.indexOf('<header class="topbar">')));
   const toggle = topbar.match(/<button class="lang-toggle" id="lang-toggle" type="button"([^>]*)>([\s\S]*?)<\/button>/);
   assert.ok(toggle, 'a real <button> in the topbar');
@@ -1230,4 +1254,96 @@ test('queue rows fit the queue card at every two-column width', () => {
   const stack = Number(css.match(/@media \(max-width: (\d+)px\) \{\s*\.columns \{ grid-template-columns: 1fr; \}/)[1]);
   assert.ok(queueMin(narrowColumns) + detailMin(narrowColumns) + 16 <= stack + 1 - 210 - 48);
   assert.match(css, new RegExp(`@media \\(min-width: ${stack + 1}px\\) \\{\\s*\\.queue \\{ position: sticky`));
+});
+
+// ── Request time limits (request.js) ─────────────────────────────────────────
+test('a hung queue read times out after 15 s with its own message and releases the button', async () => {
+  const clock = fakeClock();
+  let hangList = false;
+  const ui = setup(async url => (hangList && url.startsWith('/api/cases?') ? hang() : standard(url)), undefined, {clock});
+  await ui.login();
+  assert.equal(ui.el('workspace').hidden, false);
+  assert.ok(ui.calls.every(call => call.options.signal), 'every request carries a signal');
+  hangList = true;
+  await ui.fire('refresh');
+  const read = ui.calls.at(-1);
+  assert.ok(read.url.startsWith('/api/cases?'));
+  assert.equal(ui.el('refresh').disabled, true);
+  await clock.advance(14999);
+  assert.equal(read.options.signal.aborted, false);
+  assert.equal(ui.el('notice').textContent, '');
+  await clock.advance(1);
+  assert.equal(read.options.signal.aborted, true);
+  assert.equal(ui.el('notice').textContent, TIMEOUT_TEXT);
+  assert.equal(ui.el('notice').dataset.error, 'true');
+  assert.equal(ui.el('refresh').disabled, false);
+});
+
+test('a request that times out after sign-out stays silent (session epoch)', async () => {
+  const clock = fakeClock();
+  let hangList = false;
+  const ui = setup(async url => (hangList && url.startsWith('/api/cases?') ? hang() : standard(url)), undefined, {clock});
+  await ui.login();
+  hangList = true;
+  await ui.fire('refresh');
+  await ui.fire('logout');
+  assert.equal(ui.el('workspace').hidden, true);
+  await clock.advance(15000);
+  assert.equal(ui.el('notice').textContent, '', 'no error from the previous session');
+  assert.equal(ui.el('login-panel').hidden, false);
+});
+
+test('a timed-out case creation is unconfirmed and retries with the same key and body', async () => {
+  const clock = fakeClock();
+  let attempt = 0;
+  const ui = setup(async (url, opts) => {
+    if (opts.method !== 'POST') return standard(url);
+    return ++attempt === 1 ? hang() : {status: 201, data: {...caseValue(), id: 'created-1'}};
+  }, undefined, {clock});
+  await ui.login(); await ui.fire('open-compose'); ui.el('subject').value = 'Synthetic';
+  await ui.fire('create-form', 'submit');
+  assert.match(ui.el('creation-status').textContent, /submitting|saving/i);
+  await clock.advance(44999);
+  assert.equal(ui.el('notice').textContent, '');
+  await clock.advance(1);
+  assert.equal(ui.el('notice').textContent, TIMEOUT_TEXT);
+  assert.match(ui.el('creation-status').textContent, /unconfirmed|may have been saved|not confirmed/i);
+  assert.equal(ui.el('create-case').disabled, false);
+  await ui.fire('create-form', 'submit');
+  const posts = ui.calls.filter(call => call.options.method === 'POST');
+  assert.equal(posts.length, 2);
+  assert.equal(posts[0].options.headers['Idempotency-Key'], posts[1].options.headers['Idempotency-Key']);
+  assert.equal(posts[0].options.body, posts[1].options.body);
+  assert.equal(posts[0].options.signal.aborted, true);
+  assert.equal(ui.el('notice').textContent, 'Case saved.');
+});
+
+test('reads use the 15 s limit and writes the 45 s limit', async () => {
+  const clock = fakeClock();
+  const ui = setup(async (url, opts) => (opts.method === 'PATCH' ? hang() : standard(url)), undefined, {clock});
+  await ui.login(); ui.el('case-list').children[0].listeners.click(); await tick();
+  ui.el('review-status').value = 'in_progress';
+  await ui.fire('review-form', 'submit');
+  const patch = ui.calls.find(call => call.options.method === 'PATCH');
+  await clock.advance(15000);
+  assert.equal(patch.options.signal.aborted, false, 'a save is not cut off at the read limit');
+  await clock.advance(30000);
+  assert.equal(patch.options.signal.aborted, true);
+  assert.equal(ui.el('notice').textContent, TIMEOUT_TEXT);
+});
+
+test('without JavaScript the workspace says it needs it; the token field keeps phones from altering it', () => {
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  const notice = html.match(/<noscript>([\s\S]*?)<\/noscript>/)[1];
+  assert.match(notice, /^<p class="noscript-notice" role="note"><strong>The case workspace needs JavaScript\.<\/strong>/);
+  assert.ok(html.indexOf('<noscript>') > html.indexOf('<main id="main">') && html.indexOf('<noscript>') < html.indexOf('id="login-panel"'));
+  const css = readFileSync(new URL('./cases.css', import.meta.url), 'utf8');
+  assert.match(css, /\.noscript-notice \{/);
+  assert.match(css, /@media \(scripting: none\) \{\s*#login-form, \.theme-control, \.lang-toggle \{ display: none; \}/);
+  const token = html.match(/<input id="token"[^>]*>/)[0];
+  for (const attr of ['type="password"', 'autocomplete="off"', 'autocapitalize="off"', 'autocorrect="off"', 'spellcheck="false"', 'enterkeyhint="go"']) {
+    assert.ok(token.includes(attr), attr);
+  }
+  // The field has no name, so a script-less submit cannot put the token in the URL.
+  assert.doesNotMatch(token, /\sname=/);
 });

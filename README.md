@@ -577,6 +577,18 @@ case the page is shown in English); switching to 中文 loads it once, on demand
 On the homepage, Chart.js is likewise fetched only when the benchmark section
 nears the viewport; the benchmark table does not wait for it.
 
+API requests from both pages go through `website/static/request.js`, which gives
+up after 45 s for analyses, verification and saves (above Vercel's 30 s
+`maxDuration`, after which the platform answers 504 itself) and after 15 s for
+small reads (`/api/config`, `/api/metrics`, case-queue reads), with its own
+"took too long" message. While a sender or content analysis runs, a Cancel
+button stops it and restores the form; a response that still arrives is
+ignored. A timed-out report or case creation is treated as unconfirmed and
+retried with the same `Idempotency-Key`. Unknown page URLs (not `/api/…`,
+`/static/…` or `/_vercel/…`, and not a client asking only for JSON) get the
+`404.html` page with status 404; API and asset misses keep the JSON 404.
+With JavaScript off, both pages show an English `<noscript>` notice.
+
 Example raw-message request:
 
 ```json
@@ -1123,8 +1135,8 @@ bucket.
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
 python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
-node --test website/static/app.test.mjs website/static/i18n.test.mjs website/static/cases.test.mjs website/static/page-loading.test.mjs
-for f in website/static/app*.js website/static/i18n.js website/static/i18n-zh.js website/static/lang-init.js website/static/cases.js website/tests/fixtures/i18n/*cases*.mjs; do node --check "$f"; done
+node --test website/static/app.test.mjs website/static/i18n.test.mjs website/static/cases.test.mjs website/static/page-loading.test.mjs website/static/request.test.mjs
+for f in website/static/app*.js website/static/i18n.js website/static/i18n-zh.js website/static/lang-init.js website/static/request.js website/static/cases.js website/tests/fixtures/i18n/*cases*.mjs; do node --check "$f"; done
 node website/tools/asset-versions/update.mjs   # after editing a versioned static file
 git diff --check
 ```

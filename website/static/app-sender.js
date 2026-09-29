@@ -5,12 +5,24 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 let _senderRequestId = 0;
+// Aborts the sender request in flight; null when none is.
+let _senderAbort = null;
+
+// Returns an AbortController for a new request, or null where there is none.
+function newAbortController() {
+  return typeof AbortController === 'function' ? new AbortController() : null;
+}
 
 function invalidateSender() {
   window.PhishGuardFeedback?.clear('sender');
   _senderRequestId++;
+  _senderAbort?.abort();
+  _senderAbort = null;
+  abortVerification();
   _verificationRequestId++;
   _verifyEmail = null;
+  const cancel = document.getElementById('cancel-sender-analysis');
+  if (cancel) cancel.hidden = true;
   document.getElementById('result-area').classList.add('hidden');
   document.getElementById('loading-area').classList.add('hidden');
   document.getElementById('analyze-btn').disabled = false;
@@ -56,9 +68,13 @@ async function runEmailAnalysis() {
 
   document.getElementById('result-area').classList.add('hidden');
   document.getElementById('loading-area').classList.remove('hidden');
+  const controller = newAbortController();
+  _senderAbort = controller;
+  const cancel = document.getElementById('cancel-sender-analysis');
+  if (cancel && controller) cancel.hidden = false;
 
   try {
-    const data = await postJSON('/api/analyze-email', { email });
+    const data = await postJSON('/api/analyze-email', { email }, { signal: controller?.signal });
     if (requestId !== _senderRequestId) return;
     renderResult(data);
     recordRecentCheck(senderRecentEntry(data));
@@ -70,11 +86,22 @@ async function runEmailAnalysis() {
     if (requestId === _senderRequestId) setError('email-error', e.message);
   } finally {
     if (requestId === _senderRequestId) {
+      _senderAbort = null;
+      if (cancel) cancel.hidden = true;
       btn.disabled = false;
       btnText.textContent = t('sender.analyze');
       document.getElementById('loading-area').classList.add('hidden');
     }
   }
+}
+
+// The Cancel button: stops the request, restores the idle form (no error) and
+// says so through the live region. A response that still arrives is ignored.
+function cancelEmailAnalysis() {
+  if (!_senderAbort) return;
+  invalidateSender();
+  announce(t('request.cancelled'));
+  document.getElementById('email-input').focus();
 }
 
 function shakeInput() {

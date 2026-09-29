@@ -141,12 +141,23 @@ window.PhishGuardFeedback = (() => {
         session.retry = submission;
       }
       submission.sent = true;
-      const response = await fetch('/api/feedback', {method: 'POST', cache: 'no-store',
-        credentials: 'same-origin',
-        headers: {'Content-Type': 'application/json', 'Idempotency-Key': submission.key},
-        body: submission.body});
-      let result;
-      try { result = await response.json(); } catch (_error) { throw new Error(t('feedback.error.unreadable')); }
+      // A request that times out may still have been saved: like a lost
+      // response it leaves the outcome unconfirmed, and a retry resends the
+      // same body and Idempotency-Key.
+      const exchange = async signal => {
+        const init = {method: 'POST', cache: 'no-store', credentials: 'same-origin',
+          headers: {'Content-Type': 'application/json', 'Idempotency-Key': submission.key},
+          body: submission.body};
+        const response = await fetch('/api/feedback', signal ? {...init, signal} : init);
+        try { return {response, result: await response.json()}; } catch (_error) { throw new Error(t('feedback.error.unreadable')); }
+      };
+      const request = window.PhishGuardRequest;
+      let response, result;
+      try {
+        ({response, result} = await (request ? request.run(exchange, {timeout: request.TIMEOUTS.action}) : exchange()));
+      } catch (error) {
+        throw error?.timedOut ? new Error(t('request.error.timeout')) : error;
+      }
       if (!response.ok) {
         // A definite rejection cannot settle an earlier ambiguous attempt.
         if ([400, 413, 422, 429].includes(response.status) && !submission.uncertain) session.retry = null;

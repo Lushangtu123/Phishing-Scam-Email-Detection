@@ -4,7 +4,8 @@ import {webcrypto} from 'node:crypto';
 import test from 'node:test';
 import vm from 'node:vm';
 
-function setup(handler, cryptoOverride = {}) {
+// `clock` loads request.js (as index.html does) with AbortController and manual timers.
+function setup(handler, cryptoOverride = {}, {clock = null} = {}) {
   const items = new Map(), requests = [];
   const element = id => {
     if (!items.has(id)) {
@@ -29,9 +30,11 @@ function setup(handler, cryptoOverride = {}) {
   let sequence = 0;
   const crypto = {subtle: webcrypto.subtle, randomUUID: () => `00000000-0000-4000-8000-${String(++sequence).padStart(12, '0')}`, ...cryptoOverride};
   const context = vm.createContext({document, window, crypto, TextEncoder, Uint8Array,
-    fetch: async (url, options) => { requests.push({url, options}); return handler(url, options); }});
+    fetch: async (url, options) => { requests.push({url, options}); return handler(url, options); },
+    ...(clock ? {AbortController, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout} : {})});
   // The page loads i18n.js first; feedback.js takes its strings from it.
   vm.runInContext(readFileSync(new URL('./i18n.js', import.meta.url), 'utf8'), context);
+  if (clock) vm.runInContext(readFileSync(new URL('./request.js', import.meta.url), 'utf8'), context);
   vm.runInContext(readFileSync(new URL('./feedback.js', import.meta.url), 'utf8'), context);
   document.ready();
   element('feedback-type').value = 'false_positive';
@@ -450,4 +453,63 @@ test('oversized email and image without extracted evidence offer source-free rep
   await ui.submit();
   assert.equal(ui.requests.length, 1);
   assert.equal(JSON.parse(ui.requests[0].options.body).source, null);
+});
+
+// A manual clock: setTimeout callbacks run only when advance() passes them.
+function fakeClock() {
+  let now = 0, nextId = 1;
+  const timers = new Map();
+  const tick = () => new Promise(resolve => setImmediate(resolve));
+  return {
+    setTimeout: (fn, ms = 0) => { const id = nextId++; timers.set(id, {fn, at: now + ms}); return id; },
+    clearTimeout: id => { timers.delete(id); },
+    async advance(ms) {
+      const until = now + ms;
+      for (;;) {
+        const due = [...timers.entries()].filter(([, timer]) => timer.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
+        if (!due) break;
+        timers.delete(due[0]); now = due[1].at; due[1].fn();
+        await tick();
+      }
+      now = until; await tick(); await tick();
+    },
+  };
+}
+
+test('a timed-out report is unconfirmed, not failed: the retry resends the same body and key', async () => {
+  const clock = fakeClock();
+  let attempts = 0;
+  const ui = setup(async () => {
+    attempts++;
+    if (attempts === 1) return new Promise(() => {});
+    if (attempts === 2) return {ok: false, status: 422, json: async () => ({detail: 'Rejected on retry'})};
+    return ok();
+  }, {}, {clock});
+  ui.feedback.set('content', context(() => ({body: 'Retained original'})));
+  ui.feedback.open('content');
+  ui.element('feedback-note').value = 'Timed out';
+  const first = ui.submit();
+  // Hashing the input finishes before the request is sent.
+  for (let i = 0; i < 50 && !ui.requests.length; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(ui.requests.length, 1);
+  assert.equal(ui.element('feedback-submit').disabled, true);
+  await clock.advance(44999);
+  assert.equal(ui.element('feedback-submit').disabled, true, 'still waiting just before the 45 s limit');
+  await clock.advance(1);
+  await first;
+  assert.equal(ui.requests[0].options.signal.aborted, true);
+  assert.match(ui.element('feedback-error').textContent, /^The service took too long to respond\. Try again\. The outcome is unconfirmed/);
+  assert.equal(ui.element('feedback-submit').textContent, 'Retry original report');
+  assert.equal(ui.element('feedback-submit').disabled, false);
+  // A definite rejection on the retry cannot settle the ambiguous first attempt.
+  await ui.submit();
+  assert.match(ui.element('feedback-error').textContent, /Rejected on retry/);
+  assert.equal(ui.element('feedback-submit').textContent, 'Retry original report');
+  await ui.submit();
+  assert.equal(ui.requests.length, 3);
+  for (const request of ui.requests.slice(1)) {
+    assert.equal(request.options.body, ui.requests[0].options.body);
+    assert.equal(request.options.headers['Idempotency-Key'], ui.requests[0].options.headers['Idempotency-Key']);
+  }
+  assert.match(ui.element('feedback-success').textContent, /report-1/);
 });

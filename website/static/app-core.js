@@ -37,16 +37,48 @@ function setError(id, message = '') {
   el.classList.toggle('hidden', !message);
 }
 
-async function postJSON(url, payload) {
-  return postRequest(url, JSON.stringify(payload), 'application/json');
+// Runs work(signal) under request.js's time limit (`timeout` ms) and the
+// caller's `signal`. A request that times out rejects with the localized
+// timeout message (error.timedOut); a cancelled one with error.aborted, which
+// callers do not show. `work` starts synchronously, as a plain fetch would.
+function runRequest(work, { timeout, signal } = {}) {
+  const request = window.PhishGuardRequest;
+  if (!request) return work(signal);
+  return request.run(work, { timeout, signal }).catch(error => {
+    if (!error?.timedOut) throw error;
+    const message = new Error(t('request.error.timeout'));
+    message.timedOut = true;
+    throw message;
+  });
 }
 
-async function postRequest(url, body, contentType) {
+const requestTimeout = kind => window.PhishGuardRequest?.TIMEOUTS[kind];
+// `signal` is added only when there is one, so fetch sees the same options as before.
+const withSignal = (init, signal) => (signal ? { ...init, signal } : init);
+
+// A page-data GET (configuration, metrics) under the shorter read limit;
+// `read` consumes the response inside that limit.
+function getRequest(url, init, read) {
+  return runRequest(async signal => read(await fetch(url, withSignal(init, signal))),
+    { timeout: requestTimeout('read') });
+}
+
+// Analysis and verification POSTs. `options.signal` cancels the request;
+// `options.timeout` overrides the 45 s action limit.
+async function postJSON(url, payload, options) {
+  return postRequest(url, JSON.stringify(payload), 'application/json', options);
+}
+
+async function postRequest(url, body, contentType, { signal, timeout = requestTimeout('action') } = {}) {
+  return runRequest(requestSignal => sendPost(url, body, contentType, requestSignal), { timeout, signal });
+}
+
+async function sendPost(url, body, contentType, signal) {
   let res;
   try {
-    res = await fetch(url, {
+    res = await fetch(url, withSignal({
       method: 'POST', headers: { 'Content-Type': contentType }, body,
-    });
+    }, signal));
   } catch (_error) {
     throw new Error(t('request.error.network'));
   }
