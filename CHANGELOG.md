@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 20:35 PT] — Surface-token text normalization does not improve transfer (negative result)
+
+### Why
+- The deployed model's strongest features include years, clock times, quoted-reply markers and specific URLs. Replacing those surface details with fixed tokens was the first candidate fix, tested against the 20:06 leave-one-source-out baseline before touching the served model.
+
+### Files changed
+- `website/tools/model_text.py` — idempotent normalizer: URLs, email addresses, clock times (including `5pm`), years and other numbers become `zzurl`/`zzemail`/`zztime`/`zzyear`/`zznum`; quoted-reply `>` markers are removed; trailing sentence punctuation stays outside URLs. Evaluation-only; excluded from the deployment.
+- `website/tools/evaluate_source_holdout.py` — `--normalize` runs the same recipe with the normalizer as the first pipeline step and records it in the report.
+- `website/tests/test_model_text.py`, `website/tests/test_source_holdout.py` — replacement cases (checked against actual output), idempotence, untouched Chinese/Spanish text, tokens surviving the production vectorizers, and the normalized pipeline differing from production only by its first step.
+- `docs/evaluation.md`, `.vercelignore` — results, analysis and scope.
+
+### Effect
+- Same data, deduplication and seed: pooled PR AUC 0.9993 → 0.9991; held-out PR AUC 0.832 → 0.829 (Phishing_Email), 0.971 → 0.956 (CEAS_08), 0.746 → 0.786 (phishnchips_core), 0.597 → 0.630 (SpaPhish); Nazario recall 85.7% → 74.5%; hard-negative FPR 60.3% → 59.7%. Where FPR fell (Phishing_Email 19.4% → 14.1%) recall fell too (78.0% → 73.0%).
+- A normalized fit on all corpora removes the year cue (`zzyear` −0.15) but rebuilds corpus cues from the tokens (`zztime` −3.25, `zzurl zzemail`) and keeps names (`enron` −6.6, `vince`, `tony`); mojibake `â` is a +3.3 phishing cue. 91% of legitimate training mail is from `CEAS_08` and `Phishing_Email`. Not adopted; corpus composition is next.
+- Validation: 11 new or updated tests pass; the tool runs both as a script and under unittest.
+
 ## [2026-09-28 20:06 PT] — Leave-one-source-out evaluation of the content-model recipe
 
 ### Why

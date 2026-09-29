@@ -88,6 +88,15 @@ class SourceHoldoutTests(unittest.TestCase):
         self.assertEqual(stats, {"input_rows": 6, "duplicate_rows_removed": 1, "label_conflict_rows_removed": 2,
                                  "label_conflict_families": 1, "output_rows": 3})
 
+    def test_normalized_model_only_adds_the_normalization_step(self):
+        normalized = holdout.make_normalized_model()
+        production = holdout.make_production_model()
+        self.assertEqual(normalized.steps[0][1].transform(["Meet 10:30 PM, 2005 at http://x.example"]),
+                         ["Meet zztime , zzyear at zzurl"])
+        self.assertEqual([type(step).__name__ for _name, step in normalized.steps[1:]],
+                         [type(step).__name__ for _name, step in production.steps])
+        self.assertEqual(normalized.steps[-1][1].get_params(), production.steps[-1][1].get_params())
+
     def test_evaluated_configuration_matches_the_committed_artifact(self):
         deployment_python = (PROJECT_ROOT / ".python-version").read_text().strip()
         current_python = f"{sys.version_info.major}.{sys.version_info.minor}"

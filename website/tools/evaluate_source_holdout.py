@@ -27,12 +27,14 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import FunctionTransformer
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 if str(WEBSITE_DIR) not in sys.path:
     sys.path.insert(0, str(WEBSITE_DIR))
 
 import content_model  # noqa: E402
+from tools.model_text import normalize_texts  # noqa: E402
 
 # The committed artifact's decision threshold (README, "Observed email-text
 # evaluation"); a test checks it against the artifact.
@@ -50,6 +52,12 @@ def production_classifier() -> LogisticRegression:
 
 def make_production_model():
     return make_pipeline(content_model._build_vectorizer(), production_classifier())
+
+
+def make_normalized_model():
+    """The production configuration with model_text normalization applied to its input first."""
+    return make_pipeline(FunctionTransformer(normalize_texts), content_model._build_vectorizer(),
+                         production_classifier())
 
 
 def load_sources(data_dir: Path, *, seed: int = 42) -> Sources:
@@ -221,16 +229,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--skip-in-distribution", action="store_true")
+    parser.add_argument("--normalize", action="store_true",
+                        help="apply model_text.normalize_for_model to every message before vectorizing")
     args = parser.parse_args(argv)
 
     sources = load_sources(args.data_dir, seed=args.seed)
     sources, dedup = deduplicate_across_sources(sources)
     sources = _sample(sources, args.max_per_source, args.seed)
     print("corpora:", ", ".join(f"{n}={len(s[0])}" for n, s in sources.items()))
-    report = evaluate(sources, folds=args.folds, seed=args.seed,
+    report = evaluate(sources, make_model=make_normalized_model if args.normalize else make_production_model,
+                      folds=args.folds, seed=args.seed,
                       in_distribution=not args.skip_in_distribution)
     report["settings"] = {
         "model": "TF-IDF word(1-2)+char_wb(3-5) FeatureUnion + LogisticRegression(C=4, balanced)",
+        "normalization": "model_text.normalize_for_model" if args.normalize else None,
         "thresholds": list(DEFAULT_THRESHOLDS), "folds": args.folds, "seed": args.seed,
         "max_per_source": args.max_per_source, "deduplication": dedup,
         "source_sha256": {p.name: content_model._file_sha256(p)

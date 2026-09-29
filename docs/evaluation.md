@@ -865,6 +865,43 @@ Corpus SHA-256 used: `Phishing_Email.csv` `18ef4fff…3b97`, `CEAS_08.csv`
 `phishnchips_infra.csv` `839c02c0…ce71`, `SpaPhish.csv` `fdd74842…9cc5` (full
 digests are in the JSON report).
 
+### Surface-token normalization experiment, 2026-09-28 (no gain)
+
+`--normalize` applies `website/tools/model_text.py` before vectorizing: URLs,
+email addresses, clock times (including `5pm`), years and other numbers become
+fixed tokens and quoted-reply `>` markers are removed. Same data, deduplication
+and seed as the table above:
+
+| Held-out corpus | PR AUC baseline → normalized | Recall @0.3736 | FPR @0.3736 |
+|---|---|---|---|
+| Phishing_Email | 0.832 → 0.829 | 78.0% → 73.0% | 19.4% → 14.1% |
+| CEAS_08 | 0.971 → 0.956 | 97.8% → 94.2% | 9.4% → 8.8% |
+| Nazario | — | 85.7% → 74.5% | — |
+| phishnchips_core | 0.746 → 0.786 | 10.6% → 14.3% | 1.7% → 1.9% |
+| phishnchips_infra | — | 100% → 93.6% | — |
+| SpaPhish | 0.597 → 0.630 | 98.4% → 98.0% | 96.5% → 96.1% |
+| synthetic_hard_negatives | — | — | 60.3% → 59.7% |
+
+Pooled in-distribution: PR AUC 0.9993 → 0.9991, recall 99.44% → 99.37%, FPR
+2.00% → 2.30%. Threshold-free PR AUC rises on two corpora and falls on two, and
+where the FPR falls (Phishing_Email) recall falls with it, so scores shifted
+rather than separating better. Nazario recall drops 11 points: URLs and numbers
+carried real signal for older phishing.
+
+Refitting the normalized recipe on all corpora shows why. The year shortcut is
+gone (`zzyear` weight −0.15), but the model rebuilt corpus shortcuts from the
+tokens and names: `zztime` (−3.25) and token pairs such as `zzurl zzemail` and
+`zztime zzurl` (Enron headers and mailing-list footers) are strong legitimate
+cues, `enron` (−6.6, the most legitimate of 80,000 features), `vince`, `tony` and
+`louise` are unchanged, and the mojibake character `â` (+3.3) is a phishing cue.
+91% of the 30,519 legitimate training messages come from the two older corpora
+(`CEAS_08` 17,114, 68% with mailing-list or reply markers; `Phishing_Email`
+10,698, 23% with explicit Enron markers), so legitimate mail that looks different,
+modern or non-English, scores as phishing. Surface
+normalization renames these cues without removing them; corpus composition is
+the lever to test next. The option is kept only to reproduce this result; the
+served model does not use it.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:
