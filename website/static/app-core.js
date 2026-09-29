@@ -18,6 +18,14 @@ function uiLang() { return i18n() ? i18n().lang() : 'en'; }
 function knownText(key, serverText) { return i18n() ? i18n().known(key, serverText) : serverText; }
 // Risk level codes (high, medium, …) are shown raw in English, localized otherwise.
 function levelName(level) { return knownText(`level.${level}`, level); }
+// A visible level pill for an indicator row, so severity is not conveyed by the
+// dot's colour alone (WCAG 1.4.1). Unrecognised levels get no pill: their text
+// would be the server's raw code, and the row still shows its message.
+const INDICATOR_LEVELS = ['critical', 'high', 'medium', 'low', 'info'];
+function levelLabelHtml(level) {
+  if (!INDICATOR_LEVELS.includes(level)) return '';
+  return `<span class="level-label level-${level}">${escapeHtml(levelName(level))}</span>`;
+}
 // Analysis messages ({code, params, msg}) and string lists with parallel
 // *_details entries: localized when the code is known, else the server's text.
 function serverText(entry) { return i18n() ? i18n().server(entry) : entry && entry.msg; }

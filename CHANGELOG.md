@@ -20,6 +20,35 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 17:50 PT] — Worded severity labels, severity-sorted case evidence, `style-src 'self'` homepage CSP, forced-colours support
+
+### Why
+- Homepage "Risk Indicators" (sender) and "Technical Indicators" (content) rows showed their level only by the dot and row tint colour (WCAG 1.4.1). The case workspace mixed analysis warnings, indicators and category lines in one unsorted `#evidence` list with no level at all, and repeated every warning a second time as an info-level indicator (the server adds `warning_indicator(...)` for each `analysis_warnings` entry).
+- The homepage and 404 CSP still allowed `style-src 'unsafe-inline'` only because of two `style="display:none"` attributes in `index.html`.
+- In Windows high-contrast (forced colours) mode tints and glows are dropped, so level pills lost their shape and the risk dots and score rings their meaning.
+
+### Files changed
+- `website/static/app-core.js` — `levelLabelHtml(level)`: a `<span class="level-label level-<level>">` with the existing `level.*` word (`high` / `高` …) for critical, high, medium, low and info; unknown levels get no label.
+- `website/static/app-sender.js`, `website/static/app-content-render.js` — each indicator row renders `risk-dot` (now `aria-hidden="true"`), the level label, then the message. The content extra/safety cards toggle with `hidden` instead of `style.display`.
+- `website/static/index.html` — `#content-extra-card` / `#content-safety-card` use `hidden` (the page's last two `style=` attributes).
+- `website/static/style.css` — `.level-label` shares the `.cat-level-badge` rule; `.level-critical` / `.level-info` added; light-theme label colours `#b91c3c` / `#9a3412` / `#7c5800` / `#1d4ed8` and dark critical/high `#ff7a86` / `#ffa06e` so every label (and the category badge) is ≥ 4.5:1; `.risk-critical` row styling; `.col-card[hidden]`; an `@media (forced-colors: active)` block (colour fields hidden, dots `CanvasText`, ring track `CanvasText` / value `Highlight`, pills and labels bordered, glow-only field focus gets a `Highlight` outline).
+- `website/static/cases.js` — `renderEvidence()`: reported signals (feedback) first, then indicators and then categories, each run stable-sorted critical → high → medium → low → info → unlevelled, with a `badge level-label risk-<level>` label (`level.*` words); info indicators that repeat a warning are dropped; warnings go to `#evidence-warnings`. All nodes are built with `textContent`.
+- `website/static/cases.html` — `#evidence-warnings-group` (hidden when there are none): an `h4` "Analysis warnings" and `ul#evidence-warnings`, after the evidence it qualifies.
+- `website/static/cases.css` — levelled rows lead with the label instead of the dot; warnings list with an amber dot and small heading; forced-colours rules for dots and badges.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — `cases.evidence.warnings`: "Analysis warnings" / "分析警告".
+- `website/app.py` — the default CSP (homepage, 404 page and other non-workspace responses) is `style-src 'self'`; the workspace and vision-worker policies are unchanged.
+- `website/tests/test_app_security.py` — the default, homepage and 404 policies are exactly `style-src 'self'` without `unsafe-inline`; `/cases` and the vision worker keep their exact policies.
+- `website/static/app.test.mjs`, `i18n.test.mjs`, `cases.test.mjs` — labels for every level (en and zh) and none for unknown levels; light-theme label contrast; `hidden` card toggles; a static scan for `style=` / `<style>` in `index.html` and `404.html` and for `setAttribute('style')`, `style=` markup, `<style>`, `cssText`, `insertRule` and `adoptedStyleSheets` in the homepage scripts; the forced-colours rules; case evidence order, labels, warnings group and de-duplication (en and zh).
+- `website/tests/fixtures/i18n/en-snapshot.json` — regenerated with `capture.mjs`: only the 12 captured indicator lists changed, each by the added label spans (37 in all) and the dot's `aria-hidden`.
+- `website/tests/fixtures/i18n/cases-scenarios.mjs`, `cases-en-snapshot.json` — the capture includes `evidence-warnings` and the group's hidden flag; regenerated with `capture-cases.mjs`.
+- `website/tools/asset-versions/manifest.json` and page references — `style.css` v51, `cases.css` v21, `cases.js` v27, `i18n.js` v7, `i18n-zh.js` v3, `lang-init.js` v5, `app-core.js` / `app-sender.js` / `app-content-render.js` v5.
+
+### Effect
+- Measured in Chromium (text colour against the rendered pill background), en/zh × light/dark × 1280/390 px: homepage labels 5.41–6.76:1, synthetic critical/info rows ≥ 4.77:1, category badges ≥ 5.15:1 (dark high was 4.35:1 over a bright colour field before), case evidence labels ≥ 4.75:1; no label overflows its row and no page scrolls sideways at 390 px.
+- CSP sweep with a `securitypolicyviolation` listener, en and zh: load, theme toggle (view transition), language toggle, sender result and score breakdown, content example, PNG upload with QR and with OCR text (image evidence and original-image preview), feedback dialog and confirm dialog, recent checks, benchmark chart after scroll, 404 page, 390 px menu: 0 violations. The case workspace (already `style-src 'self'`) also had 0.
+- A real `.eml` case (attachment, remote image): 8 high, 3 medium, 2 low labelled indicators, then 2 labelled (high) categories, then 4 analysis warnings under their heading (they were interleaved and duplicated before).
+- Node tests 499 → 507; Python tests 696 → 698 (10 skipped).
+
 ## [2026-09-28 17:03 PT] — Request timeouts and Cancel, HTML 404 page, `<noscript>` notice, mobile address keyboard
 
 ### Why

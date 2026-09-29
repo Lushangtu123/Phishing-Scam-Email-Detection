@@ -1129,3 +1129,21 @@ test('404.html: same start-up scripts as the homepage, no inline code, not index
   assert.match(html, /<button class="lang-toggle" id="lang-toggle" type="button"/);
   assert.match(html, /<main id="main" class="nf-main">[\s\S]*<h1 data-i18n="notFound\.title">/);
 });
+
+test('indicator level labels use the shared level.* words in Chinese and English', () => {
+  const levels = ['critical', 'high', 'medium', 'low', 'info'];
+  assert.deepEqual(levels.map(level => zh[`level.${level}`]), ['严重', '高', '中', '低', '提示']);
+  for (const [storage, words] of [[memoryStorage({'phishguard-lang': 'zh'}), levels.map(level => zh[`level.${level}`])],
+    [memoryStorage({'phishguard-lang': 'en'}), levels]]) {
+    const page = loadPage(PAGE, {localStorage: storage});
+    const indicators = levels.map(level => ({level, msg: `${level} message`}));
+    page.context.renderResult({email: 'a@example.com', verdict: 'high', label: 'High Sender Risk', risk_score: 41, risk_indicators: indicators,
+      feature_breakdown: [], high_risk_count: 1, med_risk_count: 1});
+    page.context.renderContentResult({risk_level: 'high', risk_label: 'High Risk — Likely Phishing', total_score: 9, category_results: [],
+      extra_indicators: indicators, safety_signals: []});
+    const labels = id => [...page.elements.get(id).innerHTML.matchAll(/<span class="level-label level-(\w+)">([^<]*)<\/span>/g)]
+      .map(([, level, word]) => [level, word]);
+    assert.deepEqual(labels('risk-indicators-list'), levels.slice(0, 4).map((level, index) => [level, words[index]]));
+    assert.deepEqual(labels('content-extra-list'), levels.map((level, index) => [level, words[index]]));
+  }
+});

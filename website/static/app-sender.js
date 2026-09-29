@@ -304,7 +304,8 @@ function renderResult(data, { languageOnly = false } = {}) {
     countEl.textContent = `(${riskIndicators.length})`;
     riskList.innerHTML = riskIndicators.map(r => `
       <div class="risk-item risk-${escapeHtml(r.level)}">
-        <span class="risk-dot"></span>
+        <span class="risk-dot" aria-hidden="true"></span>
+        ${levelLabelHtml(r.level)}
         <span class="risk-msg">${escapeHtml(serverText(r))}</span>
       </div>
     `).join('');

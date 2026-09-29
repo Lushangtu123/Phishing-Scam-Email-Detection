@@ -221,22 +221,23 @@ function renderContentResult(data, { languageOnly = false } = {}) {
   const extraCard = document.getElementById('content-extra-card');
   const extraList = document.getElementById('content-extra-list');
   if (data.extra_indicators.length > 0) {
-    extraCard.style.display = '';
+    extraCard.hidden = false;
     extraList.innerHTML = data.extra_indicators.map(ind => `
       <div class="risk-item risk-${escapeHtml(ind.level)}">
-        <span class="risk-dot"></span>
+        <span class="risk-dot" aria-hidden="true"></span>
+        ${levelLabelHtml(ind.level)}
         <span class="risk-msg">${escapeHtml(serverText(ind))}</span>
       </div>
     `).join('');
   } else {
-    extraCard.style.display = 'none';
+    extraCard.hidden = true;
   }
 
   // Safety signals
   const safetyCard = document.getElementById('content-safety-card');
   const safetyList = document.getElementById('content-safety-list');
   if (data.safety_signals.length > 0) {
-    safetyCard.style.display = '';
+    safetyCard.hidden = false;
     safetyList.innerHTML = serverStrings(data.safety_signals, data.safety_signal_details).map(s => `
       <div class="safety-item">
         <span class="safety-dot">${icon('check')}</span>
@@ -244,7 +245,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
       </div>
     `).join('');
   } else {
-    safetyCard.style.display = 'none';
+    safetyCard.hidden = true;
   }
 
   const area = document.getElementById('content-result-area');

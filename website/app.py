@@ -487,8 +487,10 @@ def _with_security_headers(response):
     response.headers.setdefault(
         "Content-Security-Policy",
         # Scripts are same-origin files only: no inline handlers or CDN hosts.
+        # Styles are same-origin stylesheets only: no style="" attributes or
+        # <style> elements (scripts may still set element.style via the CSSOM).
         "default-src 'self'; script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; "
+        "style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; "
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
     )
     return response

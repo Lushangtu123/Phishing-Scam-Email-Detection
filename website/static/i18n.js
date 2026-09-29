@@ -1015,6 +1015,7 @@ window.PhishGuardI18n = (() => {
     'cases.error.visionUnavailable': 'Image recognition is unavailable. Reload the page.',
     'cases.evidence.category': '{label}: {description} Matched: {matched}',
     'cases.evidence.reported': 'Reported signal: {signal}',
+    'cases.evidence.warnings': 'Analysis warnings',
     'cases.feedback.caveat': 'This diagnostic snapshot was supplied by the browser; verify before relying on it.',
     'cases.feedback.included': 'included',
     'cases.feedback.notIncluded': 'not included',
@@ -1230,7 +1231,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=2'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=3'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

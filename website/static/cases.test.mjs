@@ -1061,13 +1061,17 @@ test('Chinese queue, detail, review form and history render from codes; free tex
   assert.deepEqual(texts(ui.el('badges').children), ['高', '处理中', '未复核']);
   assert.equal(ui.el('analysis-summary').textContent, '高风险 — 可能是钓鱼邮件。请先审阅证据再做决定。');
   const evidence = texts(ui.el('evidence').children);
-  assert.deepEqual(evidence.slice(0, 6), [
-    zhDictionary['server.warning.attachments_uninspected'], 'A browser warning without a code',
-    '包含短链接 URL（bit.ly、tinyurl 等）— 隐藏了真实的目标域名',
-    '发件人：域名包含连字符（paypa1-verify.xyz）— 主流服务商的域名通常不使用连字符',
-    'A reworded server message', '潜在危险附件：<img src=x>。']);
-  assert.equal(evidence.at(-2), '紧迫感与施压：钓鱼邮件会制造人为的时间压力，让人来不及仔细思考。 匹配：urgent、suspended');
-  assert.match(evidence.at(-1), /^凭据窃取：A reworded description from an older release\. 匹配：verify$/, 'reworded server text is shown as sent');
+  // Indicators by severity, each after its level label (level.* keys).
+  assert.deepEqual(evidence.slice(0, 8), [
+    '高', '潜在危险附件：<img src=x>。',
+    '中', '包含短链接 URL（bit.ly、tinyurl 等）— 隐藏了真实的目标域名',
+    '中', '发件人：域名包含连字符（paypa1-verify.xyz）— 主流服务商的域名通常不使用连字符',
+    '低', 'A reworded server message']);
+  assert.deepEqual(evidence.slice(-4), ['高', '紧迫感与施压：钓鱼邮件会制造人为的时间压力，让人来不及仔细思考。 匹配：urgent、suspended',
+    '中', '凭据窃取：A reworded description from an older release. 匹配：verify'], 'reworded server text is shown as sent');
+  assert.deepEqual(texts(ui.el('evidence-warnings').children),
+    [zhDictionary['server.warning.attachments_uninspected'], 'A browser warning without a code']);
+  assert.equal(ui.el('evidence-warnings-group').hidden, false);
   assert.match(ui.el('analysis-json').textContent, /"risk_label": "High Risk — Likely Phishing"/, 'the audit JSON is untouched');
   assert.deepEqual(ui.el('review-status').children.map(option => [option.value, option.textContent]), [['in_progress', '处理中'], ['closed', '已关闭']]);
   const history = texts(ui.el('history').children);
@@ -1346,4 +1350,53 @@ test('without JavaScript the workspace says it needs it; the token field keeps p
   }
   // The field has no name, so a script-less submit cannot put the token in the URL.
   assert.doesNotMatch(token, /\sname=/);
+});
+
+test('case evidence lists indicators by severity with worded levels and warnings under their own heading', async () => {
+  const warning = 'Remote image content was not inspected; the message references remote images.';
+  const record = caseRecord({analysis: {risk_level: 'high', risk_label: 'High Risk — Likely Phishing', analysis_complete: false,
+    analysis_warnings: [warning, 'Second <b>warning</b>'],
+    extra_indicators: [
+      {level: 'low', msg: 'low first'}, {level: 'info', msg: warning}, {level: 'info', msg: 'info note'},
+      {level: 'high', msg: 'high first'}, 'plain string', {level: 'bogus', msg: 'unknown level'}, {level: 'critical', msg: 'critical <img src=x>'},
+      {level: 'medium', msg: 'medium'}, {level: 'high', msg: 'high second'}, {level: 'low', msg: 'low second'},
+    ],
+    category_results: [
+      {key: 'credential', label: 'Credential Harvesting', level: 'medium', count: 1, description: 'D.', matched: ['verify']},
+      {key: 'urgency', label: 'Urgency & Pressure', level: 'high', count: 2, description: 'U.', matched: ['urgent']},
+    ]},
+  analysis_warning_details: [{code: null, params: {}, msg: warning}, {code: null, params: {}, msg: 'Second <b>warning</b>'}]});
+  for (const [scripts, languages, words] of [[['i18n.js', ...CASE_SCRIPTS], ['en-US'], {critical: 'critical', high: 'high', medium: 'medium', low: 'low', info: 'info'}],
+    [['i18n-zh.js', 'i18n.js', ...CASE_SCRIPTS], ['zh-CN'], {critical: '严重', high: '高', medium: '中', low: '低', info: '提示'}]]) {
+    // CaseElement throws on innerHTML, so every row is built from text nodes.
+    const ui = loadCases(scripts, {handler: router({record: () => ({status: 200, data: record})}), languages});
+    await ui.login(); await ui.open(0);
+    const rows = ui.el('evidence').children.map(item => item.children.length
+      ? [item.className, ...item.children.map(child => [child.className, child.textContent])]
+      : [item.className, item.textContent]);
+    const label = level => [`badge level-label risk-${level}`, words[level]];
+    const row = (level, text) => ['has-level', label(level), ['evidence-text', text]];
+    assert.deepEqual(rows, [
+      row('critical', 'critical <img src=x>'), row('high', 'high first'), row('high', 'high second'), row('medium', 'medium'),
+      row('low', 'low first'), row('low', 'low second'), row('info', 'info note'),
+      ['', 'plain string'], ['', 'unknown level'],
+      row('high', rows[9][2][1]), row('medium', rows[10][2][1]),
+    ]);
+    assert.match(rows[9][2][1], /Urgency|紧迫感/);
+    assert.match(rows[10][2][1], /Credential|凭据/);
+    // The repeated info indicator is shown once, as a warning.
+    assert.deepEqual(ui.el('evidence-warnings').children.map(item => item.textContent), [warning, 'Second <b>warning</b>']);
+    assert.equal(ui.el('evidence-warnings-group').hidden, false);
+  }
+  const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
+  assert.match(html, /<ul id="evidence"><\/ul><div id="evidence-warnings-group" class="evidence-warnings" hidden><h4 id="evidence-warnings-title" data-i18n="cases\.evidence\.warnings">Analysis warnings<\/h4><ul id="evidence-warnings" aria-labelledby="evidence-warnings-title"><\/ul><\/div>/);
+});
+
+test('a case without analysis warnings hides the warnings group', async () => {
+  const record = caseRecord({analysis: {...caseRecord().analysis, analysis_warnings: []}, analysis_warning_details: []});
+  const ui = loadCases(['i18n.js', ...CASE_SCRIPTS], {handler: router({record: () => ({status: 200, data: record})})});
+  await ui.login(); await ui.open(0);
+  assert.equal(ui.el('evidence-warnings-group').hidden, true);
+  assert.deepEqual(ui.el('evidence-warnings').children, []);
+  assert.ok(ui.el('evidence').children.length > 0);
 });

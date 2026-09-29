@@ -40,6 +40,36 @@ class ImagePreviewCSPTests(unittest.TestCase):
         directives = dict(part.strip().split(' ', 1) for part in policy.split(';') if part.strip())
         self.assertEqual(directives['script-src'].split(), ["'self'"])
 
+    def test_page_styles_are_same_origin_stylesheets_only(self):
+        policy = app._with_security_headers(app.Response()).headers['content-security-policy']
+        directives = dict(part.strip().split(' ', 1) for part in policy.split(';') if part.strip())
+        self.assertEqual(directives['style-src'].split(), ["'self'"])
+        self.assertNotIn('unsafe-inline', policy)
+        self.assertEqual(policy, (
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
+            "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"))
+
+    def test_homepage_404_page_and_other_headers_serve_their_policies(self):
+        async def fetch(path, headers=None):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app.app),
+                                         base_url='http://localhost') as client:
+                return await client.get(path, headers=headers or {})
+
+        default = app._with_security_headers(app.Response()).headers['content-security-policy']
+        for path in ('/', '/nope'):
+            with self.subTest(path=path):
+                response = asyncio.run(fetch(path, {'Accept': 'text/html'}))
+                self.assertEqual(response.headers['content-security-policy'], default)
+                self.assertIn("style-src 'self';", response.headers['content-security-policy'])
+        # The workspace and the vision worker keep their own, unchanged policies.
+        self.assertEqual(asyncio.run(fetch('/cases')).headers['content-security-policy'], (
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
+            "connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; "
+            "frame-ancestors 'none'; form-action 'self'"))
+        self.assertEqual(asyncio.run(fetch('/static/vision-worker.mjs')).headers['content-security-policy'], (
+            "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; "
+            "connect-src 'self'; worker-src 'self'; object-src 'none'"))
+
 
 class VersionedAssetCacheTests(unittest.TestCase):
     @staticmethod
@@ -97,6 +127,8 @@ class NotFoundPageTests(unittest.TestCase):
         policy = response.headers['content-security-policy']
         self.assertEqual(policy, app._with_security_headers(app.Response()).headers['content-security-policy'])
         self.assertIn("script-src 'self';", policy)
+        self.assertIn("style-src 'self';", policy)
+        self.assertNotIn('unsafe-inline', policy)
         for header, value in (('x-content-type-options', 'nosniff'), ('x-frame-options', 'DENY'),
                               ('referrer-policy', 'strict-origin-when-cross-origin')):
             self.assertEqual(response.headers[header], value)

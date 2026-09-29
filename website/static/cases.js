@@ -433,6 +433,52 @@
     restoreReview(reviewDrafts.get(value.id)?.values || reviewBaseline);
     renderDraftState();
   }
+  // Indicator and category levels, most severe first; anything else sorts last.
+  const EVIDENCE_LEVELS = ['critical', 'high', 'medium', 'low', 'info'];
+  const levelRank = item => {
+    const rank = EVIDENCE_LEVELS.indexOf(item && typeof item === 'object' ? item.level : undefined);
+    return rank < 0 ? EVIDENCE_LEVELS.length : rank;
+  };
+  // Array.prototype.sort is stable, so items of one level keep the server's order.
+  const bySeverity = items => [...items].sort((a, b) => levelRank(a) - levelRank(b));
+  // One evidence row. A known level gets the same worded label as the homepage
+  // (level.* keys), so severity is not shown by colour alone.
+  function evidenceItem(text, level) {
+    if (!EVIDENCE_LEVELS.includes(level)) return node('li', text);
+    const item = node('li', '', 'has-level');
+    item.append(node('span', t(`level.${level}`), `badge level-label risk-${level}`), node('span', text, 'evidence-text'));
+    return item;
+  }
+  // Detection evidence: reported signals (feedback), then indicators and
+  // categories by severity; analysis warnings (coverage limits) are listed
+  // apart under their own heading, after the evidence they qualify.
+  function renderEvidence(value) {
+    const analysis = value.analysis;
+    const items = [];
+    if (value.kind === 'feedback') {
+      for (const code of analysis.evidence_codes || []) items.push(node('li', t('cases.evidence.reported', {signal: signalText(code)})));
+    }
+    // The server repeats each warning as an info-level indicator; it is shown
+    // once, with the warnings.
+    const warnings = analysis.analysis_warnings || [];
+    const indicators = (analysis.extra_indicators || []).filter(evidence =>
+      !(evidence && typeof evidence === 'object' && evidence.level === 'info' && warnings.includes(evidence.msg)));
+    // Stored cases keep indicator codes.
+    for (const evidence of bySeverity(indicators)) {
+      items.push(typeof evidence === 'string' ? node('li', evidence)
+        : evidenceItem(serverText(evidence) || evidence.message || JSON.stringify(evidence), evidence.level));
+    }
+    for (const category of bySeverity((analysis.category_results || []).filter(category => category.count > 0))) {
+      items.push(evidenceItem(t('cases.evidence.category', {
+        label: known(`category.${category.key}.label`, category.label),
+        description: known(`category.${category.key}.description`, category.description),
+        matched: listOf(category.matched || [])}), category.level));
+    }
+    $('evidence').replaceChildren(...items);
+    // The API derives the warnings' codes (analysis_warning_details) when a record is read.
+    $('evidence-warnings').replaceChildren(...serverList(warnings, value.analysis_warning_details).map(text => node('li', text)));
+    $('evidence-warnings-group').hidden = warnings.length === 0;
+  }
   // Everything shown for a record except the review form and Jev results;
   // re-run on a language switch.
   function renderCaseView(value) {
@@ -455,23 +501,7 @@
     window.PhishGuardVision?.render($('visual-evidence'), analysis.visual_analysis);
     $('analysis-summary').textContent = t('cases.detail.summary', {label: riskLabel(analysis.risk_label || value.risk, value.risk),
       advice: t(analysis.analysis_complete === false ? 'cases.detail.incomplete' : 'cases.detail.review')});
-    $('evidence').replaceChildren();
-    if (value.kind === 'feedback') {
-      for (const code of analysis.evidence_codes || []) {
-        $('evidence').append(node('li', t('cases.evidence.reported', {signal: signalText(code)})));
-      }
-    }
-    // Stored cases keep indicator codes; the API derives the warnings' codes
-    // (analysis_warning_details) when a record is read.
-    for (const evidence of [...serverList(analysis.analysis_warnings || [], value.analysis_warning_details), ...(analysis.extra_indicators || [])]) {
-      $('evidence').append(node('li', typeof evidence === 'string' ? evidence : (serverText(evidence) || evidence.message || JSON.stringify(evidence))));
-    }
-    for (const category of analysis.category_results || []) {
-      if (category.count > 0) $('evidence').append(node('li', t('cases.evidence.category', {
-        label: known(`category.${category.key}.label`, category.label),
-        description: known(`category.${category.key}.description`, category.description),
-        matched: listOf(category.matched || [])})));
-    }
+    renderEvidence(value);
     $('analysis-json').textContent = JSON.stringify({analysis, provenance: value.provenance, input_sha256: value.input_sha256}, null, 2);
     $('source').textContent = value.kind === 'feedback' && !value.provenance?.source_consent
       ? '' : `${value.source.subject || ''}\n\n${value.source.body || ''}`;

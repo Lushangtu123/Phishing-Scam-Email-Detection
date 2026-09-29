@@ -1930,3 +1930,102 @@ test('the sender address field asks phones for an address keyboard without nativ
   }
   assert.doesNotMatch(input, /type="email"|\srequired|\spattern=/, 'the app keeps its own address rules (IDN, syntax)');
 });
+
+// ── Severity in words (WCAG 1.4.1) and a style-src 'self' page ───────────────
+const levelRows = html => [...html.matchAll(/<div class="risk-item risk-([^"]*)">([\s\S]*?)<\/div>/g)]
+  .map(([, level, row]) => ({level, row}));
+
+test('indicator rows state their level in words next to a decorative dot', () => {
+  const { context, elements } = loadFrontend();
+  context.renderResult({ ...senderResult('a@example.com'), verdict: 'high', risk_score: 41,
+    risk_indicators: ['critical', 'high', 'medium', 'low', 'info', 'bogus'].map(level => ({ level, msg: `${level} <msg>` })) });
+  const sender = levelRows(elements.get('risk-indicators-list').innerHTML);
+  // Info notes stay out of the sender list, as before.
+  assert.deepEqual(sender.map(row => row.level), ['critical', 'high', 'medium', 'low', 'bogus']);
+  context.renderContentResult({ ...contentResult('Result'), risk_level: 'high',
+    extra_indicators: ['critical', 'high', 'medium', 'low', 'info', 'bogus'].map(level => ({ level, msg: `${level} <msg>` })) });
+  const content = levelRows(elements.get('content-extra-list').innerHTML);
+  assert.deepEqual(content.map(row => row.level), ['critical', 'high', 'medium', 'low', 'info', 'bogus']);
+  for (const { level, row } of [...sender, ...content]) {
+    assert.match(row, /^\s*<span class="risk-dot" aria-hidden="true"><\/span>/, level);
+    assert.match(row, new RegExp(`${level} &lt;msg&gt;</span>\\s*$`), level);
+    if (level === 'bogus') {
+      assert.doesNotMatch(row, /level-label/, 'an unknown level gets no label');
+    } else {
+      assert.match(row, new RegExp(`<span class="level-label level-${level}">${level}</span>\\s*<span class="risk-msg">`), level);
+    }
+  }
+});
+
+test('the level pill looks like the category badge and keeps AA contrast in the light theme', () => {
+  const css = appSource('style.css');
+  assert.match(css, /\.cat-level-badge, \.level-label \{[^}]*text-transform: uppercase;/);
+  for (const level of ['critical', 'high', 'medium', 'low', 'info']) assert.match(css, new RegExp(`\\.level-${level} +\\{`), level);
+  const light = Object.fromEntries([...css.matchAll(/:root\[data-theme="light"\] \.level-(\w+) +\{ color: (#[0-9a-f]{6}); \}/g)]
+    .map(([, level, color]) => [level, color]));
+  assert.deepEqual(Object.keys(light), ['critical', 'high', 'medium', 'low']);
+  // Measured on the pill tint over a tinted row on the light card (the darkest case).
+  const channel = value => { const c = value / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const luminance = rgb => 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2]);
+  const hex = value => [1, 3, 5].map(index => parseInt(value.slice(index, index + 2), 16));
+  const over = (top, alpha, bottom) => top.map((c, index) => c * alpha + bottom[index] * (1 - alpha));
+  const card = over([255, 255, 255], 0.62, hex('#f4f6fb'));
+  const tint = { critical: '#ff5c6c', high: '#ff8a4c', medium: '#f0c05a', low: '#6fb6ff' };
+  for (const [level, color] of Object.entries(light)) {
+    const background = over(hex(tint[level]), 0.16, over(hex('#ff5c6c'), 0.10, card));
+    const [a, b] = [luminance(hex(color)), luminance(background)].sort((x, y) => y - x);
+    assert.ok((a + 0.05) / (b + 0.05) >= 4.5, `${level}: ${((a + 0.05) / (b + 0.05)).toFixed(2)}`);
+  }
+});
+
+test('technical indicator and safety cards toggle with the hidden attribute, not an inline style', () => {
+  const { context, elements } = loadFrontend();
+  context.renderContentResult({ ...contentResult('Result'), extra_indicators: [{ level: 'high', msg: 'x' }], safety_signals: ['ok'] });
+  assert.equal(elements.get('content-extra-card').hidden, false);
+  assert.equal(elements.get('content-safety-card').hidden, false);
+  context.renderContentResult(contentResult('Result'));
+  assert.equal(elements.get('content-extra-card').hidden, true);
+  assert.equal(elements.get('content-safety-card').hidden, true);
+  for (const id of ['content-extra-card', 'content-safety-card']) assert.equal(elements.get(id).style.display, undefined, id);
+  const html = appSource('index.html');
+  assert.match(html, /<div class="col-card" id="content-extra-card" hidden>/);
+  assert.match(html, /<div class="col-card" id="content-safety-card" hidden>/);
+  assert.match(appSource('style.css'), /\.col-card\[hidden\] \{ display: none; \}/);
+});
+
+test('the homepage and 404 page need no inline styles, so the CSP can be style-src \'self\'', () => {
+  for (const page of ['index.html', '404.html']) {
+    const html = appSource(page);
+    assert.doesNotMatch(html, /\sstyle\s*=/i, `${page}: style attribute`);
+    assert.doesNotMatch(html, /<style\b/i, `${page}: <style> element`);
+  }
+  // Scripts may set element.style (CSSOM, allowed by the CSP) but never a style
+  // attribute, a style="" in HTML they insert, or a <style> element.
+  const scripts = [...APP_SCRIPTS, 'i18n.js', 'i18n-zh.js', 'vision.js', 'vision-core.mjs', 'vision-email.mjs', 'vision-html.mjs',
+    'vision-cid.mjs', 'vision-worker.mjs', 'feedback.js', 'confirm-dialog.js', 'file-intake.js', 'request.js', 'analytics-init.js',
+    'theme-init.js', 'lang-init.js'];
+  for (const name of scripts) {
+    const code = appSource(name);
+    assert.doesNotMatch(code, /setAttribute\(\s*['"`]style['"`]/, `${name}: setAttribute('style')`);
+    assert.doesNotMatch(code, /\sstyle=/, `${name}: style= in markup`);
+    assert.doesNotMatch(code, /createElement(NS)?\([^)]*['"`]style['"`]\)|<style\b|\.cssText\b|insertRule\(|adoptedStyleSheets/, `${name}: stylesheet injection`);
+  }
+});
+
+test('forced-colours mode keeps dots, rings, badges and level labels distinguishable', () => {
+  const block = (css, name) => {
+    const start = css.indexOf('@media (forced-colors: active) {');
+    assert.ok(start >= 0, name);
+    return css.slice(start, css.indexOf('\n}\n', start));
+  };
+  const home = block(appSource('style.css'), 'style.css');
+  assert.match(home, /\.bg-fluid, \.orb, \.orb-ring \{ display: none; \}/);
+  assert.match(home, /\.risk-item \.risk-dot[^{]*\{ forced-color-adjust: none; background: CanvasText;/);
+  assert.match(home, /\.ring-track \{ stroke: CanvasText; \}/);
+  assert.match(home, /\.ring-fg \{ stroke: Highlight !important; \}/);
+  assert.match(home, /\.level-label, \.cat-level-badge, \.pill,[^{]*\{ border: 1px solid CanvasText; \}/);
+  assert.match(home, /outline: 2px solid Highlight/);
+  const cases = block(appSource('cases.css'), 'cases.css');
+  assert.match(cases, /\.status-dot, #evidence li::before[^{]*\{ forced-color-adjust: none; background: CanvasText;/);
+  assert.match(cases, /\.badge, \.feedback-badge \{ border: 1px solid CanvasText; \}/);
+});

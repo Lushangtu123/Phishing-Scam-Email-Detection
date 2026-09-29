@@ -997,6 +997,7 @@
   'cases.error.visionUnavailable': '图片识别不可用。请重新加载页面。',
   'cases.evidence.category': '{label}：{description} 匹配：{matched}',
   'cases.evidence.reported': '报告的信号：{signal}',
+  'cases.evidence.warnings': '分析警告',
   'cases.feedback.caveat': '此诊断快照由浏览器提供；依赖它之前请先核实。',
   'cases.feedback.included': '已包含',
   'cases.feedback.notIncluded': '未包含',

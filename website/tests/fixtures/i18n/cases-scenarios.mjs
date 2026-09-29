@@ -101,9 +101,9 @@ const TEXT_IDS = ['notice', 'actor', 'count', 'page', 'queue-warning', 'filter-s
   'feedback-overview-status', 'case-title', 'case-meta', 'history-capacity', 'feedback-context', 'analysis-summary', 'source',
   'source-note', 'analysis-json', 'draft-status', 'jev-availability', 'jev-status', 'create-case', 'creation-status',
   'case-file-status', 'vision-progress'];
-const TREE_IDS = ['case-list', 'badges', 'evidence', 'visual-evidence', 'review-status', 'jev-results', 'history'];
+const TREE_IDS = ['case-list', 'badges', 'evidence', 'evidence-warnings', 'visual-evidence', 'review-status', 'jev-results', 'history'];
 const FLAG_IDS = ['draft-rebase', 'draft-discard', 'save-review', 'jev-save', 'jev-run', 'jev-read', 'new-case-draft', 'feedback-context',
-  'feedback-review-fields', 'previous', 'next', 'detail', 'workspace'];
+  'feedback-review-fields', 'previous', 'next', 'detail', 'workspace', 'evidence-warnings-group'];
 
 export function capture(ui) {
   const out = {};

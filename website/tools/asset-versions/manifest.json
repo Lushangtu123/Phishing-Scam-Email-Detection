@@ -8,16 +8,16 @@
     "sha256": "8ee845a0f020ee575b6c1e7dd7c2505c15aa0f380fd3cd543b951e7055b13fc7"
   },
   "app-content-render.js": {
-    "version": "4",
-    "sha256": "b31cab0e23120a7fa78908f0e6dd6ad0ca9bff32c5ba082d1462a8bbd2a553b5"
+    "version": "5",
+    "sha256": "67ef8bbe80f0b86907370df242236c5687e9d079db937085c000afc13f6e6804"
   },
   "app-content.js": {
     "version": "3",
     "sha256": "cd517240e3a48d057cdfd3a6a1acb29cc59de33468388489159067aab19e587e"
   },
   "app-core.js": {
-    "version": "4",
-    "sha256": "8e6ea749f1e8641c036c8f7065cae5cd93086a696b9479fb35e2b1518bdb0109"
+    "version": "5",
+    "sha256": "4082c819998f07176278de1646cf6eea77479435977b53645291f257c06c0e22"
   },
   "app-layout.js": {
     "version": "2",
@@ -32,8 +32,8 @@
     "sha256": "3a4b0a8750cc49b6cf3df087f0014e5a97e43622cd9da0ec7313f2f60bed7c92"
   },
   "app-sender.js": {
-    "version": "4",
-    "sha256": "d9f40f85d989b643da1724727aeca567ee5271518d3615664770888605e52ded"
+    "version": "5",
+    "sha256": "d937e538964b5521e56d154e17ca4b47ffacdd38bcb98cfe5ad9e076f42c1004"
   },
   "app-theme.js": {
     "version": "2",
@@ -52,12 +52,12 @@
     "sha256": "0063880df85f7931e32af1d00b4b2ead6751cf722ebad6f162586a0076e89950"
   },
   "cases.css": {
-    "version": "20",
-    "sha256": "b2a1047edd1468631db5d1ce5f9da43c995db50e642a4b94f2f27b9574536115"
+    "version": "21",
+    "sha256": "7d119c8ef277a199a411a8803c142a51f469b74f18008b446d3425d4b47b2499"
   },
   "cases.js": {
-    "version": "26",
-    "sha256": "c0dfbed454826e622a3723345e3e5ea0304a4e48749250f3d71f8e812b98a88f"
+    "version": "27",
+    "sha256": "4cfbf25cee76f9590df789cbce8e941efa3e714718cded839971d4bcba058a6b"
   },
   "confirm-dialog.js": {
     "version": "3",
@@ -72,24 +72,24 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "2",
-    "sha256": "08085d4d7587148fe0dbb47d05deed3a63ddd3e14521fd96c395c6b525f6aab1"
+    "version": "3",
+    "sha256": "8376223efba3f3a5f97c0eb8f89aa9fde90af31ba6dd6cd31455d907369fdc9b"
   },
   "i18n.js": {
-    "version": "5",
-    "sha256": "9a33a9eb3d41f8040a598f52f51a227e3fbd0a4720425e6e72f85b26595d1ec1"
+    "version": "7",
+    "sha256": "24fbca8a7de2e98952037a4f1081603a26df9c255d7e0cf8ecd4361d00e55aa9"
   },
   "lang-init.js": {
-    "version": "4",
-    "sha256": "2e782c7a388fe74f2f20f6853189dff57901a4cc28543e9ca4d197518792b444"
+    "version": "5",
+    "sha256": "57e60fb2054f8d5ef92a719d57564c11dcdc09601aa738326aa965586e67c641"
   },
   "request.js": {
     "version": "1",
     "sha256": "75de1dd9c937a1b0d3c75d8bb2ef2c09f0063ec9271564234a0bd5deac55d415"
   },
   "style.css": {
-    "version": "49",
-    "sha256": "f9b8c5b33b9f8d631d2957e9812ae47c3d9a61d1acf246d5396a53ad6de2947b"
+    "version": "51",
+    "sha256": "e54cf08ea9cc63531dbd115a1b5fbb60debe768d8cd49da5f4a719f0711fefcc"
   },
   "theme-init.js": {
     "version": "1",

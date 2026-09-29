@@ -417,8 +417,8 @@ footer p { margin: 0; font-size: 10px; }
   border-radius: 5px;
 }
 #analysis-summary { margin: 15px 0; color: var(--muted); font-size: 12px; }
-#evidence { margin: 0 0 18px; padding: 0; list-style: none; }
-#evidence li {
+#evidence, #evidence-warnings { margin: 0 0 18px; padding: 0; list-style: none; }
+:is(#evidence, #evidence-warnings) li {
   position: relative;
   margin: 6px 0;
   padding: 9px 10px 9px 24px;
@@ -429,7 +429,15 @@ footer p { margin: 0; font-size: 10px; }
   font-size: 11px;
   overflow-wrap: anywhere;
 }
-#evidence li::before { content: ""; position: absolute; top: 15px; left: 10px; width: 4px; height: 4px; border-radius: 50%; background: var(--signal); }
+#evidence li::before, #evidence-warnings li::before { content: ""; position: absolute; top: 15px; left: 10px; width: 4px; height: 4px; border-radius: 50%; background: var(--signal); }
+#evidence-warnings li::before { background: var(--warning); }
+/* A levelled row leads with its worded level label instead of the dot. */
+#evidence li.has-level { display: flex; align-items: baseline; gap: 8px; padding-left: 10px; }
+#evidence li.has-level::before { content: none; }
+.evidence-text { min-width: 0; }
+.level-label { flex-shrink: 0; text-transform: uppercase; letter-spacing: .04em; }
+.evidence-warnings h4 { margin: 4px 0 0; color: var(--muted); font-size: 11px; font-weight: 600; }
+.evidence-warnings[hidden] { display: none; }
 .evidence-disclosure { padding: 11px 0; border-top: 1px solid var(--line); }
 .evidence-disclosure summary { color: var(--muted); font-size: 11px; font-weight: 550; cursor: pointer; }
 summary::marker { color: var(--faint); }
@@ -591,6 +599,13 @@ input::file-selector-button:hover { background: var(--hover); }
 :root[data-theme="light"] .risk-safe { color: #087d43; }
 :root[data-theme="light"] #notice[data-error="true"] { color: #9f2621; }
 :root[data-theme="light"] .compose-dialog::backdrop { background: rgba(0,0,0,.28); }
+
+/* Forced colours (Windows high contrast): tints and glows are dropped, so
+   dots take a system colour and badges and level labels keep a border. */
+@media (forced-colors: active) {
+  .status-dot, #evidence li::before, #evidence-warnings li::before { forced-color-adjust: none; background: CanvasText; box-shadow: none; }
+  .badge, .feedback-badge { border: 1px solid CanvasText; }
+}
 
 /* Responsive layout */
 @media (max-width: 1380px) {

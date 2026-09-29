@@ -33,6 +33,7 @@
    "case-list": [],
    "badges": [],
    "evidence": [],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [],
    "jev-results": [],
@@ -50,6 +51,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "",
    "verdict.value": "",
    "note.value": "",
@@ -574,6 +576,7 @@
    ],
    "badges": [],
    "evidence": [],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [],
    "jev-results": [],
@@ -591,6 +594,7 @@
    "next.flags": "hidden=false disabled=true",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "",
    "verdict.value": "",
    "note.value": "",
@@ -661,6 +665,7 @@
    ],
    "badges": [],
    "evidence": [],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [],
    "jev-results": [],
@@ -678,6 +683,7 @@
    "next.flags": "hidden=false disabled=true",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "",
    "verdict.value": "",
    "note.value": "",
@@ -1093,27 +1099,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -1121,19 +1199,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "visual-evidence": [
@@ -1394,6 +1498,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "in_progress",
    "verdict.value": "",
    "note.value": "",
@@ -1814,27 +1919,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -1842,19 +2019,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "visual-evidence": [
@@ -2116,6 +2319,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "in_progress",
    "verdict.value": "",
    "note.value": "",
@@ -2581,6 +2785,7 @@
      "text": "Reported signal: mystery code"
     }
    ],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [
     {
@@ -2668,6 +2873,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=true disabled=false",
    "review-status.value": "pending",
    "verdict.value": "",
    "note.value": "",
@@ -3103,27 +3309,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -3131,19 +3409,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "visual-evidence": [
@@ -3404,6 +3708,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "in_progress",
    "verdict.value": "",
    "note.value": "",
@@ -3880,27 +4185,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -3908,19 +4285,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "visual-evidence": [
@@ -4182,6 +4585,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "pending",
    "verdict.value": "",
    "note.value": "Pending note",
@@ -4661,6 +5065,7 @@
      "text": "Reported signal: mystery code"
     }
    ],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [
     {
@@ -4749,6 +5154,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=true disabled=false",
    "review-status.value": "in_progress",
    "verdict.value": "",
    "note.value": "Typed during save",
@@ -5194,27 +5600,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -5222,19 +5700,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "visual-evidence": [
@@ -5521,6 +6025,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "in_progress",
    "verdict.value": "",
    "note.value": "",
@@ -5939,27 +6444,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -5967,19 +6544,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "visual-evidence": [
@@ -6266,6 +6869,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "in_progress",
    "verdict.value": "",
    "note.value": "",
@@ -6724,6 +7328,7 @@
    ],
    "badges": [],
    "evidence": [],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [],
    "jev-results": [],
@@ -6741,6 +7346,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "",
    "verdict.value": "",
    "note.value": "",
@@ -6792,27 +7398,99 @@
    "evidence": [
     {
      "tag": "li",
-     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Potentially dangerous attachment: <img src=x>."
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A browser warning without a code"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Sender: Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-low",
+       "text": "low"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "A reworded server message"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "A reworded server message"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Legacy message field"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "Potentially dangerous attachment: <img src=x>."
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-info",
+       "text": "info"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+      }
+     ]
     },
     {
      "tag": "li",
@@ -6820,19 +7498,45 @@
     },
     {
      "tag": "li",
-     "text": "Legacy message field"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-high",
+       "text": "high"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
+      }
+     ]
     },
     {
      "tag": "li",
-     "text": "{\"level\":\"info\",\"detail\":\"no text\"}"
+     "class": "has-level",
+     "children": [
+      {
+       "tag": "span",
+       "class": "badge level-label risk-medium",
+       "text": "medium"
+      },
+      {
+       "tag": "span",
+       "class": "evidence-text",
+       "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+      }
+     ]
+    }
+   ],
+   "evidence-warnings": [
+    {
+     "tag": "li",
+     "text": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete."
     },
     {
      "tag": "li",
-     "text": "Urgency & Pressure: Phishing emails create artificial time pressure to prevent careful thinking. Matched: urgent, suspended"
-    },
-    {
-     "tag": "li",
-     "text": "Credential Harvesting: A reworded description from an older release. Matched: verify"
+     "text": "A browser warning without a code"
     }
    ],
    "review-status": [
@@ -7450,6 +8154,7 @@
    ],
    "badges": [],
    "evidence": [],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [],
    "jev-results": [],
@@ -7467,6 +8172,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "",
    "verdict.value": "",
    "note.value": "",
@@ -7870,6 +8576,7 @@
    ],
    "badges": [],
    "evidence": [],
+   "evidence-warnings": [],
    "visual-evidence": [],
    "review-status": [],
    "jev-results": [],
@@ -7887,6 +8594,7 @@
    "next.flags": "hidden=false disabled=false",
    "detail.flags": "hidden=false disabled=false",
    "workspace.flags": "hidden=false disabled=false",
+   "evidence-warnings-group.flags": "hidden=false disabled=false",
    "review-status.value": "",
    "verdict.value": "",
    "note.value": "",
