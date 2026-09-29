@@ -20,6 +20,31 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 14:30 PT] — Score mailing-list-rewritten senders by their real domain; numeric QQ IDs are not random usernames
+
+### Why
+- On 602 real 2025 Flink and Tomcat user-list messages, the deployed pipeline alerted on 80 (13.3%), mostly from sender rules.
+- Mailing lists append the reserved `.INVALID` TLD to DMARC-protected From domains. That scored as an uncommon TLD and an unrecognized provider, and lowered the random-username threshold.
+- Numeric QQ account IDs were also flagged as random usernames.
+
+### Files changed
+- `website/app.py` — `_undo_list_rewrite` strips a trailing `.invalid` from raw-message From candidates before scoring, and adds an info `sender.list_rewritten` indicator. The typed-address API is unchanged.
+- `website/sender_features.py` — 5–11 digit local parts at qq.com/foxmail.com skip the random-username check.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `sender.list_rewritten` message in English and Chinese.
+- `website/static/index.html`, `website/static/cases.html`, `website/static/404.html`, `website/static/lang-init.js`, `website/tools/asset-versions/manifest.json` — asset versions bumped by the updater.
+- `website/tests/test_detection_behavior.py`:
+  - a rewritten sender scores the same as its underlying domain;
+  - `.invalid` gives an attacker domain or a brand domain no advantage over writing it directly;
+  - a bare `.invalid` domain is not rewritten;
+  - numeric QQ/Foxmail IDs are not random usernames, while a random address on an unknown domain still is.
+- `docs/evaluation.md` — results and the remaining weak-signal list alerts.
+
+### Effect
+- Apache user-list false alerts fall from 80/602 (13.3%) to 44/602 (7.3%).
+- Nazario 2023–25 phishing results are identical at every risk level: 1,137/1,239 alerted.
+- UniqueData is unchanged.
+- The model is unchanged.
+
 ## [2026-09-29 13:30 PT] — Uncorroborated model score is a Medium alert; importer deduplicates by evaluator identity
 
 ### Why

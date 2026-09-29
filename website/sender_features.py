@@ -639,8 +639,11 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
                 for first in _FIRST
             )
             is_real_name = is_separated_real_name or is_concatenated_real_name
+            # QQ and Foxmail addresses are commonly the numeric QQ account ID itself.
+            is_numeric_account_id = (base_domain in {'qq.com', 'foxmail.com'}
+                                     and tag_stripped_local.isdigit() and 5 <= len(tag_stripped_local) <= 11)
 
-            if not is_real_name:
+            if not is_real_name and not is_numeric_account_id:
                 # Factor 1 – Shannon entropy indicates near-uniform character spread
                 f_entropy = entropy > 3.0
 

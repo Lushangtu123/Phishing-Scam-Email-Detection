@@ -1552,6 +1552,44 @@ Here is the requested update.
         self.assertEqual(result["total_score"], 0)
         self.assertEqual(result["risk_level"], "safe")
 
+    def raw_sender_result(self, from_header, extra_headers=''):
+        raw = f"From: {from_header}\n{extra_headers}To: user@example.com\nSubject: Question\n\nHere is the requested update.\n"
+        return json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(raw_email=raw))).body)
+
+    def test_mailing_list_invalid_suffix_is_scored_as_the_underlying_domain(self):
+        list_headers = ('Reply-To: "Tomcat Users List" <users@tomcat.apache.org>\n'
+                        'List-Id: <users.tomcat.apache.org>\n')
+        rewritten = self.raw_sender_result('William Crowell <WCrowell@perforce.com.INVALID>', list_headers)
+        direct = self.raw_sender_result('William Crowell <WCrowell@perforce.com>', list_headers)
+        self.assertEqual(rewritten['sender_analysis']['email'], 'WCrowell@perforce.com')
+        self.assertEqual(rewritten['sender_analysis']['risk_score'], direct['sender_analysis']['risk_score'])
+        codes = [item.get('code') for item in rewritten['sender_analysis']['risk_indicators']]
+        self.assertIn('sender.list_rewritten', codes)
+        self.assertNotIn('sender.uncommon_tld', codes)
+        self.assertNotIn('sender.list_rewritten', [item.get('code') for item in direct['sender_analysis']['risk_indicators']])
+
+    def test_invalid_suffix_gives_no_advantage_over_writing_the_domain_directly(self):
+        for domain in ('secure-account.xyz', 'paypal.com'):
+            with self.subTest(domain=domain):
+                rewritten = self.raw_sender_result(f'billing@{domain}.invalid')
+                direct = self.raw_sender_result(f'billing@{domain}')
+                self.assertEqual(rewritten['sender_analysis']['verdict'], direct['sender_analysis']['verdict'])
+                self.assertEqual(rewritten['sender_analysis']['risk_score'], direct['sender_analysis']['risk_score'])
+                self.assertEqual(rewritten['risk_level'], direct['risk_level'])
+
+    def test_bare_invalid_domain_is_not_rewritten(self):
+        self.assertEqual(app._undo_list_rewrite('user@example.invalid'), ('user@example.invalid', False))
+        self.assertEqual(app._undo_list_rewrite('user@example.com'), ('user@example.com', False))
+        self.assertEqual(app._undo_list_rewrite('User@Mail.Example.COM.INVALID'), ('User@mail.example.com', True))
+
+    def test_numeric_qq_account_is_not_a_random_username(self):
+        for address in ('2428694096@qq.com', '10001@foxmail.com'):
+            with self.subTest(address=address):
+                codes = [item['code'] for item in app._analyze_sender_address(address)['risk_indicators']]
+                self.assertNotIn('sender.random_username', codes)
+        codes = [item['code'] for item in app._analyze_sender_address('x7kq9zv2m4@unknown-mailer.biz')['risk_indicators']]
+        self.assertIn('sender.random_username', codes)
+
     def test_punctuated_raw_sender_avoids_format_alerts_but_keeps_link_evidence(self):
         for body, dangerous in (
             ('Here are the regular project meeting notes.', False),

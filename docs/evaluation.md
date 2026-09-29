@@ -1168,6 +1168,39 @@ left as a decision for when a larger real sample of account notices exists.
 The Apache false alerts come from sender rules on list `From`/`Reply-To`
 rewriting, not from the model (see the importer section above).
 
+### Mailing-list sender rewrites (2026-09-29)
+
+Most sender-rule false alerts on the 602 Flink and Tomcat user-list messages came
+from two causes:
+
+- **The `.invalid` suffix.** For DMARC-protected senders, the list appends `.INVALID`
+  to the From domain (for example `WCrowell@perforce.com.INVALID`). That reserved TLD
+  triggered uncommon-TLD, unrecognized-provider and the looser unknown-domain
+  random-username check.
+- **Numeric QQ account IDs.** Addresses such as `2428694096@qq.com` were flagged as
+  random usernames.
+
+Raw-message sender analysis now strips a trailing `.invalid`, scores the underlying
+domain, and adds an info indicator (`sender.list_rewritten`). From is not
+authenticated here, so this gives a sender nothing it could not get by writing the
+domain directly; a test compares both forms for an attacker domain and a brand
+domain. Numeric QQ/Foxmail IDs of 5–11 digits skip the random-username check.
+
+| Cohort | Alerts before | Alerts after |
+|---|---|---|
+| Apache user lists (legitimate) | 80 / 602 (13.3%) | 44 / 602 (7.3%) |
+| Nazario 2023–25 phishing | 1,137 / 1,239 | 1,137 / 1,239 (every risk level identical) |
+| UniqueData real legitimate | 41 / 57 | 41 / 57 |
+
+The remaining list alerts are sums of weak signals:
+
+- `Reply-To` set to the list (routing mismatch);
+- company domains outside the small known-provider list;
+- link and exclamation counts.
+
+Changing those affects phishing from unknown domains too, so it is left for a
+separate evaluation.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

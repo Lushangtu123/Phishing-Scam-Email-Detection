@@ -765,6 +765,7 @@
   'server.sender.known_disposable': '检测到已知的一次性邮箱服务商（{provider}）。仅凭服务商类别不能作为钓鱼证据；该邮箱的有效期未知。',
   'server.sender.privacy_relay': '检测到隐私中继或隐藏地址服务商（{provider}）；这本身不是钓鱼证据。',
   'server.sender.plus_alias': '该地址使用了加号子地址；此标签不是钓鱼信号。',
+  'server.sender.list_rewritten': '发件人域名被邮件列表改写过（带 .invalid 后缀）；已按原始域名评估。',
 
   'server.content.hidden_text_padding': '一大段隐藏文字伴随以图片为主、带链接的邮件；可见内容与隐藏文字差异很大。请人工核查图片和链接目标。',
   'server.content.password_form': '内嵌 HTML 表单包含密码输入框；输入凭据前，请先检查表单的提交目标。',

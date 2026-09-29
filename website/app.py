@@ -892,17 +892,36 @@ def _raw_sender_addresses(from_header: str) -> list[str]:
     return addresses
 
 
+def _undo_list_rewrite(address: str) -> tuple[str, bool]:
+    """Strip the reserved ".invalid" suffix mailing lists append to DMARC-protected From domains.
+
+    Such a domain can never exist (RFC 6761), so scoring it only produced unknown-TLD
+    and unknown-provider noise. From is unauthenticated here, so scoring the underlying
+    domain gives a sender nothing it could not get by writing that domain directly.
+    """
+    local, _, domain = address.rpartition('@')
+    suffix = '.invalid'
+    if domain.lower().endswith(suffix):
+        stripped = _normalize_sender_address(local + '@' + domain[:-len(suffix)])
+        if stripped:
+            return stripped, True
+    return address, False
+
+
 def _select_message_sender(headers: list[str]) -> dict | None:
     """Score untrusted From candidates in a worker, preserving first-wins ties."""
     seen = set()
     selected = None
     for header in headers:
-        for address in _raw_sender_addresses(header):
+        for raw_address in _raw_sender_addresses(header):
+            address, list_rewritten = _undo_list_rewrite(raw_address)
             canonical = canonicalize_sender_address(address)
             if canonical in seen:
                 continue
             seen.add(canonical)
             analysis = _analyze_sender_address(address)
+            if list_rewritten:
+                analysis['risk_indicators'].append(indicator('info', 'sender.list_rewritten'))
             if selected is None or analysis['risk_score'] > selected['risk_score']:
                 selected = analysis
     return selected

@@ -783,6 +783,7 @@ window.PhishGuardI18n = (() => {
     'server.sender.known_disposable': 'Known disposable-email provider detected ({provider}). Provider category alone is not phishing evidence; mailbox lifetime is unknown.',
     'server.sender.privacy_relay': 'Privacy relay or masked-address provider detected ({provider}); this is not phishing evidence by itself.',
     'server.sender.plus_alias': 'Address uses plus subaddressing; the tag is not a phishing signal.',
+    'server.sender.list_rewritten': 'Sender domain was rewritten by a mailing list (.invalid suffix); the original domain was scored.',
 
     'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
@@ -1232,7 +1233,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=4'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=5'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
