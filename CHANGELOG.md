@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 20:06 PT] — Leave-one-source-out evaluation of the content-model recipe
+
+### Why
+- The README's 98.80% accuracy comes from a grouped split of pooled corpora, so test messages have training neighbours from the same corpus. Newer data (SpaPhish 2024/2025: 14.6–18.8% false positives) and the deployed model's strongest features (`enron`, `vince`, `jose`, `monkey org`, `2005`, `2026`) pointed to corpus shortcuts, which that split cannot measure.
+
+### Files changed
+- `website/tools/evaluate_source_holdout.py` — trains the deployed configuration on all corpora but one and scores the held-out corpus, alongside a pooled grouped 5-fold baseline; deduplicates normalized families across corpora and drops label conflicts first; writes aggregate JSON (counts, Wilson intervals, PR/ROC AUC, corpus SHA-256s) and a Markdown table. It does not touch the served artifact.
+- `website/tests/test_source_holdout.py` — held-out rows never enter training, metrics match hand calculations, single-label corpora omit the missing rate, corpora are skipped when the rest lack a label, cross-corpus deduplication, and the evaluated classifier, vectorizer and threshold match the committed artifact.
+- `docs/evaluation.md` (§4), `README.md`, `.vercelignore` — method, command, results and limits; flag the README table as in-distribution; keep the tool out of the deployment.
+
+### Effect
+- On 56,232 deduplicated public messages (7 corpora; `phishnchips_legit_v5` is fully duplicated by `phishnchips_core`), the pooled baseline reproduces the README's picture (PR AUC 0.9993, recall 99.44%, FPR 2.00% at 0.3736). Holding a corpus out: `Phishing_Email` recall 99.1% → 78.0% and FPR 1.9% → 19.4%; `phishnchips_core` recall 98.7% → 10.6%; SpaPhish FPR 11.0% → 96.5%; synthetic hard negatives FPR 12.9% → 60.3%; `Nazario` recall 98.9% → 85.7%; CEAS_08 recall 97.8%, FPR 9.4%.
+- This is the baseline for normalization, label and corpus changes; no model, threshold or rule changed.
+- Validation: the parity test fails when `C` is changed (4.0 → 1.0). Full run took about 16 minutes on an Apple-silicon laptop.
+
 ## [2026-09-28 19:45 PT] — Commit container visual baselines and enable the visual CI job
 
 ### Why

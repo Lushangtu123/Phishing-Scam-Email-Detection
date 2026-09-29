@@ -1000,6 +1000,13 @@ evaluation. The committed artifact is identified by SHA-256
 Its metrics include the build seed, cache-policy version, training options, and
 SHA-256 digest of every local source corpus used for reproducibility checks.
 
+The mixed-corpus rows above are in-distribution: test messages have training
+neighbours from the same corpora. A leave-one-source-out run of the same training
+recipe ([evaluation §4](docs/evaluation.md#4-leave-one-source-out-model-evaluation))
+finds much weaker transfer to unseen corpora, for example 10.6% recall on modern
+synthetic phishing and a 96.5% false-positive rate on Spanish legitimate mail
+when those corpora are excluded from training.
+
 To measure the **current serving pipeline** on consented, labeled inbox mail,
 use `website/tools/evaluate_serving_pipeline.py` with a local JSONL file kept
 outside version control. Each line must provide `provider` (`gmail` or

@@ -790,6 +790,81 @@ false alerts and misses before tuning, retain a separate future holdout set, and
 keep a changelog explaining model/rule changes. This project currently prioritizes
 making errors visible over displaying an unsupported accuracy percentage.
 
+## 4. Leave-one-source-out model evaluation
+
+The README's mixed-corpus figures come from a grouped split of pooled corpora, so
+every test message has training neighbours from the same corpus. This check asks a
+harder question: how does the content-model **training recipe** do on a corpus it
+has never seen? For each corpus it trains the deployed configuration (the same
+TF-IDF FeatureUnion and `LogisticRegression(C=4, liblinear, balanced)`; a unit test
+checks both against the committed artifact) on all other corpora and scores the
+held-out one. The in-distribution baseline is grouped 5-fold cross-validation over
+all corpora pooled. A large gap means the model relies on features that identify a
+corpus rather than phishing.
+
+```sh
+.venv/bin/python website/tools/evaluate_source_holdout.py \
+  --output .evaluation-data/source-holdout/report.json
+# --max-per-source 500 --folds 3 gives a ~1-minute smoke run
+```
+
+It reads the public corpora from `phishing-detection/data/` (download them with
+`content_model.ensure_real_dataset()`; if Mendeley answers 403 to Python, fetch
+`SpaPhish.csv` from the same URL and check the pinned SHA-256) and adds the
+synthetic hard negatives. Normalized message families are kept once across all
+corpora and label-conflicting families are dropped, so no held-out family is in
+training. The report holds aggregate counts, rates with Wilson 95% intervals, PR
+and ROC AUC, and each corpus file's SHA-256; no message text. It never replaces
+the served artifact.
+
+### Results, 2026-09-28
+
+56,232 messages after cross-corpus deduplication (7,370 duplicate and 533
+label-conflict rows removed from 64,135). `phishnchips_legit_v5` does not appear:
+all 333 of its messages normalize to messages already in `phishnchips_core`.
+Pooled in-distribution baseline: PR AUC 0.9993, phishing recall 99.44% and false
+positive rate 2.00% at the deployed threshold 0.3736.
+
+| Held-out corpus | Rows (phish/legit) | PR AUC in-dist → held-out | Recall @0.3736 in-dist → held-out | FPR @0.3736 in-dist → held-out |
+|---|---|---|---|---|
+| Phishing_Email | 17167 (6469/10698) | 0.9979 → 0.8316 | 99.1% → **78.0%** | 1.9% → **19.4%** |
+| CEAS_08 | 33099 (15985/17114) | 0.9999 → 0.9713 | 99.9% → 97.8% | 0.9% → 9.4% |
+| Nazario | 1532 (1532/0) | — | 98.9% → 85.7% | — |
+| phishnchips_core | 1996 (996/1000) | 0.9985 → 0.7456 | 98.7% → **10.6%** | 3.3% → 1.7% |
+| phishnchips_infra | 47 (47/0) | — | 100% → 100% | — |
+| SpaPhish | 1347 (684/663) | 0.9856 → 0.5970 | 95.8% → 98.4% | 11.0% → **96.5%** |
+| synthetic_hard_negatives | 1044 (0/1044) | — | — | 12.9% → **60.3%** |
+
+Reading the table:
+
+- Performance on a familiar corpus does not carry over. Without its own corpus in
+  training, the model misses 22% of `Phishing_Email` phishing and flags 19% of its
+  legitimate mail, against 1–2% in the pooled estimate.
+- Modern synthetic phishing (`phishnchips_core`) is almost entirely missed (10.6%
+  recall) when learned only from the older corpora; the model has little transferable
+  notion of phishing that is written differently.
+- A language it has not seen is treated as phishing: 96.5% of legitimate Spanish
+  (SpaPhish) messages are flagged while recall stays high, so PR AUC falls to 0.60.
+- Clean, modern-looking legitimate mail (the synthetic hard negatives) is flagged
+  60% of the time when those templates are not in training.
+
+Limits: this evaluates a recipe on full corpora, not the committed artifact (which
+used a 30,000-row sample, SpaPhish date partitions and a SpaPhish-selected
+threshold). Single-label corpora report only recall or only FPR. `phishnchips_infra`
+has 47 messages. CEAS_08 dominates the remaining training data whenever another
+corpus is held out, and its labels likely mark spam rather than phishing (inferred
+from the deployed model's strongest features, not verified). Corpus-level holdout
+also changes era, language and generation process at once, so a gap shows poor
+transfer but not which of those causes it. Use this table as the baseline to beat
+before changing text normalization, corpora or labels, and re-run it with the same
+command after each change.
+
+Corpus SHA-256 used: `Phishing_Email.csv` `18ef4fff…3b97`, `CEAS_08.csv`
+`22375e7d…6074`, `Nazario.csv` `b8fbc415…d184`, `phishnchips_core.csv`
+`cebb407f…04ef`, `phishnchips_legit_v5.csv` `66df80e1…393c`,
+`phishnchips_infra.csv` `839c02c0…ce71`, `SpaPhish.csv` `fdd74842…9cc5` (full
+digests are in the JSON report).
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:
