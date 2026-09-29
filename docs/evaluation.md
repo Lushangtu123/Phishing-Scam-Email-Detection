@@ -1021,6 +1021,7 @@ Three more sources, evaluation only, in the same git-ignored folder:
 | [marketeam/Marketing-Emails](https://huggingface.co/datasets/marketeam/Marketing-Emails) | 16,440 legitimate business emails between marketing colleagues, split by normalized family 80/20 (seed 42) into 13,101 training and 3,339 held-out rows. **Fully synthetic**: the dataset card says every email was produced by generative models | `56377f42` | MIT |
 | [Postmark transactional templates](https://github.com/ActiveCampaign/postmark-templates) | 10 text templates (welcome, receipt, invoice, dunning, trial expiring/expired, password reset ×2, invitation, comment notification) with fixed example placeholder values. The Mailgun and MailPace repositories were also fetched but ship HTML only and are not scored | `fa73527a` | MIT |
 | [UniqueData/email-spam-classification](https://huggingface.co/datasets/UniqueData/email-spam-classification) | The 58 rows labelled "not spam" (one exact duplicate): real mail from around 2023 — account and security notices (Netflix, Steam, Instagram, Twitch, Venmo), statements, orders, job alerts. Test only; the 26 spam rows are not scored. Upstream labels are unreviewed and a few look doubtful (a casting call, a "you have been selected" scholarship) | `f9c3f31e` | CC BY-NC-ND 4.0 (non-commercial) |
+| [lists.apache.org](https://lists.apache.org/) public archives | 14 monthly mboxes from 2025 (36 MB, SHA-256s in `SOURCES.txt`): `issues@iceberg` 2025-06 (GitHub notifications), `dev@kafka` 2025-06 (about half human discussion and half Jira/Jenkins notifications), `user@flink` and `users@tomcat` 2025-04 to 06 (human technical Q&A), `announce@apache.org` 2025-01 to 06 (releases and CVE notices). Messages under 8 words are dropped, then each category is deduplicated by family and capped at 500 (seed 42): 500 / 384 / 500 / 386 rows. Test only | fetched 2026-09-29 | Public archives; the ASF privacy policy says third parties may collect and process them |
 
 `--extended-experiment` scores four training sets. On the recent PhishFuzzer seeds, C2 and C3
 use grouped folds as in the previous section. All other sets are scored by the full model of each condition:
@@ -1062,6 +1063,16 @@ All rates are at the deployed threshold, 0.3736. Intervals are Wilson 95%.
   A pizza order confirmation and terms-of-service updates score below 0.15.
   C2 lowers the rate only to 53% (intervals overlap). The recent LLM variants help on
   the seeds they resemble but transfer only partly to other real mail.
+- **Recent technical mail is not the problem.** On 1,770 real 2025 Apache
+  messages, every condition flags under 2%. C0 flags:
+  - 0/386 announcements, including CVE notices;
+  - 0/500 GitHub notifications;
+  - 3/384 dev-list messages, two of them Jenkins "build is unstable" mails;
+  - 7/500 user questions.
+
+  The gap is therefore narrower than "recent legitimate mail". It is consumer
+  account, security and billing notices from brands. The training corpora contain
+  plenty of mailing-list mail and too little of that kind.
 
 Next steps, in order of value:
 1. A **real**, dated sample of recent legitimate transactional and account mail
@@ -1080,8 +1091,49 @@ The served artifact is unchanged.
   --marketing-csv .evaluation-data/external/marketing/train.csv \
   --templates-dir .evaluation-data/external/templates \
   --uniquedata-csv .evaluation-data/external/uniquedata/email_spam.csv \
+  --apache-dir .evaluation-data/external/apache \
   --extended-experiment --output .evaluation-data/external/report-extended.json
 ```
+
+### Importing your own consented mailbox
+
+`import_own_mailbox.py` turns a mailbox export into the JSONL that
+`evaluate_serving_pipeline.py` reads, so the full rules-and-model pipeline
+scores it. The script:
+
+- reads Google Takeout or Thunderbird `.mbox` files, Apple Mail `.mbox`
+  folders, and `.eml` files or folders of them;
+- writes each unique message once as `.eml` and drops messages without a
+  date;
+- keeps messages over the 60,000-byte limit as subject/body text rows
+  (`--oversized skip` drops them instead);
+- refuses output inside the repository unless it is under `.evaluation-data/`;
+- prints only counts and sender domains. Subjects stay in the local `manifest.jsonl`.
+
+A suitable collection is a new Gmail or Outlook.com address used only to sign up to
+common services and trigger verification, new-sign-in, password-reset and
+trial-expiry mail. Disposable inboxes are a poor substitute: large brands often
+reject them, they expire before delayed notices arrive, and public ones let
+anyone reset the test accounts.
+
+```sh
+.venv/bin/python website/tools/import_own_mailbox.py ~/Downloads/Takeout/Mail/Test.mbox \
+  --output .evaluation-data/own-mail --provider gmail --language en
+.venv/bin/python website/tools/evaluate_serving_pipeline.py \
+  --input .evaluation-data/own-mail/messages.jsonl
+```
+
+An end-to-end check on the 85 `users@tomcat` messages from 2025-06 gave these
+results with the full pipeline:
+
+- 17 alerts (20%, Wilson 12.9–29.7%), although the text model alone
+  flags about 1% of this list type;
+- a medium sender verdict in 13 of the 17 alerts.
+
+The likely causes are mailing lists rewriting `From` (for example `.invalid`
+domains) and setting `Reply-To` to the list. This affects list subscribers
+through the rule layer, separately from the model findings above. It is
+recorded as a follow-up, not changed here.
 
 ## Initial local findings (2026-09-21)
 

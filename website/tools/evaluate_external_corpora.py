@@ -22,14 +22,11 @@ artifact is never touched. Reports hold aggregate counts and rates.
 from __future__ import annotations
 
 import argparse
-import codecs
 import csv
 import json
 import mailbox
 import re
 import sys
-from email.header import decode_header, make_header
-from html import unescape
 from pathlib import Path
 from typing import Callable
 
@@ -41,6 +38,7 @@ if str(WEBSITE_DIR) not in sys.path:
 
 import content_model  # noqa: E402
 from tools import evaluate_source_holdout as holdout  # noqa: E402
+from tools.import_own_mailbox import _codec, message_parts  # noqa: E402,F401
 
 Sets = dict[str, tuple[list[str], list[int]]]
 PHISHFUZZER_SEEDS = "PhishFuzzer_emails_original_seed_v1.json"
@@ -137,39 +135,13 @@ def augmentation_experiment(training: holdout.Sources, extra_training: Sets, rec
 
 
 # ── Additional public sources (Nazario yearly mbox, Marketing-Emails, templates) ──
-_TAGS = re.compile(r"<[^>]+>")
-_SCRIPT_STYLE = re.compile(r"<(script|style)\b.*?</\1>", re.I | re.S)
 _SPACE = re.compile(r"\s+")
 
 
-def _codec(charset: str | None) -> str:
-    """Declared charset if Python knows it; phishing mail often declares broken ones."""
-    try:
-        return codecs.lookup(charset).name if charset else "utf-8"
-    except LookupError:
-        return "utf-8"
-
-
 def _message_text(message) -> str:
-    """Subject, blank line, plain body; HTML-only bodies have tags stripped.
-
-    Matches the whitespace-collapsed plain text of the training Nazario.csv.
-    """
-    plain, html = [], []
-    for part in (message.walk() if message.is_multipart() else [message]):
-        if part.get_content_maintype() != "text" or part.get_filename():
-            continue
-        payload = part.get_payload(decode=True) or b""
-        text = payload.decode(_codec(part.get_content_charset()), errors="replace")
-        (plain if part.get_content_subtype() == "plain" else html if part.get_content_subtype() == "html" else []).append(text)
-    # Phishing often puts HTML in the text/plain part; strip tags everywhere, as Nazario.csv has none.
-    raw = " ".join(plain) if plain else " ".join(html)
-    body = unescape(_TAGS.sub(" ", _SCRIPT_STYLE.sub(" ", raw)))
-    try:
-        subject = str(make_header(decode_header(message.get("Subject", "") or "")))
-    except (LookupError, UnicodeError, ValueError):  # malformed headers are common in phishing
-        subject = str(message.get("Subject", "") or "")
-    return (_SPACE.sub(" ", subject).strip() + "\n\n" + _SPACE.sub(" ", body).strip()).strip()
+    """Subject, blank line, plain body; HTML is stripped (matches the plain text of training Nazario.csv)."""
+    subject, body = message_parts(message)
+    return (subject + "\n\n" + body).strip()
 
 
 def load_nazario_years(directory: Path, years) -> list[str]:
@@ -179,6 +151,31 @@ def load_nazario_years(directory: Path, years) -> list[str]:
         if path.exists():
             texts += [text for text in (_message_text(m) for m in mailbox.mbox(str(path))) if len(text) > 20]
     return texts
+
+
+APACHE_CATEGORIES = (("issues_", "apache_github_notifications"), ("dev_", "apache_dev_list_mixed"),
+                     ("user_", "apache_user_discussion"), ("users_", "apache_user_discussion"),
+                     ("announce_", "apache_announcements"))
+
+
+def load_apache(directory: Path, seed: int, per_category: int = 500) -> dict[str, list[str]]:
+    """Public lists.apache.org monthly mboxes, grouped by list type, family-deduplicated and capped."""
+    import random
+    grouped: dict[str, dict[str, str]] = {}
+    for path in sorted(directory.glob("*.mbox")):
+        category = next((name for prefix, name in APACHE_CATEGORIES if path.name.startswith(prefix)), None)
+        if category is None:
+            continue
+        families = grouped.setdefault(category, {})
+        for message in mailbox.mbox(str(path)):
+            text = _message_text(message)
+            if len(text.split()) >= 8:
+                families.setdefault(content_model._normalized_text_family(text), text)
+    sampled = {}
+    for category, families in sorted(grouped.items()):
+        texts = [families[key] for key in sorted(families)]
+        sampled[category] = sorted(random.Random(seed).sample(texts, min(per_category, len(texts))))
+    return sampled
 
 
 def load_marketing(path: Path) -> list[str]:
@@ -341,6 +338,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--nazario-dir", type=Path, help="yearly phishing-YYYY.mbox files from monkey.org/~jose/phishing")
     parser.add_argument("--marketing-csv", type=Path, help="marketeam/Marketing-Emails train.csv")
     parser.add_argument("--templates-dir", type=Path, help="directory containing postmark-templates/")
+    parser.add_argument("--apache-dir", type=Path,
+                        help="optional directory of lists.apache.org monthly .mbox files (real legitimate mail, test only)")
     parser.add_argument("--uniquedata-csv", type=Path,
                         help="optional UniqueData/email-spam-classification email_spam.csv (real legitimate mail, test only)")
     parser.add_argument("--extended-experiment", action="store_true",
@@ -387,7 +386,9 @@ def main(argv: list[str] | None = None) -> int:
              "marketing_held_out": (marketing_test, [0] * len(marketing_test)),
              "transactional_templates": (templates, [0] * len(templates)),
              **({"uniquedata_legitimate": (lambda ts: (ts, [0] * len(ts)))(load_uniquedata(args.uniquedata_csv)[0])}
-                if args.uniquedata_csv else {})}, seen)
+                if args.uniquedata_csv else {}),
+             **({name: (ts, [0] * len(ts)) for name, ts in load_apache(args.apache_dir, args.seed).items()}
+                if args.apache_dir else {})}, seen)
         base_extra = {"difraud": external["difraud"],
                       "phishfuzzer_llm_from_legacy_seed": external["phishfuzzer_llm_from_legacy_seed"]}
         conditions = {"C0_training_corpora": ({}, False),

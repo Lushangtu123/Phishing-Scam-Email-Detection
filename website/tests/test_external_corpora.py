@@ -137,6 +137,23 @@ class ExternalCorporaTests(unittest.TestCase):
         self.assertEqual(external.load_uniquedata(csv_path),
                          (["New login to Instagram\n\nWe noticed a login."], ["Win now\n\nClaim your prize"]))
 
+    def test_apache_mboxes_are_grouped_deduplicated_and_capped(self):
+        def mbox(name, subjects):
+            with (self.dir / name).open("w") as handle:
+                for subject in subjects:
+                    handle.write(f"From x@example.org Mon Jun  2 10:00:00 2025\nSubject: {subject}\n\n"
+                                 "Please review the attached change before the release vote closes.\n\n")
+        mbox("issues_iceberg_2025-06.mbox", ["[PR] Bump 1", "[PR] Bump 2", "[PR] Fix docs", "[PR] Add API"])
+        mbox("users_tomcat_2025-06.mbox", ["Problem accessing https"])
+        mbox("user_flink_2025-06.mbox", ["State size question"])
+        mbox("private_x_2025-06.mbox", ["Ignored"])
+        (self.dir / "short.mbox").write_text("From x Mon Jun  2 10:00:00 2025\nSubject: unsubscribe\n\nbye\n")
+        loaded = external.load_apache(self.dir, seed=1, per_category=2)
+        self.assertEqual(set(loaded), {"apache_github_notifications", "apache_user_discussion"})
+        self.assertEqual(len(loaded["apache_github_notifications"]), 2)  # "Bump 1"/"Bump 2" share a family
+        self.assertEqual(loaded, external.load_apache(self.dir, seed=1, per_category=2))
+        self.assertEqual(len(loaded["apache_user_discussion"]), 2)
+
     def test_family_split_is_deterministic_and_keeps_families_together(self):
         texts = [f"message about topic {word}" for word in "abcdefghijklmnopqrstuvwxyz"]
         texts += ["Your code is 123", "your code is 999"]

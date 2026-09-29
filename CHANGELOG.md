@@ -20,6 +20,44 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 11:40 PT] — Apache list mail and a consented-mailbox importer: the gap is consumer account notices
+
+### Why
+- The model needed testing on large volumes of real, recent legitimate mail. Public Apache list archives provide that.
+- Real consumer account and billing notices are only obtainable from a consented mailbox. An importer is needed to evaluate those with the deployed pipeline.
+
+### Files changed
+- `website/tools/import_own_mailbox.py`:
+  - converts `.mbox` files and folders (Takeout, Thunderbird, Apple Mail) and `.eml` files into `evaluate_serving_pipeline.py` JSONL;
+  - handles duplicates, missing dates and `--since`;
+  - keeps oversized messages as text rows, or skips them with `--oversized skip`;
+  - refuses output inside the repository outside `.evaluation-data/`;
+  - prints counts and sender domains only.
+- `website/tools/evaluate_external_corpora.py`:
+  - `load_apache` groups monthly lists.apache.org mboxes into four categories, deduplicated by family and capped at 500;
+  - adds `--apache-dir`;
+  - mbox text extraction now comes from `import_own_mailbox.message_parts`.
+- `website/tests/test_import_own_mailbox.py` covers:
+  - Takeout, Apple folder and `.eml` inputs;
+  - UTC dates;
+  - rows that pass serving validation;
+  - oversized text and skip modes;
+  - `--since` and folder recursion;
+  - the output-location guard.
+- `website/tests/test_external_corpora.py` covers Apache grouping, deduplication, capping and determinism.
+- `.vercelignore` excludes the importer from deployments.
+- `docs/evaluation.md` gains the Apache source and results, importer usage, and the mailing-list sender finding.
+
+### Effect
+- C0–C3 flag under 2% of 1,770 real 2025 Apache messages. C0 flags:
+  - 0/386 announcements;
+  - 0/500 GitHub notifications;
+  - 3/384 dev-list messages;
+  - 7/500 user questions.
+- The false-positive problem is specific to consumer account, security and billing notices (69% of UniqueData), not to recent mail in general.
+- The importer was verified end to end on 85 `users@tomcat` messages. The full pipeline alerted on 17 (20%), 13 of them with a medium sender verdict from list From/Reply-To rewriting. This is a rule-layer follow-up, not changed here.
+- The served model and rules are unchanged.
+
 ## [2026-09-29 10:30 PT] — Real 2023 legitimate mail: account and security notices are flagged 69% of the time
 
 ### Why
