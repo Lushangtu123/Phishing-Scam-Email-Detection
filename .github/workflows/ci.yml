@@ -97,6 +97,9 @@ jobs:
       - name: Run frontend tests
         run: node --test website/static/*.test.mjs
 
+      - name: Test the visual-regression static server
+        run: node --test website/tools/visual/server.test.mjs
+
       - name: Check JavaScript syntax
         run: |
           node --check website/static/lang-init.js
@@ -130,6 +133,13 @@ jobs:
           node --check website/tools/vision-benchmark/evaluate-service.mjs
           node --check website/tools/vision-benchmark/compare-engines.mjs
           node --check website/tools/vision-benchmark/holdout.mjs
+          node --check website/tools/visual/server.mjs
+          node --check website/tools/visual/scenarios.mjs
+          node --check website/tools/visual/visual.spec.mjs
+          node --check website/tools/visual/playwright.config.mjs
+          node --check website/tools/visual/run.mjs
+          node --check website/tools/visual/capture-fixtures.mjs
+          node --check website/tools/visual/server.test.mjs
 
   optional-vision:
     runs-on: ubuntu-latest

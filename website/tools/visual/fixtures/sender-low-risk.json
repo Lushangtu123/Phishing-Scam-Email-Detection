@@ -1,0 +1,101 @@
+{
+ "method": "POST",
+ "path": "/api/analyze-email",
+ "request": {
+  "email": "user@gmail.com"
+ },
+ "status": 200,
+ "body": {
+  "email": "user@gmail.com",
+  "analysis_method": "sender-domain-heuristics",
+  "verdict": "low",
+  "label": "Low Sender Risk",
+  "risk_score": 0,
+  "risk_indicators": [],
+  "high_risk_count": 0,
+  "med_risk_count": 0,
+  "phish_feature_count": 0,
+  "feature_breakdown": [
+   {
+    "name": "having_ip_address",
+    "label": "IP Address Domain",
+    "email_desc": "Domain uses a proper hostname, not a raw IP address",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "url_length",
+    "label": "Address Length",
+    "email_desc": "Email address length is within normal limits",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "shortining_service",
+    "label": "URL Shortener Domain",
+    "email_desc": "Domain is not a URL shortening service",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "having_at_symbol",
+    "label": "Multiple @ Symbols",
+    "email_desc": "Address has exactly one @ symbol — correct format",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "double_slash_redirecting",
+    "label": "Double Slash in Domain",
+    "email_desc": "No double-slash redirect found in the domain",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "prefix_suffix",
+    "label": "Hyphen in Domain",
+    "email_desc": "Domain has no hyphens — consistent with legitimate mail providers",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "having_sub_domain",
+    "label": "Subdomain Depth",
+    "email_desc": "Domain has normal subdomain depth (0–1 level)",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "https_token",
+    "label": "'http' Token in Address",
+    "email_desc": "No misleading 'http' token found in the address",
+    "group": "URL-based",
+    "value": 1
+   },
+   {
+    "name": "sslfinal_state",
+    "label": "Recognized Provider / Domain",
+    "email_desc": "Domain matches a provider registry or institutional-domain rule; this does not authenticate the sender",
+    "group": "Domain-based",
+    "value": 1
+   },
+   {
+    "name": "domain_registration_length",
+    "label": "Recognized Public Suffix",
+    "email_desc": "Domain suffix is recognized; this alone does not establish reputation",
+    "group": "Domain-based",
+    "value": 1
+   }
+  ],
+  "is_disposable": false,
+  "is_suspected_disposable": false,
+  "disposable_service": null,
+  "disposable_status": "no_known_match",
+  "disposable_confidence": "unknown",
+  "matched_provider_domain": null,
+  "address_alias_type": null,
+  "account_observability": "provider_account_unverifiable",
+  "sender_history_status": "raw_message_required",
+  "sender_history_scope": "this_service_history"
+ }
+}

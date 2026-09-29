@@ -1,0 +1,23 @@
+{
+ "method": "GET",
+ "path": "/api/config",
+ "request": null,
+ "status": 200,
+ "body": {
+  "jev_enabled": false,
+  "jev_configured": false,
+  "deployment_profile": "production",
+  "email_verification_enabled": true,
+  "verification_mode": "lite",
+  "domain_verification_enabled": true,
+  "smtp_verification_enabled": false,
+  "content_model_enabled": true,
+  "sender_history_enabled": false,
+  "sender_history_configured": false,
+  "sender_history_available": false,
+  "feedback_enabled": false,
+  "full_version_local_only": true,
+  "enhanced_vision_enabled": false,
+  "enhanced_vision_semantics_enabled": false
+ }
+}

@@ -29,9 +29,41 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - `website/tools/post_deploy_smoke.py` — `_versioned_cache_ok` requires `public` and `max-age=86400`, allows `stale-while-revalidate` to be absent (must be 604800 if present) and rejects `no-store`/`no-cache`/`private`.
 - `website/tests/test_post_deploy_smoke.py` — test for the accepted and rejected headers.
 - `README.md` — notes the Vercel header.
+- `website/tools/post_deploy_smoke.py` — `frontend_delivery.versioned_cache_control` now reports the `Cache-Control` observed for each asset instead of the app's constant.
 
 ### Effect
 - Production evidence from run 36509859168: compressed `style.css`, `i18n.js`, `app-core.js`; unknown page → HTML 404 with `no-store` and CSP; unknown `/api/` path → JSON 404; homepage, 404 page and `/cases` CSP `script-src 'self'`/`style-src 'self'` without `'unsafe-inline'`; `/cases` `no-store` and `noindex`.
+
+## [2026-09-28 19:14 PT] — Visual regression screenshots of the homepage results, rendered in a pinned Playwright container
+
+### Why
+- No test looked at the rendered page, so a CSS or markup change that broke the layout of the analysis results, the navbar or the 390 px layout passed CI.
+- Font rendering differs between machines, so baselines have to come from one fixed environment, not from a developer machine or a plain runner.
+
+### Files changed
+- `website/tools/visual/visual.spec.mjs` — 17 `toHaveScreenshot` cases. Navbar and hero, sender result (`security-alert@paypa1-verify.xyz`) and content result ("Account suspension phish"), each in light and dark at 1280 and 390 px; the sender result in Chinese at 390 px; the 390 px section menu open; the low-risk sender and legitimate-newsletter results and the 404 page at 1280 px light. Result screenshots are element screenshots. Every `/api/` call is fulfilled from fixtures matched on the exact request body. An unmatched API call, any other-origin request or a page error fails the test.
+- `website/tools/visual/playwright.config.mjs` — Chromium only; device scale factor 1, `en-US`, UTC, service workers blocked, reduced motion through `contextOptions`. `animations: 'disabled'`, `caret: 'hide'`, `threshold` 0.2, `maxDiffPixelRatio` 0.001 (0 with `PHISHGUARD_VISUAL_STRICT=1`). CI never writes baselines (`updateSnapshots: 'none'`). No retries.
+- `website/tools/visual/scenarios.mjs` — shared page flows: wait for `networkidle`, the Chinese dictionary, `document.fonts.ready` and two frames; click a quick example and require its analysis request; park the pointer off the page so no card keeps `:hover`.
+- `website/tools/visual/run.mjs` — entry point. `--committed` uses `baselines/`; otherwise the git-ignored `baselines-local/` is used. `--update` starts from an empty set. It fails with the regeneration steps (GitHub `::error` annotation) when committed baselines are missing or differ. It refuses to write committed baselines outside the `/ms-playwright` image, and checks that the installed `@playwright/test` equals the pin.
+- `website/tools/visual/server.mjs`, `server.test.mjs` — dependency-free static server with `app.py`'s page routes (`/`, `/cases`, `/favicon.ico`, `/static/*` confined to the static directory, empty Vercel collector scripts, the HTML 404 page, JSON 404 for missing assets). `/api/*` answers 503. Five `node:test` cases, including path traversal.
+- `website/tools/visual/capture-fixtures.mjs`, `fixtures/*.json` — `config`, `metrics`, two sender and two content responses, recorded through the real page from the Vercel entry point with the `vercel.json` environment (production, content model on, `VERIFICATION_MODE=lite`), loopback only. Values under time- or id-like keys and ISO timestamps are replaced; the current responses have none. A second capture reproduced all six files byte for byte.
+- `website/tools/visual/screenshot.css`, `hide-navbar.css` — capture-only styles: the decorative background blobs are hidden; result screenshots also hide the sticky navbar, keeping its layout.
+- `website/tools/visual/package.json`, `package-lock.json` — `@playwright/test` 1.62.1 (with `playwright` and `playwright-core` 1.62.1).
+- `website/tools/visual/baselines/.gitkeep` — the committed baseline directory, filled from the workflow artifact.
+- `website/tools/visual/README.md` — coverage, the reason for container baselines, stabilisation, tolerance with measurements, local run, baseline and fixture updates.
+- `.github/workflows/ci.yml` — new `visual` job in `mcr.microsoft.com/playwright:v1.62.1-noble` (`--ipc=host`, `contents: read`, npm cache from the lockfile). On failure it uploads the report and the expected/actual/diff images as `visual-regression-diffs`. The `test` job runs `server.test.mjs` and runs `node --check` on the seven new modules.
+- `.github/workflows/visual-baselines.yml` — manual `workflow_dispatch`, `contents: read`, same image. It renders every baseline and uploads the PNGs as `visual-baselines` and the report as `visual-baselines-report`. It commits nothing.
+- `.gitignore` — `website/tools/visual/baselines-local/` and `website/tools/visual/.output/`.
+- `README.md` — Testing section: one paragraph on the visual job.
+
+### Effect
+- Locally (Chromium 141 headless shell, with local baselines), three strict compare runs in a row, allowing no differing pixel: 17/17 passed each time, about 17 s per run. Across repeated update runs, 15 of the 17 PNGs were byte-identical. The other two differed only by 1/255 in a shadow band, which the per-pixel threshold ignores.
+- Before the reduced-motion fix, count-ups were captured mid-way ("29" / "28" for 30; "0%" / "1%" on the score ring). A card under the last click position also flipped `:hover` between runs.
+- Deliberate breaks in a scratch copy of `website/static`:
+  - `.col-card` padding 22 → 20 px failed all 11 result screenshots.
+  - `.verdict-banner` side padding 30 → 34 px failed the three 1280 px sender results (4,283–5,624 px, about 5× the 0.1% budget). At 390 px the banner is a centred column, so nothing moved.
+  - A colour-only change of the light `.level-high` label was not detected; this is documented, and label contrast stays covered by `app.test.mjs`.
+- `website/tools/visual/baselines/` is empty until the **Visual baselines** workflow has run, so the `visual` job fails with instructions until its PNGs are committed. `node --test website/static/*.test.mjs` is unchanged.
 
 ## [2026-09-28 19:05 PT] — Post-deploy smoke checks frontend delivery on production
 
@@ -47,6 +79,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 ### Effect
 - Against a local server (no compression locally) every check except compression passes; the next Production deployment reports compression from Vercel itself.
 - `python -m unittest discover -s website/tests`: all pass (10 skipped); `ruff check .` clean.
+
 
 ## [2026-09-28 18:40 PT] — Fix a timing-dependent feedback timeout test
 

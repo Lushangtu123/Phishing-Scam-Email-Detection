@@ -1,0 +1,7 @@
+/* Injected by Playwright only while it captures a screenshot (stylePath).
+   Animations and transitions are already stopped by `animations: 'disabled'`
+   and the caret by `caret: 'hide'`. */
+
+/* The three decorative background blobs are large blurred, blended gradients
+   drifting behind the page; they carry no layout and dominate a pixel diff. */
+.bg-fluid { display: none !important; }

@@ -1,0 +1,283 @@
+{
+ "method": "GET",
+ "path": "/api/metrics",
+ "request": null,
+ "status": 200,
+ "body": {
+  "metrics": {
+   "Random Forest": {
+    "Accuracy": 0.9747,
+    "Precision": 0.9748,
+    "Recall": 0.9747,
+    "F1": 0.9746,
+    "ROC_AUC": 0.9977
+   },
+   "SVM (RBF)": {
+    "Accuracy": 0.9516,
+    "Precision": 0.952,
+    "Recall": 0.9516,
+    "F1": 0.9515,
+    "ROC_AUC": 0.9893
+   },
+   "Decision Tree": {
+    "Accuracy": 0.948,
+    "Precision": 0.9481,
+    "Recall": 0.948,
+    "F1": 0.948,
+    "ROC_AUC": 0.9865
+   },
+   "Logistic Regression": {
+    "Accuracy": 0.9285,
+    "Precision": 0.9287,
+    "Recall": 0.9285,
+    "F1": 0.9284,
+    "ROC_AUC": 0.9808
+   }
+  },
+  "benchmark_scope": "uci-phishing-websites-only",
+  "benchmark_note": "These historical notebook metrics describe the UCI Phishing Websites dataset and are not email-sender accuracy claims.",
+  "content_model": {
+   "name": "TF-IDF (word + char n-gram) + LogisticRegression",
+   "metrics": {
+    "Accuracy": 0.988,
+    "Precision": 0.9813,
+    "Recall": 0.9932,
+    "F1": 0.9872,
+    "ROC_AUC": 0.9995,
+    "PR_AUC": 0.9994,
+    "Brier": 0.0095,
+    "Phishing_Recall": 0.9932,
+    "False_Negative_Rate": 0.0068,
+    "Default_Threshold_Phishing_Recall": 0.9885,
+    "Recall_Gain_vs_0_5": 0.0047,
+    "decision_threshold": 0.3736,
+    "oof_decision_threshold": 0.4352,
+    "threshold_policy": "SpaPhish 2024 maximum-recall threshold at <=20% validation false-positive rate when available; otherwise training-fold F2",
+    "n_train": 26052,
+    "n_test": 6000,
+    "split_strategy": "stratified-group-5-fold",
+    "grouping_policy": "global normalized-family deduplication before splitting; source record/template family or campaign URL when available; URLs, email addresses, and volatile numeric tokens collapsed",
+    "group_overlap": 0,
+    "normalized_family_overlap": 0,
+    "source_sample_counts": {
+     "SpaPhish-training": 1008,
+     "hard-negative-synthetic": 1044,
+     "real-corpus": 30000
+    },
+    "data_source": "Corpus files: Phishing_Email.csv (n=18631: 7309 phishing / 11322 legitimate) + CEAS_08.csv (n=39127: 21841 phishing / 17286 legitimate) + Nazario.csv (n=1562: 1562 phishing / 0 legitimate) + phishnchips_core.csv (n=2000: 1000 phishing / 1000 legitimate) + phishnchips_legit_v5.csv (n=333: 0 phishing / 333 legitimate) + phishnchips_infra.csv (n=54: 54 phishing / 0 legitimate) + global normalization removed 7333 duplicates and 533 label-conflicting rows + Final cross-source normalization removed 0 duplicates and 0 label-conflicting rows + SpaPhish training partition (n=1008: 432 phishing / 576 legitimate; cutoff 2024-01-01; 791 undated; 0 cross-source families excluded) + Grouped legitimate hard negatives (n=1044; templates=87; 0 held-out template variants and 37 duplicate families excluded; synthetic)",
+    "build_provenance": {
+     "seed": 42,
+     "cache_version": "v5.8-heldout-family-isolation",
+     "use_real": true,
+     "augment_synthetic": false,
+     "n_variants": 160,
+     "max_real_rows": 30000,
+     "fast_mode": true,
+     "hard_negative_variants": 24,
+     "source_sha256": {
+      "Phishing_Email.csv": "18ef4fff1acb8986f0ab01e83ede6025420c829656af5a377560fce17e153b97",
+      "CEAS_08.csv": "22375e7d5f5a8229dbe987914ee9b3705656c590038662a7df6054629b376074",
+      "Nazario.csv": "b8fbc4158fbdfaff1ed98584c43d72e283c6352d7ade4d457d34c1d79488d184",
+      "phishnchips_core.csv": "cebb407ff8630491a97400e37464b8db8dfc4299164fca51fcb4ac7eec8204ef",
+      "phishnchips_legit_v5.csv": "66df80e116bbb431b5374b381eba490df858be785a00d5e1fdf91e22bd34393c",
+      "phishnchips_infra.csv": "839c02c0daf5e78724416b42ba95d3962cb483a01b7df13af3de1e5590a1ce71",
+      "SpaPhish.csv": "fdd74842d0a19fd4332bd91f90b0bcb06e045ceb2b599051b4598b65055a9cc5"
+     }
+    },
+    "model": "LogisticRegression",
+    "model_selection_metric": "average_precision",
+    "model_selection": [
+     {
+      "name": "LogisticRegression",
+      "cv_pr_auc_mean": 0.9984,
+      "cv_pr_auc_std": 0.0003,
+      "elapsed_s": 121.2
+     }
+    ],
+    "temporal_validation": {
+     "dataset": "SpaPhish v1",
+     "period": "2024-01-01 through 2024-12-31",
+     "n_validation": 128,
+     "n_phishing": 73,
+     "n_legitimate": 55,
+     "selected_threshold": 0.3736,
+     "effective_threshold": 0.3736,
+     "Phishing_Recall": 0.863,
+     "False_Positive_Rate": 0.1455,
+     "False_Positive_Rate_95_CI": [
+      0.0756,
+      0.2616
+     ],
+     "Phishing_Recall_95_CI": [
+      0.7659,
+      0.9239
+     ],
+     "false_positives": 8,
+     "false_negatives": 10,
+     "status": "used-for-threshold-selection",
+     "max_false_positive_rate": 0.2
+    },
+    "temporal_holdout": {
+     "dataset": "SpaPhish v1",
+     "cutoff": "2025-01-01",
+     "evaluation_role": "regression-slice",
+     "n_test": 211,
+     "n_phishing": 179,
+     "n_legitimate": 32,
+     "Accuracy": 0.9431,
+     "Precision": 0.9665,
+     "Phishing_Recall": 0.9665,
+     "False_Negative_Rate": 0.0335,
+     "False_Positive_Rate": 0.1875,
+     "False_Positive_Rate_95_CI": [
+      0.0889,
+      0.3531
+     ],
+     "Phishing_Recall_95_CI": [
+      0.9288,
+      0.9845
+     ],
+     "F1": 0.9665,
+     "PR_AUC": 0.9942,
+     "Brier": 0.0554,
+     "false_positives": 6,
+     "false_negatives": 6,
+     "status": "evaluated",
+     "temporal_assurance": "partial",
+     "undated_training_rows": 791,
+     "group_overlap": 0
+    }
+   },
+   "data_source": "Corpus files: Phishing_Email.csv (n=18631: 7309 phishing / 11322 legitimate) + CEAS_08.csv (n=39127: 21841 phishing / 17286 legitimate) + Nazario.csv (n=1562: 1562 phishing / 0 legitimate) + phishnchips_core.csv (n=2000: 1000 phishing / 1000 legitimate) + phishnchips_legit_v5.csv (n=333: 0 phishing / 333 legitimate) + phishnchips_infra.csv (n=54: 54 phishing / 0 legitimate) + global normalization removed 7333 duplicates and 533 label-conflicting rows + Final cross-source normalization removed 0 duplicates and 0 label-conflicting rows + SpaPhish training partition (n=1008: 432 phishing / 576 legitimate; cutoff 2024-01-01; 791 undated; 0 cross-source families excluded) + Grouped legitimate hard negatives (n=1044; templates=87; 0 held-out template variants and 37 duplicate families excluded; synthetic)",
+   "top_terms": [
+    {
+     "term": " ! ",
+     "kind": "char",
+     "weight": 3.4102
+    },
+    {
+     "term": "com/ ",
+     "kind": "char",
+     "weight": 3.3178
+    },
+    {
+     "term": "om/ ",
+     "kind": "char",
+     "weight": 3.3174
+    },
+    {
+     "term": "m/ ",
+     "kind": "char",
+     "weight": 3.2949
+    },
+    {
+     "term": " her",
+     "kind": "char",
+     "weight": 3.1344
+    },
+    {
+     "term": "su",
+     "kind": "word",
+     "weight": 3.0731
+    },
+    {
+     "term": "http",
+     "kind": "word",
+     "weight": 3.0715
+    },
+    {
+     "term": " yo",
+     "kind": "char",
+     "weight": 3.0495
+    },
+    {
+     "term": " you",
+     "kind": "char",
+     "weight": 3.0043
+    },
+    {
+     "term": " he",
+     "kind": "char",
+     "weight": 2.9145
+    },
+    {
+     "term": "men",
+     "kind": "word",
+     "weight": 2.9077
+    },
+    {
+     "term": "you",
+     "kind": "char",
+     "weight": 2.8247
+    },
+    {
+     "term": "com",
+     "kind": "word",
+     "weight": 2.6496
+    },
+    {
+     "term": "ur ",
+     "kind": "char",
+     "weight": 2.5587
+    },
+    {
+     "term": "hi team",
+     "kind": "word",
+     "weight": 2.5358
+    },
+    {
+     "term": "love",
+     "kind": "word",
+     "weight": 2.5356
+    },
+    {
+     "term": "our ",
+     "kind": "char",
+     "weight": 2.5304
+    },
+    {
+     "term": "jose",
+     "kind": "word",
+     "weight": 2.524
+    },
+    {
+     "term": " your",
+     "kind": "char",
+     "weight": 2.5185
+    },
+    {
+     "term": "hey",
+     "kind": "word",
+     "weight": 2.5183
+    },
+    {
+     "term": "your",
+     "kind": "char",
+     "weight": 2.5156
+    },
+    {
+     "term": "man",
+     "kind": "word",
+     "weight": 2.4387
+    },
+    {
+     "term": "watch",
+     "kind": "word",
+     "weight": 2.4234
+    },
+    {
+     "term": "life",
+     "kind": "word",
+     "weight": 2.4125
+    },
+    {
+     "term": "your ",
+     "kind": "char",
+     "weight": 2.3234
+    }
+   ],
+   "artifact_sha256": "a0a503a0cd6122e722933add91f49cc72e3fa74abaf1129c4df3fe0450401746",
+   "model_id": "sha256:a0a503a0cd61"
+  }
+ }
+}

@@ -1,0 +1,3 @@
+/* Result-area screenshots only: the sticky navbar would be drawn over the top
+   of a tall element once the page scrolls to it. visibility keeps its layout. */
+.navbar { visibility: hidden !important; }

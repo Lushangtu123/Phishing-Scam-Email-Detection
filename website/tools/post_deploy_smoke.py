@@ -260,7 +260,7 @@ def _check_frontend_delivery(base_url: str, *, opener: Callable, probe_id: str) 
     problems += _page_policy_problems(base_url + "/", headers)
     html = body.decode("utf-8", "replace")
 
-    compression = {}
+    compression, cache_control = {}, {}
     for name in FRONTEND_ASSETS:
         match = re.search(r'/static/' + re.escape(name) + r'\?v=([0-9A-Za-z._-]+)"', html)
         if not match:
@@ -271,6 +271,7 @@ def _check_frontend_delivery(base_url: str, *, opener: Callable, probe_id: str) 
                                     opener=opener, read_body=False)
         encoding = headers.get("content-encoding", "").strip().lower()
         compression[name] = encoding or "none"
+        cache_control[name] = headers.get("cache-control", "")
         if status != 200:
             problems.append(f"{url} returned HTTP {status}")
             continue
@@ -316,7 +317,7 @@ def _check_frontend_delivery(base_url: str, *, opener: Callable, probe_id: str) 
     if problems:
         raise RuntimeError("Frontend delivery problems:\n- " + "\n- ".join(problems))
     return {"compression": compression, "not_found_page": "html", "not_found_api": "json",
-            "versioned_cache_control": VERSIONED_ASSET_CACHE_CONTROL, "cases_cache": "no-store"}
+            "versioned_cache_control": cache_control, "cases_cache": "no-store"}
 
 
 def validate_deployment(

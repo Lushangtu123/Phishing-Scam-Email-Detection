@@ -43,3 +43,8 @@ node_modules/
 
 # Local evaluation corpora, private fingerprints and reports
 .evaluation-data/
+
+# Visual regression: local baselines and reports. Only baselines/ (rendered in the
+# pinned Playwright container) is committed; see website/tools/visual/README.md.
+website/tools/visual/baselines-local/
+website/tools/visual/.output/

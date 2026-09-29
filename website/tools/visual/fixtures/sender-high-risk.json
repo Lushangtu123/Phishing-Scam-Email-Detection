@@ -1,0 +1,181 @@
+{
+ "method": "POST",
+ "path": "/api/analyze-email",
+ "request": {
+  "email": "security-alert@paypa1-verify.xyz"
+ },
+ "status": 200,
+ "body": {
+  "email": "security-alert@paypa1-verify.xyz",
+  "analysis_method": "sender-domain-heuristics",
+  "verdict": "critical",
+  "label": "Critical Sender Risk",
+  "risk_score": 100,
+  "risk_indicators": [
+   {
+    "level": "medium",
+    "msg": "Username 'security-alert' matches 2/6 randomness factors (entropy 3.38, unique-ratio 79%) — the mailbox pattern looks automatically generated, but account age and lifetime cannot be confirmed",
+    "code": "sender.random_username",
+    "params": {
+     "username": "security-alert",
+     "score": 2,
+     "factors": "entropy 3.38, unique-ratio 79%",
+     "factor_codes": "entropy,unique",
+     "entropy": "3.38",
+     "vowel_percent": 38,
+     "unique_percent": 79
+    }
+   },
+   {
+    "level": "low",
+    "msg": "Domain contains a hyphen (paypa1-verify.xyz) — major providers typically do not use hyphens in their domains",
+    "code": "sender.domain_hyphen",
+    "params": {
+     "domain": "paypa1-verify.xyz"
+    }
+   },
+   {
+    "level": "medium",
+    "msg": "Domain (paypa1-verify.xyz) is not a recognized legitimate mail provider",
+    "code": "sender.unrecognized_provider",
+    "params": {
+     "domain": "paypa1-verify.xyz"
+    }
+   },
+   {
+    "level": "low",
+    "msg": "Domain label contains digits (paypa1-verify) — legitimate brand domains are usually letters only",
+    "code": "sender.domain_digits",
+    "params": {
+     "label": "paypa1-verify"
+    }
+   },
+   {
+    "level": "high",
+    "msg": "Domain contains phishing keywords: verify",
+    "code": "sender.domain_keywords",
+    "params": {
+     "keywords": "verify"
+    }
+   },
+   {
+    "level": "high",
+    "msg": "Username contains phishing keywords: security, alert",
+    "code": "sender.username_keywords",
+    "params": {
+     "keywords": "security, alert"
+    }
+   },
+   {
+    "level": "high",
+    "msg": "TLD '.xyz' is a known high-risk or free domain extension heavily used in phishing campaigns",
+    "code": "sender.high_risk_tld",
+    "params": {
+     "tld": "xyz"
+    }
+   },
+   {
+    "level": "high",
+    "msg": "Homoglyph attack detected — 'paypa1-verify' uses character substitution to impersonate 'paypal' (e.g. 1→l, 0→o, vv→w)",
+    "code": "sender.homoglyph_brand",
+    "params": {
+     "label": "paypa1-verify",
+     "brand": "paypal"
+    }
+   },
+   {
+    "level": "medium",
+    "msg": "TLD '.xyz' is a country-code domain commonly abused in phishing attacks",
+    "code": "sender.abused_cctld",
+    "params": {
+     "tld": "xyz"
+    }
+   }
+  ],
+  "high_risk_count": 4,
+  "med_risk_count": 3,
+  "phish_feature_count": 12,
+  "feature_breakdown": [
+   {
+    "name": "prefix_suffix",
+    "label": "Hyphen in Domain",
+    "email_desc": "Base domain contains a hyphen — legitimate providers rarely use hyphens",
+    "group": "URL-based",
+    "value": -1
+   },
+   {
+    "name": "sslfinal_state",
+    "label": "Recognized Provider / Domain",
+    "email_desc": "Domain does not match the local provider or institutional-domain rules",
+    "group": "Domain-based",
+    "value": -1
+   },
+   {
+    "name": "dnsrecord",
+    "label": "Digits in Domain",
+    "email_desc": "Domain name contains embedded digits — legitimate brand domains are usually letters only",
+    "group": "Domain-based",
+    "value": -1
+   },
+   {
+    "name": "web_traffic",
+    "label": "High-Traffic Mail Platform",
+    "email_desc": "Domain is not in the high-traffic provider registry; this alone does not establish malicious intent",
+    "group": "Domain-based",
+    "value": -1
+   },
+   {
+    "name": "page_rank",
+    "label": "Phishing Keywords in Domain",
+    "email_desc": "Domain part contains known phishing-related keywords",
+    "group": "Domain-based",
+    "value": -1
+   },
+   {
+    "name": "google_index",
+    "label": "Phishing Keywords in Local",
+    "email_desc": "Username (local part) contains known phishing-related keywords",
+    "group": "Domain-based",
+    "value": -1
+   },
+   {
+    "name": "statistical_report",
+    "label": "Suspicious TLD",
+    "email_desc": "TLD is a known high-risk or free domain extension heavily used in phishing",
+    "group": "Domain-based",
+    "value": -1
+   },
+   {
+    "name": "port",
+    "label": "Username Randomness",
+    "email_desc": "Username has high Shannon entropy — likely randomly auto-generated",
+    "group": "HTML/Content-based",
+    "value": -1
+   },
+   {
+    "name": "links_in_tags",
+    "label": "Brand Domain Spoofing",
+    "email_desc": "Domain appears to impersonate a well-known brand (e.g. paypal, apple)",
+    "group": "HTML/Content-based",
+    "value": -1
+   },
+   {
+    "name": "abnormal_url",
+    "label": "Digit-Letter Mix in Domain",
+    "email_desc": "Domain mixes digits and letters suspiciously (e.g. paypa1, g00gle)",
+    "group": "HTML/Content-based",
+    "value": -1
+   }
+  ],
+  "is_disposable": false,
+  "is_suspected_disposable": true,
+  "disposable_service": null,
+  "disposable_status": "suspicious_mailbox_pattern",
+  "disposable_confidence": "heuristic",
+  "matched_provider_domain": null,
+  "address_alias_type": null,
+  "account_observability": "unknown",
+  "sender_history_status": "raw_message_required",
+  "sender_history_scope": "this_service_history"
+ }
+}

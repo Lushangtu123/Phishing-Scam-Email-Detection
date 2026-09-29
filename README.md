@@ -1137,6 +1137,13 @@ than assuming that the source checkout represents its bundle. It performs six
 POST requests when sender-history checks are enabled, within the committed
 10-per-minute per-client limit when no other traffic shares the same rate-limit
 bucket.
+A `visual` CI job compares 17 screenshots of the homepage (navbar and hero,
+sender and content results, a Chinese result, the 390 px menu and the 404 page,
+in light and dark at 1280 and 390 px) with committed baselines. It runs in the
+pinned Playwright container, serves `website/static/` with a small Node server
+and answers the API from fixtures captured from the real backend. Baselines come
+only from that container, through the manual **Visual baselines** workflow; see
+`website/tools/visual/README.md`.
 
 ```bash
 # From repository root, after installing requirements-dev.txt

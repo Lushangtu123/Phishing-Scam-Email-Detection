@@ -1,0 +1,53 @@
+name: Visual baselines
+
+# Manual only. Renders every screenshot of website/tools/visual in the same
+# pinned Playwright container as the "visual" job in ci.yml and uploads them as
+# the "visual-baselines" artifact. It commits nothing: copy the PNGs into
+# website/tools/visual/baselines/ and commit them after reviewing them.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baselines:
+    name: Render baselines in the Playwright container
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Keep identical to the "visual" job in ci.yml and to @playwright/test in
+    # website/tools/visual/package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v7
+
+      # Node comes from the image; this step only caches npm downloads.
+      - uses: actions/setup-node@v7
+        with:
+          cache: npm
+          cache-dependency-path: website/tools/visual/package-lock.json
+
+      - name: Install the pinned Playwright test runner
+        run: npm ci --prefix website/tools/visual --no-audit --no-fund
+
+      - name: Render every screenshot as a new baseline
+        run: node website/tools/visual/run.mjs --committed --update
+
+      - name: Upload the baselines
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines
+          path: website/tools/visual/baselines/*.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload the report for review
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines-report
+          path: website/tools/visual/.output/
+          if-no-files-found: ignore
+          retention-days: 14

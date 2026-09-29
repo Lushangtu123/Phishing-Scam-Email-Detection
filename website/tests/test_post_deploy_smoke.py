@@ -436,6 +436,8 @@ class FrontendDeliveryTests(unittest.TestCase):
         result = post_deploy_smoke._check_frontend_delivery(
             "https://project.vercel.app", opener=opener, probe_id="p3")
         self.assertEqual(set(result["compression"].values()), {"gzip"})
+        # The report records what was observed, not the app's constant.
+        self.assertEqual(set(result["versioned_cache_control"].values()), {"public, max-age=86400"})
 
     def test_cache_control_matches_the_app(self):
         source = (WEBSITE_DIR / "app.py").read_text(encoding="utf-8")

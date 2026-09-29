@@ -1,0 +1,310 @@
+{
+ "method": "POST",
+ "path": "/api/analyze-content",
+ "request": {
+  "subject": "URGENT: Your P@yP@l account has been SUSPENDED!!!",
+  "body": "Dear valued customer,\n\nWe have detected UNAUTHORIZED ACCESS on your P@yP@l account. Your account has been SUSPENDED due to suspicious activity. Failure to act will result in PERMANENT TERMINATION and legal action.\n\nURGENT ACTION REQUIRED: You must verify your identity within 24 hours!\n\nClick here: http://192.168.1.1/paypal-verify-now\nClick here to confirm: http://bit.ly/verify-account-now\n\nPlease enter your username, password, credit card number, date of birth, social security number, and bank account number to restore access.\n\nDO NOT share this email. DELETE after reading. Keep this CONFIDENTIAL.\n\nP@yP@l Security Department",
+  "raw_email": ""
+ },
+ "status": 200,
+ "body": {
+  "analysis_warnings": [],
+  "inline_image_coverage": {
+   "count": 0,
+   "inspection_status": "not_applicable"
+  },
+  "remote_image_coverage": {
+   "count": 0,
+   "inspection_status": "not_applicable"
+  },
+  "unresolved_image_coverage": {
+   "count": 0,
+   "inspection_status": "not_applicable"
+  },
+  "risk_level": "critical",
+  "risk_label": "Critical Risk — Very Likely Phishing",
+  "total_score": 29,
+  "category_results": [
+   {
+    "key": "urgency",
+    "label": "Urgency & Pressure",
+    "level": "high",
+    "icon": "⏰",
+    "description": "Phishing emails create artificial time pressure to prevent careful thinking.",
+    "matched": [
+     "urgent",
+     "within 24 hours",
+     "action required",
+     "failure to act"
+    ],
+    "count": 4,
+    "score": 4
+   },
+   {
+    "key": "threats",
+    "label": "Threats & Fear Tactics",
+    "level": "high",
+    "icon": "🚨",
+    "description": "Scammers use fear of account loss, legal trouble, or arrest to coerce victims.",
+    "matched": [
+     "legal action",
+     "your account has been",
+     "suspicious activity",
+     "unauthorized access",
+     "we have detected"
+    ],
+    "count": 5,
+    "score": 5
+   },
+   {
+    "key": "credential",
+    "label": "Credential Harvesting",
+    "level": "high",
+    "icon": "🔑",
+    "description": "Requests for passwords, card numbers, SSN, or account details are major red flags.",
+    "matched": [
+     "social security number",
+     "credit card number",
+     "bank account number",
+     "date of birth"
+    ],
+    "count": 4,
+    "score": 4
+   },
+   {
+    "key": "impersonation",
+    "label": "Possible Brand Impersonation",
+    "level": "medium",
+    "icon": "🎭",
+    "description": "Mentions of well-known brands alongside action requests may indicate spoofing.",
+    "matched": [
+     "paypal"
+    ],
+    "count": 1,
+    "score": 1
+   },
+   {
+    "key": "deception",
+    "label": "Deceptive Tactics",
+    "level": "medium",
+    "icon": "🎪",
+    "description": "Phrases designed to manipulate behavior, bypass skepticism, or avoid scrutiny.",
+    "matched": [
+     "do not share this",
+     "keep this confidential",
+     "dear valued customer"
+    ],
+    "count": 3,
+    "score": 3
+   }
+  ],
+  "extra_indicators": [
+   {
+    "level": "high",
+    "msg": "Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain",
+    "code": "content.shortened_urls",
+    "params": {}
+   },
+   {
+    "rule_id": "link.ip_host",
+    "level": "high",
+    "msg": "Link destination uses an IP address instead of a domain name; inspect it before opening.",
+    "code": "link.ip_host",
+    "params": {}
+   },
+   {
+    "level": "medium",
+    "msg": "Excessive exclamation marks (4) — emotional manipulation tactic common in scam emails",
+    "code": "content.exclamation_marks",
+    "params": {
+     "count": 4
+    }
+   },
+   {
+    "level": "medium",
+    "msg": "Generic impersonal greeting (Dear Customer/User/Valued Member) — legitimate services address you by name",
+    "code": "content.generic_greeting",
+    "params": {}
+   },
+   {
+    "level": "medium",
+    "msg": "Generic call-to-action phrases used 2× ('click here', 'click now') — legitimate emails use descriptive link text",
+    "code": "content.generic_cta",
+    "params": {
+     "count": 2
+    }
+   },
+   {
+    "level": "high",
+    "msg": "Character substitution / homoglyph obfuscation detected for: PayPal — e.g. P@yP@l, Amaz0n — used to evade spam filters",
+    "code": "content.obfuscation",
+    "params": {
+     "brands": "PayPal"
+    }
+   }
+  ],
+  "safety_signals": [],
+  "url_count": 2,
+  "has_ip_url": true,
+  "has_shortener": true,
+  "risk_floor": "high",
+  "input_mode": "subject-body",
+  "structure_score": 0,
+  "ml_status": "available",
+  "ml_phishing_probability": 100,
+  "ml_legitimate_probability": 0,
+  "ml_label": "Likely Phishing",
+  "ml_prediction": 1,
+  "ml_decision_threshold": 37.4,
+  "ml_top_contributors": [
+   {
+    "term": "account",
+    "contribution": 0.3402
+   },
+   {
+    "term": "verify",
+    "contribution": 0.2515
+   },
+   {
+    "term": "click",
+    "contribution": 0.2209
+   },
+   {
+    "term": "suspended",
+    "contribution": 0.181
+   },
+   {
+    "term": "http",
+    "contribution": 0.1635
+   },
+   {
+    "term": "ly",
+    "contribution": 0.1593
+   },
+   {
+    "term": "bank",
+    "contribution": 0.154
+   },
+   {
+    "term": "bit ly",
+    "contribution": 0.1381
+   }
+  ],
+  "ml_metrics": {
+   "Accuracy": 0.988,
+   "Precision": 0.9813,
+   "Recall": 0.9932,
+   "F1": 0.9872,
+   "ROC_AUC": 0.9995,
+   "PR_AUC": 0.9994,
+   "Brier": 0.0095,
+   "Phishing_Recall": 0.9932,
+   "False_Negative_Rate": 0.0068,
+   "Default_Threshold_Phishing_Recall": 0.9885,
+   "Recall_Gain_vs_0_5": 0.0047,
+   "decision_threshold": 0.3736,
+   "oof_decision_threshold": 0.4352,
+   "threshold_policy": "SpaPhish 2024 maximum-recall threshold at <=20% validation false-positive rate when available; otherwise training-fold F2",
+   "n_train": 26052,
+   "n_test": 6000,
+   "split_strategy": "stratified-group-5-fold",
+   "grouping_policy": "global normalized-family deduplication before splitting; source record/template family or campaign URL when available; URLs, email addresses, and volatile numeric tokens collapsed",
+   "group_overlap": 0,
+   "normalized_family_overlap": 0,
+   "source_sample_counts": {
+    "SpaPhish-training": 1008,
+    "hard-negative-synthetic": 1044,
+    "real-corpus": 30000
+   },
+   "data_source": "Corpus files: Phishing_Email.csv (n=18631: 7309 phishing / 11322 legitimate) + CEAS_08.csv (n=39127: 21841 phishing / 17286 legitimate) + Nazario.csv (n=1562: 1562 phishing / 0 legitimate) + phishnchips_core.csv (n=2000: 1000 phishing / 1000 legitimate) + phishnchips_legit_v5.csv (n=333: 0 phishing / 333 legitimate) + phishnchips_infra.csv (n=54: 54 phishing / 0 legitimate) + global normalization removed 7333 duplicates and 533 label-conflicting rows + Final cross-source normalization removed 0 duplicates and 0 label-conflicting rows + SpaPhish training partition (n=1008: 432 phishing / 576 legitimate; cutoff 2024-01-01; 791 undated; 0 cross-source families excluded) + Grouped legitimate hard negatives (n=1044; templates=87; 0 held-out template variants and 37 duplicate families excluded; synthetic)",
+   "build_provenance": {
+    "seed": 42,
+    "cache_version": "v5.8-heldout-family-isolation",
+    "use_real": true,
+    "augment_synthetic": false,
+    "n_variants": 160,
+    "max_real_rows": 30000,
+    "fast_mode": true,
+    "hard_negative_variants": 24,
+    "source_sha256": {
+     "Phishing_Email.csv": "18ef4fff1acb8986f0ab01e83ede6025420c829656af5a377560fce17e153b97",
+     "CEAS_08.csv": "22375e7d5f5a8229dbe987914ee9b3705656c590038662a7df6054629b376074",
+     "Nazario.csv": "b8fbc4158fbdfaff1ed98584c43d72e283c6352d7ade4d457d34c1d79488d184",
+     "phishnchips_core.csv": "cebb407ff8630491a97400e37464b8db8dfc4299164fca51fcb4ac7eec8204ef",
+     "phishnchips_legit_v5.csv": "66df80e116bbb431b5374b381eba490df858be785a00d5e1fdf91e22bd34393c",
+     "phishnchips_infra.csv": "839c02c0daf5e78724416b42ba95d3962cb483a01b7df13af3de1e5590a1ce71",
+     "SpaPhish.csv": "fdd74842d0a19fd4332bd91f90b0bcb06e045ceb2b599051b4598b65055a9cc5"
+    }
+   },
+   "model": "LogisticRegression",
+   "model_selection_metric": "average_precision",
+   "model_selection": [
+    {
+     "name": "LogisticRegression",
+     "cv_pr_auc_mean": 0.9984,
+     "cv_pr_auc_std": 0.0003,
+     "elapsed_s": 121.2
+    }
+   ],
+   "temporal_validation": {
+    "dataset": "SpaPhish v1",
+    "period": "2024-01-01 through 2024-12-31",
+    "n_validation": 128,
+    "n_phishing": 73,
+    "n_legitimate": 55,
+    "selected_threshold": 0.3736,
+    "effective_threshold": 0.3736,
+    "Phishing_Recall": 0.863,
+    "False_Positive_Rate": 0.1455,
+    "False_Positive_Rate_95_CI": [
+     0.0756,
+     0.2616
+    ],
+    "Phishing_Recall_95_CI": [
+     0.7659,
+     0.9239
+    ],
+    "false_positives": 8,
+    "false_negatives": 10,
+    "status": "used-for-threshold-selection",
+    "max_false_positive_rate": 0.2
+   },
+   "temporal_holdout": {
+    "dataset": "SpaPhish v1",
+    "cutoff": "2025-01-01",
+    "evaluation_role": "regression-slice",
+    "n_test": 211,
+    "n_phishing": 179,
+    "n_legitimate": 32,
+    "Accuracy": 0.9431,
+    "Precision": 0.9665,
+    "Phishing_Recall": 0.9665,
+    "False_Negative_Rate": 0.0335,
+    "False_Positive_Rate": 0.1875,
+    "False_Positive_Rate_95_CI": [
+     0.0889,
+     0.3531
+    ],
+    "Phishing_Recall_95_CI": [
+     0.9288,
+     0.9845
+    ],
+    "F1": 0.9665,
+    "PR_AUC": 0.9942,
+    "Brier": 0.0554,
+    "false_positives": 6,
+    "false_negatives": 6,
+    "status": "evaluated",
+    "temporal_assurance": "partial",
+    "undated_training_rows": 791,
+    "group_overlap": 0
+   }
+  },
+  "combined_phishing_score": 100,
+  "fusion_method": "conservative-evidence-max",
+  "fusion_basis": "corroborated",
+  "analysis_complete": true,
+  "analysis_warning_details": [],
+  "safety_signal_details": []
+ }
+}

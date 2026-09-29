@@ -1,0 +1,255 @@
+{
+ "method": "POST",
+ "path": "/api/analyze-content",
+ "request": {
+  "subject": "Your monthly digest from TechBlog – May 2026",
+  "body": "Hi Sarah,\n\nThanks for subscribing to the TechBlog monthly newsletter. Here's a roundup of what's new this month:\n\n• The latest in AI and machine learning research\n• Upcoming community events and webinars\n• Product updates and release notes\n\nWe hope you find this content helpful. If you have feedback, feel free to contact us at hello@techblog.com.\n\nYou are receiving this email because you subscribed at techblog.com.\nIf you no longer wish to receive these emails, please click unsubscribe below or update your preferences.\n\nPrivacy Policy | Terms of Service\n© 2026 TechBlog, All Rights Reserved.\nSent from TechBlog, 123 Main St, San Francisco, CA 94101",
+  "raw_email": ""
+ },
+ "status": 200,
+ "body": {
+  "analysis_warnings": [],
+  "inline_image_coverage": {
+   "count": 0,
+   "inspection_status": "not_applicable"
+  },
+  "remote_image_coverage": {
+   "count": 0,
+   "inspection_status": "not_applicable"
+  },
+  "unresolved_image_coverage": {
+   "count": 0,
+   "inspection_status": "not_applicable"
+  },
+  "risk_level": "safe",
+  "risk_label": "No Phishing Indicators Found",
+  "total_score": 0,
+  "category_results": [],
+  "extra_indicators": [],
+  "safety_signals": [
+   "Contains unsubscribe link — typical of legitimate bulk emails",
+   "Mentions privacy policy — sign of compliance",
+   "References terms of service",
+   "Provides official contact information",
+   "Contains copyright notice",
+   "Contains copyright notice",
+   "Identifies sender system transparently",
+   "Offers subscription preference management",
+   "Explains why the email was sent",
+   "Acknowledges subscription consent"
+  ],
+  "url_count": 0,
+  "has_ip_url": false,
+  "has_shortener": false,
+  "risk_floor": "safe",
+  "input_mode": "subject-body",
+  "structure_score": 0,
+  "ml_status": "available",
+  "ml_phishing_probability": 0.5,
+  "ml_legitimate_probability": 99.5,
+  "ml_label": "Likely Legitimate",
+  "ml_prediction": 0,
+  "ml_decision_threshold": 37.4,
+  "ml_top_contributors": [
+   {
+    "term": "com",
+    "contribution": 0.1431
+   },
+   {
+    "term": "click",
+    "contribution": 0.1367
+   },
+   {
+    "term": "email",
+    "contribution": 0.1119
+   },
+   {
+    "term": "feel",
+    "contribution": 0.1099
+   },
+   {
+    "term": "free",
+    "contribution": 0.0818
+   },
+   {
+    "term": "service",
+    "contribution": 0.0716
+   },
+   {
+    "term": "reserved",
+    "contribution": 0.0648
+   },
+   {
+    "term": "feedback",
+    "contribution": 0.0626
+   }
+  ],
+  "ml_metrics": {
+   "Accuracy": 0.988,
+   "Precision": 0.9813,
+   "Recall": 0.9932,
+   "F1": 0.9872,
+   "ROC_AUC": 0.9995,
+   "PR_AUC": 0.9994,
+   "Brier": 0.0095,
+   "Phishing_Recall": 0.9932,
+   "False_Negative_Rate": 0.0068,
+   "Default_Threshold_Phishing_Recall": 0.9885,
+   "Recall_Gain_vs_0_5": 0.0047,
+   "decision_threshold": 0.3736,
+   "oof_decision_threshold": 0.4352,
+   "threshold_policy": "SpaPhish 2024 maximum-recall threshold at <=20% validation false-positive rate when available; otherwise training-fold F2",
+   "n_train": 26052,
+   "n_test": 6000,
+   "split_strategy": "stratified-group-5-fold",
+   "grouping_policy": "global normalized-family deduplication before splitting; source record/template family or campaign URL when available; URLs, email addresses, and volatile numeric tokens collapsed",
+   "group_overlap": 0,
+   "normalized_family_overlap": 0,
+   "source_sample_counts": {
+    "SpaPhish-training": 1008,
+    "hard-negative-synthetic": 1044,
+    "real-corpus": 30000
+   },
+   "data_source": "Corpus files: Phishing_Email.csv (n=18631: 7309 phishing / 11322 legitimate) + CEAS_08.csv (n=39127: 21841 phishing / 17286 legitimate) + Nazario.csv (n=1562: 1562 phishing / 0 legitimate) + phishnchips_core.csv (n=2000: 1000 phishing / 1000 legitimate) + phishnchips_legit_v5.csv (n=333: 0 phishing / 333 legitimate) + phishnchips_infra.csv (n=54: 54 phishing / 0 legitimate) + global normalization removed 7333 duplicates and 533 label-conflicting rows + Final cross-source normalization removed 0 duplicates and 0 label-conflicting rows + SpaPhish training partition (n=1008: 432 phishing / 576 legitimate; cutoff 2024-01-01; 791 undated; 0 cross-source families excluded) + Grouped legitimate hard negatives (n=1044; templates=87; 0 held-out template variants and 37 duplicate families excluded; synthetic)",
+   "build_provenance": {
+    "seed": 42,
+    "cache_version": "v5.8-heldout-family-isolation",
+    "use_real": true,
+    "augment_synthetic": false,
+    "n_variants": 160,
+    "max_real_rows": 30000,
+    "fast_mode": true,
+    "hard_negative_variants": 24,
+    "source_sha256": {
+     "Phishing_Email.csv": "18ef4fff1acb8986f0ab01e83ede6025420c829656af5a377560fce17e153b97",
+     "CEAS_08.csv": "22375e7d5f5a8229dbe987914ee9b3705656c590038662a7df6054629b376074",
+     "Nazario.csv": "b8fbc4158fbdfaff1ed98584c43d72e283c6352d7ade4d457d34c1d79488d184",
+     "phishnchips_core.csv": "cebb407ff8630491a97400e37464b8db8dfc4299164fca51fcb4ac7eec8204ef",
+     "phishnchips_legit_v5.csv": "66df80e116bbb431b5374b381eba490df858be785a00d5e1fdf91e22bd34393c",
+     "phishnchips_infra.csv": "839c02c0daf5e78724416b42ba95d3962cb483a01b7df13af3de1e5590a1ce71",
+     "SpaPhish.csv": "fdd74842d0a19fd4332bd91f90b0bcb06e045ceb2b599051b4598b65055a9cc5"
+    }
+   },
+   "model": "LogisticRegression",
+   "model_selection_metric": "average_precision",
+   "model_selection": [
+    {
+     "name": "LogisticRegression",
+     "cv_pr_auc_mean": 0.9984,
+     "cv_pr_auc_std": 0.0003,
+     "elapsed_s": 121.2
+    }
+   ],
+   "temporal_validation": {
+    "dataset": "SpaPhish v1",
+    "period": "2024-01-01 through 2024-12-31",
+    "n_validation": 128,
+    "n_phishing": 73,
+    "n_legitimate": 55,
+    "selected_threshold": 0.3736,
+    "effective_threshold": 0.3736,
+    "Phishing_Recall": 0.863,
+    "False_Positive_Rate": 0.1455,
+    "False_Positive_Rate_95_CI": [
+     0.0756,
+     0.2616
+    ],
+    "Phishing_Recall_95_CI": [
+     0.7659,
+     0.9239
+    ],
+    "false_positives": 8,
+    "false_negatives": 10,
+    "status": "used-for-threshold-selection",
+    "max_false_positive_rate": 0.2
+   },
+   "temporal_holdout": {
+    "dataset": "SpaPhish v1",
+    "cutoff": "2025-01-01",
+    "evaluation_role": "regression-slice",
+    "n_test": 211,
+    "n_phishing": 179,
+    "n_legitimate": 32,
+    "Accuracy": 0.9431,
+    "Precision": 0.9665,
+    "Phishing_Recall": 0.9665,
+    "False_Negative_Rate": 0.0335,
+    "False_Positive_Rate": 0.1875,
+    "False_Positive_Rate_95_CI": [
+     0.0889,
+     0.3531
+    ],
+    "Phishing_Recall_95_CI": [
+     0.9288,
+     0.9845
+    ],
+    "F1": 0.9665,
+    "PR_AUC": 0.9942,
+    "Brier": 0.0554,
+    "false_positives": 6,
+    "false_negatives": 6,
+    "status": "evaluated",
+    "temporal_assurance": "partial",
+    "undated_training_rows": 791,
+    "group_overlap": 0
+   }
+  },
+  "combined_phishing_score": 0.5,
+  "fusion_method": "conservative-evidence-max",
+  "fusion_basis": "other",
+  "analysis_complete": true,
+  "analysis_warning_details": [],
+  "safety_signal_details": [
+   {
+    "code": "safety.unsubscribe",
+    "params": {},
+    "msg": "Contains unsubscribe link — typical of legitimate bulk emails"
+   },
+   {
+    "code": "safety.privacy_policy",
+    "params": {},
+    "msg": "Mentions privacy policy — sign of compliance"
+   },
+   {
+    "code": "safety.terms_of_service",
+    "params": {},
+    "msg": "References terms of service"
+   },
+   {
+    "code": "safety.contact_information",
+    "params": {},
+    "msg": "Provides official contact information"
+   },
+   {
+    "code": "safety.copyright",
+    "params": {},
+    "msg": "Contains copyright notice"
+   },
+   {
+    "code": "safety.copyright",
+    "params": {},
+    "msg": "Contains copyright notice"
+   },
+   {
+    "code": "safety.sender_system",
+    "params": {},
+    "msg": "Identifies sender system transparently"
+   },
+   {
+    "code": "safety.preferences",
+    "params": {},
+    "msg": "Offers subscription preference management"
+   },
+   {
+    "code": "safety.receiving_reason",
+    "params": {},
+    "msg": "Explains why the email was sent"
+   },
+   {
+    "code": "safety.subscription_consent",
+    "params": {},
+    "msg": "Acknowledges subscription consent"
+   }
+  ]
+ }
+}
