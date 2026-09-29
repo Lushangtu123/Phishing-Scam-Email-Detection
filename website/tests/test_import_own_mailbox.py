@@ -58,21 +58,33 @@ class ImportOwnMailboxTests(unittest.TestCase):
         self.assertEqual([m['subject'] for m in manifest], ['New sign-in', 'Your receipt', 'Verify your email'])
 
     def test_oversized_messages_become_text_rows_or_are_skipped(self):
-        html = '<html><style>p{}</style><p>Your invoice</p>' + 'x ' * importer.MAX_EML_BYTES + '</html>'
+        html = '<html><style>' + 'p{} ' * importer.MAX_EML_BYTES + '</style><p>Your invoice</p><p>x x</p></html>'
         raw = message('Invoice', body=html).replace('text/plain', 'text/html')
         (self.dir / 'big.eml').write_text(raw)
         importer.convert([self.dir / 'big.eml'], self.out, provider='outlook')
         [row] = self.rows()
         self.assertNotIn('eml_path', row)
         self.assertEqual(row['subject'], 'Invoice')
-        self.assertTrue(row['body'].startswith('Your invoice x x'))
+        self.assertEqual(row['body'], 'Your invoice x x')
         serving._validated_record(row, 1)
         summary = importer.convert([self.dir / 'big.eml'], self.out, provider='outlook', oversized='skip')
         self.assertEqual(summary['counts'], {'read': 1, 'oversized_skipped': 1})
         self.assertEqual(self.rows(), [])
 
+    def test_text_rows_respect_the_content_api_limits(self):
+        import app
+        fields = app.ContentRequest.model_fields
+        limits = {name: next(m.max_length for m in fields[name].metadata if hasattr(m, 'max_length'))
+                  for name in ('subject', 'body')}
+        self.assertEqual(limits, {'subject': importer.MAX_TEXT_SUBJECT, 'body': importer.MAX_TEXT_BODY})
+        body = 'word ' * (importer.MAX_TEXT_BODY // 4)
+        (self.dir / 'long.eml').write_text(message('Long', body=body))
+        summary = importer.convert([self.dir / 'long.eml'], self.out, provider='gmail')
+        self.assertEqual(summary['counts'], {'read': 1, 'text_too_long': 1})
+        self.assertEqual(self.rows(), [])
+
     def test_oversized_copies_with_the_same_text_are_kept_once(self):
-        html = '<p>Your invoice</p>' + 'x ' * importer.MAX_EML_BYTES
+        html = '<style>' + 'p{} ' * importer.MAX_EML_BYTES + '</style><p>Your invoice</p>'
         for day, name in (('Tue, 03 Jun 2025 10:00:00 +0000', 'a.eml'), ('Wed, 04 Jun 2025 10:00:00 +0000', 'b.eml')):
             (self.dir / name).write_text(message('Invoice', date=day, body=html).replace('text/plain', 'text/html'))
         summary = importer.convert([self.dir], self.out, provider='gmail')

@@ -1,0 +1,1167 @@
+{
+  "schema": "phishguard-official-brands-v1",
+  "region": "CN",
+  "review_status": "draft-verified",
+  "compiled_on": "2026-09-29",
+  "notes": [
+    "Website domains come from the organizations' own sites. Email sending domains are not confirmed: organizations often send from subdomains or third-party mail services, so confirm them against real received mail before relying on them.",
+    "source_type: official = the organization's own site; government = a government or police site; media = a news report quoting police or the organization. Only official and government statements should drive rules without further review.",
+    "A domain match proves nothing on its own, because From can be forged. Treat it as evidence of legitimacy only with trusted DKIM/DMARC alignment; without that, use the registry to detect impersonation.",
+    "Every verified_statements quote was checked word for word on its source page on 2026-09-29. One search summary had attributed a statement to the wrong Agricultural Bank page; it was removed.",
+    "Domains and service numbers were confirmed on each organization's own site (homepage title, contact page or site-restricted search) on 2026-09-29.",
+    "source_type media means a news page quoting police or the organization; the issuer field names who is quoted. scope marks statements limited to one region.",
+    "display_names are the only names matched against a From display name: specific brand names, without ambiguous acronyms (ABC, BOC, EMS, QQ) or words that also name other entities (中通, 南航, 社保, 海关). Government entries also accept any gov.cn sender, because local offices send from their own gov.cn subdomains."
+  ],
+  "brands": [
+    {
+      "id": "icbc",
+      "category": "bank",
+      "name": "中国工商银行",
+      "claim_names": [
+        "中国工商银行",
+        "工商银行",
+        "工行",
+        "ICBC"
+      ],
+      "official_domains": [
+        "icbc.com.cn",
+        "icbc-ltd.com"
+      ],
+      "service_numbers": [
+        "95588"
+      ],
+      "verified_statements": [
+        {
+          "quote": "不法分子通过技术手段假冒我行95588服务号码向客户发送诈骗短信或拨打诈骗电话，或假冒我行webmaster客户服务邮箱地址向客户发送诈骗邮件",
+          "source": "https://www.icbc-ltd.com/icbc/aqts7/24.htm",
+          "source_type": "official"
+        },
+        {
+          "quote": "千万不要向包括工商银行人员在内的任何人提供密码内容",
+          "source": "https://www.icbc-ltd.com/icbc/aqts7/24.htm",
+          "source_type": "official"
+        },
+        {
+          "quote": "我行绝对不会通过邮件、短信、电话等方式，要求客户到指定的网页修改密码或进行身份验证",
+          "source": "https://icbc.com.cn/page/721857549866663966.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "访问我行网站时请直接输入网址登录，不要通过其他网址、号码或链接方式间接访问我行网站",
+          "source": "https://icbc.com.cn/page/721857549866663966.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "webmaster@icbc.com.cn"
+      ],
+      "display_names": [
+        "中国工商银行",
+        "工商银行",
+        "工行",
+        "ICBC"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "ccb",
+      "category": "bank",
+      "name": "中国建设银行",
+      "claim_names": [
+        "中国建设银行",
+        "建设银行",
+        "建行",
+        "CCB"
+      ],
+      "official_domains": [
+        "ccb.com",
+        "ccb.cn",
+        "ccb.com.cn"
+      ],
+      "service_numbers": [
+        "95533",
+        "106980095533",
+        "10698009553388"
+      ],
+      "verified_statements": [
+        {
+          "quote": "我行不会以任何理由要求您向他人提供账户密码、支付密码、网上银行登录密码、手机银行登录密码、短信验证码等信息",
+          "source": "http://www2.ccb.com/cn/v3/include/notice/20220624_1656063815.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "请广大客户认准我行官方专用短信号码，切勿轻信、回复非官方号码发送的假借建行名义的各类金融信息",
+          "source": "https://www2.ccb.com/chn/2026-05/21/article_2026052109091978827.shtml",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "中国建设银行",
+        "建设银行",
+        "建行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "abc",
+      "category": "bank",
+      "name": "中国农业银行",
+      "claim_names": [
+        "中国农业银行",
+        "农业银行",
+        "农行",
+        "ABC"
+      ],
+      "official_domains": [
+        "abchina.com",
+        "abchina.com.cn"
+      ],
+      "service_numbers": [
+        "95599"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "review_note": "No 'will never' statement found on abchina.com; the earlier attribution was wrong and has been removed.",
+      "display_names": [
+        "中国农业银行",
+        "农业银行",
+        "农行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "boc",
+      "category": "bank",
+      "name": "中国银行",
+      "claim_names": [
+        "中国银行",
+        "中行",
+        "BOC"
+      ],
+      "official_domains": [
+        "boc.cn",
+        "bankofchina.com"
+      ],
+      "service_numbers": [
+        "95566"
+      ],
+      "verified_statements": [
+        {
+          "quote": "在任何情况下，公安、司法、税务、海关、人民银行、银监会等单位都不会向您索要手机银行登录密码及动态口令。",
+          "source": "https://www.boc.cn/ebanking/security/bocmbs/201302/t20130217_2160546.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "中国银行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "bankcomm",
+      "category": "bank",
+      "name": "交通银行",
+      "claim_names": [
+        "交通银行",
+        "交行",
+        "BOCOM"
+      ],
+      "official_domains": [
+        "bankcomm.com"
+      ],
+      "service_numbers": [
+        "95559"
+      ],
+      "verified_statements": [
+        {
+          "quote": "切勿扫描虚假广告二维码并下载非我行APP，以防泄露个人信息、造成财产损失。",
+          "source": "https://m.bankcomm.com/wap/shtml/wap/cn/15539/16292/2656006.shtml?channelId=16292",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "交通银行",
+        "BOCOM"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "cmb",
+      "category": "bank",
+      "name": "招商银行",
+      "claim_names": [
+        "招商银行",
+        "招行",
+        "CMB"
+      ],
+      "official_domains": [
+        "cmbchina.com"
+      ],
+      "service_numbers": [
+        "95555"
+      ],
+      "verified_statements": [
+        {
+          "quote": "招商银行不会通过任何形式要求客户办理密码重置、转账汇款和账户冻结激活等业务。",
+          "source": "https://live.cmbchina.com/webpages/safetips/index.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "招商银行",
+        "招行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "psbc",
+      "category": "bank",
+      "name": "中国邮政储蓄银行",
+      "claim_names": [
+        "中国邮政储蓄银行",
+        "邮储银行",
+        "邮政储蓄",
+        "PSBC"
+      ],
+      "official_domains": [
+        "psbc.com"
+      ],
+      "service_numbers": [
+        "95580"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [
+        {
+          "claim": "提醒警惕任何通过电子邮件、短信、电话索要账号、密码、验证码的行为",
+          "source": "https://www.psbc.com/cn/grfw/fwgg/202302/t20230216_194018.html",
+          "source_type": "official",
+          "why_unverified": "www.psbc.com and psbc.com did not resolve or refused connections on 2026-09-29, from this machine and from the fetch service."
+        }
+      ],
+      "display_names": [
+        "中国邮政储蓄银行",
+        "邮储银行",
+        "邮政储蓄银行",
+        "PSBC"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "pingan_bank",
+      "category": "bank",
+      "name": "平安银行",
+      "claim_names": [
+        "平安银行",
+        "平安信用卡"
+      ],
+      "official_domains": [
+        "pingan.com"
+      ],
+      "service_numbers": [
+        "95511"
+      ],
+      "verified_statements": [
+        {
+          "quote": "我行不会以电子邮件要求您披露账号、户名、密码、身份证号码等敏感资料",
+          "source": "https://bank.pingan.com/anquanzhinan.shtml",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "平安银行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "cib",
+      "category": "bank",
+      "name": "兴业银行",
+      "claim_names": [
+        "兴业银行",
+        "CIB"
+      ],
+      "official_domains": [
+        "cib.com.cn"
+      ],
+      "service_numbers": [
+        "95561"
+      ],
+      "verified_statements": [
+        {
+          "quote": "在任何情况下，兴业银行都不会发送索取您卡片密码的邮件或短信。",
+          "source": "https://www.cib.com.cn/cn/personal/debit/safe.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "兴业银行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "spdb",
+      "category": "bank",
+      "name": "上海浦东发展银行",
+      "claim_names": [
+        "浦发银行",
+        "上海浦东发展银行",
+        "SPDB"
+      ],
+      "official_domains": [
+        "spdb.com.cn"
+      ],
+      "service_numbers": [
+        "95528"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "浦发银行",
+        "浦东发展银行",
+        "SPDB"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "citic",
+      "category": "bank",
+      "name": "中信银行",
+      "claim_names": [
+        "中信银行"
+      ],
+      "official_domains": [
+        "citicbank.com",
+        "ecitic.com"
+      ],
+      "service_numbers": [
+        "95558"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "中信银行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "ceb",
+      "category": "bank",
+      "name": "中国光大银行",
+      "claim_names": [
+        "光大银行",
+        "中国光大银行"
+      ],
+      "official_domains": [
+        "cebbank.com"
+      ],
+      "service_numbers": [
+        "95595"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "95595@cebbank.com"
+      ],
+      "display_names": [
+        "光大银行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "cmbc",
+      "category": "bank",
+      "name": "中国民生银行",
+      "claim_names": [
+        "民生银行",
+        "中国民生银行"
+      ],
+      "official_domains": [
+        "cmbc.com.cn"
+      ],
+      "service_numbers": [
+        "95568"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "民生银行"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "alipay",
+      "category": "payment",
+      "name": "支付宝",
+      "claim_names": [
+        "支付宝",
+        "Alipay",
+        "蚂蚁"
+      ],
+      "official_domains": [
+        "alipay.com"
+      ],
+      "service_numbers": [
+        "95188"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "review_note": "No explicit 'will never' statement found on alipay.com help or 110.alipay.com pages.",
+      "display_names": [
+        "支付宝",
+        "Alipay"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "wechat_pay",
+      "category": "payment",
+      "name": "微信支付",
+      "claim_names": [
+        "微信支付",
+        "财付通",
+        "WeChat Pay"
+      ],
+      "official_domains": [
+        "wechatpay.cn",
+        "tenpay.com",
+        "weixin.qq.com"
+      ],
+      "service_numbers": [
+        "95017"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "微信支付",
+        "财付通",
+        "WeChat Pay",
+        "Tenpay"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "unionpay",
+      "category": "payment",
+      "name": "中国银联",
+      "claim_names": [
+        "中国银联",
+        "银联",
+        "UnionPay"
+      ],
+      "official_domains": [
+        "unionpay.com",
+        "95516.com"
+      ],
+      "service_numbers": [
+        "95516"
+      ],
+      "known_lookalikes": [
+        "unionpav.com",
+        "unionpey.com"
+      ],
+      "verified_statements": [
+        {
+          "quote": "任何中国银联和合作商户的工作人员都不会向您索取短信验证码。",
+          "source": "https://static.95516.com/static/secure/html/phone_swindle.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "中国银联/银联持卡人服务网站的链接，在第一个'/'前都是unionpay.com结尾的",
+          "source": "https://static.95516.com/static/secure/html/phish_defense.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "中国银联",
+        "银联",
+        "UnionPay"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "china_mobile",
+      "category": "telecom",
+      "name": "中国移动",
+      "claim_names": [
+        "中国移动",
+        "移动10086",
+        "China Mobile"
+      ],
+      "official_domains": [
+        "10086.cn",
+        "chinamobile.com"
+      ],
+      "service_numbers": [
+        "10086"
+      ],
+      "known_lookalikes": [
+        "I0086",
+        "1oo86"
+      ],
+      "verified_statements": [
+        {
+          "quote": "关于移动积分兑换，目前只有通过官网积分商城一种方式，并且一般是话费、礼品等，绝不会以现金形式，更不会要求用户提供银行账号、身份证、密码等个人信息。",
+          "source": "https://m.thepaper.cn/newsDetail_forward_2652840",
+          "source_type": "media",
+          "issuer": "警方（民警提醒）"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "中国移动",
+        "移动10086",
+        "China Mobile"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "china_unicom",
+      "category": "telecom",
+      "name": "中国联通",
+      "claim_names": [
+        "中国联通",
+        "联通10010",
+        "China Unicom"
+      ],
+      "official_domains": [
+        "10010.com",
+        "chinaunicom.com"
+      ],
+      "service_numbers": [
+        "10010"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "中国联通",
+        "联通10010",
+        "China Unicom"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "china_telecom",
+      "category": "telecom",
+      "name": "中国电信",
+      "claim_names": [
+        "中国电信",
+        "电信10000",
+        "China Telecom"
+      ],
+      "official_domains": [
+        "189.cn",
+        "chinatelecom.com.cn"
+      ],
+      "service_numbers": [
+        "10000"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "中国电信",
+        "电信10000",
+        "China Telecom"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "sf_express",
+      "category": "logistics",
+      "name": "顺丰速运",
+      "claim_names": [
+        "顺丰",
+        "顺丰速运",
+        "SF Express"
+      ],
+      "official_domains": [
+        "sf-express.com"
+      ],
+      "service_numbers": [
+        "95338"
+      ],
+      "verified_statements": [
+        {
+          "quote": "顺丰香港的短讯及电邮均不会列明收费，亦不会要求客户透过超连结付款，亦不会要求客户透过超连结提供银行密码或一次性密码。",
+          "source": "https://global.hk01.com/%E4%BA%B2%E5%AD%90/60381042/%E9%A1%BA%E4%B8%B0%E9%80%9F%E9%80%92%E9%92%93%E9%B1%BC%E8%AF%88%E9%AA%97-%E7%BD%91%E6%B0%91%E6%94%B6%E5%8F%96%E4%BB%B6%E5%8F%8A%E6%B4%BE%E4%BB%B6%E5%A4%B1%E8%B4%A5sms-%E5%AE%98%E6%96%B9%E5%8F%91%E7%A8%BF%E6%95%99%E8%87%AA%E4%BF%9D%E9%98%B2%E9%AA%97",
+          "source_type": "media",
+          "issuer": "顺丰香港",
+          "scope": "香港"
+        }
+      ],
+      "unverified_statements": [],
+      "review_note": "The only verified statement is SF Hong Kong's (scope 香港); no mainland statement was found on sf-express.com.",
+      "display_names": [
+        "顺丰速运",
+        "顺丰快递",
+        "顺丰",
+        "SF Express"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "china_post",
+      "category": "logistics",
+      "name": "中国邮政 / EMS",
+      "claim_names": [
+        "中国邮政",
+        "邮政",
+        "EMS",
+        "中国邮政速递"
+      ],
+      "official_domains": [
+        "chinapost.com.cn",
+        "ems.com.cn"
+      ],
+      "service_numbers": [
+        "11183",
+        "11185"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "中国邮政",
+        "邮政速递",
+        "China Post"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "jd",
+      "category": "ecommerce",
+      "name": "京东 / 京东物流",
+      "claim_names": [
+        "京东",
+        "京东物流",
+        "京东金融",
+        "京东白条",
+        "京东金条"
+      ],
+      "official_domains": [
+        "jd.com",
+        "jdl.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [
+        {
+          "quote": "任何一项退款、退换货、发票等可能涉及资金的操作，都不会通过链接的方式进行",
+          "source": "https://help.jd.com/user/issue/411-1200.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "客服人员不会要求您转账汇款到个人账户。",
+          "source": "https://help.jd.com/user/issue/411-1200.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "京东",
+        "京东物流",
+        "京东金融"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "zto",
+      "category": "logistics",
+      "name": "中通快递",
+      "claim_names": [
+        "中通",
+        "中通快递",
+        "ZTO"
+      ],
+      "official_domains": [
+        "zto.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "中通快递",
+        "ZTO Express"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "yto",
+      "category": "logistics",
+      "name": "圆通速递",
+      "claim_names": [
+        "圆通",
+        "圆通速递",
+        "YTO"
+      ],
+      "official_domains": [
+        "yto.net.cn"
+      ],
+      "service_numbers": [
+        "95554"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "圆通速递",
+        "圆通快递",
+        "YTO Express"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "yunda",
+      "category": "logistics",
+      "name": "韵达快递",
+      "claim_names": [
+        "韵达",
+        "韵达快递"
+      ],
+      "official_domains": [
+        "yundaex.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "韵达快递",
+        "韵达速递"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "sto",
+      "category": "logistics",
+      "name": "申通快递",
+      "claim_names": [
+        "申通",
+        "申通快递",
+        "STO"
+      ],
+      "official_domains": [
+        "sto.cn"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "申通快递",
+        "STO Express"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "taobao",
+      "category": "ecommerce",
+      "name": "淘宝 / 天猫",
+      "claim_names": [
+        "淘宝",
+        "天猫",
+        "Taobao",
+        "Tmall"
+      ],
+      "official_domains": [
+        "taobao.com",
+        "tmall.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [
+        {
+          "quote": "验证码和各类密码更要小心保管，不要点开对方发来的退款链接",
+          "source": "https://www.thepaper.cn/newsDetail_forward_14130695",
+          "source_type": "government",
+          "issuer": "廊坊公安"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "淘宝网",
+        "淘宝客服",
+        "天猫客服",
+        "Taobao",
+        "Tmall"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "pinduoduo",
+      "category": "ecommerce",
+      "name": "拼多多",
+      "claim_names": [
+        "拼多多"
+      ],
+      "official_domains": [
+        "pinduoduo.com",
+        "yangkeduo.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "拼多多",
+        "Pinduoduo"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "tencent",
+      "category": "platform",
+      "name": "腾讯 QQ / 微信",
+      "claim_names": [
+        "腾讯",
+        "QQ",
+        "微信",
+        "QQ安全中心",
+        "微信安全中心"
+      ],
+      "official_domains": [
+        "qq.com",
+        "weixin.qq.com",
+        "tencent.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [
+        {
+          "quote": "使用浏览器访问QQ安全中心网页：aq.qq.com，选择【账号解封】",
+          "source": "https://kf.qq.com/faq/120509riAvQj150508auaiUV.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "review_note": "qq.com is also a mass consumer mailbox provider: a qq.com sender is not Tencent. Only official subdomains or authenticated Tencent senders count.",
+      "display_names": [
+        "腾讯",
+        "QQ安全中心",
+        "微信安全中心",
+        "Tencent"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "railway_12306",
+      "category": "government",
+      "name": "中国铁路 12306",
+      "claim_names": [
+        "12306",
+        "铁路12306",
+        "中国铁路"
+      ],
+      "official_domains": [
+        "12306.cn"
+      ],
+      "service_numbers": [
+        "12306"
+      ],
+      "verified_statements": [
+        {
+          "quote": "请您直接登陆12306网站或使用12306手机客户端购票，不要通过第三方代购网站和手机客户端购票",
+          "source": "https://www.12306.cn/mormhweb/zxdt/201512/t20151201_3949.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "目前铁路未授权其他网站或APP开展类似服务内容",
+          "source": "https://www.12306.cn/mormhweb/zxdt/201512/t20151201_3949.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "12306",
+        "铁路12306"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "chinatax",
+      "category": "government",
+      "name": "国家税务总局",
+      "claim_names": [
+        "国家税务总局",
+        "税务局",
+        "个人所得税",
+        "自然人电子税务局"
+      ],
+      "official_domains": [
+        "chinatax.gov.cn"
+      ],
+      "service_numbers": [
+        "12366"
+      ],
+      "verified_statements": [
+        {
+          "quote": "不要点击非官方渠道发送的链接，不在不明网站或App填写身份证号、银行卡号等个人信息",
+          "source": "https://www.chinatax.gov.cn/chinatax/n810219/n810724/c5243181/content.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "国家税务总局",
+        "税务局",
+        "个人所得税",
+        "电子税务局"
+      ],
+      "accepts_gov_cn": true
+    },
+    {
+      "id": "social_security",
+      "category": "government",
+      "name": "人力资源和社会保障部 / 社保",
+      "claim_names": [
+        "社保",
+        "人社局",
+        "社会保障卡",
+        "12333"
+      ],
+      "official_domains": [
+        "12333.gov.cn",
+        "mohrss.gov.cn"
+      ],
+      "service_numbers": [
+        "12333"
+      ],
+      "verified_statements": [
+        {
+          "quote": "社保部门发送办卡或业务短信，不会附加网址链接，也无需输入姓名、身份证号码、金融账号等个人隐私信息。",
+          "source": "https://m.thepaper.cn/newsDetail_forward_18401621",
+          "source_type": "government",
+          "issuer": "佛山市禅城区社保局"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "人力资源和社会保障",
+        "人社局",
+        "社会保险服务",
+        "12333"
+      ],
+      "accepts_gov_cn": true
+    },
+    {
+      "id": "traffic_12123",
+      "category": "government",
+      "name": "交管 12123",
+      "claim_names": [
+        "交管12123",
+        "12123",
+        "交警",
+        "违章"
+      ],
+      "official_domains": [
+        "122.gov.cn"
+      ],
+      "service_numbers": [
+        "12123"
+      ],
+      "verified_statements": [
+        {
+          "quote": "类似的提醒短信 绝不会要求你点击网址 更不会让你输入个人隐私信息",
+          "source": "http://gaj.zaozhuang.gov.cn/ztzl/fdxwlzp/202208/t20220823_1491546.html",
+          "source_type": "government",
+          "issuer": "山东交警"
+        },
+        {
+          "quote": "短信号码一定是12123开头的 一般是12123+省份代码 或12123+地市代码",
+          "source": "http://gaj.zaozhuang.gov.cn/ztzl/fdxwlzp/202208/t20220823_1491546.html",
+          "source_type": "government",
+          "issuer": "山东交警"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "交管12123",
+        "交通管理局"
+      ],
+      "accepts_gov_cn": true
+    },
+    {
+      "id": "police_procuratorate_courts",
+      "category": "government",
+      "name": "公检法 / 国家反诈中心",
+      "claim_names": [
+        "公安局",
+        "检察院",
+        "法院",
+        "国家反诈中心",
+        "通缉令",
+        "安全账户"
+      ],
+      "official_domains": [
+        "mps.gov.cn"
+      ],
+      "service_numbers": [
+        "110",
+        "96110"
+      ],
+      "verified_statements": [
+        {
+          "quote": "我国公检法机关和执法部门均不会使用电话和社交软件办案，且上述部门均未设立所谓收取'保证金'的银行账户。",
+          "source": "https://khonkaen.china-consulate.gov.cn/zytz/202507/t20250715_11670771.htm",
+          "source_type": "government"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "公安局",
+        "公安部",
+        "检察院",
+        "人民法院",
+        "国家反诈中心"
+      ],
+      "accepts_gov_cn": true
+    },
+    {
+      "id": "customs",
+      "category": "government",
+      "name": "海关总署",
+      "claim_names": [
+        "海关",
+        "海关总署"
+      ],
+      "official_domains": [
+        "customs.gov.cn"
+      ],
+      "service_numbers": [
+        "12360"
+      ],
+      "verified_statements": [
+        {
+          "quote": "海关不会通过任何银行、支付宝、微信、短信上的链接收取费用或者是要通关缴费，都是诈骗。",
+          "source": "https://m.gmw.cn/toutiao/2023-07/22/content_1303450390.htm",
+          "source_type": "media",
+          "issuer": "中国海关热线12360"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "海关总署",
+        "中国海关"
+      ],
+      "accepts_gov_cn": true
+    },
+    {
+      "id": "china_eastern",
+      "category": "airline",
+      "name": "中国东方航空",
+      "claim_names": [
+        "东方航空",
+        "东航"
+      ],
+      "official_domains": [
+        "ceair.com"
+      ],
+      "service_numbers": [
+        "95530"
+      ],
+      "verified_statements": [
+        {
+          "quote": "当被告知航班延误或取消时，应通过航空公司官方客服电话、官方网站等多方渠道核实",
+          "source": "https://www.news.cn/legal/20240920/625dadfeeb3043b29abecf1d677218f6/c.html",
+          "source_type": "media",
+          "issuer": "警方"
+        },
+        {
+          "quote": "机票退改签等理赔务必登录航空公司官网或购票平台进行操作",
+          "source": "https://www.news.cn/legal/20240920/625dadfeeb3043b29abecf1d677218f6/c.html",
+          "source_type": "media",
+          "issuer": "警方"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "东方航空",
+        "东航",
+        "China Eastern"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "air_china",
+      "category": "airline",
+      "name": "中国国际航空",
+      "claim_names": [
+        "国航",
+        "中国国际航空"
+      ],
+      "official_domains": [
+        "airchina.com.cn"
+      ],
+      "service_numbers": [
+        "95583"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "display_names": [
+        "中国国际航空",
+        "国航",
+        "Air China"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "china_southern",
+      "category": "airline",
+      "name": "中国南方航空",
+      "claim_names": [
+        "南航",
+        "南方航空"
+      ],
+      "official_domains": [
+        "csair.com"
+      ],
+      "service_numbers": [
+        "95539"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "customerservice@csair.com"
+      ],
+      "display_names": [
+        "南方航空",
+        "China Southern"
+      ],
+      "accepts_gov_cn": false
+    },
+    {
+      "id": "chsi",
+      "category": "education",
+      "name": "学信网",
+      "claim_names": [
+        "学信网",
+        "中国高等教育学生信息网",
+        "学历认证"
+      ],
+      "official_domains": [
+        "chsi.com.cn"
+      ],
+      "service_numbers": [],
+      "known_lookalikes": [
+        "chwsi.com.cn"
+      ],
+      "verified_statements": [
+        {
+          "quote": "中国高等教育学生信息网（简称'学信网'）是教育部唯一指定的高等教育学历证书查询网站",
+          "source": "http://m.cyol.com/gb/articles/2025-12/25/content_nyomxZFe3x.html",
+          "source_type": "media"
+        },
+        {
+          "quote": "山寨'学信网'注册域名为https://www.chwsi.com.cn，仅比官方网站多了一个w字母",
+          "source": "http://m.cyol.com/gb/articles/2025-12/25/content_nyomxZFe3x.html",
+          "source_type": "media"
+        }
+      ],
+      "unverified_statements": [],
+      "display_names": [
+        "学信网",
+        "中国高等教育学生信息网"
+      ],
+      "accepts_gov_cn": false
+    }
+  ]
+}

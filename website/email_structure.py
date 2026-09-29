@@ -6,7 +6,8 @@ from email import policy
 from email.parser import BytesParser, Parser
 from email.message import EmailMessage
 from email.utils import parseaddr, getaddresses
-from pathlib import PurePath
+import json
+from pathlib import Path, PurePath
 import re
 import unicodedata
 import codecs
@@ -72,6 +73,48 @@ _PROTECTED_BRAND_DOMAINS = {
     "microsoft": {"microsoft.com"},
     "paypal": {"paypal.com"},
 }
+_OFFICIAL_BRANDS_PATH = Path(__file__).resolve().parent / "data" / "official_brands_cn.json"
+_LIST_REWRITE_SUFFIX = ".invalid"
+
+
+def _load_official_brands(path: Path = _OFFICIAL_BRANDS_PATH) -> tuple[dict, ...]:
+    """Reviewed regional registry: names a sender may display, and that brand's own domains."""
+    brands = json.loads(path.read_text(encoding="utf-8"))["brands"]
+    return tuple(
+        {
+            "names": tuple(sorted(brand["display_names"], key=len, reverse=True)),
+            "domains": frozenset(normalize_domain(domain) for domain in brand["official_domains"]),
+            "gov_cn": bool(brand.get("accepts_gov_cn")),
+        }
+        for brand in brands
+    )
+
+
+def _display_name_claims(display_name: str, name: str) -> bool:
+    folded = unicodedata.normalize("NFKC", display_name).casefold()
+    if name.isascii():
+        # Word boundaries keep ICBCX or 123067 from claiming ICBC or 12306.
+        pattern = r"(?<![a-z0-9])" + r"\s*".join(map(re.escape, name.casefold().split())) + r"(?![a-z0-9])"
+        return re.search(pattern, folded) is not None
+    compact = "".join(ch for ch in folded if not ch.isspace() and unicodedata.category(ch) != "Cf")
+    return name.casefold() in compact
+
+
+def _registry_brand_claim(display_name: str, from_domain: str) -> str | None:
+    """Return a registered brand name displayed from a domain that is not that brand's own."""
+    for brand in _OFFICIAL_BRANDS:
+        # Exact domain or a subdomain of it; a parent such as com.cn never counts.
+        official = any(from_domain == domain or from_domain.endswith("." + domain)
+                       for domain in brand["domains"])
+        official = official or (brand["gov_cn"] and (from_domain == "gov.cn" or from_domain.endswith(".gov.cn")))
+        if official:
+            continue
+        claimed = next((name for name in brand["names"] if _display_name_claims(display_name, name)), None)
+        if claimed:
+            return claimed
+    return None
+
+
 _CONFUSABLE_TRANSLATION = str.maketrans({
     # Cyrillic characters commonly used in Latin-brand lookalikes.
     "а": "a", "е": "e", "і": "i", "ј": "j", "о": "o",
@@ -87,6 +130,9 @@ def normalize_domain(domain: str) -> str:
         return domain.encode('idna').decode('ascii').lower().rstrip('.')
     except UnicodeError:
         return ''
+
+
+_OFFICIAL_BRANDS = _load_official_brands()
 
 
 def _domain(address: str) -> str:
@@ -122,6 +168,10 @@ def _canonical_brand_domain(domain: str, canonical_domains: set[str]) -> bool:
 
 
 def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, list[dict]]:
+    # Mailing lists append the reserved .invalid TLD to DMARC-protected senders.
+    # From is unauthenticated here, so this gives nothing over writing the domain.
+    if from_domain.endswith(_LIST_REWRITE_SUFFIX):
+        from_domain = from_domain[:-len(_LIST_REWRITE_SUFFIX)]
     decoded_domain = _decode_idna_domain(from_domain)
     # Preserve word boundaries so Appleton/Pineapple are not brand identities.
     # Ignore format controls and allow separators inside an obfuscated brand.
@@ -147,6 +197,11 @@ def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, l
         ):
             score += 4
             indicators.append(indicator('high', 'structure.idn_sender_domain', domain=from_domain, brand=brand))
+
+    claimed = _registry_brand_claim(display_name, from_domain)
+    if claimed:
+        score += 4
+        indicators.append(indicator('high', 'structure.brand_display_name', brand=claimed, domain=from_domain))
 
     return score, indicators
 

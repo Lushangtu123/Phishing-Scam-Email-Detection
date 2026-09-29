@@ -20,6 +20,36 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 17:30 PT] — Chinese official-brand registry for From display-name impersonation
+
+### Why
+- The display-name impersonation check covered only five English brands. Chinese bank, payment, telecom, logistics, government and airline notices are common phishing targets.
+
+### Files changed
+- `website/data/official_brands_cn.json`:
+  - 39 organizations and 58 official domains;
+  - service numbers and a few official contact addresses;
+  - 31 source-linked statements verified word for word on the source page, each with its source type;
+  - curated `display_names`;
+  - `accepts_gov_cn` for government entries.
+- `website/email_structure.py`:
+  - loads the registry;
+  - flags a display name claiming a registered organization from a non-official domain with `structure.brand_display_name` (+4, High floor);
+  - a subdomain passes and a parent domain does not;
+  - government names accept gov.cn;
+  - ASCII names match at word boundaries;
+  - the mailing-list `.invalid` suffix is stripped before brand checks.
+- `website/tools/import_own_mailbox.py` — text rows longer than the content API limits (subject 500, body 50,000 characters) are counted as `text_too_long` and skipped. Before, they aborted `evaluate_serving_pipeline.py`.
+- Tests:
+  - `website/tests/test_official_brands.py` covers registry completeness, flagged and unflagged cases, the boundary and parent-domain cases, the protected brands, and an end-to-end raw message.
+  - `website/tests/test_import_own_mailbox.py` checks the API limits and uses markup-heavy oversized fixtures.
+- `README.md`, `docs/evaluation.md` — registry, matching rules and results.
+
+### Effect
+- No change on 1,239 Nazario 2023–25 phishing messages or on 5,054 real Apache 2025 messages: 0 registry hits, and alerts are unchanged at 1,137 and 123.
+- The Chinese-impersonation gain is shown only by constructed tests until real Chinese samples are available.
+- The model is unchanged.
+
 ## [2026-09-29 15:10 PT] — Weak rule points do not establish Low risk when the model cannot score the text
 
 ### Why

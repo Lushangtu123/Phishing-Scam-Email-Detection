@@ -33,6 +33,9 @@ from tools.evaluate_serving_pipeline import (  # noqa: E402
     LABELS, MAX_EML_BYTES, PROVIDERS, _prepare_record, _validated_record,
 )
 
+# app.ContentRequest limits for subject/body text rows (a test keeps them in sync).
+MAX_TEXT_SUBJECT = 500
+MAX_TEXT_BODY = 50_000
 _TAGS = re.compile(r'<[^>]+>')
 _SCRIPT_STYLE = re.compile(r'<(script|style)\b.*?</\1>', re.I | re.S)
 _SPACE = re.compile(r'\s+')
@@ -142,6 +145,10 @@ def convert(inputs: list[Path], output: Path, *, provider: str, label: str = 'le
                 row['eml_path'] = str(path)
                 mode = 'eml'
             elif oversized == 'text' and (subject or body):
+                if len(subject) > MAX_TEXT_SUBJECT or len(body) > MAX_TEXT_BODY:
+                    # Truncating would evaluate different content; count it instead.
+                    counts['text_too_long'] += 1
+                    continue
                 row['subject'], row['body'] = subject, body
                 mode = 'text'
             else:

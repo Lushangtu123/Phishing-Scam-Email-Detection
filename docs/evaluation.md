@@ -1231,6 +1231,54 @@ The Apache cases are short replies and code- or log-heavy messages the model
 cannot score. Detecting Chinese phishing needs a model trained on Chinese mail;
 this change only stops the page from reporting Low for text the model cannot read.
 
+### Chinese official-brand registry (2026-09-29)
+
+`website/data/official_brands_cn.json` lists 39 Chinese organizations:
+
+| Category | Count |
+|---|---|
+| Banks | 13 |
+| Payment | 3 |
+| Telecom | 3 |
+| Logistics | 6 |
+| E-commerce and platforms | 4 |
+| Government | 6 |
+| Airlines | 3 |
+| Education | 1 |
+
+It has 58 official domains and service numbers, all confirmed on each
+organization's own site. It also holds 31 "will never" statements, each checked
+word for word on its source page. The `source_type` field marks each statement
+as official, government, or a media page quoting police. One search summary had
+attributed a statement to the wrong Agricultural Bank page; that statement was
+removed. One Postal Savings Bank statement stays unverified because the site
+could not be reached.
+
+Raw-message analysis now flags a From display name that claims one of these
+organizations (curated `display_names`) from any other domain, with the existing
+`structure.brand_display_name` indicator. Matching rules:
+
+- The From domain passes only if it equals an official domain or is a subdomain
+  of one, so a parent domain such as `com.cn` does not pass.
+- Government entries also accept gov.cn senders.
+- The `.invalid` mailing-list suffix is stripped first.
+- ASCII names match at word boundaries.
+- Ambiguous acronyms (ABC, BOC, EMS, QQ) and names shared with other entities
+  (中通, 南航, 社保, 海关) are not matched.
+
+Limit: qq.com is both Tencent's domain and a consumer mailbox, so a qq.com
+sender displaying 腾讯 is not flagged.
+
+| Cohort | Alerts without → with registry | Registry hits |
+|---|---|---|
+| Nazario 2023–25 phishing (1,239) | 1,137 → 1,137 | 0 |
+| All Apache 2025 list mail (5,054 legitimate) | 123 → 123 | 0 |
+
+No false hits on 5,054 real legitimate messages. Neither cohort contains Chinese
+brand impersonation, so the detection gain is shown only by constructed tests.
+Real Chinese phishing and genuine notices from these organizations, such as a
+consented own-mailbox import, are needed to measure it.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:
