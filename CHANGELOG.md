@@ -20,6 +20,40 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 19:30 PT] — US and international official-brand registry: +7 phishing alerts, no new false alerts
+
+### Why
+- Most English phishing impersonates US and global brands and tax agencies: Docusign, DHL, Netflix, banks, IRS, HMRC.
+- The display-name check knew only five of them plus the new Chinese registry.
+
+### Files changed
+- `website/data/official_brands_intl.json`:
+  - 32 organizations across US, UK, Canadian, Australian and global brands;
+  - 61 domains confirmed on each organization's own pages;
+  - 43 statements verified on their source pages;
+  - official report addresses;
+  - HKMA/MAS regulatory statements;
+  - curated `display_names`;
+  - `gov_suffixes` and `brand_tlds`.
+- `website/data/official_brands_cn.json` — `accepts_gov_cn` becomes `gov_suffixes: ["gov.cn"]`.
+- `website/email_structure.py`:
+  - loads both registries;
+  - accepts government suffixes and brand TLDs;
+  - skips name-less entries covered by the protected-brand rule;
+  - emits at most one impersonation signal per sender.
+- `website/tests/test_official_brands.py` covers:
+  - both registries' completeness and sources;
+  - flagged and unflagged international senders, including published sending domains, `.dhl` and country government domains;
+  - common first names and words;
+  - no double counting with protected brands.
+- `README.md`, `docs/evaluation.md` — registry description and results.
+
+### Effect
+- Nazario 2023–25 phishing alerts rise from 1,137 to 1,144 (91.8% to 92.3%), from 76 new registry hits.
+- 42 messages move from High to Critical.
+- Real Apache 2025 list mail is unchanged: 0 registry hits on 5,054 legitimate messages.
+- The model is unchanged.
+
 ## [2026-09-29 17:30 PT] — Chinese official-brand registry for From display-name impersonation
 
 ### Why

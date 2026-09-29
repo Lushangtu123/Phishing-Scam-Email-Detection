@@ -303,14 +303,18 @@ Raw input enables these checks:
   names use word boundaries to avoid matching ordinary names such as Appleton
   or Pineapple, while retaining detection of spaced, punctuated, and Unicode
   lookalikes such as `A p p l e` and `Аpple`;
-- Chinese bank, payment, telecom, logistics, e-commerce, airline and government
-  names in the From display name (for example 中国工商银行 or 12306) sent from a
-  domain outside that organization's official domains. The registry is
-  `website/data/official_brands_cn.json`: 39 organizations whose domains and
-  service numbers were confirmed on their own sites, with source-linked
-  "we will never ask…" statements. Government names also accept any gov.cn
-  sender. A matching domain proves nothing on its own, because From is not
-  authenticated, so a match only avoids this signal;
+- bank, payment, telecom, logistics, e-commerce, platform, airline and
+  government names in the From display name (for example 中国工商银行, 12306,
+  Wells Fargo, HMRC or DHL Express) sent from a domain outside that
+  organization's official domains. The registries are
+  `website/data/official_brands_cn.json` (39 Chinese organizations) and
+  `website/data/official_brands_intl.json` (32 US, UK, Canadian, Australian
+  and global organizations). Their domains were confirmed on each
+  organization's own site, and their "we will never ask…" statements are
+  source-linked. Government names also accept their country's government
+  domains (gov.cn, .gov, gov.uk, gc.ca, gov.au). A matching domain proves
+  nothing on its own, because From is not authenticated, so a match only
+  avoids this signal;
 - From / Reply-To / Return-Path domain mismatches;
 - the same sender/domain heuristics used by the sender-only workflow;
 - executable, macro-enabled, disk-image, and archive attachment extensions or

@@ -1279,6 +1279,50 @@ brand impersonation, so the detection gain is shown only by constructed tests.
 Real Chinese phishing and genuine notices from these organizations, such as a
 consented own-mailbox import, are needed to measure it.
 
+### US and international official-brand registry (2026-09-29)
+
+`website/data/official_brands_intl.json` adds 32 organizations:
+
+| Region | Organizations |
+|---|---|
+| US | IRS, SSA, USPS, FedEx, UPS, Chase, Bank of America, Wells Fargo, Citi, Capital One, Venmo, Cash App, Zelle |
+| Global platforms and brands | DHL, PayPal, Amazon, Apple, Microsoft, Google, Meta, Netflix, American Express, Coinbase, Docusign, HSBC |
+| UK | HMRC, Royal Mail, Barclays |
+| Canada | CRA, Canada Post |
+| Australia | ATO, Australia Post |
+
+It holds 61 domains and 43 "will never" or official-sender statements. They were
+read on the source pages, mostly in a real browser because several sites block
+automated fetchers. Several organizations publish their sending domains:
+
+- DHL, including its `.dhl` brand TLD;
+- Meta: seven domains;
+- American Express: nine addresses;
+- Canada Post;
+- Venmo;
+- Amazon;
+- HMRC ("an email address that ends in hmrc.gov.uk").
+
+The file also records the Hong Kong (HKMA) and Singapore (MAS/ABS) rules that
+banks do not send transaction links by email or SMS.
+
+Display names avoid common words and first names (Chase, Citi, Meta, UPS or
+Apple alone). PayPal, Amazon, Microsoft and Google keep the existing
+protected-brand rule, and a sender gets at most one impersonation signal.
+Government entries accept their country's government suffix.
+
+| Cohort | Alerts: Chinese registry only → with international | New registry hits | Level changes |
+|---|---|---|---|
+| Nazario 2023–25 phishing (1,239) | 1,137 → 1,144 (91.8% → 92.3%) | 76 | 42 High→Critical, 6 unknown→High, 1 Low→High, 1 Medium→High |
+| All Apache 2025 list mail (5,054 legitimate) | 123 → 123 | 0 | none |
+
+The most frequent new hits are Docusign (28), DHL (21), Netflix (6), Wells Fargo (6) and FedEx (3).
+
+Limit: legitimate mail from these organizations is not in either cohort, so the
+false-positive side is shown only on unrelated legitimate mail. Brand
+notifications sent through third-party services not listed as official would
+be flagged. Real notices collected with `import_own_mailbox.py` are the check.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

@@ -73,20 +73,30 @@ _PROTECTED_BRAND_DOMAINS = {
     "microsoft": {"microsoft.com"},
     "paypal": {"paypal.com"},
 }
-_OFFICIAL_BRANDS_PATH = Path(__file__).resolve().parent / "data" / "official_brands_cn.json"
+_OFFICIAL_BRANDS_PATHS = tuple(
+    Path(__file__).resolve().parent / "data" / name
+    for name in ("official_brands_cn.json", "official_brands_intl.json")
+)
 _LIST_REWRITE_SUFFIX = ".invalid"
 
 
-def _load_official_brands(path: Path = _OFFICIAL_BRANDS_PATH) -> tuple[dict, ...]:
-    """Reviewed regional registry: names a sender may display, and that brand's own domains."""
-    brands = json.loads(path.read_text(encoding="utf-8"))["brands"]
+def _load_official_brands(paths=_OFFICIAL_BRANDS_PATHS) -> tuple[dict, ...]:
+    """Reviewed regional registries: names a sender may display, and that brand's own domains.
+
+    Government entries also accept their country's government suffixes (gov.cn, gov,
+    gov.uk, gc.ca, gov.au); brand_tlds accepts a brand top-level domain such as .dhl.
+    Entries without display names are covered by the protected-brand rule instead.
+    """
     return tuple(
         {
             "names": tuple(sorted(brand["display_names"], key=len, reverse=True)),
-            "domains": frozenset(normalize_domain(domain) for domain in brand["official_domains"]),
-            "gov_cn": bool(brand.get("accepts_gov_cn")),
+            "domains": frozenset(normalize_domain(domain) for domain in
+                                 (*brand["official_domains"], *brand.get("gov_suffixes", ()),
+                                  *brand.get("brand_tlds", ()))),
         }
-        for brand in brands
+        for path in paths
+        for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]
+        if brand["display_names"]
     )
 
 
@@ -104,10 +114,7 @@ def _registry_brand_claim(display_name: str, from_domain: str) -> str | None:
     """Return a registered brand name displayed from a domain that is not that brand's own."""
     for brand in _OFFICIAL_BRANDS:
         # Exact domain or a subdomain of it; a parent such as com.cn never counts.
-        official = any(from_domain == domain or from_domain.endswith("." + domain)
-                       for domain in brand["domains"])
-        official = official or (brand["gov_cn"] and (from_domain == "gov.cn" or from_domain.endswith(".gov.cn")))
-        if official:
+        if any(from_domain == domain or from_domain.endswith("." + domain) for domain in brand["domains"]):
             continue
         claimed = next((name for name in brand["names"] if _display_name_claims(display_name, name)), None)
         if claimed:
@@ -199,7 +206,7 @@ def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, l
             indicators.append(indicator('high', 'structure.idn_sender_domain', domain=from_domain, brand=brand))
 
     claimed = _registry_brand_claim(display_name, from_domain)
-    if claimed:
+    if claimed and not indicators:  # one impersonation signal per sender, not one per rule
         score += 4
         indicators.append(indicator('high', 'structure.brand_display_name', brand=claimed, domain=from_domain))
 

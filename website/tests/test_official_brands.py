@@ -10,7 +10,9 @@ sys.path.insert(0, str(WEBSITE_DIR))
 import app  # noqa: E402
 import email_structure as es  # noqa: E402
 
-REGISTRY = json.loads((WEBSITE_DIR / 'data' / 'official_brands_cn.json').read_text(encoding='utf-8'))
+REGISTRIES = {name: json.loads((WEBSITE_DIR / 'data' / f'official_brands_{name}.json').read_text(encoding='utf-8'))
+              for name in ('cn', 'intl')}
+REGISTRY = REGISTRIES['cn']
 
 
 def claim(display_name, domain):
@@ -19,21 +21,28 @@ def claim(display_name, domain):
 
 class OfficialBrandRegistryTests(unittest.TestCase):
     def test_registry_entries_are_complete_and_sourced(self):
-        ids = [brand['id'] for brand in REGISTRY['brands']]
+        brands = [brand for registry in REGISTRIES.values() for brand in registry['brands']]
+        ids = [brand['id'] for brand in brands]
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(es._OFFICIAL_BRANDS), len(ids))
-        for brand in REGISTRY['brands']:
+        self.assertEqual(len(es._OFFICIAL_BRANDS), sum(bool(brand['display_names']) for brand in brands))
+        statements = [s for registry in REGISTRIES.values() for s in registry.get('regulatory_statements', [])]
+        for brand in brands:
             with self.subTest(brand=brand['id']):
-                self.assertTrue(brand['official_domains'] and brand['display_names'])
+                self.assertTrue(brand['official_domains'])
+                # Brands without names rely on the existing protected-brand rule.
+                self.assertTrue(brand['display_names'] or brand.get('display_check') == 'protected_brand_rule')
                 for domain in brand['official_domains']:
                     self.assertEqual(es.normalize_domain(domain), domain)
                     self.assertIn('.', domain)
-                for statement in brand['verified_statements']:
-                    self.assertTrue(statement['quote'])
-                    self.assertTrue(statement['source'].startswith(('https://', 'http://')))
-                    self.assertIn(statement['source_type'], {'official', 'government', 'media'})
-                # Ambiguous acronyms would match unrelated senders.
-                self.assertFalse({'ABC', 'BOC', 'CCB', 'CMB', 'CIB', 'EMS', 'QQ'} & set(brand['display_names']))
+                self.assertTrue(set(brand['gov_suffixes']) <= {'gov.cn', 'gov', 'gov.uk', 'gc.ca', 'gov.au'})
+                statements += brand['verified_statements']
+                # Ambiguous acronyms, common words and first names would match unrelated senders.
+                self.assertFalse({'ABC', 'BOC', 'CCB', 'CMB', 'CIB', 'EMS', 'QQ', 'Chase', 'Citi', 'Meta', 'UPS',
+                                  'Apple', 'CRA', 'ATO', 'SSA'} & set(brand['display_names']))
+        for statement in statements:
+            self.assertTrue(statement['quote'])
+            self.assertTrue(statement['source'].startswith(('https://', 'http://')))
+            self.assertIn(statement['source_type'], {'official', 'government', 'media'})
 
     def test_brand_displayed_from_an_unrelated_domain_is_flagged(self):
         for display_name, domain, brand in (
@@ -67,6 +76,29 @@ class OfficialBrandRegistryTests(unittest.TestCase):
     def test_existing_protected_brands_still_work(self):
         self.assertEqual(claim('PayPal Support', 'paypal-help.top')[0], 4)
         self.assertEqual(claim('PayPal', 'paypal.com'), (0, []))
+
+    def test_international_brands_follow_their_published_domains(self):
+        flagged = (('Wells Fargo Online', 'wellsfargo-secure.com'), ('HMRC Tax Refund', 'hmrc-refund.co.uk'),
+                   ('IRS', 'irs-gov.us'), ('DHL Express', 'dhl-parcel.info'), ('Chase Bank Alerts', 'chase-alerts.net'),
+                   ('Canada Post', 'canadapost.delivery'), ('Instagram', 'instagram-support.help'))
+        for display_name, domain in flagged:
+            with self.subTest(display_name=display_name, domain=domain):
+                self.assertEqual(claim(display_name, domain)[0], 4)
+        official = (('Wells Fargo', 'notify.wellsfargo.com'), ('HMRC', 'notifications.service.gov.uk'),
+                    ('IRS', 'irs.gov'), ('Social Security', 'ssa.gov'), ('DHL', 'express.dhl.com'), ('DHL', 'mail.dhl'),
+                    ('Instagram', 'mail.instagram.com'), ('Facebook', 'facebookmail.com'),
+                    ('American Express', 'welcome.aexp.com'), ('Canada Revenue Agency', 'cra-arc.gc.ca'),
+                    ('Australian Taxation Office', 'ato.gov.au'), ('Canada Post', 'notifications.canadapost-postescanada.ca'))
+        for display_name, domain in official:
+            with self.subTest(display_name=display_name, domain=domain):
+                self.assertEqual(claim(display_name, domain), (0, []))
+
+    def test_common_names_and_protected_brands_are_not_double_counted(self):
+        for display_name in ('Chase Miller', 'Citi Bike', 'The UPS Store', 'Meta Analysis Group'):
+            with self.subTest(display_name=display_name):
+                self.assertEqual(claim(display_name, 'example.com'), (0, []))
+        score, indicators = claim('PayPal Service', 'paypal-help.top')
+        self.assertEqual((score, len(indicators)), (4, 1))
 
     def test_raw_message_impersonating_a_chinese_bank_is_high_risk(self):
         raw = ('From: =?utf-8?b?5Lit5Zu95bel5ZWG6ZO26KGM?= <service@icbc-verify.top>\n'

@@ -10,7 +10,7 @@
     "Every verified_statements quote was checked word for word on its source page on 2026-09-29. One search summary had attributed a statement to the wrong Agricultural Bank page; it was removed.",
     "Domains and service numbers were confirmed on each organization's own site (homepage title, contact page or site-restricted search) on 2026-09-29.",
     "source_type media means a news page quoting police or the organization; the issuer field names who is quoted. scope marks statements limited to one region.",
-    "display_names are the only names matched against a From display name: specific brand names, without ambiguous acronyms (ABC, BOC, EMS, QQ) or words that also name other entities (中通, 南航, 社保, 海关). Government entries also accept any gov.cn sender, because local offices send from their own gov.cn subdomains."
+    "display_names are the only names matched against a From display name: specific brand names, without ambiguous acronyms (ABC, BOC, EMS, QQ) or words that also name other entities (中通, 南航, 社保, 海关). Government entries list gov.cn in gov_suffixes, because local offices send from their own gov.cn subdomains."
   ],
   "brands": [
     {
@@ -62,7 +62,7 @@
         "工行",
         "ICBC"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "ccb",
@@ -102,7 +102,7 @@
         "建设银行",
         "建行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "abc",
@@ -129,7 +129,7 @@
         "农业银行",
         "农行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "boc",
@@ -158,7 +158,7 @@
       "display_names": [
         "中国银行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "bankcomm",
@@ -187,7 +187,7 @@
         "交通银行",
         "BOCOM"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "cmb",
@@ -216,7 +216,7 @@
         "招商银行",
         "招行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "psbc",
@@ -249,7 +249,7 @@
         "邮政储蓄银行",
         "PSBC"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "pingan_bank",
@@ -276,7 +276,7 @@
       "display_names": [
         "平安银行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "cib",
@@ -303,7 +303,7 @@
       "display_names": [
         "兴业银行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "spdb",
@@ -327,7 +327,7 @@
         "浦东发展银行",
         "SPDB"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "citic",
@@ -348,7 +348,7 @@
       "display_names": [
         "中信银行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "ceb",
@@ -372,7 +372,7 @@
       "display_names": [
         "光大银行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "cmbc",
@@ -393,7 +393,7 @@
       "display_names": [
         "民生银行"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "alipay",
@@ -417,7 +417,7 @@
         "支付宝",
         "Alipay"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "wechat_pay",
@@ -444,7 +444,7 @@
         "WeChat Pay",
         "Tenpay"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "unionpay",
@@ -484,7 +484,7 @@
         "银联",
         "UnionPay"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "china_mobile",
@@ -520,7 +520,7 @@
         "移动10086",
         "China Mobile"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "china_unicom",
@@ -545,7 +545,7 @@
         "联通10010",
         "China Unicom"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "china_telecom",
@@ -570,7 +570,7 @@
         "电信10000",
         "China Telecom"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "sf_express",
@@ -604,7 +604,7 @@
         "顺丰",
         "SF Express"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "china_post",
@@ -631,7 +631,7 @@
         "邮政速递",
         "China Post"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "jd",
@@ -667,7 +667,7 @@
         "京东物流",
         "京东金融"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "zto",
@@ -688,7 +688,7 @@
         "中通快递",
         "ZTO Express"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "yto",
@@ -712,7 +712,7 @@
         "圆通快递",
         "YTO Express"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "yunda",
@@ -732,7 +732,7 @@
         "韵达快递",
         "韵达速递"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "sto",
@@ -753,7 +753,7 @@
         "申通快递",
         "STO Express"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "taobao",
@@ -786,7 +786,7 @@
         "Taobao",
         "Tmall"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "pinduoduo",
@@ -806,7 +806,7 @@
         "拼多多",
         "Pinduoduo"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "tencent",
@@ -840,7 +840,7 @@
         "微信安全中心",
         "Tencent"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "railway_12306",
@@ -874,7 +874,7 @@
         "12306",
         "铁路12306"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "chinatax",
@@ -906,7 +906,9 @@
         "个人所得税",
         "电子税务局"
       ],
-      "accepts_gov_cn": true
+      "gov_suffixes": [
+        "gov.cn"
+      ]
     },
     {
       "id": "social_security",
@@ -940,7 +942,9 @@
         "社会保险服务",
         "12333"
       ],
-      "accepts_gov_cn": true
+      "gov_suffixes": [
+        "gov.cn"
+      ]
     },
     {
       "id": "traffic_12123",
@@ -977,7 +981,9 @@
         "交管12123",
         "交通管理局"
       ],
-      "accepts_gov_cn": true
+      "gov_suffixes": [
+        "gov.cn"
+      ]
     },
     {
       "id": "police_procuratorate_courts",
@@ -1013,7 +1019,9 @@
         "人民法院",
         "国家反诈中心"
       ],
-      "accepts_gov_cn": true
+      "gov_suffixes": [
+        "gov.cn"
+      ]
     },
     {
       "id": "customs",
@@ -1042,7 +1050,9 @@
         "海关总署",
         "中国海关"
       ],
-      "accepts_gov_cn": true
+      "gov_suffixes": [
+        "gov.cn"
+      ]
     },
     {
       "id": "china_eastern",
@@ -1078,7 +1088,7 @@
         "东航",
         "China Eastern"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "air_china",
@@ -1101,7 +1111,7 @@
         "国航",
         "Air China"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "china_southern",
@@ -1126,7 +1136,7 @@
         "南方航空",
         "China Southern"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     },
     {
       "id": "chsi",
@@ -1161,7 +1171,7 @@
         "学信网",
         "中国高等教育学生信息网"
       ],
-      "accepts_gov_cn": false
+      "gov_suffixes": []
     }
   ]
 }

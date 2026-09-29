@@ -1,0 +1,899 @@
+{
+  "schema": "phishguard-official-brands-v1",
+  "region": "US+INTL",
+  "review_status": "draft-verified",
+  "compiled_on": "2026-09-29",
+  "notes": [
+    "Every verified_statements quote was read on its source page on 2026-09-29, mostly in a real browser because several sites block automated fetchers.",
+    "Domains were confirmed from the organization's own pages (listed sending domains, report addresses, or homepage titles). Entries marked 'from prior knowledge' in review_note still need confirmation.",
+    "display_names avoid common words and first names (Chase, Citi, Meta, Apple, UPS alone). PayPal, Amazon, Microsoft and Google keep the existing protected-brand rule (display_check), so their names are not matched twice.",
+    "gov_suffixes lets a government entry accept that country's government domains (.gov, gov.uk, gc.ca, gov.au). brand_tlds accepts a brand top-level domain (DHL's .dhl).",
+    "A matching domain proves nothing on its own because From is not authenticated; the registry is used to detect impersonation."
+  ],
+  "regulatory_statements": [
+    {
+      "quote": "The HKMA wishes to remind the public that banks will not send SMS or e-mails with embedded hyperlinks which direct them to the banks’ websites to carry out transactions.",
+      "source": "https://www.hkma.gov.hk/eng/news-and-media/press-releases/2021/03/20210305-7/",
+      "source_type": "government",
+      "issuer": "Hong Kong Monetary Authority"
+    },
+    {
+      "quote": "Removal of clickable links in emails or SMSes sent to retail customers",
+      "source": "https://www.mas.gov.sg/news/media-releases/2022/mas-and-abs-announce-measures-to-bolster-the-security-of-digital-banking",
+      "source_type": "government",
+      "issuer": "Monetary Authority of Singapore and Association of Banks in Singapore"
+    }
+  ],
+  "brands": [
+    {
+      "id": "irs",
+      "category": "government",
+      "name": "Internal Revenue Service",
+      "region": "US",
+      "display_names": [
+        "Internal Revenue Service",
+        "IRS"
+      ],
+      "official_domains": [
+        "irs.gov"
+      ],
+      "gov_suffixes": [
+        "gov"
+      ],
+      "verified_statements": [
+        {
+          "quote": "We never email without your permission.",
+          "source": "https://www.irs.gov/privacy-disclosure/report-phishing",
+          "source_type": "government"
+        },
+        {
+          "quote": "We don't send text messages without your permission",
+          "source": "https://www.irs.gov/privacy-disclosure/report-phishing",
+          "source_type": "government"
+        },
+        {
+          "quote": "We never send direct messages by social media",
+          "source": "https://www.irs.gov/privacy-disclosure/report-phishing",
+          "source_type": "government"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@irs.gov"
+      ]
+    },
+    {
+      "id": "ssa",
+      "category": "government",
+      "name": "Social Security Administration",
+      "region": "US",
+      "display_names": [
+        "Social Security Administration",
+        "Social Security"
+      ],
+      "official_domains": [
+        "ssa.gov"
+      ],
+      "gov_suffixes": [
+        "gov"
+      ],
+      "verified_statements": [
+        {
+          "quote": "Social Security will never ask for sensitive or personal information through social media, email, or text message.",
+          "source": "https://www.ssa.gov/scam/",
+          "source_type": "government"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": []
+    },
+    {
+      "id": "usps",
+      "category": "logistics",
+      "name": "United States Postal Service",
+      "region": "US",
+      "display_names": [
+        "USPS",
+        "United States Postal Service",
+        "US Postal Service",
+        "U.S. Postal Service"
+      ],
+      "official_domains": [
+        "usps.com",
+        "uspis.gov"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "USPS will not send customers text messages or e-mails without a customer first requesting the service with a tracking number, and it will NOT contain a link.",
+          "source": "https://www.uspis.gov/news/scam-article/smishing",
+          "source_type": "government",
+          "issuer": "US Postal Inspection Service"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "spam@uspis.gov"
+      ]
+    },
+    {
+      "id": "fedex",
+      "category": "logistics",
+      "name": "FedEx",
+      "region": "US",
+      "display_names": [
+        "FedEx"
+      ],
+      "official_domains": [
+        "fedex.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "FedEx does not request, via unsolicited mail, email, or text, any personal information pertaining to your account credentials or identity.",
+          "source": "https://www.fedex.com/en-us/trust-center/report-fraud.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "We never request payment or personal information in exchange for releasing a package.",
+          "source": "https://www.fedex.com/en-us/trust-center/report-fraud.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "abuse@fedex.com"
+      ]
+    },
+    {
+      "id": "ups",
+      "category": "logistics",
+      "name": "UPS",
+      "region": "US",
+      "display_names": [
+        "United Parcel Service",
+        "UPS My Choice",
+        "UPS Delivery Notification"
+      ],
+      "official_domains": [
+        "ups.com",
+        "theupsstore.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Please be advised that UPS does not request payments, personal information, financial information, account numbers, IDs, passwords, or copies of invoices in an unsolicited manner through email, mail, phone, or fax or specifically in exchange for the transportation of goods or services.",
+          "source": "https://www.ups.com/us/en/support/shipping-support/legal-terms-conditions/fight-fraud",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Bare 'UPS' is not matched: The UPS Store franchises (theupsstore.com) and ordinary words would collide."
+    },
+    {
+      "id": "dhl",
+      "category": "logistics",
+      "name": "DHL",
+      "region": "INTL",
+      "display_names": [
+        "DHL",
+        "DHL Express"
+      ],
+      "official_domains": [
+        "dhl.com",
+        "dpdhl.com",
+        "dhl-news.com",
+        "dhl.de",
+        "dhl.fr",
+        "dhl.ae"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Official DHL communication is always sent from @dhl.com and subdomains (e.g. @del.dhl.com or @express.dhl.com), @dpdhl.com, @dhl-news.com, addresses with country domains after @dhl (e.g. @dhl.de, @dhl.fr,@dhl.ae) or just @dhl.",
+          "source": "https://www.dhl.com/gb-en/home/footer/fraud-awareness.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "We never use @gmail, @yahoo or other free email services to send emails.",
+          "source": "https://www.dhl.com/gb-en/home/footer/fraud-awareness.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@dhl.com"
+      ],
+      "brand_tlds": [
+        "dhl"
+      ],
+      "review_note": "Other DHL country domains (@dhl.<country>) are official per DHL but not all are listed; add them from real mail."
+    },
+    {
+      "id": "paypal",
+      "category": "payment",
+      "name": "PayPal",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "paypal.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Messages from PayPal will always use the full name listed in your PayPal account.",
+          "source": "https://www.paypal.com/us/security/learn-about-fake-messages",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "protected_brand_rule"
+    },
+    {
+      "id": "amazon",
+      "category": "ecommerce",
+      "name": "Amazon",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "amazon.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Approved Amazon emails contain 'amazon.com' and are sent from an amazon.com email address.",
+          "source": "https://www.amazon.com/gp/help/customer/display.html?nodeId=Teu845SZK0ApsIgmGC",
+          "source_type": "official"
+        },
+        {
+          "quote": "Legitimate Amazon websites have a dot '.' before 'amazon.com' such as https://'something'.amazon.com.",
+          "source": "https://www.amazon.com/gp/help/customer/display.html?nodeId=Teu845SZK0ApsIgmGC",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "protected_brand_rule"
+    },
+    {
+      "id": "apple",
+      "category": "platform",
+      "name": "Apple",
+      "region": "INTL",
+      "display_names": [
+        "Apple Support",
+        "Apple ID",
+        "iCloud"
+      ],
+      "official_domains": [
+        "apple.com",
+        "icloud.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Apple will never ask you to log in to any website, or to tap Accept in the two-factor authentication dialog, or to provide your password, device passcode, or two-factor authentication code or to enter it into any website.",
+          "source": "https://support.apple.com/en-us/102568",
+          "source_type": "official"
+        },
+        {
+          "quote": "Apple will never ask you to disable any security feature on your device or on your account.",
+          "source": "https://support.apple.com/en-us/102568",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "reportphishing@apple.com"
+      ],
+      "review_note": "Bare 'Apple' is handled by the existing protected-brand rule."
+    },
+    {
+      "id": "microsoft",
+      "category": "platform",
+      "name": "Microsoft",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "microsoft.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Microsoft will never proactively reach out to you to provide unsolicited PC or technical support.",
+          "source": "https://support.microsoft.com/en-us/security/avoid-and-report-microsoft-technical-support-scams",
+          "source_type": "official"
+        },
+        {
+          "quote": "Genuine Microsoft error messages never include a phone number to call.",
+          "source": "https://support.microsoft.com/en-us/security/avoid-and-report-microsoft-technical-support-scams",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "protected_brand_rule"
+    },
+    {
+      "id": "google",
+      "category": "platform",
+      "name": "Google",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "google.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Google will never call you about your account security.",
+          "source": "https://support.google.com/faqs/answer/17170932?hl=en",
+          "source_type": "official"
+        },
+        {
+          "quote": "Any unsolicited phone call, text, or email claiming to be from Google Security stating that your account has been compromised or hacked is always a scam.",
+          "source": "https://support.google.com/faqs/answer/17170932?hl=en",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "protected_brand_rule"
+    },
+    {
+      "id": "meta",
+      "category": "platform",
+      "name": "Meta / Facebook / Instagram",
+      "region": "INTL",
+      "display_names": [
+        "Facebook",
+        "Instagram",
+        "Meta Support",
+        "Meta Business",
+        "Meta for Business",
+        "Meta Accounts Center"
+      ],
+      "official_domains": [
+        "fb.com",
+        "facebook.com",
+        "facebookmail.com",
+        "instagram.com",
+        "meta.com",
+        "metamail.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Facebook will never ask you for your password in an email or send you a password as an attachment.",
+          "source": "https://www.facebook.com/help/1634546593478660",
+          "source_type": "official"
+        },
+        {
+          "quote": "Any correspondence from Facebook or Meta will only come from one of these email domains, or any subdomains of the following (such as support.facebook.com or business.fb.com): fb.com facebook.com facebookmail.com instagram.com meta.com metamail.com global.metamail.com",
+          "source": "https://www.facebook.com/help/1634546593478660",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Bare 'Meta' is not matched because it is an ordinary word."
+    },
+    {
+      "id": "netflix",
+      "category": "platform",
+      "name": "Netflix",
+      "region": "INTL",
+      "display_names": [
+        "Netflix"
+      ],
+      "official_domains": [
+        "netflix.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "We'll never ask you to share your personal information in a text or email.",
+          "source": "https://help.netflix.com/en/node/65674",
+          "source_type": "official"
+        },
+        {
+          "quote": "We'll never ask for payment through a 3rd party vendor or website.",
+          "source": "https://help.netflix.com/en/node/65674",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@netflix.com"
+      ]
+    },
+    {
+      "id": "chase",
+      "category": "bank",
+      "name": "JPMorgan Chase",
+      "region": "US",
+      "display_names": [
+        "Chase Bank",
+        "JPMorgan Chase",
+        "JP Morgan Chase",
+        "Chase Online",
+        "Chase Card Services",
+        "Chase Fraud",
+        "Chase Alerts"
+      ],
+      "official_domains": [
+        "chase.com",
+        "jpmorganchase.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Legitimate banks will never ask you to move money to resolve a fraud issue.",
+          "source": "https://www.chase.com/digital/resources/privacy-security/security/how-to-spot-scams",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@chase.com"
+      ],
+      "review_note": "Bare 'Chase' is not matched because it is a common first name. jpmorganchase.com from prior knowledge; verify."
+    },
+    {
+      "id": "bank_of_america",
+      "category": "bank",
+      "name": "Bank of America",
+      "region": "US",
+      "display_names": [
+        "Bank of America",
+        "BofA"
+      ],
+      "official_domains": [
+        "bankofamerica.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Bank of America may ask you to confirm account activity, but we will never ask for your password, verification code, or for you to send money to us or anyone else in conjunction with that request.",
+          "source": "https://web.bankofamerica.com/en/security/library/review-scam-alert",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": []
+    },
+    {
+      "id": "wells_fargo",
+      "category": "bank",
+      "name": "Wells Fargo",
+      "region": "US",
+      "display_names": [
+        "Wells Fargo"
+      ],
+      "official_domains": [
+        "wellsfargo.com",
+        "wf.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Wells Fargo will never ask for your password, PIN, or one-time access codes through email or text.",
+          "source": "https://www.wellsfargo.com/privacy-security/fraud/report/phish/",
+          "source_type": "official"
+        },
+        {
+          "quote": "Beware of email addresses that do not include “wellsfargo.com.”",
+          "source": "https://www.wellsfargo.com/privacy-security/fraud/report/phish/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "reportphish@wellsfargo.com"
+      ],
+      "review_note": "wf.com (stories.wf.com) appeared on an official page; verify it for email."
+    },
+    {
+      "id": "citi",
+      "category": "bank",
+      "name": "Citi",
+      "region": "US",
+      "display_names": [
+        "Citibank",
+        "Citi Cards",
+        "Citi Fraud",
+        "Citi Alerts",
+        "Citi Bank"
+      ],
+      "official_domains": [
+        "citi.com",
+        "citibank.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Citi will never ask for your PIN.",
+          "source": "https://citicards.citi.com/cbol/fraudprevention/default.htm",
+          "source_type": "official"
+        },
+        {
+          "quote": "Remember, we will never ask you to move or send money to resolve a fraud issue.",
+          "source": "https://citicards.citi.com/cbol/fraudprevention/default.htm",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Bare 'Citi' is not matched: Citi Bike and other brands share it."
+    },
+    {
+      "id": "capital_one",
+      "category": "bank",
+      "name": "Capital One",
+      "region": "US",
+      "display_names": [
+        "Capital One"
+      ],
+      "official_domains": [
+        "capitalone.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "We may contact you via text to confirm an attempted charge (to prevent fraud), but we will never ask you to confirm or verify your personal information in an unsolicited text message.",
+          "source": "https://www.capitalone.com/digital/identity-protection/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": []
+    },
+    {
+      "id": "american_express",
+      "category": "bank",
+      "name": "American Express",
+      "region": "INTL",
+      "display_names": [
+        "American Express",
+        "Amex"
+      ],
+      "official_domains": [
+        "americanexpress.com",
+        "aexp.com",
+        "americanexpress.co.uk",
+        "aexpfeedback.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "We will normally email you from these addresses: @americanexpress.com @aexp.com @welcome.aexp.com @americanexpress.co.uk @email.americanexpress.com @welcome.americanexpress.com @aexpfeedback.com @alerts.americanexpress.com @executiveassist.americanexpress.com",
+          "source": "https://www.americanexpress.com/en-gb/security/scams-phishing-online-safety/index.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "UKemailfraud@americanexpress.com"
+      ]
+    },
+    {
+      "id": "venmo",
+      "category": "payment",
+      "name": "Venmo",
+      "region": "US",
+      "display_names": [
+        "Venmo"
+      ],
+      "official_domains": [
+        "venmo.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Venmo will never ask you to provide your six-digit code on a phone call, text message, email, or chat",
+          "source": "https://help.venmo.com/cs/articles/login-security-vhel151",
+          "source_type": "official"
+        },
+        {
+          "quote": "Legitimate Venmo notifications will come from a venmo.com email address (like “venmo@venmo.com”).",
+          "source": "https://help.venmo.com/cs/articles/login-security-vhel151",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": []
+    },
+    {
+      "id": "cash_app",
+      "category": "payment",
+      "name": "Cash App",
+      "region": "US",
+      "display_names": [
+        "Cash App",
+        "Cash Support"
+      ],
+      "official_domains": [
+        "cash.app",
+        "square.com",
+        "squareup.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Cash Support will never ask you to provide your sign-in code, PIN, or other sensitive information like your full bank account information.",
+          "source": "https://cash.app/help/us/en-us/6482-recognize-scams",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "square.com and squareup.com (Block) from prior knowledge; verify."
+    },
+    {
+      "id": "zelle",
+      "category": "payment",
+      "name": "Zelle",
+      "region": "US",
+      "display_names": [
+        "Zelle"
+      ],
+      "official_domains": [
+        "zelle.com",
+        "zellepay.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "No statement text rendered on zelle.com; domains confirmed by homepage."
+    },
+    {
+      "id": "coinbase",
+      "category": "payment",
+      "name": "Coinbase",
+      "region": "INTL",
+      "display_names": [
+        "Coinbase"
+      ],
+      "official_domains": [
+        "coinbase.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Coinbase will never ask you to contact an unknown number to reach us.",
+          "source": "https://help.coinbase.com/en/coinbase/privacy-and-security/avoid-scams/tech-support-scams",
+          "source_type": "official"
+        },
+        {
+          "quote": "We will never call or SMS you to request account access.",
+          "source": "https://help.coinbase.com/en/coinbase/privacy-and-security/avoid-scams/tech-support-scams",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "security@coinbase.com"
+      ]
+    },
+    {
+      "id": "docusign",
+      "category": "platform",
+      "name": "Docusign",
+      "region": "INTL",
+      "display_names": [
+        "DocuSign",
+        "Docusign"
+      ],
+      "official_domains": [
+        "docusign.com",
+        "docusign.net"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Domains confirmed by homepages; no statement verified."
+    },
+    {
+      "id": "hmrc",
+      "category": "government",
+      "name": "HM Revenue & Customs",
+      "region": "UK",
+      "display_names": [
+        "HMRC",
+        "HM Revenue",
+        "HM Revenue & Customs",
+        "HM Revenue and Customs"
+      ],
+      "official_domains": [
+        "hmrc.gov.uk"
+      ],
+      "gov_suffixes": [
+        "gov.uk"
+      ],
+      "verified_statements": [
+        {
+          "quote": "HMRC will only ever email you about a tax rebate or ask for personal or payment information from an email address that ends in hmrc.gov.uk.",
+          "source": "https://www.gov.uk/find-hmrc-contacts/report-suspicious-hmrc-emails-texts-social-media-accounts-and-phone-calls",
+          "source_type": "government"
+        },
+        {
+          "quote": "HMRC will never send a notification of a tax rebate or ask you to disclose personal or payment information by text message.",
+          "source": "https://www.gov.uk/find-hmrc-contacts/report-suspicious-hmrc-emails-texts-social-media-accounts-and-phone-calls",
+          "source_type": "government"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@hmrc.gov.uk"
+      ]
+    },
+    {
+      "id": "royal_mail",
+      "category": "logistics",
+      "name": "Royal Mail",
+      "region": "UK",
+      "display_names": [
+        "Royal Mail"
+      ],
+      "official_domains": [
+        "royalmail.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "reportascam@royalmail.com"
+      ],
+      "review_note": "No 'will never' statement on the scam-examples page."
+    },
+    {
+      "id": "cra",
+      "category": "government",
+      "name": "Canada Revenue Agency",
+      "region": "CA",
+      "display_names": [
+        "Canada Revenue Agency",
+        "Agence du revenu du Canada"
+      ],
+      "official_domains": [
+        "canada.ca",
+        "cra-arc.gc.ca"
+      ],
+      "gov_suffixes": [
+        "gc.ca"
+      ],
+      "verified_statements": [
+        {
+          "quote": "The official website for the CRA uses web addresses that either: start in canada.ca or end in cra-arc.gc.ca",
+          "source": "https://www.canada.ca/en/revenue-agency/corporate/scams-fraud/recognize-scam.html",
+          "source_type": "government"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": []
+    },
+    {
+      "id": "canada_post",
+      "category": "logistics",
+      "name": "Canada Post",
+      "region": "CA",
+      "display_names": [
+        "Canada Post",
+        "Postes Canada"
+      ],
+      "official_domains": [
+        "canadapost-postescanada.ca",
+        "canadapost.ca"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Remember Canada Post does not send unsolicited emails requesting personal information such as credit card numbers, account or invoice numbers, address and or passwords and will not charge you to track or release a delivery.",
+          "source": "https://www.canadapost-postescanada.ca/cpc/en/support/kb/company-policies/privacy-security/what-do-to-if-you-get-suspicious-email.page",
+          "source_type": "official"
+        },
+        {
+          "quote": "Examples of legitimate email addresses include: donotreply-nepasrepondre@notifications.canadapost-postescanada.ca donotreply-nepasrepondre@communications.canadapost-postescanada.ca bounce-renvoi@communications.canadapost-postescanada.ca bounce-renvoi@notifications.canadapost-postescanada.ca claims@canadapost.ca donotreply_nepasrepondre@canadapost.ca",
+          "source": "https://www.canadapost-postescanada.ca/cpc/en/support/kb/company-policies/privacy-security/what-do-to-if-you-get-suspicious-email.page",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": []
+    },
+    {
+      "id": "ato",
+      "category": "government",
+      "name": "Australian Taxation Office",
+      "region": "AU",
+      "display_names": [
+        "Australian Taxation Office",
+        "myGov"
+      ],
+      "official_domains": [
+        "ato.gov.au",
+        "my.gov.au"
+      ],
+      "gov_suffixes": [
+        "gov.au"
+      ],
+      "verified_statements": [
+        {
+          "quote": "Remember: The ATO will never send an unsolicited message that directs you to a log in page.",
+          "source": "https://www.ato.gov.au/online-services/scams-cyber-safety-and-identity-protection/scam-alerts",
+          "source_type": "government"
+        },
+        {
+          "quote": "We will never send an unsolicited SMS that contains a hyperlink.",
+          "source": "https://www.ato.gov.au/online-services/scams-cyber-safety-and-identity-protection/scam-alerts",
+          "source_type": "government"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "ReportScams@ato.gov.au"
+      ]
+    },
+    {
+      "id": "australia_post",
+      "category": "logistics",
+      "name": "Australia Post",
+      "region": "AU",
+      "display_names": [
+        "Australia Post",
+        "AusPost"
+      ],
+      "official_domains": [
+        "auspost.com.au"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "scams@auspost.com.au"
+      ],
+      "review_note": "No 'will never' statement rendered on the security page."
+    },
+    {
+      "id": "hsbc",
+      "category": "bank",
+      "name": "HSBC",
+      "region": "INTL",
+      "display_names": [
+        "HSBC"
+      ],
+      "official_domains": [
+        "hsbc.com",
+        "hsbc.co.uk",
+        "hsbc.com.hk"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Domains confirmed by homepages; statement text did not render. Other HSBC country domains are not listed."
+    },
+    {
+      "id": "barclays",
+      "category": "bank",
+      "name": "Barclays",
+      "region": "UK",
+      "display_names": [
+        "Barclays"
+      ],
+      "official_domains": [
+        "barclays.co.uk",
+        "barclays.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Domains confirmed by homepages; statement text did not render."
+    }
+  ]
+}
