@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-28 18:40 PT] — Fix a timing-dependent feedback timeout test
+
+### Why
+- CI on `main` for c860007 failed 506/507 in `test (3.12)`: `feedback.test.mjs` "a timed-out report is unconfirmed…" expected 1 request and saw 0. The same commit passed on the branch and locally.
+- The test waited at most 50 event-loop turns for the report request, but `feedback.js` first hashes the input with `crypto.subtle.digest`, which runs off the main thread and can take longer on a busy runner. Reproduced locally under CPU load: 6/25 runs failed.
+
+### Files changed
+- `website/static/feedback.test.mjs` — the wait for the first request is bounded by 5 s of real time instead of 50 turns (the fake clock only replaces timers inside the page context).
+
+### Effect
+- Under the same CPU load: 0/25 failures. `node --test website/static/*.test.mjs`: 507 pass, 0 fail. No product code changed.
+
 ## [2026-09-28 17:50 PT] — Worded severity labels, severity-sorted case evidence, `style-src 'self'` homepage CSP, forced-colours support
 
 ### Why

@@ -489,8 +489,11 @@ test('a timed-out report is unconfirmed, not failed: the retry resends the same 
   ui.feedback.open('content');
   ui.element('feedback-note').value = 'Timed out';
   const first = ui.submit();
-  // Hashing the input finishes before the request is sent.
-  for (let i = 0; i < 50 && !ui.requests.length; i++) await new Promise(resolve => setImmediate(resolve));
+  // Hashing the input (crypto.subtle, off the main thread) finishes before the
+  // request is sent; on a busy runner that can take many event-loop turns.
+  for (const deadline = Date.now() + 5000; !ui.requests.length && Date.now() < deadline;) {
+    await new Promise(resolve => setImmediate(resolve));
+  }
   assert.equal(ui.requests.length, 1);
   assert.equal(ui.element('feedback-submit').disabled, true);
   await clock.advance(44999);
