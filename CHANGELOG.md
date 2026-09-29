@@ -20,6 +20,32 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 13:30 PT] — Uncorroborated model score is a Medium alert; importer deduplicates by evaluator identity
+
+### Why
+- A text-model score above the threshold made a message High even with no rule, sender, link or structure evidence. On real mail through the deployed pipeline, these `model_only` alerts are:
+  - 21 of the 41 false alerts on 57 real 2023 account and security notices;
+  - only 35 of 1,137 alerts on 1,239 Nazario 2023–25 phishing messages.
+- Their model scores do not separate legitimate from phishing, so a stricter threshold is not a clean fix.
+- The importer wrote oversized copies with identical text but different dates. `evaluate_serving_pipeline.py` rejects those as a metadata conflict.
+
+### Files changed
+- `website/app.py` — `fuse_content_risk` maps `model_only` to `medium` / "Medium Risk — Model Signal Needs Review". `model_led` stays High with the same review wording, and the Critical rules are unchanged.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese label `content.riskLabel.mediumModel`, recognised by `riskLabel`.
+- `website/static/index.html`, `website/static/cases.html`, `website/static/404.html`, `website/static/lang-init.js`, `website/tools/asset-versions/manifest.json` — asset versions bumped by the updater.
+- `website/tools/import_own_mailbox.py` — skips rows whose evaluator identity (`_prepare_record`) was already written.
+- `website/tests/test_detection_behavior.py`, `website/tests/test_risk_precision.py`, `website/tests/test_html_input_coverage.py`, `website/tests/test_import_own_mailbox.py`:
+  - `model_only` is Medium at several scores;
+  - any independent floor still produces High or Critical;
+  - threshold crossings are asserted by `fusion_basis`;
+  - text duplicates are imported once.
+- `README.md`, `docs/evaluation.md` — the new behaviour and the serving-pipeline fusion results.
+
+### Effect
+- Alert counts are unchanged on all three real cohorts: Nazario 1,137/1,239, UniqueData 41/57, Apache user lists 80/602. Medium still counts as an alert.
+- On UniqueData, High falls from 39 to 18. On Nazario, 35 alerts move from High to Medium.
+- The model artifact, threshold and scores are unchanged.
+
 ## [2026-09-29 11:40 PT] — Apache list mail and a consented-mailbox importer: the gap is consumer account notices
 
 ### Why

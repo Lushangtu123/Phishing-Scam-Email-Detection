@@ -442,12 +442,15 @@ outputs as a **model risk score**, not a calibrated probability or confidence cl
 Model classification, MIME-view selection, and final risk fusion use the original
 unrounded model score. API display scores remain rounded to one decimal place;
 rounding cannot change a threshold decision or select a lower-scoring MIME view.
-An uncorroborated model score can still raise a message to High for review, but
-cannot by itself produce Critical. Critical requires corroborating rule,
-sender, or structure evidence, or a sufficiently strong heuristic score. The
-result exposes `fusion_basis=model_only` when no other evidence exists, or
-`model_led` when only weak rule evidence exists. This does not lower the model's
-score or claim a validated reduction in Gmail/Outlook false positives.
+A model score above the threshold with no rule, sender, link or structure
+evidence (`fusion_basis=model_only`) is an alert labelled **Medium Risk — Model
+Signal Needs Review**. Real 2023 account and security notices reach this state
+often (see [docs/evaluation.md](docs/evaluation.md)). With weak rule evidence
+(`model_led`) the model score raises the message to High for review. The model
+cannot produce Critical by itself: Critical requires corroborating rule,
+sender or structure evidence, or a sufficiently strong heuristic score. This
+changes severity only. Medium still counts as an alert, the model's score is not
+lowered, and it is not a validated reduction in Gmail/Outlook false positives.
 
 Safety-footer phrases such as “unsubscribe” and “privacy policy” are reported
 as context but never subtract risk: an attacker can copy them. Regional English

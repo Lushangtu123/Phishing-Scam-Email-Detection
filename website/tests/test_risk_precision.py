@@ -48,7 +48,9 @@ class RiskPrecisionTests(unittest.TestCase):
                     result = self.analyze([probability], threshold, app.ContentRequest(body=self.body))
                     self.assertEqual(result['ml_prediction'], expected)
                     self.assertEqual(result['total_score'], 0)
-                    self.assertEqual(result['risk_level'], 'high' if expected else 'medium')
+                    # Both sides alert as Medium without rule evidence; the basis shows the crossing.
+                    self.assertEqual(result['risk_level'], 'medium')
+                    self.assertEqual(result['fusion_basis'], 'model_only' if expected else 'other')
                     self.assertEqual(result['ml_phishing_probability'], round(probability * 100, 1))
 
     def test_mime_selection_distinguishes_scores_that_round_to_the_same_value(self):
@@ -61,7 +63,8 @@ class RiskPrecisionTests(unittest.TestCase):
             app.ContentRequest(raw_email=message.as_string()),
         )
         self.assertEqual(result['ml_prediction'], 1)
-        self.assertEqual(result['risk_level'], 'high')
+        self.assertEqual(result['fusion_basis'], 'model_only')
+        self.assertEqual(result['risk_level'], 'medium')
 
     def test_rounding_does_not_promote_supported_high_risk_to_critical(self):
         request = app.ContentRequest(

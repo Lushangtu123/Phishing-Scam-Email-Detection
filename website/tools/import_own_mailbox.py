@@ -29,7 +29,9 @@ PROJECT_ROOT = WEBSITE_DIR.parent
 if str(WEBSITE_DIR) not in sys.path:
     sys.path.insert(0, str(WEBSITE_DIR))
 
-from tools.evaluate_serving_pipeline import LABELS, MAX_EML_BYTES, PROVIDERS, _validated_record  # noqa: E402
+from tools.evaluate_serving_pipeline import (  # noqa: E402
+    LABELS, MAX_EML_BYTES, PROVIDERS, _prepare_record, _validated_record,
+)
 
 _TAGS = re.compile(r'<[^>]+>')
 _SCRIPT_STYLE = re.compile(r'<(script|style)\b.*?</\1>', re.I | re.S)
@@ -146,6 +148,13 @@ def convert(inputs: list[Path], output: Path, *, provider: str, label: str = 'le
                 counts['oversized_skipped' if raw.strip() else 'empty'] += 1
                 continue
             _validated_record(row, counts['written'] + 1)
+            # The evaluator identifies text rows by subject/body alone; identical text with
+            # another date would be a metadata conflict, so keep the first copy only.
+            identity = _prepare_record(row)[1]
+            if identity in seen:
+                counts['duplicate'] += 1
+                continue
+            seen.add(identity)
             rows.write(json.dumps(row, ensure_ascii=False) + '\n')
             domain = sender_domain(message)
             manifest.write(json.dumps({'sha256': digest, 'sender_domain': domain, 'received_at': day,

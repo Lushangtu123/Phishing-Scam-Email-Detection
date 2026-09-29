@@ -265,6 +265,7 @@
   'content.riskLabel.high': '高风险 — 可能是钓鱼邮件',
   'content.riskLabel.highModel': '高风险 — 模型信号需人工复核',
   'content.riskLabel.medium': '中等风险 — 内容可疑',
+  'content.riskLabel.mediumModel': '中等风险 — 模型信号需人工复核',
   'content.riskLabel.low': '低风险 — 存在轻微疑点',
   'content.riskLabel.safe': '未发现钓鱼指标',
   'content.riskLabel.remoteUnchecked': '已检查文本中未发现指标 — 远程图片未检查',

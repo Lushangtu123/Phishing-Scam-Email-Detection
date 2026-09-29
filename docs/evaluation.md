@@ -1135,6 +1135,39 @@ domains) and setting `Reply-To` to the list. This affects list subscribers
 through the rule layer, separately from the model findings above. It is
 recorded as a follow-up, not changed here.
 
+### Serving-pipeline fusion on real mail (2026-09-29)
+
+`evaluate_serving_pipeline.py` with `--attribution-output` ran the deployed rules
+and model on three real cohorts imported with `import_own_mailbox.py`:
+
+- 1,239 Nazario phishing messages from 2023–2025, labelled phishing;
+- the 57 unique UniqueData legitimate messages, as subject/body text;
+- 602 legitimate Flink and Tomcat user-list messages from 2025-04 to 06.
+
+| Cohort | Alerts | `model_only` alerts | `model_led` alerts |
+|---|---|---|---|
+| Nazario 2023–25 phishing | 1,137 / 1,239 (91.8%); 74 undetermined | 35 | 866 |
+| UniqueData real legitimate | 41 / 57 (72%) | 21 | 18 |
+| Apache user lists (legitimate) | 80 / 602 (13%); 21 undetermined | 0 | 7 |
+
+Uncorroborated model scores are about half of the false alerts on real account
+notices, but only 3% of phishing alerts. Their model scores do not separate the
+two groups: 20 of the 21 legitimate `model_only` scores fall below 95%, and 9 fall
+below 85%. So a stricter model threshold is not a clean fix.
+
+**Change:** `model_only` is now Medium ("Model Signal Needs Review") instead of
+High. Alert counts are unchanged in all three cohorts. The severity shifts are:
+
+- UniqueData: High falls from 39 to 18, and Medium rises from 2 to 23;
+- Nazario: 35 alerts move from High to Medium.
+
+Not alerting on `model_only` at all would cut UniqueData false alerts from 41
+to 20. It would also cut Nazario phishing recall from 91.8% to 89.0%. That is
+left as a decision for when a larger real sample of account notices exists.
+
+The Apache false alerts come from sender rules on list `From`/`Reply-To`
+rewriting, not from the model (see the importer section above).
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

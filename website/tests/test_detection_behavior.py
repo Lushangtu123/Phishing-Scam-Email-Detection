@@ -1006,15 +1006,37 @@ class ContentRuleRobustnessTests(unittest.TestCase):
         self.assertEqual(fused["risk_level"], "critical")
         self.assertGreaterEqual(fused["combined_phishing_score"], 80)
 
-    def test_model_only_high_score_is_not_labeled_critical(self):
+    def test_model_only_score_is_a_medium_alert_for_review(self):
+        for probability in (0.40, 0.842, 0.99):
+            fused = app.fuse_content_risk(
+                ml_phishing_probability=probability,
+                ml_decision_threshold=0.3736,
+                heuristic_score=0,
+            )
+            self.assertEqual(fused['risk_level'], 'medium')
+            self.assertEqual(fused['risk_label'], 'Medium Risk — Model Signal Needs Review')
+            self.assertEqual(fused['fusion_basis'], 'model_only')
+            self.assertEqual(fused['combined_phishing_score'], round(probability * 100, 1))
+
+    def test_model_signal_with_any_independent_floor_is_not_model_only(self):
+        for floor, expected in (('low', 'high'), ('medium', 'high'), ('high', 'critical'), ('critical', 'critical')):
+            fused = app.fuse_content_risk(
+                ml_phishing_probability=0.842,
+                ml_decision_threshold=0.3736,
+                heuristic_score=0,
+                minimum_level=floor,
+            )
+            self.assertEqual(fused['risk_level'], expected, floor)
+            self.assertNotEqual(fused['fusion_basis'], 'model_only', floor)
+
+    def test_below_threshold_model_score_without_evidence_stays_below_alert(self):
         fused = app.fuse_content_risk(
-            ml_phishing_probability=0.842,
+            ml_phishing_probability=0.20,
             ml_decision_threshold=0.3736,
             heuristic_score=0,
         )
-        self.assertEqual(fused['risk_level'], 'high')
-        self.assertEqual(fused['fusion_basis'], 'model_only')
-        self.assertEqual(fused['combined_phishing_score'], 84.2)
+        self.assertEqual(fused['risk_level'], 'low')
+        self.assertEqual(fused['fusion_basis'], 'other')
 
     def test_high_model_score_with_independent_evidence_can_be_critical(self):
         fused = app.fuse_content_risk(

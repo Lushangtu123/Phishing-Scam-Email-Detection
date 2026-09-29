@@ -2704,10 +2704,14 @@ def fuse_content_risk(
 
     if minimum_level == "critical" or heuristic_risk >= 0.80 or (ml_risk >= 0.80 and independent_support):
         level, label = "critical", "Critical Risk — Very Likely Phishing"
-    elif minimum_level == "high" or heuristic_risk >= 0.55 or model_signal:
+    elif minimum_level == "high" or heuristic_risk >= 0.55 or (model_signal and not model_only):
         level = "high"
-        label = ("High Risk — Model Signal Needs Review" if model_only or model_led
-                 else "High Risk — Likely Phishing")
+        label = "High Risk — Model Signal Needs Review" if model_led else "High Risk — Likely Phishing"
+    elif model_only:
+        # With no rule, sender, link or structure evidence the text model alone flags
+        # 72% of real 2023 account and security notices (docs/evaluation.md), so an
+        # uncorroborated score stays an alert for review but not a High verdict.
+        level, label = "medium", "Medium Risk — Model Signal Needs Review"
     elif combined >= 0.30:
         level, label = "medium", "Medium Risk — Suspicious Content"
     elif combined >= 0.10:

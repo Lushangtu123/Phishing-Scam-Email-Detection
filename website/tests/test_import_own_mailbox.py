@@ -71,6 +71,15 @@ class ImportOwnMailboxTests(unittest.TestCase):
         self.assertEqual(summary['counts'], {'read': 1, 'oversized_skipped': 1})
         self.assertEqual(self.rows(), [])
 
+    def test_oversized_copies_with_the_same_text_are_kept_once(self):
+        html = '<p>Your invoice</p>' + 'x ' * importer.MAX_EML_BYTES
+        for day, name in (('Tue, 03 Jun 2025 10:00:00 +0000', 'a.eml'), ('Wed, 04 Jun 2025 10:00:00 +0000', 'b.eml')):
+            (self.dir / name).write_text(message('Invoice', date=day, body=html).replace('text/plain', 'text/html'))
+        summary = importer.convert([self.dir], self.out, provider='gmail')
+        self.assertEqual(summary['counts'], {'read': 2, 'duplicate': 1, 'written': 1, 'mode_text': 1})
+        rows = self.rows()
+        self.assertEqual(len({serving._prepare_record(row)[1] for row in rows}), len(rows))
+
     def test_since_filter_and_folder_recursion(self):
         folder = self.dir / 'export'
         (folder / 'nested').mkdir(parents=True)
