@@ -35,7 +35,7 @@ from html.parser import HTMLParser
 from html import escape as escape_html, unescape as unescape_html
 from itertools import product
 from functools import partial
-from urllib.parse import unquote, urlparse, urljoin
+from urllib.parse import parse_qs, unquote, urlparse, urljoin
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 from pathlib import Path
@@ -88,6 +88,7 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 
 from email_structure import (
+    MAILBOX_AUTHSERV_IDS,
     _PROTECTED_BRAND_DOMAINS,
     _confusable_skeleton,
     _decode_idna_domain,
@@ -2856,8 +2857,13 @@ async def analyze_eml_endpoint(request: Request):
         raw.extend(chunk)
     if not raw.strip():
         raise HTTPException(status_code=400, detail='Email file is empty')
+    # Minimal ASGI scopes (tests, the runtime smoke check) may omit the query string.
+    mailbox = parse_qs(request.scope.get('query_string', b'').decode('latin-1')).get('mailbox', [''])[-1]
+    if mailbox not in {'', *MAILBOX_AUTHSERV_IDS}:
+        raise HTTPException(status_code=400, detail='Unsupported mailbox; use gmail or leave it empty')
     structure = await _run_analysis(analyze_raw_email, bytes(raw),
-                                    trusted_authserv_ids=SETTINGS.trusted_authserv_ids)
+                                    trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
+                                    mailbox_provider=mailbox or None)
     return await _analyze_content(ContentRequest(), structure)
 
 
@@ -2917,7 +2923,13 @@ async def _analyze_content(
 
         selected_sender = await _run_analysis(
             _select_message_sender, structure['header_candidates']['From'])
-        if selected_sender is not None:
+        verified_sender = structure.get('verified_official_sender')
+        if selected_sender is not None and verified_sender:
+            # A DMARC-verified official domain makes address-shape heuristics
+            # (unknown provider, long labels) moot; keep the analysis for display only.
+            result["sender_analysis"] = selected_sender
+            result["sender_score"] = 0
+        elif selected_sender is not None:
             # Select locally before touching the external history store. An
             # attacker can inject many ambiguous From values into one message;
             # only the sender that actually drives the result gets one bounded
@@ -3080,6 +3092,16 @@ async def _analyze_content(
             minimum_level=result["risk_floor"],
         ))
 
+    # A verified official sender (trusted DMARC pass on the organization's own domain)
+    # cannot be raised above Low by the text model or weak rules alone. Evidence that
+    # sets a Medium or higher floor (links, attachments, requests for codes) still
+    # alerts, and a very high rule score keeps Critical.
+    verified_sender = structure.get('verified_official_sender') if structure else None
+    result['verified_official_sender'] = verified_sender
+    if verified_sender and result['risk_floor'] in {'safe', 'low'} and result['risk_level'] in {'medium', 'high'}:
+        result['risk_level'] = 'low'
+        result['risk_label'] = 'Low Risk — Verified Official Sender'
+
     if structure and any(item['inspection_status'] == 'metadata_only'
                          for item in structure['attachments']):
         item = indicator('info', 'warning.attachments_uninspected')
@@ -3139,7 +3161,7 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
             enhancement = {'status': 'unavailable', 'warnings': [failed['msg']], 'warning_details': [failed]}
     if structure is None and raw is not None:
         structure = bound_message_text(await _run_analysis(analyze_raw_email, raw,
-            trusted_authserv_ids=SETTINGS.trusted_authserv_ids))
+            trusted_authserv_ids=SETTINGS.trusted_authserv_ids, mailbox_provider=payload.mailbox or None))
     if not (raw or payload.subject.strip() or payload.body.strip() or payload.observations or payload.warnings):
         raise HTTPException(400, 'Image evidence or an email is required')
     base = json.loads((await _analyze_content(

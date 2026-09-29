@@ -237,6 +237,10 @@ window.PhishGuardI18n = (() => {
     'content.drop.help': 'Drop a screenshot or email here, or click this area and paste a screenshot (Ctrl / ⌘ + V). One file, up to 2 MiB. Then click Analyze Content.',
     'content.file.label': 'Email or image file',
     'content.file.status': 'Upload an .eml email or PNG/JPEG/WebP image, up to 2 MiB. QR and text recognition runs in your browser (up to four images). Email images are extracted locally; remote images are not loaded. Manual fields are ignored while a file is selected.',
+    'content.mailbox.label': "Downloaded from",
+    'content.mailbox.unknown': "Other mailbox or not sure (authentication not trusted)",
+    'content.mailbox.gmail': "Gmail (original message downloaded from Gmail)",
+    'content.mailbox.help': "Choose Gmail only for an original message you downloaded from Gmail (open the email, then ⋮ → Download message). The result then trusts Gmail’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing Gmail for other mail can make a forged check look trusted.",
     'content.ocr.label': 'Image text language (OCR)',
     'content.ocr.eng': 'English',
     'content.ocr.chi': '简体中文 · Simplified Chinese',
@@ -283,6 +287,7 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.medium': 'Medium Risk — Suspicious Content',
     'content.riskLabel.mediumModel': 'Medium Risk — Model Signal Needs Review',
     'content.riskLabel.low': 'Low Risk — Minor Concerns',
+    'content.riskLabel.lowVerified': 'Low Risk — Verified Official Sender',
     'content.riskLabel.safe': 'No Phishing Indicators Found',
     'content.riskLabel.remoteUnchecked': 'No Indicators in Inspected Text — Remote Image Unchecked',
     'content.riskLabel.incomplete': 'Analysis Incomplete — Risk Undetermined',
@@ -819,6 +824,7 @@ window.PhishGuardI18n = (() => {
     'server.link.credential_collection_host': 'Link destination ({host}) combines credential and collection wording.',
     'server.link.sensitive_host': 'Link destination ({host}) uses account-related wording on an unrecognized domain; this alone does not establish phishing.',
 
+    'server.structure.verified_official_sender': "Verified sender: a trusted DMARC pass shows this message came from {organization}'s own domain ({domain}). Its links and requests are still checked.",
     'server.structure.brand_display_name': "Protected brand identity '{brand}' is displayed from an unrelated domain ({domain}).",
     'server.structure.idn_sender_domain': 'Sender domain ({domain}) is a Unicode/IDN confusable for {brand}.',
     'server.structure.no_visible_recipient': 'No visible To or Cc recipient is present; the message may have used Bcc.',
@@ -1239,7 +1245,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=6'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=7'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1364,7 +1370,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'safe', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'safe', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {

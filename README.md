@@ -298,7 +298,19 @@ outer result incomplete. This does not unpack archives or execute attachments.
 
 Raw input enables these checks:
 
-- SPF, DKIM, and DMARC results from explicitly trusted authentication servers;
+- SPF, DKIM, and DMARC results from explicitly trusted authentication servers.
+  An uploaded `.eml` can also name the mailbox it was downloaded from (currently
+  Gmail). Only the topmost `Authentication-Results` header is then trusted, and
+  only if that service wrote it; headers below it, which a sender can add, are
+  ignored. A trusted DMARC pass for the single From domain, when that domain is
+  an organization's own sending domain in the official-brand registries, marks a
+  **verified official sender**. Consumer mailbox domains such as qq.com, icloud.com
+  or gmail.com never qualify.
+  - Address-shape sender heuristics are then not scored.
+  - The text model or weak rules alone cannot raise the message above
+    "Low Risk — Verified Official Sender".
+  - Lookalike links, dangerous attachments, requests for codes, and other evidence
+    that sets a Medium or higher floor still alert.
 - protected-brand display-name and Unicode/IDN domain impersonation; display
   names use word boundaries to avoid matching ordinary names such as Appleton
   or Pineapple, while retaining detection of spaced, punctuated, and Unicode

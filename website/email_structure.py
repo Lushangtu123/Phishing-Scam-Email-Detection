@@ -100,6 +100,46 @@ def _load_official_brands(paths=_OFFICIAL_BRANDS_PATHS) -> tuple[dict, ...]:
     )
 
 
+# Mailbox services whose own domain anyone can send from: a DMARC pass for these
+# proves only that the sender has an account, not that the brand sent the message.
+_CONSUMER_MAILBOX_DOMAINS = frozenset({
+    "qq.com", "foxmail.com", "163.com", "126.com", "yeah.net", "sina.com", "sohu.com",
+    "icloud.com", "me.com", "mac.com", "gmail.com", "googlemail.com", "outlook.com",
+    "hotmail.com", "live.com", "msn.com", "yahoo.com", "aol.com", "proton.me", "protonmail.com",
+})
+# Per-upload mailbox choice: the receiving service's authserv-id. Only the topmost
+# Authentication-Results header is trusted, because the receiving service prepends it
+# above anything the sender wrote.
+MAILBOX_AUTHSERV_IDS = {"gmail": "mx.google.com"}
+
+
+def _load_official_sender_domains(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, str]:
+    """Official sending domain -> organization name, for a DMARC-verified sender."""
+    domains: dict[str, str] = {}
+    for path in paths:
+        for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]:
+            for domain in (*brand["official_domains"], *brand.get("brand_tlds", ())):
+                domains.setdefault(normalize_domain(domain), brand["name"])
+    return domains
+
+
+def _official_sender(domain: str) -> str | None:
+    """Organization whose official domain (or a subdomain of it) this is; never a consumer mailbox."""
+    if domain in _CONSUMER_MAILBOX_DOMAINS:
+        return None
+    labels = domain.split(".")
+    for index in range(len(labels)):
+        name = _OFFICIAL_SENDER_DOMAINS.get(".".join(labels[index:]))
+        if name:
+            return name
+    return None
+
+
+def _dmarc_header_from(value: str) -> str:
+    match = re.search(r"\bdmarc\s*=\s*pass\b[^;]*?\bheader\.from\s*=\s*\"?([^\s;\"()]+)", value, re.IGNORECASE)
+    return normalize_domain(match.group(1)) if match else ""
+
+
 def _display_name_claims(display_name: str, name: str) -> bool:
     folded = unicodedata.normalize("NFKC", display_name).casefold()
     if name.isascii():
@@ -140,6 +180,7 @@ def normalize_domain(domain: str) -> str:
 
 
 _OFFICIAL_BRANDS = _load_official_brands()
+_OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
 
 
 def _domain(address: str) -> str:
@@ -361,8 +402,14 @@ def analyze_raw_email(
     raw_email: str | bytes,
     *,
     trusted_authserv_ids: set[str] | frozenset[str] | None = None,
+    mailbox_provider: str | None = None,
 ) -> dict:
-    """Return normalized content plus authentication, identity, and attachment signals."""
+    """Return normalized content plus authentication, identity, and attachment signals.
+
+    mailbox_provider names the service the user downloaded this message from
+    (MAILBOX_AUTHSERV_IDS). Then only the topmost Authentication-Results header is
+    trusted, and only when that service wrote it; server-configured IDs are ignored.
+    """
     count = 0
     def bounded_factory(*, policy):
         nonlocal count
@@ -386,7 +433,8 @@ def analyze_raw_email(
         message.set_payload('')
         limited = True
     result = _analyze_message(message, unicode_source=isinstance(raw_email, str),
-                              trusted_authserv_ids=trusted_authserv_ids, depth=0, budget=[20])
+                              trusted_authserv_ids=trusted_authserv_ids, depth=0, budget=[20],
+                              mailbox_provider=mailbox_provider)
     if limited:
         item = indicator('info', 'warning.mime_resource_limit')
         result['parse_warnings'].append(item['msg'])
@@ -438,7 +486,9 @@ def _authentication_results(value: str) -> tuple[str, dict[str, str], bool]:
     return authserv_id, results, bool(identity) and complete
 
 
-def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, budget):
+def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, budget, mailbox_provider=None):
+    # Attached (nested) messages are analyzed without a mailbox: their headers were
+    # never stamped by the user's receiving service.
     plain, html, attachments, parse_warnings, content_parts = _message_text(message, unicode_source=unicode_source)
     header_candidates = {
         name: []
@@ -575,9 +625,16 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         if value.strip()
     }
     auth_results: dict[str, str] = {}
+    dmarc_header_from = ""
     untrusted_authentication_claims = []
-    for auth_header in message.get_all("Authentication-Results", []):
+    mailbox_authserv_id = MAILBOX_AUTHSERV_IDS.get(mailbox_provider or "")
+    if mailbox_authserv_id:
+        trusted_ids = {mailbox_authserv_id}
+    for position, auth_header in enumerate(message.get_all("Authentication-Results", [])):
         authserv_id, claimed_results, auth_complete = _authentication_results(str(auth_header))
+        # With a named mailbox, a header below the topmost one was written by someone
+        # else (often the sender), whatever service it claims to be.
+        trusted_header = authserv_id in trusted_ids and not (mailbox_authserv_id and position)
         if not auth_complete:
             warning = message_text('warning.auth_results_incomplete')
             if warning not in parse_warnings:
@@ -585,8 +642,9 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 indicators.append(indicator('info', 'warning.auth_results_incomplete'))
             # Incomplete claims cannot confer a trusted pass.
             claimed_results = {key: value for key, value in claimed_results.items() if value != 'pass'}
-        if claimed_results and authserv_id in trusted_ids and not auth_results:
+        if claimed_results and trusted_header and not auth_results:
             auth_results = claimed_results
+            dmarc_header_from = _dmarc_header_from(str(auth_header))
         elif claimed_results:
             untrusted_authentication_claims.append({
                 "authserv_id": authserv_id,
@@ -610,6 +668,19 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         score += 2
         indicators.append(indicator('medium', 'structure.auth_partial_failure',
                                     mechanisms=", ".join(sorted(failures)).upper()))
+
+    # A trusted DMARC pass for the single From domain, which is an organization's own
+    # sending domain, verifies the sender. It says nothing about links or requests,
+    # which are still scored.
+    verified_official_sender = None
+    if dmarc_passes and not decisive_failure and len(from_domains) == 1:
+        from_domain = next(iter(from_domains))
+        if from_domain == dmarc_header_from:
+            organization = _official_sender(from_domain)
+            if organization:
+                verified_official_sender = {"organization": organization, "domain": from_domain}
+                indicators.append(indicator('info', 'structure.verified_official_sender',
+                                            organization=organization, domain=from_domain))
 
     for attachment in attachments:
         suffix = PurePath(attachment["filename"]).suffix.lower()
@@ -637,6 +708,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "return_path": next(iter(header_candidates['Return-Path']), ''),
         "auth_results": auth_results,
         "authentication_trusted": dmarc_passes,
+        "verified_official_sender": verified_official_sender,
         "authentication_results_trusted": bool(auth_results),
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,

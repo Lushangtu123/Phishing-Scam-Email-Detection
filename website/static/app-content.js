@@ -44,6 +44,19 @@ function invalidateContent() {
   setError('content-error');
 }
 
+// The mailbox choice applies only to an .eml file; images and pasted text have no
+// receiving-service authentication header to trust.
+function setMailboxOptions(file) {
+  const eml = !!file && (/\.eml$/i.test(file.name) || file.type === 'message/rfc822');
+  document.getElementById('content-mailbox-options').hidden = !eml;
+  if (!eml) document.getElementById('content-mailbox').value = '';
+}
+
+function mailboxChoice() {
+  const options = document.getElementById('content-mailbox-options');
+  return options.hidden ? '' : document.getElementById('content-mailbox').value;
+}
+
 function clearRawEmail() {
   _rawReadId++;
   _rawReadPending = false;
@@ -55,6 +68,7 @@ function clearRawEmail() {
   if (semantics) { semantics.checked = false; semantics.disabled = true; }
   window.PhishGuardVision?.cancel();
   document.getElementById('raw-email-file').value = '';
+  setMailboxOptions(null);
   setRawStatus('');
   ['content-subject', 'content-body'].forEach(id => {
     document.getElementById(id).disabled = false;
@@ -79,6 +93,7 @@ function setupInputEvents() {
     invalidateContent();
   });
   document.getElementById('content-image-understanding')?.addEventListener('change', invalidateContent);
+  document.getElementById('content-mailbox').addEventListener('change', invalidateContent);
   const rawInput = document.getElementById('raw-email-file');
   if (rawInput) {
     rawInput.addEventListener('change', async event => {
@@ -114,6 +129,7 @@ function setupInputEvents() {
         }
         _rawEmailSource = source;
         _visualFile = file || null;
+        setMailboxOptions(file);
         refreshEnhancedOptions();
         setRawStatus(file ? { key: 'content.file.loaded', params: { name: file.name } } : '');
       } catch (_error) {
@@ -262,10 +278,12 @@ async function runContentAnalysis() {
       });
       if (requestId !== _contentRequestId) return;
       recognitionPayload = payload;
-      data = await postJSON('/api/analyze-visual', payload, request);
+      const mailbox = mailboxChoice();
+      data = await postJSON('/api/analyze-visual', payload.eml_base64 && mailbox ? {...payload, mailbox} : payload, request);
     } else {
       data = _rawEmailSource
-        ? await postRequest('/api/analyze-eml', _rawEmailSource, 'message/rfc822', request)
+        ? await postRequest('/api/analyze-eml' + (mailboxChoice() ? `?mailbox=${encodeURIComponent(mailboxChoice())}` : ''),
+          _rawEmailSource, 'message/rfc822', request)
         : await postJSON('/api/analyze-content', buildContentPayload(subject, body, ''), request);
     }
     if (requestId !== _contentRequestId) return;

@@ -74,6 +74,7 @@
   "link.credential_collection_host": "Link destination ({host}) combines credential and collection wording.",
   "link.sensitive_host": "Link destination ({host}) uses account-related wording on an unrecognized domain; this alone does not establish phishing.",
 
+  "structure.verified_official_sender": "Verified sender: a trusted DMARC pass shows this message came from {organization}'s own domain ({domain}). Its links and requests are still checked.",
   "structure.brand_display_name": "Protected brand identity '{brand}' is displayed from an unrelated domain ({domain}).",
   "structure.idn_sender_domain": "Sender domain ({domain}) is a Unicode/IDN confusable for {brand}.",
   "structure.no_visible_recipient": "No visible To or Cc recipient is present; the message may have used Bcc.",

@@ -12,8 +12,8 @@
     "sha256": "67ef8bbe80f0b86907370df242236c5687e9d079db937085c000afc13f6e6804"
   },
   "app-content.js": {
-    "version": "3",
-    "sha256": "cd517240e3a48d057cdfd3a6a1acb29cc59de33468388489159067aab19e587e"
+    "version": "4",
+    "sha256": "c8fc3340ce79be14f6c8a8f161d29d216f66dbfb418f3320b34493ae070e693e"
   },
   "app-core.js": {
     "version": "5",
@@ -72,16 +72,16 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "6",
-    "sha256": "ea4a24a8d762493a54a6340c4ac282ea70c920d51ffd8349616069c8a0d194fe"
+    "version": "7",
+    "sha256": "4f06a7e1a9f892afee50f19dcc82a6d46e9eb756b4a554781f58f6b89aabbd44"
   },
   "i18n.js": {
-    "version": "13",
-    "sha256": "61058bafdf02c9c2421e9defbd6c7484571cef16428dc68f8d08c89d76320c0b"
+    "version": "15",
+    "sha256": "cb9d9fb4ed756e006e298f93e2bd0b55499617b4dbd61a3f653d87bff7015f3c"
   },
   "lang-init.js": {
-    "version": "8",
-    "sha256": "85e8628d791d4dc054058d8c6b0a0e7fc2c917d3478cc236cd02528de280bad1"
+    "version": "9",
+    "sha256": "82f8d5671262a7ec62cdf2b68e7c9789ceb715f820940bc193e56f4657f1ceb8"
   },
   "request.js": {
     "version": "1",

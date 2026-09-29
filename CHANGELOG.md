@@ -20,6 +20,43 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 23:30 PT] — Verified official sender: trust the topmost Gmail authentication header on request
+
+### Why
+- Genuine brand notices are flagged largely by the text model (69% of UniqueData).
+- Production trusted no `Authentication-Results` header, so even a DMARC-passing PayPal receipt scored High.
+- The user chose:
+  - a per-upload mailbox dropdown;
+  - downgrading only weak signals;
+  - Gmail first.
+
+### Files changed
+- `website/email_structure.py`:
+  - `analyze_raw_email(..., mailbox_provider=)` trusts only the topmost `Authentication-Results` header from that service (`MAILBOX_AUTHSERV_IDS`) and reads the DMARC `header.from`;
+  - `verified_official_sender` requires an aligned single From domain that is an official registry domain and not a consumer mailbox;
+  - attached messages never get a mailbox.
+- `website/app.py`:
+  - `/api/analyze-eml?mailbox=` is validated and read safely from minimal scopes;
+  - the visual path passes the mailbox;
+  - a verified sender skips sender-heuristic scoring;
+  - with a Safe or Low floor, a Medium or High result becomes "Low Risk — Verified Official Sender".
+- `website/visual_evidence.py` — `VisualRequest.mailbox` accepts `''` or `'gmail'`.
+- `website/static/index.html`, `website/static/app-content.js` — a mailbox dropdown shown only after an `.eml` file is chosen, defaulting to "not trusted", sent with the upload.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`:
+  - `structure.verified_official_sender`;
+  - `content.riskLabel.lowVerified`;
+  - dropdown strings in English and Chinese.
+  - Asset versions were bumped by the updater.
+- `website/tests/test_verified_official_sender.py` — trust, forgery, alignment, consumer domains, failure, downgrade, strong evidence, validation.
+- `README.md`, `docs/evaluation.md` — behaviour and limits.
+
+### Effect
+- Without a mailbox choice nothing changes: the default is "not trusted".
+- With Gmail chosen, a DMARC-verified official sender's model-only or weak-rule alert becomes Low, while strong evidence still alerts.
+- Analyzed as if from Gmail, 1,153 raw Nazario phishing messages produce 0 trusted passes and 0 verified senders.
+- The false-alert reduction still needs real Gmail downloads to measure.
+- The model is unchanged.
+
 ## [2026-09-29 21:30 PT] — Flag requests to hand over codes, secrets, gift cards, crypto or remote access
 
 ### Why

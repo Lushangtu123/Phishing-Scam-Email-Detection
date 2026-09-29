@@ -1364,6 +1364,51 @@ credential phishing. The gift-card, crypto and remote-access kinds had no corpus
 hits and are covered by constructed tests only; collected real scam samples are
 needed to measure them.
 
+### Verified official sender with a named mailbox (2026-09-29)
+
+The largest remaining false-alert source is the text model on genuine account,
+security and billing notices: 69% of UniqueData. A real PayPal receipt with a
+passing DMARC check still scored High, because production trusts no
+`Authentication-Results` header by default.
+
+**Change:**
+
+- An `.eml` upload may name its mailbox: a page dropdown shown only for `.eml`
+  files, the `mailbox` field of `/api/analyze-visual`, or `?mailbox=` on
+  `/api/analyze-eml`. The only value for now is `gmail`, meaning `mx.google.com`.
+- With a mailbox named, only the topmost `Authentication-Results` header counts,
+  and only when that service wrote it. Server-configured IDs are ignored.
+  Attached messages never get a mailbox.
+- A trusted DMARC pass counts as verification only when all of these hold:
+  - there is no decisive failure;
+  - there is exactly one From domain;
+  - the DMARC `header.from` equals that domain;
+  - the domain, or a parent of it, is an official domain in the registries;
+  - it is not a consumer mailbox domain.
+- A verified sender is marked `structure.verified_official_sender`, and its sender
+  heuristics are not scored. With a Safe or Low floor, a Medium or High result
+  becomes "Low Risk — Verified Official Sender". Floors of Medium or higher and
+  Critical results are unchanged.
+- Outlook is not supported yet. Its header format needs to be confirmed on a
+  real downloaded message first.
+
+**Checks:**
+
+- Unit tests cover:
+  - a verified receipt that becomes Low;
+  - a forged `mx.google.com` header below another service's header being ignored;
+  - misaligned `header.from`, qq.com and icloud.com senders, DMARC failure, and
+    an attacker domain;
+  - lookalike links and code requests from a verified sender still alerting;
+  - `mailbox` validation.
+- Worst case, a user wrongly choosing Gmail: all 1,153 raw Nazario 2023–25
+  phishing messages were received by hostedemail.com, so none had a trusted pass
+  or a verified sender.
+
+**Limit:** no real Gmail-downloaded genuine notices were available, so the
+false-alert reduction is shown only on a constructed receipt. It needs measuring
+on consented Gmail downloads imported with `import_own_mailbox.py`.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

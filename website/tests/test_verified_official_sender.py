@@ -1,0 +1,123 @@
+import asyncio
+import json
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from fastapi import HTTPException
+from pydantic import ValidationError
+
+WEBSITE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(WEBSITE_DIR))
+
+import app  # noqa: E402
+from content_inference import load_content_pipeline_artifact  # noqa: E402
+from email_structure import analyze_raw_email  # noqa: E402
+from visual_evidence import VisualRequest  # noqa: E402
+
+GMAIL_PASS = ('Authentication-Results: mx.google.com;\r\n'
+              '       dkim=pass header.i=@{domain} header.s=s1;\r\n'
+              '       spf=pass (google.com: domain of bounce@{domain} designates 192.0.2.1 as permitted sender)'
+              ' smtp.mailfrom=bounce@{domain};\r\n'
+              '       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from={header_from}\r\n')
+RECEIPT = 'You sent a payment of $29.99 USD to Netflix. View the transaction details in your account.'
+
+
+def message(sender='service@paypal.com', *, auth=None, domain='paypal.com', header_from=None, body=RECEIPT,
+            html=False):
+    auth = GMAIL_PASS.format(domain=domain, header_from=header_from or domain) if auth is None else auth
+    content_type = 'text/html; charset=utf-8' if html else 'text/plain; charset=utf-8'
+    return (auth + f'From: PayPal <{sender}>\r\nTo: user@example.com\r\nSubject: Receipt for your payment\r\n'
+            f'MIME-Version: 1.0\r\nContent-Type: {content_type}\r\n\r\n{body}\r\n').encode()
+
+
+def verified(raw, mailbox='gmail'):
+    return analyze_raw_email(raw, mailbox_provider=mailbox)['verified_official_sender']
+
+
+class VerifiedOfficialSenderTests(unittest.TestCase):
+    def test_topmost_gmail_dmarc_pass_on_an_official_domain_verifies_the_sender(self):
+        self.assertEqual(verified(message()), {'organization': 'PayPal', 'domain': 'paypal.com'})
+        self.assertEqual(verified(message('alerts@notify.wellsfargo.com', domain='notify.wellsfargo.com')),
+                         {'organization': 'Wells Fargo', 'domain': 'notify.wellsfargo.com'})
+        structure = analyze_raw_email(message(), mailbox_provider='gmail')
+        self.assertIn('structure.verified_official_sender', [item['code'] for item in structure['indicators']])
+
+    def test_nothing_is_trusted_without_a_named_mailbox(self):
+        self.assertIsNone(verified(message(), mailbox=None))
+        self.assertIsNone(verified(message(), mailbox='yahoo'))
+
+    def test_a_forged_gmail_header_below_the_receiving_services_header_is_ignored(self):
+        forged = ('Authentication-Results: mx.other-provider.example; none\r\n'
+                  + GMAIL_PASS.format(domain='paypal.com', header_from='paypal.com'))
+        structure = analyze_raw_email(message(auth=forged), mailbox_provider='gmail')
+        self.assertIsNone(structure['verified_official_sender'])
+        self.assertEqual(structure['auth_results'], {})
+        self.assertTrue(structure['untrusted_authentication_claims'])
+
+    def test_misaligned_consumer_or_failing_senders_are_not_verified(self):
+        self.assertIsNone(verified(message(header_from='evil.example')))
+        self.assertIsNone(verified(message('someone@qq.com', domain='qq.com')))
+        self.assertIsNone(verified(message('someone@icloud.com', domain='icloud.com')))
+        self.assertIsNone(verified(message('billing@paypal-help.top', domain='paypal-help.top')))
+        failing = ('Authentication-Results: mx.google.com; dkim=fail header.i=@paypal.com; '
+                   'spf=fail smtp.mailfrom=paypal.com; dmarc=fail header.from=paypal.com\r\n')
+        structure = analyze_raw_email(message(auth=failing), mailbox_provider='gmail')
+        self.assertIsNone(structure['verified_official_sender'])
+        self.assertIn('structure.auth_failed', [item['code'] for item in structure['indicators']])
+
+
+class VerifiedSenderRiskTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        profile = json.loads((WEBSITE_DIR.parent / 'vercel.json').read_text())['env']
+        cls.pipeline = load_content_pipeline_artifact(WEBSITE_DIR.parent / profile['CONTENT_MODEL_ARTIFACT'],
+                                                      profile['CONTENT_MODEL_ARTIFACT_SHA256'])
+
+    def analyze(self, raw, mailbox='gmail'):
+        structure = analyze_raw_email(raw, mailbox_provider=mailbox)
+        with patch.object(app, '_content_pipeline', self.pipeline):
+            return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), structure)).body)
+
+    def test_model_led_alert_on_a_verified_official_receipt_becomes_low(self):
+        unverified = self.analyze(message(), mailbox=None)
+        self.assertIn(unverified['risk_level'], {'medium', 'high'})
+        result = self.analyze(message())
+        self.assertEqual(result['risk_level'], 'low')
+        self.assertEqual(result['risk_label'], 'Low Risk — Verified Official Sender')
+        self.assertEqual(result['verified_official_sender']['organization'], 'PayPal')
+        self.assertEqual(result['sender_score'], 0)
+
+    def test_strong_evidence_still_alerts_for_a_verified_sender(self):
+        lookalike = self.analyze(message(html=True, body='<p>Review your payment.</p>'
+                                         '<a href="https://paypal.com.account-review.top/login">Open</a>'))
+        self.assertIn(lookalike['risk_level'], {'high', 'critical'})
+        code_request = self.analyze(message(body='Reply to this email with the 6-digit verification code we sent.'))
+        self.assertIn(code_request['risk_level'], {'high', 'critical'})
+
+    def test_mailbox_parameter_is_validated(self):
+        self.assertEqual(VisualRequest(mailbox='gmail').mailbox, 'gmail')
+        with self.assertRaises(ValidationError):
+            VisualRequest(mailbox='yahoo')
+
+        def upload(query):
+            chunks = iter([message()])
+
+            async def receive():
+                chunk = next(chunks, None)
+                return {'type': 'http.request', 'body': chunk or b'', 'more_body': chunk is not None}
+            request = app.Request({'type': 'http', 'query_string': query,
+                                   'headers': [(b'content-type', b'message/rfc822')]}, receive)
+            with patch.object(app, '_content_pipeline', self.pipeline):
+                return json.loads(asyncio.run(app.analyze_eml_endpoint(request)).body)
+
+        with self.assertRaises(HTTPException) as caught:
+            upload(b'mailbox=yahoo')
+        self.assertEqual(caught.exception.status_code, 400)
+        self.assertEqual(upload(b'mailbox=gmail')['risk_label'], 'Low Risk — Verified Official Sender')
+        self.assertIsNone(upload(b'')['verified_official_sender'])
+
+
+if __name__ == '__main__':
+    unittest.main()
