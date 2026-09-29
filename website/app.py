@@ -2372,6 +2372,91 @@ def _has_pressured_credential_request(text: str) -> bool:
     return False
 
 
+# What an email asks the reader to hand over. Genuine one-time-code emails say
+# "enter this code"; asking the reader to send, reply with, share or read out a
+# code, secret or payment is what official organizations say they never do.
+_SENSITIVE_REQUEST_VERB = (r"(?:reply(?:\s+(?:back|to\s+(?:this\s+|our\s+)?(?:email|message|mail|text|us|me)))?\s+with"
+                           r"|send(?:\s+(?:us|me|it|them|back))?|share|provide|give|tell|read(?:\s+(?:it|them))?\s+(?:out|back)"
+                           # "email"/"text" alone are nouns ("email password"); only "email us", "text me" ask.
+                           r"|forward|text\s+(?:us|me|back)|email\s+(?:us|me))")
+# An optional recipient ("give the agent …", "tell our officer …") before the object.
+_SENSITIVE_REQUEST_RECIPIENT = (r"(?:(?:to\s+)?(?:the|our|this|a|your)?\s*(?:agent|caller|officer|representative|technician|"
+                                r"support(?:\s+team)?|team|advisor|specialist|us|me)\s+)?")
+_SENSITIVE_REQUEST_DETERMINERS = r"(?:(?:your|the|this|that|these|those|all|both|two|three|a|an|new|received)\s+){0,3}"
+_CODE_MODIFIER = (r"(?:\d[\s-]?digit|verification|security|confirmation|authentication|authorization|sign[\s-]?in|log[\s-]?in"
+                  r"|access|sms|text|otp|2fa|two[\s-]?factor|one[\s-]?time)")
+_SENSITIVE_REQUEST_OBJECTS = {
+    'one_time_code': r"(?:(?:" + _CODE_MODIFIER + r"\s+){1,2}(?:pass)?codes?|one[\s-]?time\s+pass(?:code|word)s?|otps?)",
+    'password_pin': r"(?:(?:online\s+banking\s+|account\s+|email\s+)?password|passcodes?|(?:card\s+|atm\s+)?pin(?:\s+(?:code|number))?)(?!\s+(?:change|reset|update)\b)",
+    'recovery_secret': r"(?:(?:backup|recovery)(?:\s+(?:backup|recovery))?\s+(?:codes?|keys?|phrases?)|(?:seed|secret|recovery|mnemonic)\s+phrases?|private\s+keys?)",
+    # A gift card by itself is retail; its number, code or PIN is what a scam collects.
+    'gift_card': r"(?:gift\s*cards?|itunes\s+cards?|steam\s+cards?|google\s+play\s+cards?)\s+(?:numbers?|codes?|pins?|claim\s+codes?|details|photos?|pictures?)",
+}
+_SENSITIVE_REQUEST_EN = {
+    kind: re.compile(r"\b" + _SENSITIVE_REQUEST_VERB + r"\s+" + _SENSITIVE_REQUEST_RECIPIENT + _SENSITIVE_REQUEST_DETERMINERS + obj + r"\b",
+                     re.IGNORECASE)
+    for kind, obj in _SENSITIVE_REQUEST_OBJECTS.items()
+}
+# Paying or buying with gift cards is ordinary retail ("pay with your gift card
+# balance"); it becomes a scam signal when the reader must then hand the cards over.
+_SENSITIVE_REQUEST_EN['gift_card_payment'] = re.compile(
+    r"\b(?:pay(?:\s+(?:\w+\s+){0,3}?(?:with|using|via|in))?|buy|purchase)\s+(?:(?:some|a|an|the|two|three|several|\$?\d+)\s+)?(?:\w+\s+)?"
+    r"(?:gift\s*cards?|itunes\s+cards?|steam\s+cards?|google\s+play\s+cards?)"
+    r"(?![^.!?;\n]*\b(?:friends?|family|loved\s+ones?|recipients?|someone\s+special)\b)"  # gifting, not paying
+    r"[^.!?;\n]{0,80}\b(?:send|reply|provide|give|text|email|share|scratch|photos?|pictures?|claim\s+codes?|card\s+numbers?)",
+    re.IGNORECASE)
+_SENSITIVE_REQUEST_EN['crypto_transfer'] = re.compile(
+    r"\b(?:move|transfer|send)\s+(?:(?:all\s+)?(?:your|the)\s+)?(?:funds|money|savings|crypto(?:currency)?|bitcoin|btc|usdt|eth(?:ereum)?|coins|assets|balance)\s+"
+    r"(?:\w+\s+){0,3}?to\s+(?:a|an|the|this|our|your)?\s*(?:(?:new|secure|safe|protected|verified|holding|temporary)\s+){1,2}(?:wallet|address|account|vault)\b",
+    re.IGNORECASE)
+_SENSITIVE_REQUEST_EN['remote_access'] = re.compile(
+    r"\b(?:download|install|open|run|launch)\s+(?:the\s+)?(?:anydesk|teamviewer|ultraviewer|rustdesk|quick\s*assist|screenconnect|logmein|supremo)\b",
+    re.IGNORECASE)
+_SENSITIVE_REQUEST_ZH = {
+    'one_time_code': re.compile(r"(?:回复|发送|发给|提供|告知|告诉|报给|转发|念给|读给|说出)(?:[^，。！？；,.!?;]{0,8})(?:验证码|校验码|动态码|动态口令|短信码)"
+                                r"|(?:将|把)(?:[^，。！？；,.!?;]{0,8})(?:验证码|校验码|动态码|动态口令|短信码)(?:[^，。！？；,.!?;]{0,4})(?:回复|发送|发给|告知|告诉|提供|报给|转发)"),
+    'password_pin': re.compile(r"(?:回复|发送|发给|提供|告知|告诉|报给|转发|说出)(?:[^，。！？；,.!?;]{0,8})(?:支付密码|取款密码|登录密码|银行卡密码|交易密码|密码)"
+                               r"|(?:将|把)(?:[^，。！？；,.!?;]{0,8})(?:支付密码|取款密码|登录密码|银行卡密码|交易密码|密码)(?:[^，。！？；,.!?;]{0,4})(?:回复|发送|发给|告知|告诉|提供|报给)"),
+    'recovery_secret': re.compile(r"(?:回复|发送|发给|提供|告知|告诉|说出)(?:[^，。！？；,.!?;]{0,8})(?:助记词|私钥|恢复码)"),
+    'gift_card': re.compile(r"(?:回复|发送|发给|提供|告知|拍照)(?:[^，。！？；,.!?;]{0,8})(?:礼品卡|购物卡|充值卡)(?:[^，。！？；,.!?;]{0,4})(?:卡号|卡密|密码|兑换码)|(?:回复|发送|发给|提供|告知)(?:[^，。！？；,.!?;]{0,6})卡密"),
+    'crypto_transfer': re.compile(r"(?:转账|转入|汇入|转移)(?:[^，。！？；,.!?;]{0,10})(?:安全账户|安全帐户|新钱包)"),
+    'remote_access': re.compile(r"(?:下载|安装|打开)(?:[^，。！？；,.!?;]{0,6})(?:远程控制|向日葵|anydesk|teamviewer|会议软件)|共享屏幕|屏幕共享", re.IGNORECASE),
+}
+_SENSITIVE_REQUEST_NEGATION = re.compile(
+    r"(?:\b(?:never|not|don['’]?t|do\s+not|won['’]?t|will\s+not|must\s+not|should\s+not|shouldn['’]?t|no\s+one|nobody|anyone\s+who|if\s+(?:someone|anyone|somebody|a\s+caller|they)"
+    r"|asks?\s+you\s+to|asked\s+(?:you\s+)?to|requests?\s+(?:you\s+)?to|scammers?|fraudsters?|criminals?)\b"
+    r"|不会|不要|切勿|请勿|勿|千万别|千万不要|绝不|绝对不|不得|严禁|任何人|凡是|如果有人|若有人|谨防|警惕|骗子)", re.IGNORECASE)
+_SENSITIVE_REQUEST_CODES = {
+    'one_time_code': 'content.sensitive_request.one_time_code',
+    'password_pin': 'content.sensitive_request.password_pin',
+    'recovery_secret': 'content.sensitive_request.recovery_secret',
+    'gift_card': 'content.sensitive_request.gift_card',
+    'gift_card_payment': 'content.sensitive_request.gift_card',
+    'crypto_transfer': 'content.sensitive_request.crypto_transfer',
+    'remote_access': 'content.sensitive_request.remote_access',
+}
+
+
+def _sensitive_requests(text: str) -> list[str]:
+    """Message codes for requests to hand over codes, secrets, gift cards, crypto or remote access.
+
+    A request counts only when the same clause does not negate it or attribute it to
+    someone else ("never share this code", "if anyone asks you to send…", "请勿告知他人").
+    """
+    found: list[str] = []
+    for patterns in (_SENSITIVE_REQUEST_EN, _SENSITIVE_REQUEST_ZH):
+        for kind, pattern in patterns.items():
+            code = _SENSITIVE_REQUEST_CODES[kind]
+            if code in found:
+                continue
+            for match in pattern.finditer(text):
+                clause = re.split(r"[.!?;。！？；\n]", text[max(0, match.start() - 120):match.start()])[-1]
+                if not _SENSITIVE_REQUEST_NEGATION.search(clause):
+                    found.append(code)
+                    break
+    return found
+
+
 def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
                           _model_view: dict | None = None) -> dict:
     """Rule-based heuristic phishing analysis of email subject + body text."""
@@ -2566,6 +2651,14 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.pressured_credential_request'))
+
+    # Requests to hand over one-time codes, secrets, gift cards, crypto or remote
+    # access: one strong signal however many kinds appear, each kind listed.
+    sensitive_requests = _sensitive_requests(analysis_text)
+    if sensitive_requests:
+        total_score += 4
+        risk_floor = 'high'
+        extra_indicators.extend(indicator('high', code) for code in sensitive_requests)
 
     # ── Structural & heuristic checks ────────────────────────────────────────
 

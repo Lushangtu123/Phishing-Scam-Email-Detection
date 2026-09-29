@@ -1323,6 +1323,47 @@ false-positive side is shown only on unrelated legitimate mail. Brand
 notifications sent through third-party services not listed as official would
 be flagged. Real notices collected with `import_own_mailbox.py` are the check.
 
+### Sensitive-request rule (2026-09-29)
+
+`_sensitive_requests` looks for a verb that asks the reader to hand something over
+(reply with, send, share, provide, give, tell, read out, forward, text us, email
+us; 回复, 发送, 提供, 告知, 将…回复给). The object must be one of:
+
+- a one-time code;
+- a password or PIN;
+- a recovery secret;
+- gift card numbers;
+- a transfer to a "new" or "safe" wallet or account;
+- remote-access software.
+
+A negation or third-party framing earlier in the same clause cancels it (never,
+don't, if anyone asks you to, scammers, 请勿, 任何人). Each kind has its own
+message code. The rule adds +4 and a High floor.
+
+A 35-case table fixes the behaviour. It covers genuine Apple and Amazon code
+emails, "never share this code", retail and gifting gift-card offers, "email
+password" as a noun phrase, and "Pay with your Amazon gift card balance".
+
+Two design errors surfaced during evaluation and were fixed before commit:
+
+- "Buy a gift card for Mother's Day" matched until gift cards required a
+  hand-over (send, photo, number or code).
+- Bare "email" and "text" were read as verbs, so "Email Password Expiration"
+  matched 21 Nazario messages. They now require "email us" or "text me".
+
+| Cohort | Messages with a hit | Alerts before → after |
+|---|---|---|
+| Nazario 2023–25 phishing (1,239) | 1 (password) | 1,144 → 1,144 (1 High→Critical) |
+| DiFraud phishing / legitimate | 4 / 6,074 · 0 / 9,198 | — (rule only) |
+| PhishFuzzer phishing / legitimate (seeds and LLM variants) | 4 / 6,859 · 0 / 6,702 | — (rule only) |
+| Apache 2025 list mail · UniqueData · templates · Marketing-Emails (legitimate) | 0 / 5,054 · 0 / 57 · 0 / 10 · 0 / 16,440 | unchanged |
+
+All 8 corpus hits are phishing, with 0 hits on roughly 37,000 legitimate
+messages. Coverage is low because these corpora are dominated by link-based
+credential phishing. The gift-card, crypto and remote-access kinds had no corpus
+hits and are covered by constructed tests only; collected real scam samples are
+needed to measure them.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

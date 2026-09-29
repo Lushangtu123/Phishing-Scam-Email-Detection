@@ -412,6 +412,23 @@ credential request establishes a high-risk floor. Direct negations and ordinary
 password-reset notices have negative-control tests; this is not full natural-language
 understanding and does not eliminate false positives or false negatives.
 
+An English and Chinese rule flags requests to **hand over** something official
+organizations never ask for by email, whatever the urgency:
+- one-time or verification codes (sent, replied, read out);
+- passwords or PINs;
+- backup codes, seed phrases or private keys;
+- gift card numbers, or gift cards as payment that must then be sent;
+- moving funds or crypto to a "new" or "safe" wallet or account;
+- installing remote-access software or sharing the screen.
+
+The rule adds one High-floor signal and lists each kind as its own indicator. It
+does not flag:
+- genuine code emails ("enter this code on the sign-in page");
+- reminders ("never share this code", 请勿告知他人);
+- warnings quoting scammers ("if anyone asks you to…");
+- retail gift cards;
+- noun phrases such as "email password".
+
 The default content rules are English-oriented. The optional model now has a
 dated Spanish holdout, but that single corpus is not representative of Gmail,
 Outlook, Chinese-language mail, or organization-specific traffic. Pure-text

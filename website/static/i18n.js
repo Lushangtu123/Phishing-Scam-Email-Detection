@@ -788,6 +788,12 @@ window.PhishGuardI18n = (() => {
     'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
     'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
+    'server.content.sensitive_request.one_time_code': "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
+    'server.content.sensitive_request.password_pin': "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
+    'server.content.sensitive_request.recovery_secret': "Asks for backup codes, a recovery or seed phrase, or a private key; anyone with these can take over the account or wallet.",
+    'server.content.sensitive_request.gift_card': "Asks you to buy gift cards or send their numbers; gift cards are a common scam payment method.",
+    'server.content.sensitive_request.crypto_transfer': "Asks you to move funds or crypto to a 'new', 'safe' or 'secure' wallet or account; no bank or exchange asks this.",
+    'server.content.sensitive_request.remote_access': "Asks you to install remote-access software or share your screen; this lets someone control your device.",
     'server.content.shortened_urls': 'Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain',
     'server.content.exclamation_marks': 'Excessive exclamation marks ({count}) — emotional manipulation tactic common in scam emails',
     'server.content.capitalization': 'Excessive capitalization ({percent}% uppercase) — used to simulate alarm and urgency',
@@ -1233,7 +1239,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=5'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=6'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

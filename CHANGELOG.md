@@ -20,6 +20,37 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-29 21:30 PT] — Flag requests to hand over codes, secrets, gift cards, crypto or remote access
+
+### Why
+- Rules only detected mentions of these items, and "gift card" missed plurals. On a probe:
+  - "reply with the 6-digit verification code" scored 1;
+  - "send your backup recovery codes and buy gift cards" scored 1;
+  - both relied on the model alone.
+- Official organizations state they never ask for these by email (see the official-brand registries).
+
+### Files changed
+- `website/app.py` — `_sensitive_requests` covers English and Chinese hand-over requests of six kinds:
+  - one-time codes;
+  - passwords and PINs;
+  - recovery secrets;
+  - gift cards;
+  - crypto or safe-account transfers;
+  - remote access.
+- A negation or third-party framing in the same clause cancels a request. The rule adds +4 and a High floor, with one indicator per kind.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — six `content.sensitive_request.*` messages in English and Chinese. Asset versions were bumped by the updater, including in `index.html`, `cases.html`, `404.html`, `lang-init.js` and the manifest.
+- `website/tests/test_sensitive_requests.py`:
+  - a 35-case positive and negative table;
+  - one code per kind;
+  - an end-to-end signal check.
+- `README.md`, `docs/evaluation.md` — rule description and evaluation.
+
+### Effect
+- Across roughly 37,000 legitimate messages (Apache, UniqueData, templates, DiFraud, PhishFuzzer, Marketing-Emails): 0 hits.
+- Across about 14,000 phishing texts: 9 hits, all phishing. One Nazario message moves from High to Critical, and alerts are unchanged.
+- Coverage on these link-dominated corpora is low; the gift-card, crypto and remote-access kinds are shown by constructed tests only.
+- The model is unchanged.
+
 ## [2026-09-29 19:30 PT] — US and international official-brand registry: +7 phishing alerts, no new false alerts
 
 ### Why
