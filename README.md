@@ -337,15 +337,17 @@ Raw input enables these checks:
     - the address is a registered relay address (`relay_addresses`):
       `notifications@github.com`, Google Drive/Docs/Groups/Calendar sharing
       addresses, or Docusign envelope senders (`dse*@docusign.net`).
-  - Besides the phishing-target brands, the international registry lists 26
+  - Besides the phishing-target brands, the international registry lists 27
     services (`display_check: sender_only`): GitHub, Dropbox, Crunchyroll, Slack,
     Canva, Duolingo, Asana, Atlassian (`id.atlassian.com` only), Coursera, EA,
     Figma, GitLab, SoundCloud, Tumblr, Ubisoft, Spotify, Bluesky (`bsky.social`),
-    Vimeo, Notion, Box, Netlify, Reddit, Pinterest, Steam, Zoom and Quora.
-    Cloudflare and Adobe are left out on purpose. A user reported fully
+    Vimeo, Notion, Box, Netlify, Reddit, Pinterest, Steam, Zoom, Quora and
+    LinkedIn (member messages from `messages-noreply@linkedin.com` are relays).
+    Cloudflare, Adobe and AliExpress are left out on purpose. A user reported fully
     authenticated phishing sent through `notify.cloudflare.com`. Adobe's sending
     domains are not listed on an official page, and its share and signature
-    notices are widely abused. Each entry records the
+    notices are widely abused. AliExpress has no official page listing its sending
+    domains, and its seller messages are relayed. Each entry records the
     official pages read in `domain_sources`. These entries verify senders only:
     they add no display-name impersonation matches. When such a service's own mail
     is only incompletely analyzed (hidden or client-specific text, image fallback

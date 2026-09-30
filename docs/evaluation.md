@@ -1408,6 +1408,23 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### LinkedIn added to the service registry (2026-10-01)
+
+LinkedIn's help center names `cs.linkedin.com`, `e.linkedin.com` and
+`el.linkedin.com` senders as genuine and says LinkedIn signs its mail for DMARC.
+`linkedin.com` is registered as a `sender_only` service. Member messages arrive
+from `messages-noreply@linkedin.com`, so that address is a relay.
+
+- 92 genuine downloads: undetermined 15 → 11. Four LinkedIn messages (PINs, a
+  password reset, a job-seeking notice) are now Low. The two Trust & Safety
+  notices from `messages-noreply@linkedin.com` stay undetermined by design.
+- 11 Nazario phishing messages with LinkedIn in the From header: none verified,
+  all still alert.
+
+AliExpress (2 undetermined, 2 Medium in the same export) was left out. No
+official page lists its sending domains, and seller messages reach buyers
+through it, the pattern already seen with PayPal invoices.
+
 ### Before and after this series, and the mailbox nudge (2026-10-01)
 
 The content model artifact was unchanged throughout (SHA-256 `a0a503a0…`). The

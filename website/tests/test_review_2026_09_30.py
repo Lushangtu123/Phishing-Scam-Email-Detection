@@ -70,7 +70,8 @@ class SenderReviewTests(unittest.TestCase):
 
     def test_registered_relay_addresses_are_never_official(self):
         for sender, name in (('notifications@github.com', 'GitHub'), ('dse_na4@docusign.net', 'Docusign'),
-                             ('drive-shares-dm-noreply@google.com', 'Google')):
+                             ('drive-shares-dm-noreply@google.com', 'Google'),
+                             ('messages-noreply@linkedin.com', 'LinkedIn')):
             with self.subTest(sender=sender):
                 self.assertIsNone(self.verified(message(sender, name, 'A new update', 'Hello.')))
         self.assertEqual(self.verified(message('noreply@github.com', 'GitHub', '[GitHub] Please reset your password',

@@ -1468,6 +1468,36 @@
         "https://help.quora.com/hc/en-us/articles/360021238172-What-happens-if-I-get-fake-emails-or-social-media-messages-saying-that-someone-has-access-to-my-compromised-account-or-information"
       ],
       "review_note": "Domain confirmed by the organization's help center (help.quora.com); no page listing its sending domains was found."
+    },
+    {
+      "id": "linkedin",
+      "category": "service",
+      "name": "LinkedIn",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "linkedin.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "LinkedIn will never ask you for your password or ask you to download any programs.",
+          "source": "https://www.linkedin.com/help/linkedin/answer/a1339266",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@linkedin.com"
+      ],
+      "display_check": "sender_only",
+      "relay_addresses": [
+        "messages-noreply@linkedin.com"
+      ],
+      "domain_sources": [
+        "https://www.linkedin.com/help/linkedin/answer/a1339266"
+      ],
+      "review_note": "Help center (read 2026-10-01): emails from linkedin_support@cs.linkedin.com, linkedin@e.linkedin.com and linkedin@el.linkedin.com are not phishing; LinkedIn signs its mail for DMARC. Member messages arrive from messages-noreply@linkedin.com, so that address is a relay. AliExpress was considered the same day and left out: no official page lists its sending domains, and seller messages are relayed."
     }
   ]
 }

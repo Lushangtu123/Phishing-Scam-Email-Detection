@@ -154,6 +154,8 @@ class PlatformRelayTests(unittest.TestCase):
             (message('EA@e.ea.com', domain='e.ea.com', name='EA', subject='Your EA Security Code is: 131088'),
              'Electronic Arts'),
             (message(name='service@paypal.com'), 'PayPal'),
+            (message('security-noreply@linkedin.com', domain='linkedin.com', name='LinkedIn',
+                     subject='Your LinkedIn verification code'), 'LinkedIn'),
             (message('noreply@redditmail.com', domain='redditmail.com', name='Reddit', subject='Your weekly digest'),
              'Reddit'),
             (message('noreply@steampowered.com', domain='steampowered.com', name='Steam',

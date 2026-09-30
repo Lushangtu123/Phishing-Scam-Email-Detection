@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 04:00 PT] — Add LinkedIn to the service registry
+
+### Why
+- Six LinkedIn messages in the 92-message genuine export were undetermined.
+
+### Files changed
+- `website/data/official_brands_intl.json` — LinkedIn as a `sender_only` service (`linkedin.com`), sourced from its help center "Phishing content" (read 2026-10-01).
+  - It also records the "will never ask you for your password" statement and `phishing@linkedin.com`.
+  - `messages-noreply@linkedin.com`, which carries member messages, is a relay address.
+  - The review note records why AliExpress was left out.
+- `website/tests/test_verified_official_sender.py`, `website/tests/test_review_2026_09_30.py` — a LinkedIn PIN is verified; member-message mail is a relay.
+- `README.md`, `docs/evaluation.md` — 27 services and the measurement.
+
+### Effect
+- 92 genuine downloads: undetermined 15 → 11; alerts unchanged at 3.
+- 11 Nazario phishing messages with LinkedIn in From: none verified, all still alert.
+
 ## [2026-10-01 03:00 PT] — Nudge readers toward an uploaded .eml with its mailbox chosen
 
 ### Why
