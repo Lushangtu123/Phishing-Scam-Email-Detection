@@ -422,7 +422,13 @@ Raw input enables these checks:
   mismatch, Unicode/IDN and ASCII digit-substitution lookalikes, URL userinfo,
   deceptive brand subdomains, and credential-themed domains;
 - IP-based and shortened URLs, urgency, credential requests, threats, and
-  character obfuscation.
+  character obfuscation;
+- Chinese phrasing of the mailbox-credential lures common in Chinese phishing
+  (simplified and traditional): quota full, account expiring or being deactivated,
+  "upgrade" or "re-verify" the mailbox, "keep the same password". Only phrases tying
+  the threat or request to the account or mailbox are listed, and spaces inserted
+  inside a phrase are skipped. They have not yet been measured against genuine
+  Chinese mail, so each adds one point and no combination rule raises a verdict.
 
 Link checks parse destinations before inspecting hosts. HTML entity escapes,
 protocol-relative targets, IPv6, and integer/hex/octal IPv4 forms retain their

@@ -1408,6 +1408,35 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Chinese content-rule phrases (2026-10-01)
+
+The keyword categories had no Chinese phrases, and the model does not cover Chinese
+text, so 17 of the 141 undetermined Nazario phishing messages had Chinese lures that
+nothing read: "您的郵箱存儲空間已滿", "我们今天将关闭所有不活跃的账户",
+"我们可能会被迫锁定您的帐户", "保持我的密码". 82 simplified and traditional phrases were
+added to the urgency, threat, credential and deception categories. The keyword
+matcher also changed for Chinese: there is no word boundary to keep, and spaces or
+line breaks inserted inside a phrase are skipped.
+
+| Cohort (same model) | Before | After |
+|---|---|---|
+| 58 Nazario messages with Chinese text: alert / undetermined | 41 / 17 | 43 / 15 |
+| Nazario 2015–25 phishing (3,466) | 3,316 / 141 / 9 | 3,318 / 139 / 9 |
+| Nazario, top header trusted (2,122) | 2,032 / 82 / 8 | 2,036 / 78 / 8 |
+| 92 genuine downloads, 87 public HTML templates | — | unchanged |
+
+**Limits.**
+- The phrases were written after reading these 58 messages, so the gain is
+  in-sample.
+- No genuine Chinese mail was available: the 92 downloads contain none, and the
+  TREC 2006 Chinese corpus is no longer offered through its licensed channel.
+- Each phrase therefore adds one point, like any keyword. Most of these messages
+  still score 2–4, below an alert, and stay undetermined because the model cannot
+  score them.
+- A rule raising messages that match phrases in two or more categories would catch
+  about four more. It waits for genuine 163 and QQ samples, since mailbox providers
+  send their own storage notices.
+
 ### Inline zero-size wrappers and obfuscated callback numbers (2026-10-01)
 
 Of the 168 Nazario phishing messages still undetermined, 107 were unscored because

@@ -20,6 +20,25 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 08:00 PT] — Add Chinese phrasing to the content keyword rules
+
+### Why
+- The keyword categories had no Chinese phrases, and the model does not cover Chinese text.
+- 17 undetermined Nazario phishing messages carried Chinese mailbox-credential lures that nothing read.
+- The keyword matcher's word boundaries also stopped Chinese phrases matching inside running text.
+
+### Files changed
+- `website/app.py`:
+  - `_CONTENT_RULES_ZH` adds 82 simplified and traditional phrases to the urgency, threats, credential and deception categories;
+  - `_keyword_matches` matches Chinese phrases without word boundaries and skips whitespace inside them.
+- `website/tests/test_chinese_content_rules.py` — matching inside running text and across inserted spaces, English boundaries unchanged, simplified and traditional lures, and ordinary Chinese notices (codes, shipping, bills, "we will never ask for your password", membership renewal) matching nothing.
+- `README.md`, `docs/evaluation.md` — the rule and its limits.
+
+### Effect
+- Nazario 2015–25 phishing: 3,316 → 3,318 alerts; top-header-trusted run 2,032 → 2,036.
+- Genuine downloads and public templates unchanged.
+- Not yet measured on genuine Chinese mail, so each phrase adds one point and no combination rule raises a verdict; that waits for 163 and QQ samples.
+
 ## [2026-10-01 07:00 PT] — Score text that inline zero-size wrappers do not hide; read obfuscated callback numbers
 
 ### Why

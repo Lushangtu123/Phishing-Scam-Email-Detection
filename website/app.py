@@ -1175,6 +1175,40 @@ CONTENT_RULES: dict = {
     },
 }
 
+# Chinese phrasing of the same tactics (simplified and traditional). Mailbox-credential
+# lures dominate Chinese phishing in the Nazario corpus: quota full, account expiring
+# or being deactivated, "upgrade" or "re-verify" the mailbox, "keep the same password".
+# Only phrases that tie the threat or request to the account or mailbox are listed;
+# generic words such as 验证码, 立即查看 or 账户 appear in genuine notices too.
+_CONTENT_RULES_ZH = {
+    "urgency": [
+        "最后警告", "最終警告", "最终警告", "最後警告", "紧急通知", "緊急通知", "立即升级", "立即升級",
+        "尽快升级", "儘快升級", "立即增加空间", "立即增加空間",
+    ],
+    "threats": [
+        "将被关闭", "將被關閉", "将被停用", "將被停用", "将被禁用", "將被禁用", "将被锁定", "將被鎖定",
+        "被迫锁定", "被迫鎖定", "防止您的帐户被停用", "防止您的帳戶被停用", "取消激活", "取消啟用",
+        "邮箱将被停用", "邮箱即将过期", "帐户即将过期", "账户即将过期", "帳戶即將過期", "帐户将过期",
+        "账户将过期", "帐户已被限制", "账户已被限制", "帳戶已被限制", "关闭所有不活跃的账户",
+        "关闭所有不活跃的帐户", "停止向您帐户中的传入电子邮件", "您的帐户可能会丢失", "您的账户可能会丢失",
+    ],
+    "credential": [
+        "重新验证您的帐户", "重新验证您的账户", "重新驗證您的帳戶", "验证您的电子邮件帐户",
+        "驗證您的電子郵件帳戶", "确认有效账户", "确认有效帐户", "保持相同的密码", "保持相同的密碼",
+        "保持我的密码", "保持我的密碼", "保持当前密码", "保持當前密碼", "更新您的电子邮件密码",
+        "的所有权以继续使用此邮箱", "激活我的帐户", "激活我的账户", "啟用我的帳戶", "激活我的帳戶",
+        "升级您的邮箱", "升級您的郵箱", "验证升级", "完成验证升级", "请指出您是否仍在使用此邮箱",
+    ],
+    "deception": [
+        "邮箱配额已满", "郵箱配額已滿", "存储空间已满", "存儲空間已滿", "邮件存储空间很小",
+        "增加存储容量", "增加存儲容量", "未送达的邮件", "未送達的郵件", "无法发送的新邮件",
+        "传入邮件无法传送", "傳入郵件無法傳送", "邮件数量过多", "由于数据库错误", "由於數據庫錯誤",
+        "此消息来自电子邮件服务器", "登录可能存在异常",
+    ],
+}
+for _category, _keywords in _CONTENT_RULES_ZH.items():
+    CONTENT_RULES[_category]["keywords"].extend(_keywords)
+
 # (keyword, description); each description is the English template of a
 # `safety.*` code in data/server_messages.json.
 CONTENT_SAFETY_SIGNALS: list = [(keyword, message_text('safety.' + code)) for keyword, code in (
@@ -1345,8 +1379,15 @@ def _detect_obfuscation(text: str) -> list[str]:
     return found
 
 
+_HAN = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+
+
 def _keyword_matches(text: str, keyword: str) -> bool:
     """Match phrases while preventing short tokens from firing inside words."""
+    if _HAN.match(keyword):
+        # Chinese has no spaces between words, so there is no word boundary to keep;
+        # senders split phrases with spaces or line breaks ("确 认"), which are skipped.
+        return bool(re.search(r"\s*".join(map(re.escape, keyword)), text))
     escaped = re.escape(keyword)
     prefix = r"(?<!\w)" if keyword and keyword[0].isalnum() else ""
     # Python's word characters exclude apostrophes. Keep a negative contraction
