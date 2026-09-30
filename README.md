@@ -329,7 +329,12 @@ Raw input enables these checks:
     Figma, GitLab, SoundCloud, Tumblr, Ubisoft, Spotify and Bluesky
     (`bsky.social`). Each entry records the
     official pages read in `domain_sources`. These entries verify senders only:
-    they add no display-name impersonation matches. Customer-controlled or
+    they add no display-name impersonation matches. When such a service's own mail
+    is only incompletely analyzed (hidden or client-specific text, image fallback
+    text, an unscored view), the result is "Low Risk — Verified Official Sender"
+    instead of undetermined. Payment, bank and large-platform brands keep
+    abstaining in that case: scams sent through their genuine invoices and money
+    requests are verified too. Customer-controlled or
     shared domains such as `atlassian.net` and `tumblr.zendesk.com` are excluded.
 - **authenticated senders** that are not in the registries. With a mailbox named,
   the From domain needs a trusted, aligned DMARC pass and a passing DKIM signature

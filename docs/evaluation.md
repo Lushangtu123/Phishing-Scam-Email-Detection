@@ -1408,6 +1408,44 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Verified services no longer undetermined (2026-09-30)
+
+After the registry work, 38 of 72 genuine downloads were still undetermined. 20
+of them were verified senders with a Safe floor, held back only by rendering and
+inspection warnings: remote images, unscored MIME views, Outlook conditional
+blocks, hidden text, stylesheet rules, image fallback text, and one
+insufficient-context model result.
+
+**First attempt: every verified sender.** Worst case, top header trusted:
+
+- Genuine downloads: undetermined 38 → 18, all 20 to Low, with no new alerts.
+- Nazario 2015–25 phishing: 8 messages also moved from undetermined to Low.
+  - One is genuine Netflix mail in the corpus.
+  - Seven are scams sent through genuine platform features, which authenticate
+    as the real brand: six PayPal messages (seller-dispute notices such as
+    "Don't recognize the seller? Quickly let us know", and "You sent a $179.99
+    payment") and one Microsoft invoice.
+  - The attacker's text sits in fields such as the seller name, note or company
+    name. Here it was in parts the rules could not read.
+
+**Shipped: registered services only.** All 20 genuine messages came from
+`sender_only` services, and all 7 scams from the payment and large-platform
+brands.
+
+| Cohort | Undetermined | Safe or Low | Alerts |
+|---|---|---|---|
+| Own genuine downloads (72) | 38 → 18 | 33 → 53 | 1 → 1 |
+| Nazario with headers, top header trusted (2,122) | 116 → 116 | 8 → 8 | 1,998 → 1,998 |
+
+**Remaining gaps:**
+
+- Scams sent through genuine PayPal invoices and Microsoft billing still end
+  undetermined rather than alerting. Detecting them needs text from the parts
+  that are not read today.
+- The other 18 undetermined genuine messages come from services not in the
+  registry (Vimeo, Notion, Cloudflare, Box, Netlify, Reddit, Pinterest, Steam,
+  Zoom, Quora, Adobe).
+
 ### Bluesky added to the service registry (2026-09-30)
 
 Bluesky's help center, which its web app links to, asks users not to block

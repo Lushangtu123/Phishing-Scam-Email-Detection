@@ -20,6 +20,28 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 23:00 PT] — Verified services' own mail is Low instead of undetermined
+
+### Why
+- 38 of 72 genuine downloads were undetermined. 20 were verified senders with a Safe floor, held back only by rendering and inspection warnings: hidden text, Outlook-only blocks, style rules, image fallback text, and unscored views.
+
+### Files changed
+- `website/email_structure.py` — `SENDER_ONLY_SERVICES` lists the organizations registered with `display_check: sender_only`.
+- `website/app.py` — when such a service is the verified sender and the floor is Safe or Low, blocking warnings give "Low Risk — Verified Official Sender" instead of undetermined.
+  - The warnings stay listed.
+  - Relays are already excluded.
+  - Payment, bank and large-platform brands are unchanged.
+- `website/tests/test_verified_official_sender.py` covers:
+  - a Dropbox message with hidden and Outlook-only content is Low;
+  - a PayPal message with the same content stays undetermined;
+  - unverified and relayed mail stays undetermined.
+- `README.md`, `docs/evaluation.md` — rule and measurement.
+
+### Effect
+- Own genuine downloads (72): undetermined 38 → 18, Safe or Low 33 → 53, alerts unchanged at 1.
+- Nazario with the top header trusted: unchanged.
+- Applying the rule to every verified sender would have moved 7 scams, sent through genuine PayPal invoices and Microsoft billing, from undetermined to Low. That is why only registered services qualify.
+
 ## [2026-09-30 22:00 PT] — Add Bluesky to the service registry; trim "]" after bare URLs
 
 ### Why

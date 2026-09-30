@@ -171,6 +171,36 @@ class PlatformRelayTests(unittest.TestCase):
                 self.assertEqual(self.relay(message(sender, domain=domain, name='Atlassian')), (None, False))
 
 
+class VerifiedSenderIncompleteAnalysisTests(unittest.TestCase):
+    # Hidden preheader text and an Outlook-only block: rendering the model cannot verify.
+    HTML = ('<div style="display:none">Your receipt is ready</div><p>Thanks for your payment to Netflix.</p>'
+            '<!--[if mso]><table><tr><td>Receipt table</td></tr></table><![endif]-->')
+
+    def analyze(self, raw, mailbox='gmail'):
+        with patch.object(app, '_content_pipeline', None):
+            structure = analyze_raw_email(raw, mailbox_provider=mailbox)
+            return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), structure)).body)
+
+    def test_a_verified_service_is_low_rather_than_undetermined(self):
+        raw = message('no-reply@dropbox.com', domain='dropbox.com', name='Dropbox', subject='Verify your email',
+                      body=self.HTML, html=True)
+        result = self.analyze(raw)
+        self.assertEqual((result['risk_level'], result['risk_label']), ('low', 'Low Risk — Verified Official Sender'))
+        self.assertFalse(result['analysis_complete'])
+        self.assertTrue(any('conditional' in warning.lower() for warning in result['analysis_warnings']))
+
+    def test_payment_brands_keep_abstaining_on_incomplete_analysis(self):
+        # Scams sent through genuine PayPal invoices or Microsoft billing are verified too.
+        self.assertEqual(self.analyze(message(body=self.HTML, html=True))['risk_level'], 'unknown')
+
+    def test_unverified_or_relayed_mail_stays_undetermined(self):
+        relay = message('drive-shares-dm-noreply@google.com', domain='google.com', name='Billing (via Google Drive)',
+                        subject='Document shared with you', body=self.HTML, html=True)
+        for raw, mailbox in ((message(body=self.HTML, html=True), None), (relay, 'gmail')):
+            with self.subTest(mailbox=mailbox):
+                self.assertEqual(self.analyze(raw, mailbox)['risk_level'], 'unknown')
+
+
 class VerifiedSenderRiskTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -89,6 +89,7 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 from email_structure import (
     MAILBOX_AUTHSERV_IDS,
+    SENDER_ONLY_SERVICES,
     OFFICIAL_SERVICE_NUMBERS as _OFFICIAL_SERVICE_NUMBERS,
     official_channels as _official_channels,
     _PROTECTED_BRAND_DOMAINS,
@@ -3585,6 +3586,16 @@ async def _analyze_content(
                               and result['risk_level'] == 'low'):
         if blocking_warnings == [_REMOTE_IMAGE_WARNING] and not remote_image_dominant:
             result['risk_label'] = 'No Indicators in Inspected Text — Remote Image Unchecked'
+        elif (verified_sender and verified_sender['organization'] in SENDER_ONLY_SERVICES
+              and result['risk_floor'] in {'safe', 'low'}):
+            # A registered service's own account mail (platform relays are excluded):
+            # hidden or client-specific text, image fallbacks and unscored views are its
+            # own, so they leave the verified Low rather than an undetermined result.
+            # Payment, bank and large-platform brands keep abstaining: scams sent through
+            # their genuine invoices and money requests put attacker text in fields that
+            # an unreadable part may hold (7 such PayPal and Microsoft messages in Nazario).
+            result['risk_level'] = 'low'
+            result['risk_label'] = 'Low Risk — Verified Official Sender'
         else:
             result['risk_level'] = 'unknown'
             result['risk_label'] = 'Analysis Incomplete — Risk Undetermined'

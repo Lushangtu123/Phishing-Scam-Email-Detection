@@ -149,6 +149,13 @@ def _load_organization_names(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, tuple[st
     }
 
 
+def _load_sender_only_services(paths=_OFFICIAL_BRANDS_PATHS) -> frozenset[str]:
+    """Organizations registered only to verify their own account mail (display_check: sender_only)."""
+    return frozenset(brand["name"] for path in paths
+                     for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]
+                     if brand.get("display_check") == "sender_only")
+
+
 def _official_sender(domain: str) -> str | None:
     """Organization whose official domain (or a subdomain of it) this is; never a consumer mailbox."""
     if domain in _CONSUMER_MAILBOX_DOMAINS:
@@ -359,6 +366,7 @@ def normalize_domain(domain: str) -> str:
 _OFFICIAL_BRANDS = _load_official_brands()
 _OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
 _ORGANIZATION_NAMES = _load_organization_names()
+SENDER_ONLY_SERVICES = _load_sender_only_services()
 _OFFICIAL_CHANNELS = _load_official_channels()
 # Digits of every published official service number, e.g. 95588, 18005551234.
 OFFICIAL_SERVICE_NUMBERS = frozenset(re.sub(r"\D", "", number) for channel in _OFFICIAL_CHANNELS
