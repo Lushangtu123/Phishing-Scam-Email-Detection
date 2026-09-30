@@ -1408,6 +1408,20 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Spotify added to the service registry (2026-09-30)
+
+Spotify's support page says an email is suspicious if the sender does not end in
+`@spotify.com`. With `spotify.com` registered as a `sender_only` service:
+
+- Genuine downloads (72): alerts fall from 3 to 2. The account-deletion
+  confirmation, which the model alone scored 79%, is now Low. The other three
+  Spotify messages are verified senders too.
+- The remaining two false alerts are Bluesky (`bsky.social`, not registered) and
+  a Trello notice from `po.atlassian.net`, which is excluded because
+  `atlassian.net` hosts customer sites.
+- No Nazario 2015–25 phishing message with authentication headers has Spotify
+  in its From, so the change cannot lower any phishing result there.
+
 ### Organizational header.from and www display hosts (2026-09-30)
 
 Eight more genuine downloads (six Gmail, two Outlook.com) left two Spotify false

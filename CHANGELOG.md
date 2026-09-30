@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 21:00 PT] — Add Spotify to the service registry
+
+### Why
+- After the last change, a genuine Spotify account-deletion confirmation still alerted on the model alone (79%), because Spotify was not in the registry.
+
+### Files changed
+- `website/data/official_brands_intl.json` — Spotify as a `sender_only` service with `spotify.com`, sourced from its support page "Is this Spotify email legit?" (read 2026-09-30).
+  - It also records the statement "Spotify will never ask for personal information over email" and the report address `spoof@spotify.com`.
+- `website/tests/test_verified_official_sender.py` — a Spotify login code from `alerts.spotify.com`, with Gmail reporting `header.from=spotify.com`, is a verified sender.
+- `README.md`, `docs/evaluation.md` — 16 services and the measurement.
+
+### Effect
+- Own genuine downloads (72): alerts 3 → 2. The remaining two are Bluesky (not registered) and Trello from `po.atlassian.net` (excluded on purpose).
+- No Nazario phishing message with authentication headers has Spotify in its From, so none can be lowered.
+
 ## [2026-09-30 20:00 PT] — Accept organizational header.from and www display hosts
 
 ### Why

@@ -152,6 +152,8 @@ class PlatformRelayTests(unittest.TestCase):
             (message('EA@e.ea.com', domain='e.ea.com', name='EA', subject='Your EA Security Code is: 131088'),
              'Electronic Arts'),
             (message(name='service@paypal.com'), 'PayPal'),
+            (message('no-reply@alerts.spotify.com', domain='spotify.com', name='Spotify',
+                     subject='273066 - Your Spotify login code'), 'Spotify'),
             (message(reply_to='help@paypal.com'), 'PayPal'),
         )
         for raw, organization in cases:

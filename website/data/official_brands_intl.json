@@ -1211,6 +1211,33 @@
         "https://www.ubisoft.com/en-us/help/ubisoft-account/connectivity-and-performance/article/troubleshooting-email-issues-on-your-ubisoft-account/000063351"
       ],
       "review_note": "Help center lists AccountSupport@ubi.com, no-reply.account@ubisoft.com and updates@account.ubisoft.com."
+    },
+    {
+      "id": "spotify",
+      "category": "service",
+      "name": "Spotify",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "spotify.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Spotify will never ask for personal information over email",
+          "source": "https://support.spotify.com/us/article/spotify-email-legit/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "spoof@spotify.com"
+      ],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://support.spotify.com/us/article/spotify-email-legit/"
+      ],
+      "review_note": "Support page (read 2026-09-30): an email is suspicious if the sender email doesn't end in @spotify.com; report to spoof@spotify.com. Genuine mail also uses subdomains such as alerts.spotify.com, covered as subdomains of spotify.com."
     }
   ]
 }
