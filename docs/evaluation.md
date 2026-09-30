@@ -1409,6 +1409,47 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### PDF attachment links and IPFS gateways (2026-09-30)
+
+PDF attachments now have their `/URI` link annotations read, including from
+FlateDecode object streams, and checked like message links. The PDF text stays
+uninspected.
+
+Of 1,303 Nazario 2023–25 phishing messages, 11 carry a PDF and 3 of those PDFs
+contain web links:
+
+- an `ipfs.io` page;
+- an unlisted shortener (`sprl.in`);
+- genuine Microsoft links in a callback-phishing invoice, where the scam is the
+  phone number.
+
+None of these tripped an existing rule, so alerts did not change.
+
+The IPFS case pointed to a broader gap: public IPFS gateway links in message
+bodies.
+
+| Corpus | Messages with an IPFS gateway link |
+|---|---|
+| Nazario 2015–22 phishing | 9 / 2,163 (0.4%) |
+| Nazario 2023–25 phishing | 119 / 1,303 (9.1%) |
+| Apache 2025 list mail (legitimate) | 0 / 5,055 |
+
+The new `link.ipfs_gateway` rule (+4, High floor) recognizes:
+
+- public gateway hosts;
+- the `<cid>.ipfs.<gateway>` subdomain form, which needs a long label before
+  `.ipfs.`, so `docs.ipfs.tech` does not match;
+- `/ipfs/<cid>` and `/ipns/` paths.
+
+| Cohort | IPFS hits | Alerts before → after | Level changes |
+|---|---|---|---|
+| Nazario 2023–25 phishing (1,239 imported) | 163 | 1,144 → 1,150 (92.3% → 92.8%) | 124 High→Critical, 7 Medium→High, 6 unknown→High, 1 Medium→Critical |
+| Apache 2025 list mail (5,054 legitimate) | 0 | 123 → 123 | none |
+| UniqueData (57 legitimate) | 0 | 41 → 41 | none |
+
+Limit: NFT and Web3 services may legitimately link to IPFS gateways. None
+appear in these legitimate cohorts, so that false-positive risk is untested.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

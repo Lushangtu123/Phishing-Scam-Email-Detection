@@ -67,6 +67,7 @@
   "link.malformed_target": "Link contains a malformed destination that could not be safely parsed.",
   "link.unsafe_scheme": "Link uses an unsafe destination scheme ({scheme}:).",
   "link.url_userinfo": "Link destination uses URL userinfo before the real host, a common trusted-domain deception technique.",
+  "link.ipfs_gateway": "Link destination ({host}) is an IPFS gateway: content-addressed pages there cannot be taken down by the brand they imitate and are common in phishing.",
   "link.ip_host": "Link destination uses an IP address instead of a domain name; inspect it before opening.",
   "link.display_mismatch": "Link display domain ({display_host}) does not match the actual destination ({host}).",
   "link.idn_confusable": "Link destination ({host}) is an IDN/confusable lookalike for {brand}.",

@@ -1688,6 +1688,25 @@ def _label_uses_brand_lookalike(label: str, brand: str) -> bool:
     return brand in compact
 
 
+# Public IPFS gateways, and the subdomain form <cid>.ipfs.<gateway>. Paths /ipfs/<cid>
+# or /ipns/<name> on any host are the same content-addressed pages.
+_IPFS_GATEWAY_HOSTS = frozenset({
+    "ipfs.io", "dweb.link", "cloudflare-ipfs.com", "gateway.pinata.cloud", "mypinata.cloud",
+    "ipfs.fleek.co", "w3s.link", "nftstorage.link", "4everland.io", "ipfs.infura.io",
+})
+_IPFS_PATH = re.compile(r"^/ip[fn]s/[A-Za-z0-9]{20,}", re.IGNORECASE)
+_IPFS_SUBDOMAIN = re.compile(r"^[a-z0-9-]{20,}\.ip[fn]s\.")
+
+
+def _is_ipfs_gateway(host: str, path: str) -> bool:
+    host = host.lower().rstrip(".")
+    if any(host == gateway or host.endswith("." + gateway) for gateway in _IPFS_GATEWAY_HOSTS):
+        return True
+    # Subdomain gateways put a long content ID (or IPNS name) before ".ipfs."/".ipns.";
+    # ordinary hosts such as docs.ipfs.tech do not.
+    return bool(_IPFS_SUBDOMAIN.match(host) or _IPFS_PATH.match(path or ""))
+
+
 def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) -> tuple[int, list[dict], str]:
     """Inspect actual link targets, including links with generic button text."""
     score = 0
@@ -1753,6 +1772,14 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
             risk_floor = 'high'
             finding_types.add('ip-host')
             findings.append({'rule_id': 'link.ip_host', **indicator('high', 'link.ip_host')})
+        if _is_ipfs_gateway(target_host, parsed.path) and 'ipfs-gateway' not in finding_types:
+            # Content-addressed pages on public IPFS gateways cannot be taken down by
+            # the impersonated brand. In 2023-25 phishing 119/1,303 used them; 0/5,055
+            # legitimate list messages did (docs/evaluation.md).
+            score += 4
+            risk_floor = 'high'
+            finding_types.add('ipfs-gateway')
+            findings.append({'rule_id': 'link.ipfs_gateway', **indicator('high', 'link.ipfs_gateway', host=target_host)})
         decoded_host = _decode_idna_domain(target_host)
 
         visible_host = _visible_link_host(link_text)

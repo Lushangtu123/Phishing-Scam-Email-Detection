@@ -813,6 +813,7 @@
   'server.link.malformed_target': '链接包含格式错误、无法安全解析的目标地址。',
   'server.link.unsafe_scheme': '链接使用了不安全的目标协议（{scheme}:）。',
   'server.link.url_userinfo': '链接目标在真实主机名之前使用了 URL 用户信息，这是冒充可信域名的常见手法。',
+  'server.link.ipfs_gateway': "链接指向 IPFS 网关（{host}）：这类按内容寻址的页面无法被被冒充的品牌下架，常见于钓鱼。",
   'server.link.ip_host': '链接目标使用 IP 地址而非域名；打开前请先检查。',
   'server.link.display_mismatch': '链接显示的域名（{display_host}）与实际目标（{host}）不一致。',
   'server.link.idn_confusable': '链接目标（{host}）是 {brand} 的 IDN/易混淆字符仿冒域名。',

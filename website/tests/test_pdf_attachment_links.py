@@ -78,5 +78,32 @@ class PdfAttachmentAnalysisTests(unittest.TestCase):
         self.assertNotIn('pdf_link_count', disguised)
 
 
+
+class IpfsGatewayLinkTests(unittest.TestCase):
+    def test_public_gateways_subdomain_gateways_and_ipfs_paths_are_recognized(self):
+        cid = 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'
+        for host, path in (('ipfs.io', f'/ipfs/{cid}/login.html'), ('cloudflare-ipfs.com', '/ipfs/x'),
+                           (f'{cid}.ipfs.dweb.link', '/'), ('abc.mypinata.cloud', '/'),
+                           (f'{cid}.ipfs.w3s.link', '/'), ('files.example.net', f'/ipfs/{cid}')):
+            with self.subTest(host=host, path=path):
+                self.assertTrue(app._is_ipfs_gateway(host, path))
+        for host, path in (('ipfsnews.com', '/'), ('example.com', '/ipfs-guide'), ('docs.ipfs.tech', '/concepts'),
+                           ('example.com', '/ipfs/short')):
+            with self.subTest(host=host, path=path):
+                self.assertFalse(app._is_ipfs_gateway(host, path))
+
+    def test_ipfs_links_raise_a_high_floor_in_messages_and_pdfs(self):
+        body = '<p>Review the shared document.</p><a href="https://ipfs.io/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi">Open</a>'
+        result = json.loads(asyncio.run(app.analyze_content_endpoint(
+            app.ContentRequest(subject='Document', body=body))).body)
+        self.assertIn('link.ipfs_gateway', [item['code'] for item in result['extra_indicators']])
+        self.assertIn(result['risk_level'], {'high', 'critical'})
+        pdf = b'%PDF-1.4\n' + annotation(b'(https://gateway.pinata.cloud/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi)')
+        pdf_result = json.loads(asyncio.run(app.analyze_content_endpoint(
+            app.ContentRequest(raw_email=message_with_pdf(pdf)))).body)
+        self.assertIn('link.ipfs_gateway', [item['code'] for item in pdf_result['extra_indicators']
+                                            if item['msg'].startswith('PDF attachment link:')])
+
+
 if __name__ == '__main__':
     unittest.main()

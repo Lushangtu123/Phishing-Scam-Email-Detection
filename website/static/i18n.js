@@ -831,6 +831,7 @@ window.PhishGuardI18n = (() => {
     'server.link.malformed_target': 'Link contains a malformed destination that could not be safely parsed.',
     'server.link.unsafe_scheme': 'Link uses an unsafe destination scheme ({scheme}:).',
     'server.link.url_userinfo': 'Link destination uses URL userinfo before the real host, a common trusted-domain deception technique.',
+    'server.link.ipfs_gateway': "Link destination ({host}) is an IPFS gateway: content-addressed pages there cannot be taken down by the brand they imitate and are common in phishing.",
     'server.link.ip_host': 'Link destination uses an IP address instead of a domain name; inspect it before opening.',
     'server.link.display_mismatch': 'Link display domain ({display_host}) does not match the actual destination ({host}).',
     'server.link.idn_confusable': 'Link destination ({host}) is an IDN/confusable lookalike for {brand}.',
@@ -1260,7 +1261,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=10'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=11'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

@@ -20,6 +20,28 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 14:00 PT] — Flag links to public IPFS gateways
+
+### Why
+- A phishing PDF linked to an `ipfs.io` page that no rule caught.
+- IPFS gateway links appear in 119/1,303 (9.1%) Nazario 2023–25 phishing messages, versus 9/2,163 in 2015–22 and 0/5,055 legitimate Apache list messages.
+- The imitated brand cannot take content-addressed pages down.
+
+### Files changed
+- `website/app.py` — `_is_ipfs_gateway()` recognizes:
+  - public gateway hosts;
+  - the `<cid>.ipfs.<gateway>` subdomain form, with a long label, so `docs.ipfs.tech` does not match;
+  - `/ipfs/<cid>` and `/ipns/` paths.
+- A `link.ipfs_gateway` finding adds +4 with a High floor, for message links and PDF attachment links.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese messages. Asset versions were bumped.
+- `website/tests/test_pdf_attachment_links.py` — gateway forms and non-gateway look-alikes, including `ipfsnews.com`, `/ipfs-guide` and `docs.ipfs.tech`; message and PDF findings.
+- `README.md`, `docs/evaluation.md` — rule and evaluation.
+
+### Effect
+- Nazario 2023–25 phishing has 163 hits. Alerts rise from 1,144 to 1,150 (92.3% to 92.8%): 124 High to Critical, 7 Medium to High, and 6 undetermined to High.
+- 0 hits and no changes on 5,054 Apache and 57 UniqueData legitimate messages.
+- NFT or Web3 mail that links to IPFS is untested for false positives.
+
 ## [2026-09-30 13:00 PT] — Check links inside PDF attachments
 
 ### Why

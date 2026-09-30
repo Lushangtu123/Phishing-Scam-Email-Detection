@@ -341,6 +341,9 @@ Raw input enables these checks:
   count, and never renders or executes anything. The targets go through the same
   destination checks as message links, prefixed "PDF attachment link". The PDF
   text is still not inspected, so the attachment stays `metadata_only`;
+- links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
+  `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
+  being imitated cannot take these content-addressed pages down;
 - HTML anchor/form targets, Markdown, and plain-text link destinations, including displayed-host
   mismatch, Unicode/IDN and ASCII digit-substitution lookalikes, URL userinfo,
   deceptive brand subdomains, and credential-themed domains;
