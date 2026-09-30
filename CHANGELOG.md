@@ -20,6 +20,41 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 02:00 PT] — Fix six issues from an independent review
+
+### Why
+- An independent read-only review of `ec3d752` reproduced six issues with synthetic inputs. All reproduced on the then-current main:
+  - S1: a CSS string `content:"/*"` hid the following hide rule;
+  - S2: mutually exclusive `@media` views were never scored;
+  - R1: PayPal invoice content was capped by the verified sender;
+  - R2: `notifications@github.com` counted as GitHub's own mail;
+  - R3: DMARC `header.from` could be read from a comment, a quoted reason or another clause;
+  - R4: "GitHub" from `githubdocuments.com` relaxed address checks.
+
+### Files changed
+- `website/app.py`:
+  - `_strip_css_comments()` is quote-aware and shared by both stylesheet scanners; an unclosed string is unmodelled.
+  - `_stylesheet_hidden_targets()` returns the union of targets and one view per `@media` or other at-rule context (base hides, minus what the context shows, plus what it hides), up to eight contexts.
+  - TextCollector elements carry the targets that can reach them; each context gets its own reading (`media_N`).
+  - The model agreement check uses every reading except `hidden`.
+  - Text rules move into `_text_rule_findings()` and run on the certainly visible text and on each context's view; the riskiest reading counts. Indicator order is unchanged.
+  - The registered-service Low exception no longer applies when the main content is an uninspected remote image.
+- `website/email_structure.py`:
+  - `_dmarc_header_from()` reads `header.from` from the DMARC clause itself, after comments and quoted strings are removed. Several differing DMARC clauses give none.
+  - `relay_addresses` (fnmatch patterns) and invoice, money-request and seller-dispute subjects mark relays.
+  - `_claims_other_organization()` stops a display name that names another registered organization from matching.
+- `website/data/official_brands_intl.json` — `relay_addresses` for GitHub (`notifications@github.com`), Google (Drive, Docs, Groups and Calendar sharing addresses) and Docusign (`dse*@docusign.net`), with a note.
+- `website/tests/test_review_2026_09_30.py` — regression tests for all six. `website/tests/test_rendering_views.py` follows the new target structure.
+- `README.md`, `docs/evaluation.md` — rules and measurement.
+
+### Effect
+- Every synthetic review input now alerts or stays undetermined instead of Safe or Low.
+- Unchanged against main on:
+  - 92 genuine downloads;
+  - 87 public HTML templates;
+  - 3,466 Nazario phishing messages;
+  - the 2,122 Nazario messages with the top header trusted.
+
 ## [2026-10-01 01:00 PT] — Let text rules read the certainly visible text of uncertain HTML
 
 ### Why

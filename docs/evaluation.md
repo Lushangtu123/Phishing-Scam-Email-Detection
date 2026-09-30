@@ -1408,6 +1408,48 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Independent review fixes (2026-10-01)
+
+An independent read-only review of `ec3d752` built synthetic inputs for six
+issues. All six reproduced on the then-current main (`ddf4511`):
+
+| Issue | Input | Before (Gmail mailbox) | After |
+|---|---|---|---|
+| S1 | `content:"/*"` in a CSS string swallowed the following `.padding{display:none}`, so hidden benign padding diluted a visible callback scam | High by luck, model 7.4%, "renderings agree" | High, model 52.1% |
+| S2 | mutually exclusive `@media` rules: scam visible on narrow screens, benign padding on wide ones | Low | High (the narrow view is scored by the rules) |
+| R1 | a PayPal-sent "Invoice from Billing department" carrying a scam | Low (verified-sender cap) | High; invoice subjects are relays |
+| R2 | GitHub issue notifications from `notifications@github.com` with the display name "GitHub" and an image or hidden body | Low | Medium or undetermined; the address is a relay |
+| R3 | DMARC `header.from` read from a comment, a quoted `reason=` or another DMARC clause | Low, verified as GitHub | High, not verified |
+| R4 | "GitHub" from `githubdocuments.com` relaxing address-shape checks | Medium | High |
+
+The review noted that R3 is a parsing defect only. It found no evidence that an
+outside sender can shape Gmail's or Outlook's top header this way.
+
+**Fixes:**
+
+- S1: one quote-aware CSS comment stripper; an unclosed string is unmodelled.
+- S2: rendering contexts per `@media` block, used by the model agreement check
+  and by the text rules (riskiest reading), with a budget of eight contexts.
+  Tag-only rules that show elements, such as `td{display:block}`, are not
+  modelled, since without `!important` they cannot override a class or id rule.
+- R1: invoice, money-request and seller-dispute subjects are relays.
+- R2: registry `relay_addresses`, and a registered service's mail whose main
+  content is an uninspected remote image stays undetermined.
+- R3: `header.from` is read from the DMARC clause itself; conflicting DMARC
+  clauses give no identity.
+- R4: a display name claiming another registered organization does not match.
+
+**Real data, main against this change:**
+
+| Cohort | Result |
+|---|---|
+| 92 genuine Gmail and Outlook.com downloads (a new, larger export) | unchanged: 74 Safe or Low, 15 undetermined, 3 alerts |
+| 87 public HTML templates | unchanged |
+| Nazario 2015–25 phishing, no mailbox (3,466) | unchanged: 3,289 alerts |
+| Nazario with headers, top header trusted (2,122) | unchanged: 2,011 alerts |
+
+The fixes close the adversarial gaps without changing any real-data result.
+
 ### Text rules read certainly visible text (2026-10-01)
 
 Of 3,466 Nazario phishing messages, 195 did not alert: 186 undetermined and 9

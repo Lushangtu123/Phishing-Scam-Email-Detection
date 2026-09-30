@@ -1978,9 +1978,9 @@ _IMAGE_ALT_FALLBACK_WARNING = message_text('warning.image_alt_fallback')
 _MIME_ALTERNATIVE_LIMIT_WARNING = message_text('warning.mime_alternative_limit')
 _MIME_ALTERNATIVE_MODEL_WARNING = message_text('warning.mime_alternative_model')
 _MAX_MIME_MODEL_VIEWS = 16
-# Plausible renderings the model must agree on (strict non-Outlook, strict Outlook),
-# and definitely hidden text, which may only lift the abstention.
-_MODEL_READINGS = ('strict', 'outlook', 'hidden')
+# Plausible renderings the model must agree on are every reading except 'hidden'
+# (strict non-Outlook, strict Outlook, and one per @media context, media_N);
+# definitely hidden text may only lift the abstention.
 _HTML_VOID_ELEMENTS = {
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
     'param', 'source', 'track', 'wbr',
@@ -2076,9 +2076,11 @@ def _inline_visibility(style: str) -> tuple[bool, bool | None, bool, bool]:
     return display_hidden, visibility_hidden, opacity_hidden, uncertain
 
 
-def _stylesheet_may_hide_text(css: str) -> bool:
-    """Flag hiding declarations without claiming to implement CSS cascade."""
-    # Remove real comments while preserving comment-like text in CSS strings.
+def _strip_css_comments(css: str) -> tuple[str, bool]:
+    """Remove real comments while preserving comment-like text in CSS strings.
+
+    Returns the text and whether every string was closed. content:"/*" opens no comment.
+    """
     without_comments = []
     quote = None
     index = 0
@@ -2103,9 +2105,14 @@ def _stylesheet_may_hide_text(css: str) -> bool:
         else:
             without_comments.append(character)
         index += 1
+    return ''.join(without_comments), quote is None
+
+
+def _stylesheet_may_hide_text(css: str) -> bool:
+    """Flag hiding declarations without claiming to implement CSS cascade."""
     # Find balanced rule bodies outside quoted CSS strings. A brace in
     # content:"}" must not end the rule before its hiding declaration.
-    cleaned = ''.join(without_comments)
+    cleaned, _complete = _strip_css_comments(css)
     depth = 0
     segment_start = 0
     quote = None
@@ -2190,15 +2197,30 @@ def _hidden_selector_targets(selector: str):
             + [('fragment', fragment.strip('"\'').casefold()) for fragment in fragments])
 
 
-def _stylesheet_hidden_targets(css: str):
-    """(classes, ids, class fragments) that hiding rules can select, or None if unmodelled.
+_MAX_RENDERING_CONTEXTS = 8
 
-    Marketing mail hides preheaders and mobile/desktop variants with class rules such
-    as ".hide-mobile { display:none }", often switched back on in an @media block.
-    Any element carrying one of these names may be hidden in some client.
+
+def _declares_shown(block: str) -> bool:
+    """Whether declarations turn an element back on (display other than none, visibility:visible)."""
+    return bool(re.search(r'(?:^|;)\s*(?:display\s*:\s*(?!none\b)[a-z-]+|visibility\s*:\s*visible\b)',
+                          block.casefold()))
+
+
+def _stylesheet_hidden_targets(css: str):
+    """Which elements hiding rules can reach, and the views of the rendering contexts.
+
+    Returns {"union": (classes, ids, class fragments), "views": [hidden tokens, ...]}
+    or None if unmodelled. Marketing mail hides preheaders and mobile/desktop variants
+    with class rules such as ".hide-mobile { display:none }", switched in @media blocks,
+    so each @media context is its own view: the base rules' hidden targets, minus those
+    it shows, plus those it hides. Views are empty when no context changes anything.
+    Tag-only rules that show elements (td{display:block}) are not modelled: without
+    !important they cannot override a class or id rule.
     """
-    cleaned = re.sub(r'/\*.*?(?:\*/|$)', ' ', css, flags=re.DOTALL)
-    classes, ids, fragments = set(), set(), set()
+    cleaned, complete = _strip_css_comments(css)
+    if not complete:
+        return None
+    hidden, shown = {}, {}
     preludes, start, index = [], 0, 0
     quote = None
     while index < len(cleaned):
@@ -2219,19 +2241,37 @@ def _stylesheet_hidden_targets(css: str):
             start = index + 1
         elif character == '}' and preludes:
             prelude = preludes.pop()
-            display, visibility, opacity, uncertain = _inline_visibility(cleaned[start:index])
+            block = cleaned[start:index]
+            display, visibility, opacity, uncertain = _inline_visibility(block)
             start = index + 1
-            if display or visibility is True or opacity or uncertain:
+            hides = display or visibility is True or opacity or uncertain
+            if hides or _declares_shown(block):
                 if prelude.startswith('@'):
-                    return None
+                    if hides:
+                        return None
+                    index += 1
+                    continue
+                context = ' '.join(re.sub(r'\s+', ' ', item) for item in preludes if item.startswith('@'))
                 for selector in _split_selectors(prelude) or [None]:
                     targets = None if selector is None else _hidden_selector_targets(selector)
                     if targets is None:
-                        return None
-                    for kind, name in targets:
-                        {'class': classes, 'id': ids, 'fragment': fragments}[kind].add(name)
+                        if hides:
+                            return None
+                        continue
+                    (hidden if hides else shown).setdefault(context, set()).update(targets)
         index += 1
-    return frozenset(classes), frozenset(ids), frozenset(fragments)
+    union = set().union(*hidden.values()) if hidden else set()
+    contexts = sorted((set(hidden) | set(shown)) - {''})
+    if len(contexts) + 1 > _MAX_RENDERING_CONTEXTS:
+        return None
+    base = frozenset(hidden.get('', ()))
+    views = ([base] + [frozenset((base - shown.get(context, set())) | hidden.get(context, set()))
+                       for context in contexts]) if contexts else []
+    return {
+        "union": tuple(frozenset(name for kind, name in union if kind == wanted)
+                       for wanted in ('class', 'id', 'fragment')),
+        "views": list(dict.fromkeys(views)),
+    }
 
 
 def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=None, readings=None) -> str:
@@ -2247,6 +2287,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.strict_parts = []
             self.outlook_parts = []
             self.certain_parts = []
+            self.view_hidden = targets["views"] if targets else []
+            self.view_parts = [[] for _view in self.view_hidden]
             self.hidden_parts = []
             self.outlook_only = 0
             self.hidden_from_outlook = 0
@@ -2264,25 +2306,33 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         def _visually_hidden(self):
             return bool(self.elements and (self.elements[-1][1] or self.elements[-1][2]))
 
-        def _emit(self, text, uncertain=None):
+        def _emit(self, text, tokens=None):
             self.parts.append(text)
             if self.targets is None:
                 return
-            if self.elements[-1][5] if uncertain is None and self.elements else bool(uncertain):
-                return
-            self.certain_parts.append(text)
-            if not self.outlook_only:
-                self.strict_parts.append(text)
-            if not self.hidden_from_outlook:
-                self.outlook_parts.append(text)
+            if tokens is None:
+                tokens = self.elements[-1][5] if self.elements else frozenset()
+            if not tokens:
+                self.certain_parts.append(text)
+                if not self.outlook_only:
+                    self.strict_parts.append(text)
+                if not self.hidden_from_outlook:
+                    self.outlook_parts.append(text)
+            # Each rendering context shows what none of its hiding rules reaches.
+            if not self.outlook_only and '#inline' not in tokens:
+                for parts, hidden in zip(self.view_parts, self.view_hidden):
+                    if not tokens & hidden:
+                        parts.append(text)
 
         def _targeted(self, attrs):
-            classes, ids, fragments = self.targets
+            classes, ids, fragments = self.targets["union"]
             values = dict(attrs)
             class_value = (values.get('class') or '').casefold()
-            return bool(set(class_value.split()) & classes
-                        or (values.get('id') or '').strip().casefold() in ids
-                        or any(fragment in class_value for fragment in fragments))
+            element_id = (values.get('id') or '').strip().casefold()
+            return frozenset(
+                {('class', name) for name in set(class_value.split()) & classes}
+                | ({('id', element_id)} if element_id in ids else set())
+                | {('fragment', fragment) for fragment in fragments if fragment in class_value})
 
         def _truncate_elements(self, index):
             if self.open_paragraph and any(item[0] == 'p' for item in self.elements[index:]):
@@ -2350,8 +2400,11 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             element_visibility = parent_visibility if visibility_hidden is None else visibility_hidden
             if uncertain_style and not (element_display or element_visibility):
                 self.uncertain_inline_style = True
-            element_uncertain = self.targets is not None and bool(
-                (self.elements and self.elements[-1][5]) or uncertain_style or self._targeted(attrs))
+            # Hiding targets that can reach this element, inherited from its ancestors;
+            # '#inline' marks a zero-size or transparent inline style.
+            element_tokens = frozenset() if self.targets is None else (
+                (self.elements[-1][5] if self.elements else frozenset()) | self._targeted(attrs)
+                | ({'#inline'} if uncertain_style else frozenset()))
             if tag == 'source' and any(name == 'srcset' and value and value.strip()
                                        for name, value in attrs):
                 for index in range(len(self.elements) - 1, -1, -1):
@@ -2376,7 +2429,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         # With no image resource, HTML's replacement text is
                         # the text the reader can see or hear.
                         for piece in (' ', alt, ' '):
-                            self._emit(piece, element_uncertain)
+                            self._emit(piece, element_tokens)
                     else:
                         # A two-word decorative label such as "Company logo"
                         # should not disable scoring of an otherwise text-rich
@@ -2402,11 +2455,11 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     except ValueError:
                         pass
                 self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
-                                      element_uncertain))
+                                      element_tokens))
                 if tag == 'p':
                     self.open_paragraph = True
             if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
-                self._emit(' ', element_uncertain)
+                self._emit(' ', element_tokens)
 
         def handle_endtag(self, tag):
             if self.hidden == ['head'] and tag in {'body', 'html', 'br'}:
@@ -2479,12 +2532,15 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             def joined(parts):
                 return re.sub(r'\s+', ' ', ''.join(parts)).strip()
             if targets is not None and 'malformed' not in unresolved:
-                # Text rules may read what no style can hide, even where the model's
-                # renderings stay unresolved (image fallbacks, odd conditional comments).
+                # Text rules may read what no style can hide, and what each @media
+                # context shows, even where the model's renderings stay unresolved
+                # (image fallbacks, odd conditional comments).
                 readings['certain'] = joined(views.certain_parts)
+                readings['media'] = [joined(parts) for parts in views.view_parts]
             if readings['resolved']:
                 readings.update(strict=joined(views.strict_parts), outlook=joined(views.outlook_parts),
                                 hidden=joined([visible, ' ', *collector.hidden_parts]))
+                readings.update({f'media_{index}': text for index, text in enumerate(readings['media'])})
     if structure_stats is not None:
         structure_stats.update(hidden_characters=collector.hidden_characters,
                                visible_characters=sum(not char.isspace() for char in _strip_invisible_format_controls(visible)),
@@ -2799,6 +2855,100 @@ def _sensitive_requests(text: str) -> list[str]:
     return found
 
 
+def _text_rule_findings(full_orig: str) -> dict:
+    """Keyword categories and text checks for one reading of the message text."""
+    analysis_text = _strip_invisible_format_controls(full_orig)
+    full_lower = analysis_text.lower()
+    categories, score, floor = [], 0, 'safe'
+    for cat_key, cat_info in CONTENT_RULES.items():
+        matched = [
+            kw for kw in cat_info["keywords"]
+            if _keyword_matches(full_lower, kw)
+        ]
+        if matched:
+            capped = min(len(matched), 5)
+            score += capped
+            categories.append({
+                "key":         cat_key,
+                "label":       cat_info["label"],
+                "level":       cat_info["level"],
+                "icon":        cat_info["icon"],
+                "description": cat_info["description"],
+                "matched":     matched[:6],
+                "count":       len(matched),
+                "score":       capped,
+            })
+
+    requests = []
+    if _has_pressured_credential_request(analysis_text):
+        score += 4
+        floor = 'high'
+        requests.append(indicator('high', 'content.pressured_credential_request'))
+
+    # Requests to hand over one-time codes, secrets, gift cards, crypto or remote
+    # access: one strong signal however many kinds appear, each kind listed.
+    callback_number = _callback_request(analysis_text, _OFFICIAL_SERVICE_NUMBERS)
+    if callback_number:
+        score += 4
+        floor = 'high'
+        requests.append(indicator('high', 'content.callback_request', number=callback_number))
+
+    sensitive_requests = _sensitive_requests(analysis_text)
+    if sensitive_requests:
+        score += 4
+        floor = 'high'
+        requests.extend(indicator('high', code) for code in sensitive_requests)
+
+    style = []
+    # 4. Excessive exclamation marks
+    excl = full_orig.count("!")
+    if excl >= 3:
+        score += 1
+        style.append(indicator("medium", "content.exclamation_marks", count=excl))
+
+    # 5. Excessive capitalization
+    caps_ratio = _excessive_caps_ratio(full_orig)
+    if caps_ratio > 0.40 and len(full_orig) > 60:
+        score += 1
+        style.append(indicator("medium", "content.capitalization",
+                               percent=int(f"{caps_ratio:.0%}"[:-1])))
+
+    wording = []
+    # 8. Generic/impersonal salutation
+    if _has_generic_salutation(full_orig):
+        score += 2
+        wording.append(indicator("medium", "content.generic_greeting"))
+
+    # 9. Implausibly large currency amounts
+    large_amounts = _large_currency_amounts(full_orig)
+    if large_amounts:
+        score += 2
+        wording.append(indicator("high", "content.large_amounts", amounts=', '.join(large_amounts)))
+
+    # 10. Excessive generic CTAs
+    cta_count = _count_generic_cta(full_orig)
+    if cta_count >= 2:
+        score += 1
+        wording.append(indicator("medium", "content.generic_cta", count=cta_count))
+
+    # 11. Regional/formal English variants are context only. Language variety
+    # is neither malicious nor a reliable signal against modern LLM phishing.
+    non_native = _detect_non_native_phrases(full_orig)
+    if non_native:
+        wording.append(indicator(
+            "info", "content.regional_phrasing_more" if len(non_native) > 1 else "content.regional_phrasing",
+            phrase=non_native[0]))
+
+    # 12. Character obfuscation / leetspeak
+    obfuscated = _detect_obfuscation(full_orig)
+    if obfuscated:
+        score += 3
+        wording.append(indicator("high", "content.obfuscation", brands=', '.join(set(obfuscated))))
+
+    return {"full_orig": full_orig, "analysis_text": analysis_text, "categories": categories, "score": score,
+            "floor": floor, "requests": requests, "style": style, "wording": wording}
+
+
 def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
                           _model_view: dict | None = None) -> dict:
     """Rule-based heuristic phishing analysis of email subject + body text."""
@@ -2834,44 +2984,47 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         ))
         resolved = bool(readings.get('resolved'))
         return (visible, stylesheet_uncertain, model_uncertain and not resolved,
-                {key: value for key, value in readings.items() if key != 'certain'} if resolved else {},
-                model_uncertain and resolved, readings.get('certain'))
+                {key: value for key, value in readings.items() if isinstance(value, str) and key != 'certain'}
+                if resolved else {},
+                model_uncertain and resolved, readings.get('certain'), readings.get('media') or [])
 
     if content_parts is None:
         raw_parts = [subject, body]
         html_parts = [False, True]
-        parsed_parts = [(subject, False, False, {}, False, None), visible_html(body)]
+        parsed_parts = [(subject, False, False, {}, False, None, []), visible_html(body)]
         visible_parts = [parsed[0] for parsed in parsed_parts]
         stylesheet_uncertain_parts = [parsed[1] for parsed in parsed_parts]
         model_uncertain_parts = [parsed[2] for parsed in parsed_parts]
         reading_parts = [parsed[3] for parsed in parsed_parts]
         resolved_parts = [parsed[4] for parsed in parsed_parts]
         certain_parts = [parsed[5] for parsed in parsed_parts]
+        media_parts = [parsed[6] for parsed in parsed_parts]
     else:
         # Each MIME part is its own document. Plain text must not be interpreted
         # as markup, nor may an unclosed tag in one part hide another part.
         raw_parts = [subject] + [part['content'] for part in content_parts]
         html_parts = [False] + [part['content_type'] == 'text/html' for part in content_parts]
         parsed_parts = [visible_html(part['content']) if part['content_type'] == 'text/html'
-                        else (part['content'], False, False, {}, False, None) for part in content_parts]
+                        else (part['content'], False, False, {}, False, None, []) for part in content_parts]
         visible_parts = [subject] + [parsed[0] for parsed in parsed_parts]
         stylesheet_uncertain_parts = [False] + [parsed[1] for parsed in parsed_parts]
         model_uncertain_parts = [False] + [parsed[2] for parsed in parsed_parts]
         reading_parts = [{}] + [parsed[3] for parsed in parsed_parts]
         resolved_parts = [False] + [parsed[4] for parsed in parsed_parts]
         certain_parts = [None] + [parsed[5] for parsed in parsed_parts]
+        media_parts = [[]] + [parsed[6] for parsed in parsed_parts]
     raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
     if _model_view is not None:
         # The model and rule checks consume the same MIME-aware visible text.
         def normalized(part):
             return re.sub(r'\s+', ' ', _strip_invisible_format_controls(part)).strip()
         model_parts = [normalized(part) for part in visible_parts]
-        reading_texts = [{key: normalized(readings[key]) for key in _MODEL_READINGS if key in readings}
-                         for readings in reading_parts]
+        reading_texts = [{key: normalized(text) for key, text in readings.items()} for readings in reading_parts]
+        reading_keys = sorted(set().union(*reading_texts))
 
         def view_readings(included):
             views = {}
-            for key in _MODEL_READINGS:
+            for key in reading_keys:
                 if any(key in texts for texts, use in zip(reading_texts[1:], included) if use):
                     views[key] = '\n'.join(texts.get(key, model) for model, texts, use
                                            in zip(model_parts[1:], reading_texts[1:], included) if use).strip()
@@ -2979,68 +3132,39 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                      if is_html and stylesheet_uncertain else part_links)
     # CSS may hide arbitrary body text. Do not derive high phishing scores from
     # prose that might be hidden; independent destination/form checks still run.
-    # Where every hiding rule's targets are known, the text no style can hide is scored.
+    # Where every hiding rule's targets are known, the text no style can hide is scored,
+    # and so is the text each @media context shows; the riskiest reading counts.
     scored_parts = [visible if not uncertain else (certain or '') for visible, uncertain, certain
                     in zip(visible_parts, stylesheet_uncertain_parts, certain_parts)]
-    full_orig = re.sub(r'\s+', ' ', '\n'.join(scored_parts)).strip()
-    analysis_text = _strip_invisible_format_controls(full_orig)
-    full_lower = analysis_text.lower()
-    if _has_substantial_han_text(analysis_text):
+    readings_for_rules = [scored_parts] + [
+        [media[index] if uncertain and index < len(media) else scored
+         for scored, uncertain, media in zip(scored_parts, stylesheet_uncertain_parts, media_parts)]
+        for index in range(max((len(media) for media in media_parts), default=0))]
+    base_text = _strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(scored_parts)).strip())
+    if _has_substantial_han_text(base_text):
         analysis_warnings.append(_HAN_TEXT_WARNING)
-
-    category_results = []
-    total_score = 0
-    risk_floor = "safe"
-
-    for cat_key, cat_info in CONTENT_RULES.items():
-        matched = [
-            kw for kw in cat_info["keywords"]
-            if _keyword_matches(full_lower, kw)
-        ]
-        if matched:
-            capped = min(len(matched), 5)
-            total_score += capped
-            category_results.append({
-                "key":         cat_key,
-                "label":       cat_info["label"],
-                "level":       cat_info["level"],
-                "icon":        cat_info["icon"],
-                "description": cat_info["description"],
-                "matched":     matched[:6],
-                "count":       len(matched),
-                "score":       capped,
-            })
+    floor_rank = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+    rules = max((_text_rule_findings(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()) for parts in readings_for_rules),
+                key=lambda found: (floor_rank[found['floor']], found['score']))
+    analysis_text = rules['analysis_text']
+    full_lower = analysis_text.lower()
+    category_results = rules['categories']
+    total_score = rules['score']
+    risk_floor = rules['floor']
 
     extra_indicators = []
 
     if any(hidden_image_padding):
         total_score += 4
-        risk_floor = 'medium'
+        risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
         extra_indicators.append(indicator('medium', 'content.hidden_text_padding'))
 
     if any(_has_password_form(part, analysis_warnings) for part, is_html in zip(raw_parts, html_parts) if is_html):
         total_score += 4
-        risk_floor = 'medium'
+        risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
         extra_indicators.append(indicator('medium', 'content.password_form'))
 
-    if _has_pressured_credential_request(analysis_text):
-        total_score += 4
-        risk_floor = 'high'
-        extra_indicators.append(indicator('high', 'content.pressured_credential_request'))
-
-    # Requests to hand over one-time codes, secrets, gift cards, crypto or remote
-    # access: one strong signal however many kinds appear, each kind listed.
-    callback_number = _callback_request(analysis_text, _OFFICIAL_SERVICE_NUMBERS)
-    if callback_number:
-        total_score += 4
-        risk_floor = max((risk_floor, 'high'), key={'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}.get)
-        extra_indicators.append(indicator('high', 'content.callback_request', number=callback_number))
-
-    sensitive_requests = _sensitive_requests(analysis_text)
-    if sensitive_requests:
-        total_score += 4
-        risk_floor = 'high'
-        extra_indicators.extend(indicator('high', code) for code in sensitive_requests)
+    extra_indicators.extend(rules['requests'])
 
     # ── Structural & heuristic checks ────────────────────────────────────────
 
@@ -3055,21 +3179,9 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         raw_text, links=links, parse_warnings=analysis_warnings)
     total_score += link_score
     extra_indicators.extend(link_findings)
-    floor_rank = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
     risk_floor = max((risk_floor, link_floor), key=floor_rank.get)
 
-    # 4. Excessive exclamation marks
-    excl = full_orig.count("!")
-    if excl >= 3:
-        total_score += 1
-        extra_indicators.append(indicator("medium", "content.exclamation_marks", count=excl))
-
-    # 5. Excessive capitalization
-    caps_ratio = _excessive_caps_ratio(full_orig)
-    if caps_ratio > 0.40 and len(full_orig) > 60:
-        total_score += 1
-        extra_indicators.append(indicator("medium", "content.capitalization",
-                                          percent=int(f"{caps_ratio:.0%}"[:-1])))
+    extra_indicators.extend(rules['style'])
 
     # 6. Excessive question marks in subject
     subj_q = scored_parts[0].count("?")
@@ -3083,36 +3195,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 1
         extra_indicators.append(indicator("medium", "content.url_count", count=url_count))
 
-    # 8. Generic/impersonal salutation
-    if _has_generic_salutation(full_orig):
-        total_score += 2
-        extra_indicators.append(indicator("medium", "content.generic_greeting"))
-
-    # 9. Implausibly large currency amounts
-    large_amounts = _large_currency_amounts(full_orig)
-    if large_amounts:
-        total_score += 2
-        extra_indicators.append(indicator("high", "content.large_amounts", amounts=', '.join(large_amounts)))
-
-    # 10. Excessive generic CTAs
-    cta_count = _count_generic_cta(full_orig)
-    if cta_count >= 2:
-        total_score += 1
-        extra_indicators.append(indicator("medium", "content.generic_cta", count=cta_count))
-
-    # 11. Regional/formal English variants are context only. Language variety
-    # is neither malicious nor a reliable signal against modern LLM phishing.
-    non_native = _detect_non_native_phrases(full_orig)
-    if non_native:
-        extra_indicators.append(indicator(
-            "info", "content.regional_phrasing_more" if len(non_native) > 1 else "content.regional_phrasing",
-            phrase=non_native[0]))
-
-    # 12. Character obfuscation / leetspeak
-    obfuscated = _detect_obfuscation(full_orig)
-    if obfuscated:
-        total_score += 3
-        extra_indicators.append(indicator("high", "content.obfuscation", brands=', '.join(set(obfuscated))))
+    extra_indicators.extend(rules['wording'])
 
     # Cosmetic legitimacy signals are context only. Attackers can copy these
     # strings, so they must never lower the risk score by themselves.
@@ -3253,8 +3336,8 @@ def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heur
     kept, resolved, hidden_agrees = [], True, True
     for body in bodies:
         base = predictions[body]
-        renderings = [predictions[view[key]] for view in view_readings.get(body, ())
-                      for key in ('strict', 'outlook') if key in view]
+        renderings = [predictions[text] for view in view_readings.get(body, ())
+                      for key, text in view.items() if key != 'hidden']
         if level(base) is None:
             kept.append((body, base))
             resolved = False
@@ -3598,13 +3681,14 @@ async def _analyze_content(
         if blocking_warnings == [_REMOTE_IMAGE_WARNING] and not remote_image_dominant:
             result['risk_label'] = 'No Indicators in Inspected Text — Remote Image Unchecked'
         elif (verified_sender and verified_sender['organization'] in SENDER_ONLY_SERVICES
-              and result['risk_floor'] in {'safe', 'low'}):
+              and result['risk_floor'] in {'safe', 'low'} and not remote_image_dominant):
             # A registered service's own account mail (platform relays are excluded):
             # hidden or client-specific text, image fallbacks and unscored views are its
             # own, so they leave the verified Low rather than an undetermined result.
             # Payment, bank and large-platform brands keep abstaining: scams sent through
             # their genuine invoices and money requests put attacker text in fields that
             # an unreadable part may hold (7 such PayPal and Microsoft messages in Nazario).
+            # Mail whose main content is an uninspected remote image keeps abstaining too.
             result['risk_level'] = 'low'
             result['risk_label'] = 'Low Risk — Verified Official Sender'
         else:

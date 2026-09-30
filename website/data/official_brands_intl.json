@@ -10,7 +10,8 @@
     "gov_suffixes lets a government entry accept that country's government domains (.gov, gov.uk, gc.ca, gov.au). brand_tlds accepts a brand top-level domain (DHL's .dhl).",
     "A matching domain proves nothing on its own because From is not authenticated; the registry is used to detect impersonation.",
     "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded.",
-    "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused."
+    "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused.",
+    "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message."
   ],
   "regulatory_statements": [
     {
@@ -342,7 +343,14 @@
       ],
       "unverified_statements": [],
       "official_contact_emails": [],
-      "display_check": "protected_brand_rule"
+      "display_check": "protected_brand_rule",
+      "relay_addresses": [
+        "drive-shares-dm-noreply@google.com",
+        "drive-shares-noreply@google.com",
+        "noreply@groups.google.com",
+        "comments-noreply@docs.google.com",
+        "calendar-notification@google.com"
+      ]
     },
     {
       "id": "meta",
@@ -697,7 +705,10 @@
       "verified_statements": [],
       "unverified_statements": [],
       "official_contact_emails": [],
-      "review_note": "Domains confirmed by homepages; no statement verified."
+      "review_note": "Domains confirmed by homepages; no statement verified.",
+      "relay_addresses": [
+        "dse*@docusign.net"
+      ]
     },
     {
       "id": "hmrc",
@@ -914,7 +925,10 @@
       "domain_sources": [
         "https://docs.github.com/en/subscriptions-and-notifications/get-started/configuring-notifications"
       ],
-      "review_note": "Docs name notifications@github.com. Notifications carry other users' issue and pull-request text; they use the actor's display name and are treated as relays."
+      "review_note": "Docs name notifications@github.com. Notifications carry other users' issue and pull-request text; they use the actor's display name and are treated as relays.",
+      "relay_addresses": [
+        "notifications@github.com"
+      ]
     },
     {
       "id": "dropbox",

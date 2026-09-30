@@ -314,6 +314,9 @@ Raw input enables these checks:
     "Low Risk — Verified Official Sender".
   - Lookalike links, dangerous attachments, requests for codes, and other evidence
     that sets a Medium or higher floor still alert.
+  - The DMARC result and its `header.from` are read from the same clause, after
+    comments and quoted strings are removed. Conflicting DMARC clauses give no
+    identity.
   - **Platform relays are not official.** Drive shares, Docusign envelopes, Canva
     designs, GitHub issue notifications and similar mail are signed by the
     platform but carry another user's document, message and links. A verified
@@ -322,7 +325,11 @@ Raw input enables these checks:
     - a From display name says "via" or does not name the organization (its
       domain label, display names or product names such as Trello for Atlassian);
     - Reply-To points to another organization;
-    - the subject is a share, invitation, comment or signature template.
+    - the subject is a share, invitation, comment, signature, invoice,
+      money-request or seller-dispute template;
+    - the address is a registered relay address (`relay_addresses`):
+      `notifications@github.com`, Google Drive/Docs/Groups/Calendar sharing
+      addresses, or Docusign envelope senders (`dse*@docusign.net`).
   - Besides the phishing-target brands, the international registry lists 26
     services (`display_check: sender_only`): GitHub, Dropbox, Crunchyroll, Slack,
     Canva, Duolingo, Asana, Atlassian (`id.atlassian.com` only), Coursera, EA,
@@ -346,7 +353,8 @@ Raw input enables these checks:
   (including mail.ru, Yandex and GMX). Every From display name must also name that
   organization: "Dropbox" from `txn.dropbox.com` qualifies. Generic names such as
   "IT Support", and names or local parts that carry another organization's domain
-  (for example "monkey.org Portal"), do not.
+  (for example "monkey.org Portal"), do not. Nor does a name that claims another
+  registered organization, such as "GitHub" from `githubdocuments.com`.
   - Address-shape findings are then shown at info level and not scored. These are
     role or keyword usernames, random-looking or long usernames, keyword
     subdomains, deep subdomains, and "unrecognized provider".
@@ -457,6 +465,11 @@ Uncertain elements are located when every hiding rule's target selector carries
 a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
 `*[class="x"]` qualify, while `div`, `*` and `:not(...)` do not.
 
+- Each `@media` (or other at-rule) context is its own view: the base rules'
+  hidden targets, minus those it shows, plus those it hides. Text rules read
+  each context's view as well as the certainly visible text, and the riskiest
+  reading counts. More than eight contexts are not modelled. CSS comments are
+  stripped only outside strings, so `content:"/*"` opens no comment.
 - If all views lead to the same alert decision, the view is scored at its
   highest-risk reading. Its rendering warnings stay listed but stop blocking a
   Safe or Low verdict, and `content.rendering_views_agree` explains this.

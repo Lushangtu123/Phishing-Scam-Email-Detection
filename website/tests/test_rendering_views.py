@@ -38,9 +38,15 @@ class StylesheetTargetTests(unittest.TestCase):
                ' .mobile{display:none} u + .body .gmail-hide{display:none} #promo{visibility:hidden}'
                ' *[class="gmail-fix"]{display:none} table[class~="a,b"]{display:none} a::before{display:none}'
                ' span.tiny:hover{font-size:0} .pad{content:"}"; display:none} p{color:red}')
-        self.assertEqual(app._stylesheet_hidden_targets(css), (
+        targets = app._stylesheet_hidden_targets(css)
+        self.assertEqual(targets['union'], (
             frozenset({'preheader', 'mobile', 'gmail-hide', 'tiny', 'pad'}), frozenset({'promo'}),
             frozenset({'gmail-fix', 'a,b'})))
+        # The base view hides .mobile; the (max-width:600px) view shows it again.
+        base, mobile = targets['views']
+        self.assertIn(('class', 'mobile'), base)
+        self.assertNotIn(('class', 'mobile'), mobile)
+        self.assertIn(('class', 'preheader'), mobile)
 
     def test_rules_that_could_hide_any_element_are_not_modelled(self):
         for css in ('div{display:none}', '*{opacity:0}', 'div:not(.show){display:none}',

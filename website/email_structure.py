@@ -8,6 +8,7 @@ from email.message import EmailMessage
 from email.utils import parseaddr, getaddresses
 from email.errors import HeaderParseError
 from email.header import decode_header, make_header
+import fnmatch
 import json
 from pathlib import Path, PurePath
 import re
@@ -138,6 +139,13 @@ def _load_official_sender_domains(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, str
             for domain in (*brand["official_domains"], *brand.get("brand_tlds", ())):
                 domains.setdefault(normalize_domain(domain), brand["name"])
     return domains
+
+
+def _load_relay_addresses(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, tuple[str, ...]]:
+    """Organization -> address patterns (fnmatch) that only carry other users' content."""
+    return {brand["name"]: tuple(pattern.lower() for pattern in brand["relay_addresses"])
+            for path in paths for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]
+            if brand.get("relay_addresses")}
 
 
 def _load_organization_names(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, tuple[str, ...]]:
@@ -287,7 +295,18 @@ _RELAY_SUBJECT = re.compile(
     r"\b(?:shared|sharing|invit(?:ed|ing) you|invit(?:e|ation)s? (?:you )?to|sent you|mentioned you|commented|replied to"
     r"|assigned (?:you|to you|a task)|added you|requested (?:access|your signature)|wants to (?:share|connect)"
     r"|review and sign|please sign|signature (?:request|required)|left a comment|messaged you|new message from)\b"
-    r"|分享了|邀请你|邀请您|给你发送|评论了|提到了你", re.IGNORECASE)
+    r"|分享了|邀请你|邀请您|给你发送|评论了|提到了你"
+    # Invoices, money requests and seller disputes carry the requester's name, note,
+    # amount and links (PayPal's own help describes invoice and money-request scams).
+    r"|\binvoice\b|\bmoney request|\brequest(?:ed|s|ing)? (?:money|a payment|payment)|\bpayment request"
+    r"|\bdon'?t recogni[sz]e the seller|发票|付款请求|收款请求", re.IGNORECASE)
+
+
+def _claims_other_organization(display_name: str, own: str | None) -> bool:
+    """Whether a display name names a registered organization other than the sender's own
+    ("GitHub" from githubdocuments.com); a lookalike domain label is no evidence."""
+    return any(organization != own and any(_display_name_claims(display_name, name) for name in names)
+               for organization, names in _ORGANIZATION_NAMES.items())
 
 
 def _platform_relay(from_mailboxes, reply_to_values, subject: str, organization: str, domain: str) -> str | None:
@@ -298,6 +317,10 @@ def _platform_relay(from_mailboxes, reply_to_values, subject: str, organization:
     """
     organization_domain = organizational_domain(domain)
     names = _ORGANIZATION_NAMES.get(organization, (organization,))
+    for _name, address in from_mailboxes:
+        if any(fnmatch.fnmatchcase(address.strip().lower(), pattern)
+               for pattern in _RELAY_ADDRESSES.get(organization, ())):
+            return "address"
     for name, address in from_mailboxes:
         if re.search(r"\bvia\b", name, re.IGNORECASE):
             return "via"
@@ -320,8 +343,18 @@ def _dmarc_aligned(from_domain: str, header_from: str) -> bool:
 
 
 def _dmarc_header_from(value: str) -> str:
-    match = re.search(r"\bdmarc\s*=\s*pass\b[^;]*?\bheader\.from\s*=\s*\"?([^\s;\"()]+)", value, re.IGNORECASE)
-    return normalize_domain(match.group(1)) if match else ""
+    """header.from of the single passing DMARC clause, read after comments and quoted
+    strings are removed. Several DMARC clauses that disagree give no identity."""
+    clauses = []
+    for segment in _authentication_segments(value)[0][1:]:
+        match = re.match(r"dmarc\s*=\s*([a-z]+)(?=\s|$)", segment, re.IGNORECASE)
+        if match:
+            unquoted = re.sub(r'"(?:[^"\\]|\\.)*"', '""', segment)
+            identity = re.search(r"\bheader\.from\s*=\s*([^\s;\"()]+)", unquoted, re.IGNORECASE)
+            clauses.append((match.group(1).lower(), normalize_domain(identity.group(1)) if identity else ""))
+    if len(set(clauses)) != 1 or clauses[0][0] != "pass":
+        return ""
+    return clauses[0][1]
 
 
 def _display_name_claims(display_name: str, name: str) -> bool:
@@ -366,6 +399,7 @@ def normalize_domain(domain: str) -> str:
 _OFFICIAL_BRANDS = _load_official_brands()
 _OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
 _ORGANIZATION_NAMES = _load_organization_names()
+_RELAY_ADDRESSES = _load_relay_addresses()
 SENDER_ONLY_SERVICES = _load_sender_only_services()
 _OFFICIAL_CHANNELS = _load_official_channels()
 # Digits of every published official service number, e.g. 95588, 18005551234.
@@ -959,10 +993,13 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 and not {from_domain, organization_domain} & _CONSUMER_MAILBOX_DOMAINS
                 and (not _AUTHENTICATED_SENDER_NEEDS_DKIM
                      or any(organizational_domain(domain) == organization_domain for domain in dkim_pass_domains))):
+            own = _official_sender(from_domain)
             authenticated_sender = {
                 "domain": from_domain, "organizational_domain": organization_domain,
-                "display_name_matches": all(display_name_matches_domain(name, from_domain, address.rpartition("@")[0])
-                                            for name, address in from_mailboxes),
+                "display_name_matches": all(
+                    display_name_matches_domain(name, from_domain, address.rpartition("@")[0])
+                    and not _claims_other_organization(name, own)
+                    for name, address in from_mailboxes),
             }
 
     for attachment in attachments:
