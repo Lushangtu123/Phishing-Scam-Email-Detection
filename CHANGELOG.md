@@ -20,6 +20,29 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 20:00 PT] — Accept organizational header.from and www display hosts
+
+### Why
+- Eight new genuine downloads left two Spotify false alerts.
+- Gmail reported `header.from=spotify.com` for `no-reply@alerts.spotify.com`. The exact-match check left the sender unauthenticated, so its `alerts.`/`no-reply` address raised a Medium floor.
+- A link labelled `https://www.spotify.com` opening Spotify's own `wl.spotify.com` counted as a display mismatch (High), because `www.` was dropped only when no scheme was shown.
+
+### Files changed
+- `website/email_structure.py` — `_dmarc_aligned()` accepts a trusted DMARC `header.from` equal to the From domain or its organizational domain, for verified and authenticated senders.
+- `website/app.py` — `_display_host_aligns()` drops a leading `www.` from the displayed host, including after a scheme.
+  - A displayed public suffix must match exactly. It checks the bundled list including private suffixes (`_PRIVATE_SUFFIX_DOMAINS`), which closes an existing gap where `www.github.io` aligned with any `*.github.io`.
+- `website/tests/test_alignment_regressions.py` covers:
+  - organizational, foreign and child `header.from`;
+  - `www` display hosts on the same site;
+  - foreign destinations and shared-host or public-suffix displays that still mismatch.
+- `README.md`, `docs/evaluation.md` — rule and measurement.
+
+### Effect
+- Own genuine downloads (72): alerts 8 → 3. Three Spotify and two Pinterest messages no longer alert.
+- Nazario 2015–25 phishing without a mailbox: unchanged, including 207 display-mismatch findings.
+- Nazario with the top header trusted: 2,000 → 1,998 alerts. The two are genuine AliExpress and Netflix mail in the phishing corpus.
+- The Spotify account-deletion confirmation still alerts on the model alone; Spotify is not in the registry.
+
 ## [2026-09-30 19:00 PT] — Add 15 service senders and stop treating platform relays as official
 
 ### Why

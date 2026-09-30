@@ -1408,6 +1408,42 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Organizational header.from and www display hosts (2026-09-30)
+
+Eight more genuine downloads (six Gmail, two Outlook.com) left two Spotify false
+alerts. Both came from rules being stricter than intended.
+
+- **Organizational `header.from`.** Gmail reported
+  `dmarc=pass … header.from=spotify.com` for `no-reply@alerts.spotify.com`. The
+  code required the two to match exactly, so the sender was not authenticated
+  and its `alerts.` subdomain and `no-reply` username raised a Medium floor. A
+  `header.from` equal to the From domain's organizational domain now aligns.
+  Other domains, and child domains, do not.
+- **`www` display hosts.** A link labelled `https://www.spotify.com` that opened
+  Spotify's own `wl.spotify.com` counted as a display mismatch (High), because
+  `www.` was only dropped when no scheme was shown. The displayed host now drops
+  `www.` in both forms.
+- **Public suffixes.** A displayed host that is itself a public suffix must now
+  match exactly. This uses the bundled list including private suffixes such as
+  `github.io`, and closes an existing gap where `www.github.io` aligned with any
+  user's `*.github.io`.
+
+Old code (main) against new code:
+
+| Cohort | Alerts | Undetermined | Safe or Low |
+|---|---|---|---|
+| Own genuine downloads (72) | 8 → 3 | 36 → 38 | 28 → 31 |
+| Nazario 2015–25 phishing, no mailbox (3,466) | 3,271 → 3,271 | 186 → 186 | 9 → 9 |
+| Nazario with headers, top header trusted (2,122) | 2,000 → 1,998 | 114 → 116 | 8 → 8 |
+
+- Display-mismatch findings on Nazario were unchanged (207 → 207).
+- The two Nazario changes are genuine brand mail in the phishing corpus: an
+  AliExpress verification code signed by `aliexpress.com`, and a Netflix price
+  notice signed by `account.netflix.com` linking only to Netflix hosts. Both
+  became undetermined.
+- The Spotify account-deletion confirmation still alerts on the model alone
+  (79%), because Spotify is not in the registry.
+
 ### Service senders and platform relays (2026-09-30)
 
 Model-led alerts on genuine account mail were the largest remaining false-alert

@@ -305,6 +305,13 @@ def _platform_relay(from_mailboxes, reply_to_values, subject: str, organization:
     return None
 
 
+def _dmarc_aligned(from_domain: str, header_from: str) -> bool:
+    """Whether a DMARC result is for this From domain. Gmail may report the
+    organizational domain (header.from=spotify.com for alerts.spotify.com) when the
+    policy came from it."""
+    return bool(header_from) and header_from in {from_domain, organizational_domain(from_domain)}
+
+
 def _dmarc_header_from(value: str) -> str:
     match = re.search(r"\bdmarc\s*=\s*pass\b[^;]*?\bheader\.from\s*=\s*\"?([^\s;\"()]+)", value, re.IGNORECASE)
     return normalize_domain(match.group(1)) if match else ""
@@ -919,7 +926,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     verified_official_sender = None
     if dmarc_passes and not decisive_failure and len(from_domains) == 1:
         from_domain = next(iter(from_domains))
-        if from_domain == dmarc_header_from:
+        if _dmarc_aligned(from_domain, dmarc_header_from):
             organization = _official_sender(from_domain)
             relay = organization and _platform_relay(
                 from_mailboxes, header_candidates['Reply-To'], '\n'.join(header_candidates['Subject']),
@@ -940,7 +947,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     if dmarc_passes and not decisive_failure and len(from_domains) == 1:
         from_domain = next(iter(from_domains))
         organization_domain = organizational_domain(from_domain)
-        if (from_domain == dmarc_header_from
+        if (_dmarc_aligned(from_domain, dmarc_header_from)
                 and not {from_domain, organization_domain} & _CONSUMER_MAILBOX_DOMAINS
                 and (not _AUTHENTICATED_SENDER_NEEDS_DKIM
                      or any(organizational_domain(domain) == organization_domain for domain in dkim_pass_domains))):

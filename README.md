@@ -306,7 +306,9 @@ Raw input enables these checks:
   ignored. A trusted DMARC pass for the single From domain, when that domain is
   an organization's own sending domain in the official-brand registries, marks a
   **verified official sender**. Consumer mailbox domains such as qq.com, icloud.com
-  or gmail.com never qualify.
+  or gmail.com never qualify. A `header.from` equal to the From domain's
+  organizational domain also counts: Gmail reports `header.from=spotify.com` for
+  `no-reply@alerts.spotify.com` when the policy comes from the parent domain.
   - Address-shape sender heuristics are then not scored.
   - The text model or weak rules alone cannot raise the message above
     "Low Risk — Verified Official Sender".

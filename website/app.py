@@ -97,6 +97,7 @@ from email_structure import (
     _domains_align,
     analyze_raw_email,
 )
+import tldextract
 from sender_features import (  # noqa: F401 -- re-exported for app callers and tests
     LEGIT_PROVIDERS,
     HIGH_TRAFFIC,
@@ -1698,6 +1699,26 @@ def _extract_links(text: str, *, parse_html: bool = True, parse_warnings=None,
     ]
 
 
+# The bundled Public Suffix List snapshot, including private suffixes (github.io,
+# netlify.app), so a user's subdomain on a shared host is its own registrable domain.
+_PRIVATE_SUFFIX_DOMAINS = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None,
+                                                include_psl_private_domains=True)
+
+
+def _display_host_aligns(visible: str, target: str) -> bool:
+    """Whether a link's displayed host names the site it actually opens.
+
+    "https://www.spotify.com" names spotify.com, so its own wl.spotify.com aligns.
+    A displayed public suffix (co.uk, or github.io under the private suffix list)
+    must match exactly: its subdomains belong to different owners.
+    """
+    if visible.startswith('www.'):
+        visible = visible[4:]
+    if not _PRIVATE_SUFFIX_DOMAINS(visible).top_domain_under_public_suffix:
+        return visible == target
+    return _domains_align(visible, target)
+
+
 def _visible_link_host(link_text: str) -> str:
     """Extract an address presented to the reader, not a domain in article prose."""
     link_text = link_text.strip(" \t\r\n<>()[]{}'\",;.!?")
@@ -1863,10 +1884,7 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
         visible_host = _visible_link_host(link_text)
         if (
             visible_host
-            and not _domains_align(
-                _decode_idna_domain(visible_host),
-                decoded_host,
-            )
+            and not _display_host_aligns(_decode_idna_domain(visible_host), decoded_host)
             and "display-mismatch" not in finding_types
         ):
             score += 3
