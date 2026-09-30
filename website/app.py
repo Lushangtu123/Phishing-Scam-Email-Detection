@@ -89,6 +89,7 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 from email_structure import (
     MAILBOX_AUTHSERV_IDS,
+    official_channels as _official_channels,
     _PROTECTED_BRAND_DOMAINS,
     _confusable_skeleton,
     _decode_idna_domain,
@@ -3098,6 +3099,13 @@ async def _analyze_content(
     # alerts, and a very high rule score keeps Critical.
     verified_sender = structure.get('verified_official_sender') if structure else None
     result['verified_official_sender'] = verified_sender
+    # Where to verify independently: organizations named by the verified sender, the
+    # From display name or the subject. Guidance only; it never changes the score.
+    from_names = [name for value in (structure['header_candidates']['From'] if structure else ())
+                  for name, _address in getaddresses([value]) if name]
+    result['official_channels'] = _official_channels(
+        [*from_names, structure['subject'] if structure else request.subject],
+        first=verified_sender['organization'] if verified_sender else None)
     if verified_sender and result['risk_floor'] in {'safe', 'low'} and result['risk_level'] in {'medium', 'high'}:
         result['risk_level'] = 'low'
         result['risk_label'] = 'Low Risk — Verified Official Sender'

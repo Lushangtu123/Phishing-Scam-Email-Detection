@@ -572,6 +572,12 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 /* ── Result Columns ──────────────────────────────────────────────────────── */
 .result-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: start; }
 .col-card[hidden] { display: none; }
+/* How to verify it yourself: official channels for organizations the message names. */
+.official-list { display: grid; gap: 14px; }
+.official-item p { margin: 0 0 6px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+.official-statement { margin: 6px 0 0; padding: 8px 12px; border-left: 2px solid var(--border); color: var(--text-muted); font-size: 12.5px; line-height: 1.6; }
+.official-statement cite { display: block; margin-top: 4px; font-style: normal; font-size: 12px; }
+.official-statement a { color: var(--accent2); }
 .col-card {
   position: relative;
   background: var(--sheen), var(--surface); border: 1px solid var(--border);

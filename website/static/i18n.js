@@ -247,6 +247,10 @@ window.PhishGuardI18n = (() => {
     'content.emlGuide.forward': "Download the email you received, not a forwarded copy: forwarding replaces the original headers with yours.",
     'content.emlGuide.temp': "Temporary-inbox websites usually show only the rendered message, without the original headers.",
     'content.emlGuide.privacy': "An .eml contains your address and the full message. Upload only mail you are willing to have analyzed; files are limited to 2 MiB.",
+    'content.col.verify': "How to verify it yourself",
+    'content.verify.channel': "{organization}: don’t use this email’s links, buttons or phone numbers. Open the official app, or type {website} into your browser yourself.",
+    'content.verify.phone': "Official customer service: {numbers}",
+    'content.verify.source': "Source: {organization} official page",
     'content.mailbox.label': "Downloaded from",
     'content.mailbox.unknown': "Other mailbox or not sure (authentication not trusted)",
     'content.mailbox.gmail': "Gmail (original message downloaded from Gmail)",
@@ -1255,7 +1259,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=8'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=9'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

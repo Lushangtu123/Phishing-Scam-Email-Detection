@@ -327,6 +327,11 @@ Raw input enables these checks:
   domains (gov.cn, .gov, gov.uk, gc.ca, gov.au). A matching domain proves
   nothing on its own, because From is not authenticated, so a match only
   avoids this signal;
+- guidance only, never scored: when the verified sender, the From display name
+  or the subject names a registry organization, the result lists up to two
+  organizations under "How to verify it yourself". For each it shows the official
+  website to type in, its service numbers, and one source-linked "we will never…"
+  statement;
 - From / Reply-To / Return-Path domain mismatches;
 - the same sender/domain heuristics used by the sender-only workflow;
 - executable, macro-enabled, disk-image, and archive attachment extensions or

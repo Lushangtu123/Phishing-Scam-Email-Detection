@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
@@ -99,6 +100,34 @@ class OfficialBrandRegistryTests(unittest.TestCase):
                 self.assertEqual(claim(display_name, 'example.com'), (0, []))
         score, indicators = claim('PayPal Service', 'paypal-help.top')
         self.assertEqual((score, len(indicators)), (4, 1))
+
+    def test_official_channels_name_organizations_from_short_texts_only(self):
+        channels = es.official_channels(['PayPal Service', 'Your account is limited'])
+        self.assertEqual([c['organization'] for c in channels], ['PayPal'])
+        self.assertEqual(channels[0]['website'], 'paypal.com')
+        icbc = es.official_channels(['中国工商银行'])[0]
+        self.assertEqual((icbc['website'], icbc['service_numbers']), ('icbc.com.cn', ['95588']))
+        self.assertIn('绝对不会', icbc['statement'])  # a "will never" statement is preferred
+        self.assertTrue(icbc['statement_source'].startswith('https://'))
+        for texts in (['Apple pie recipe'], ['Weekly team notes'], ['']):
+            with self.subTest(texts=texts):
+                self.assertEqual(es.official_channels(texts), [])
+        first = es.official_channels(['Netflix and Wells Fargo and DHL Express'], first='HSBC')
+        self.assertEqual([c['organization'] for c in first][:1], ['HSBC'])
+        self.assertEqual(len(first), 2)
+
+    def test_results_carry_official_channels_without_changing_the_score(self):
+        raw = ('From: PayPal Service <billing@paypal-help.top>\nTo: user@example.com\n'
+               'Subject: Your account is limited\n\nPlease review.\n')
+        with_guidance = json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(raw_email=raw))).body)
+        self.assertEqual([c['organization'] for c in with_guidance['official_channels']], ['PayPal'])
+        with patch.object(app, '_official_channels', lambda *args, **kwargs: []):
+            without = json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(raw_email=raw))).body)
+        self.assertEqual((with_guidance['risk_level'], with_guidance['total_score']),
+                         (without['risk_level'], without['total_score']))
+        plain = json.loads(asyncio.run(app.analyze_content_endpoint(
+            app.ContentRequest(subject='Weekly team notes', body='See the agenda.'))).body)
+        self.assertEqual(plain['official_channels'], [])
 
     def test_raw_message_impersonating_a_chinese_bank_is_high_risk(self):
         raw = ('From: =?utf-8?b?5Lit5Zu95bel5ZWG6ZO26KGM?= <service@icbc-verify.top>\n'

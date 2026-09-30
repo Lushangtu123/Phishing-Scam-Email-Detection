@@ -217,6 +217,23 @@ function renderContentResult(data, { languageOnly = false } = {}) {
     `).join('');
   }
 
+  // Official channels to verify through, for organizations the message names.
+  // Guidance only; it never changes the verdict.
+  const officialCard = document.getElementById('content-official-card');
+  const channels = data.official_channels || [];
+  officialCard.hidden = channels.length === 0;
+  document.getElementById('content-official-list').innerHTML = channels.map(channel => `
+    <div class="official-item">
+      <p class="official-advice">${escapeHtml(t('content.verify.channel', {
+        organization: channel.organization, website: channel.website }))}</p>
+      ${channel.service_numbers?.length ? `<p class="official-phone">${escapeHtml(t('content.verify.phone', {
+        numbers: channel.service_numbers.join(' / ') }))}</p>` : ''}
+      ${channel.statement ? `<blockquote class="official-statement">${escapeHtml(channel.statement)}
+        <cite><a href="${escapeHtml(channel.statement_source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+          t('content.verify.source', { organization: channel.organization }))}</a></cite></blockquote>` : ''}
+    </div>
+  `).join('');
+
   // Extra technical indicators
   const extraCard = document.getElementById('content-extra-card');
   const extraList = document.getElementById('content-extra-list');

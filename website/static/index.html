@@ -14,9 +14,9 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=10"></script>
+  <script src="/static/lang-init.js?v=11"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=53" />
+  <link rel="stylesheet" href="/static/style.css?v=54" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -649,6 +649,10 @@
               </div>
             </div>
           </div>
+          <div class="col-card" id="content-official-card" hidden>
+            <h3 class="col-title" data-i18n="content.col.verify">How to verify it yourself</h3>
+            <div id="content-official-list" class="official-list"></div>
+          </div>
           <div class="col-card" id="content-extra-card" hidden>
             <h3 class="col-title" data-i18n="content.col.technical">Technical Indicators</h3>
             <div id="content-extra-list" class="risk-list"></div>
@@ -1037,7 +1041,7 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=17"></script>
+<script src="/static/i18n.js?v=19"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
@@ -1051,7 +1055,7 @@
 <script src="/static/app-sender.js?v=5"></script>
 <script src="/static/app-verify.js?v=4"></script>
 <script src="/static/app-content.js?v=4"></script>
-<script src="/static/app-content-render.js?v=5"></script>
+<script src="/static/app-content-render.js?v=6"></script>
 <script src="/static/app-reports.js?v=3"></script>
 <script src="/static/app-metrics.js?v=4"></script>
 <script src="/static/app.js?v=53"></script>

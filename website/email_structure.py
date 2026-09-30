@@ -135,6 +135,49 @@ def _official_sender(domain: str) -> str | None:
     return None
 
 
+_NEVER_STATEMENT = re.compile(r"\b(?:never|will not|won't|does not|do not)\b|不会|绝不|绝对不|未授权", re.IGNORECASE)
+
+
+def _load_official_channels(paths=_OFFICIAL_BRANDS_PATHS) -> tuple[dict, ...]:
+    """Per organization: names to recognize, website, service numbers and one verified statement."""
+    channels = []
+    for path in paths:
+        for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]:
+            statements = brand.get("verified_statements") or ()
+            # Prefer a "we will never …" statement; it tells the reader what to refuse.
+            statement = next((item for item in statements if _NEVER_STATEMENT.search(item["quote"])),
+                             next(iter(statements), None))
+            channels.append({
+                "organization": brand["name"],
+                "names": tuple(sorted(brand["display_names"] or (brand["name"],), key=len, reverse=True)),
+                "website": brand["official_domains"][0],
+                "service_numbers": list(brand.get("service_numbers") or ()),
+                "statement": statement["quote"] if statement else None,
+                "statement_source": statement["source"] if statement else None,
+            })
+    return tuple(channels)
+
+
+def official_channels(texts, *, first: str | None = None, limit: int = 2) -> list[dict]:
+    """Official channels for organizations named in short texts (display name, subject).
+
+    Guidance only, never scored: the reader is told to verify through the
+    organization's own app, website and numbers instead of the message.
+    """
+    found: list[dict] = []
+    for channel in _OFFICIAL_CHANNELS:
+        if channel["organization"] == first:
+            found.append(channel)
+    for channel in _OFFICIAL_CHANNELS:
+        if len(found) >= limit:
+            break
+        if channel in found:
+            continue
+        if any(_display_name_claims(text, name) for text in texts if text for name in channel["names"]):
+            found.append(channel)
+    return [{key: value for key, value in channel.items() if key != "names"} for channel in found[:limit]]
+
+
 def _dmarc_header_from(value: str) -> str:
     match = re.search(r"\bdmarc\s*=\s*pass\b[^;]*?\bheader\.from\s*=\s*\"?([^\s;\"()]+)", value, re.IGNORECASE)
     return normalize_domain(match.group(1)) if match else ""
@@ -181,6 +224,7 @@ def normalize_domain(domain: str) -> str:
 
 _OFFICIAL_BRANDS = _load_official_brands()
 _OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
+_OFFICIAL_CHANNELS = _load_official_channels()
 
 
 def _domain(address: str) -> str:

@@ -20,6 +20,31 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 11:30 PT] — "How to verify it yourself": official channels on the content result
+
+### Why
+- The most reliable check a reader can make is to leave the message and use the organization's own app, website or phone number.
+- The official-brand registries already hold those channels and verified "we will never…" statements, but the result page did not show them.
+
+### Files changed
+- `website/email_structure.py` — `official_channels()` finds registry organizations named in short texts (display names or the organization name). It returns the website, service numbers and one verified statement, preferring a "never / will not / 不会" statement. The verified sender comes first, and at most two are returned.
+- `website/app.py` — results carry `official_channels`, taken from the verified sender, the From display names and the subject (not the body). Guidance only; the score is unchanged.
+- `website/static/index.html`, `website/static/app-content-render.js`, `website/static/style.css` — a "How to verify it yourself" card with the official website to type in, the service numbers and the quoted statement with its source link.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese strings. Asset versions were bumped.
+- `website/tests/test_official_brands.py`:
+  - channels from short texts;
+  - a preferred "never" statement;
+  - ordinary subjects such as "Apple pie recipe" give none;
+  - the verified sender comes first;
+  - the score is unchanged.
+- `README.md` — behaviour.
+
+### Effect
+- Messages naming, for example, 中国工商银行, PayPal, Netflix or 12306 show where and how to verify, with an official statement and its source.
+- Checked in a browser in English and Chinese.
+- All 17 visual screenshots match main locally, because the recorded fixtures carry no channels.
+- Detection is unchanged.
+
 ## [2026-09-30 10:30 PT] — Guide for getting an original .eml email
 
 ### Why
