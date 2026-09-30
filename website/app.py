@@ -1503,13 +1503,22 @@ class _AnalysisHTMLParser(HTMLParser):
 _MSO_CONDITIONAL_WARNING = message_text('warning.mso_conditional')
 
 
-def _expand_mso_comments(text: str, parse_warnings=None) -> str:
+# Private-use sentinels that bracket Outlook-only content (U+E000/U+E001) and content
+# hidden from Outlook (U+E002/U+E003) in the rendering-view pass only.
+_RENDERING_SENTINELS = re.compile('[\ue000-\ue003]')
+
+
+def _expand_mso_comments(text: str, parse_warnings=None, *, mark=False, unresolved=None) -> str:
     """Expose one bounded layer of conditional markup to every HTML collector.
 
     Parse actual comment tokens, not comment-like strings in attributes/scripts.
     The expanded document is evidence only, not a verified client rendering.
     Nested or malformed branches retain the incomplete-analysis warning.
+    With mark, Outlook-only and Outlook-hidden content is bracketed by sentinels,
+    and a branch that cannot be bracketed is appended to unresolved.
     """
+    if mark:
+        text = _RENDERING_SENTINELS.sub('', text)
     comment_end = re.compile(r'--\s*>')
     offsets = [0]
     offsets.extend(match.end() for match in re.finditer(r'\n', text))
@@ -1518,30 +1527,57 @@ def _expand_mso_comments(text: str, parse_warnings=None) -> str:
         def __init__(self):
             super().__init__()
             self.replacements = []
+            self.hidden_from_outlook = 0
+
+        def _span(self):
+            line, column = self.getpos()
+            start = offsets[line - 1] + column
+            close = comment_end.search(text, start + 4)
+            return start, close.end() if close else None
 
         def handle_comment(self, data):
+            if mark and data.strip() == '<![endif]' and self.hidden_from_outlook:
+                # Closes <!--[if !mso]><!--> ... : the content between was hidden from Outlook.
+                self.hidden_from_outlook -= 1
+                start, _end = self._span()
+                self.replacements.append((start, start, '\ue003'))
+                return
             opening = re.match(r'\[if\s+([^\]]+)\]>', data.strip(), re.IGNORECASE)
             if not opening or not re.search(r'\bmso\b', opening.group(1), re.IGNORECASE):
                 return
             condition = re.sub(r'\s+', '', opening.group(1).casefold())
             if (condition.count('(') == condition.count(')')
                     and re.fullmatch(r'\(*(?:!|not)\(*mso\)*', condition)):
+                if mark and re.fullmatch(r'\[if\s+[^\]]+\]><!', data.strip(), re.IGNORECASE):
+                    _start, end = self._span()
+                    if end is None:
+                        unresolved.append('conditional')
+                        return
+                    self.hidden_from_outlook += 1
+                    self.replacements.append((end, end, '\ue002'))
                 return
             if parse_warnings is not None and _MSO_CONDITIONAL_WARNING not in parse_warnings:
                 parse_warnings.append(_MSO_CONDITIONAL_WARNING)
             conditional = re.fullmatch(r'\[if\s+[^\]]+\]>(.*?)<!\[endif\]',
                                        data.strip(), flags=re.IGNORECASE | re.DOTALL)
             if not conditional:
+                # <!--[if mso]><!--> content <!--<![endif]--> shows everywhere; any other
+                # unexpanded branch leaves an Outlook view the text pass cannot see.
+                if mark and not re.fullmatch(r'\[if\s+[^\]]+\]><!', data.strip(), re.IGNORECASE):
+                    unresolved.append('conditional')
                 return
-            line, column = self.getpos()
-            start = offsets[line - 1] + column
-            close = comment_end.search(text, start + 4)
-            if close:
-                self.replacements.append((start, close.end(), conditional.group(1)))
+            start, end = self._span()
+            if end is not None:
+                content = f'\ue000{conditional.group(1)}\ue001' if mark else conditional.group(1)
+                self.replacements.append((start, end, content))
+            elif mark:
+                unresolved.append('conditional')
 
     scanner = ConditionalComments()
     scanner.feed(text)
     scanner.close()
+    if mark and scanner.hidden_from_outlook:
+        unresolved.append('conditional')
     parts = []
     cursor = 0
     for start, end, content in scanner.replacements:
@@ -1551,21 +1587,24 @@ def _expand_mso_comments(text: str, parse_warnings=None) -> str:
     return ''.join(parts)
 
 
-def _collect_html(factory, text: str, parse_warnings=None):
+def _collect_html(factory, text: str, parse_warnings=None, *, mark=False, unresolved=None):
     collector = factory()
     try:
-        collector.feed(_expand_mso_comments(text, parse_warnings))
+        collector.feed(_expand_mso_comments(text, parse_warnings, mark=mark, unresolved=unresolved))
         collector.close()
     except (AssertionError, ValueError):
         warning = message_text('warning.malformed_html')
         if parse_warnings is not None and warning not in parse_warnings:
             parse_warnings.append(warning)
+        if unresolved is not None:
+            unresolved.append('malformed')
         # Neutralize broken marked declarations, then start fresh so partially
         # collected text/forms/links are neither duplicated nor allowed to hide
         # the rest of the document. Final fallback is literal text, not success.
         collector = factory()
         try:
-            collector.feed(_expand_mso_comments(text.replace('<![', '&lt;!['), parse_warnings))
+            collector.feed(_expand_mso_comments(text.replace('<![', '&lt;!['), parse_warnings,
+                                                mark=mark, unresolved=unresolved))
             collector.close()
         except (AssertionError, ValueError):
             collector = factory()
@@ -1908,6 +1947,9 @@ _IMAGE_ALT_FALLBACK_WARNING = message_text('warning.image_alt_fallback')
 _MIME_ALTERNATIVE_LIMIT_WARNING = message_text('warning.mime_alternative_limit')
 _MIME_ALTERNATIVE_MODEL_WARNING = message_text('warning.mime_alternative_model')
 _MAX_MIME_MODEL_VIEWS = 16
+# Plausible renderings the model must agree on (strict non-Outlook, strict Outlook),
+# and definitely hidden text, which may only lift the abstention.
+_MODEL_READINGS = ('strict', 'outlook', 'hidden')
 _HTML_VOID_ELEMENTS = {
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
     'param', 'source', 'track', 'wbr',
@@ -2068,14 +2110,114 @@ def _stylesheet_may_hide_text(css: str) -> bool:
     return False
 
 
-def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=None) -> str:
+def _split_selectors(prelude: str) -> list[str] | None:
+    """Top-level comma-separated selectors, or None for anything this reader does not model."""
+    if '\\' in prelude:
+        return None
+    selectors, current, depth = [], [], 0
+    for character in prelude:
+        if character in '([':
+            depth += 1
+        elif character in ')]':
+            depth -= 1
+        if character == ',' and depth == 0:
+            selectors.append(''.join(current).strip())
+            current = []
+        else:
+            current.append(character)
+    selectors.append(''.join(current).strip())
+    return selectors if depth == 0 else None
+
+
+def _hidden_selector_targets(selector: str):
+    """Class names, ids and class-attribute fragments one of which a matched element must carry.
+
+    Returns () for a selector that only styles generated content (::before), and None
+    when any element could match (a bare tag, *, :not(), an attribute other than class/id).
+    """
+    # The subject is the last compound selector; combinators inside [] or () do not count.
+    subject, depth = [], 0
+    for character in selector.strip():
+        depth += (character in '([') - (character in ')]')
+        if depth == 0 and (character.isspace() or character in '>+~'):
+            subject = []
+        else:
+            subject.append(character)
+    subject = ''.join(subject)
+    if not subject:
+        return None
+    if re.search(r'::|:(?:before|after|first-line|first-letter|marker|placeholder|selection)\b', subject, re.IGNORECASE):
+        return ()
+    subject = re.sub(r':not\([^)]*\)', '', subject, flags=re.IGNORECASE)
+    fragments = re.findall(r'\[\s*class\s*[~|^$*]?=\s*([^\]\s]+)\s*\]', subject, re.IGNORECASE)
+    ids = re.findall(r'\[\s*id\s*=\s*([^\]\s]+)\s*\]', subject, re.IGNORECASE)
+    classes = re.findall(r'\.(-?[_a-zA-Z][\w-]*)', subject)
+    ids += re.findall(r'#(-?[_a-zA-Z][\w-]*)', subject)
+    if not (classes or ids or fragments):
+        return None
+    return ([('class', name.casefold()) for name in classes] + [('id', name.casefold()) for name in ids]
+            + [('fragment', fragment.strip('"\'').casefold()) for fragment in fragments])
+
+
+def _stylesheet_hidden_targets(css: str):
+    """(classes, ids, class fragments) that hiding rules can select, or None if unmodelled.
+
+    Marketing mail hides preheaders and mobile/desktop variants with class rules such
+    as ".hide-mobile { display:none }", often switched back on in an @media block.
+    Any element carrying one of these names may be hidden in some client.
+    """
+    cleaned = re.sub(r'/\*.*?(?:\*/|$)', ' ', css, flags=re.DOTALL)
+    classes, ids, fragments = set(), set(), set()
+    preludes, start, index = [], 0, 0
+    quote = None
+    while index < len(cleaned):
+        character = cleaned[index]
+        if character == '\\':
+            index += 2
+            continue
+        if quote:
+            if character == quote:
+                quote = None
+        elif character in {'"', "'"}:
+            quote = character
+        elif character == '{':
+            prelude = cleaned[start:index].strip()
+            if preludes and not preludes[-1].startswith('@') and ':' in prelude.split(';')[0]:
+                return None  # nested declarations (CSS nesting) are not modelled
+            preludes.append(prelude)
+            start = index + 1
+        elif character == '}' and preludes:
+            prelude = preludes.pop()
+            display, visibility, opacity, uncertain = _inline_visibility(cleaned[start:index])
+            start = index + 1
+            if display or visibility is True or opacity or uncertain:
+                if prelude.startswith('@'):
+                    return None
+                for selector in _split_selectors(prelude) or [None]:
+                    targets = None if selector is None else _hidden_selector_targets(selector)
+                    if targets is None:
+                        return None
+                    for kind, name in targets:
+                        {'class': classes, 'id': ids, 'fragment': fragments}[kind].add(name)
+        index += 1
+    return frozenset(classes), frozenset(ids), frozenset(fragments)
+
+
+def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=None, readings=None) -> str:
     """Decode HTML text separately from destinations, preserving inline words."""
     class TextCollector(_AnalysisHTMLParser):
         head_elements = {'html', 'head', 'base', 'basefont', 'bgsound', 'link',
                          'meta', 'title', 'noscript', 'noframes', 'script', 'style', 'template'}
 
-        def __init__(self):
+        def __init__(self, targets=None):
             super().__init__(convert_charrefs=True)
+            # targets is set only in the rendering-view pass (see readings below).
+            self.targets = targets
+            self.strict_parts = []
+            self.outlook_parts = []
+            self.hidden_parts = []
+            self.outlook_only = 0
+            self.hidden_from_outlook = 0
             self.parts = []
             self.hidden = []
             self.elements = []
@@ -2089,6 +2231,25 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
 
         def _visually_hidden(self):
             return bool(self.elements and (self.elements[-1][1] or self.elements[-1][2]))
+
+        def _emit(self, text, uncertain=None):
+            self.parts.append(text)
+            if self.targets is None:
+                return
+            if self.elements[-1][5] if uncertain is None and self.elements else bool(uncertain):
+                return
+            if not self.outlook_only:
+                self.strict_parts.append(text)
+            if not self.hidden_from_outlook:
+                self.outlook_parts.append(text)
+
+        def _targeted(self, attrs):
+            classes, ids, fragments = self.targets
+            values = dict(attrs)
+            class_value = (values.get('class') or '').casefold()
+            return bool(set(class_value.split()) & classes
+                        or (values.get('id') or '').strip().casefold() in ids
+                        or any(fragment in class_value for fragment in fragments))
 
         def _truncate_elements(self, index):
             if self.open_paragraph and any(item[0] == 'p' for item in self.elements[index:]):
@@ -2144,7 +2305,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             if tag == 'a':
                 # HTML closes a prior anchor when another anchor starts. Do not
                 # inherit an old HTTP action through a nested mailto/fragment link.
-                self.elements = [(*element[:4], False) if element[0] == 'a' else element
+                self.elements = [(*element[:4], False, *element[5:]) if element[0] == 'a' else element
                                  for element in self.elements]
             # Browsers retain the first duplicate attribute, not the last.
             style = next((value for name, value in attrs if name == 'style'), '')
@@ -2156,6 +2317,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             element_visibility = parent_visibility if visibility_hidden is None else visibility_hidden
             if uncertain_style and not (element_display or element_visibility):
                 self.uncertain_inline_style = True
+            element_uncertain = self.targets is not None and bool(
+                (self.elements and self.elements[-1][5]) or uncertain_style or self._targeted(attrs))
             if tag == 'source' and any(name == 'srcset' and value and value.strip()
                                        for name, value in attrs):
                 for index in range(len(self.elements) - 1, -1, -1):
@@ -2172,13 +2335,15 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 if alt.strip():
                     if element_display or element_visibility:
                         self.excluded_hidden_text = True
+                        self.hidden_parts.append(alt)
                     elif (not any(name in {'src', 'srcset'} and value and value.strip()
                                   for name, value in attrs)
                           and not any(element[0] == 'picture' and element[3]
                                       for element in self.elements)):
                         # With no image resource, HTML's replacement text is
                         # the text the reader can see or hear.
-                        self.parts.extend((' ', alt, ' '))
+                        for piece in (' ', alt, ' '):
+                            self._emit(piece, element_uncertain)
                     else:
                         # A two-word decorative label such as "Company logo"
                         # should not disable scoring of an otherwise text-rich
@@ -2203,11 +2368,12 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         actionable_anchor = target.scheme.lower() in {'http', 'https'} and bool(target.hostname)
                     except ValueError:
                         pass
-                self.elements.append((tag, element_display, element_visibility, False, actionable_anchor))
+                self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
+                                      element_uncertain))
                 if tag == 'p':
                     self.open_paragraph = True
             if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
-                self.parts.append(' ')
+                self._emit(' ', element_uncertain)
 
         def handle_endtag(self, tag):
             if self.hidden == ['head'] and tag in {'body', 'html', 'br'}:
@@ -2220,9 +2386,21 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     self._truncate_elements(index)
                     break
             if not self.hidden and not self._visually_hidden() and tag in {'p', 'div', 'li', 'tr', 'td', 'section'}:
-                self.parts.append(' ')
+                self._emit(' ')
 
         def collect_data(self, data):
+            if self.targets is not None and _RENDERING_SENTINELS.search(data):
+                for piece in re.split('([\ue000-\ue003])', data):
+                    if piece in {'\ue000', '\ue001'}:
+                        self.outlook_only = max(0, self.outlook_only + (1 if piece == '\ue000' else -1))
+                    elif piece in {'\ue002', '\ue003'}:
+                        self.hidden_from_outlook = max(0, self.hidden_from_outlook + (1 if piece == '\ue002' else -1))
+                    elif piece:
+                        self._collect_text(piece)
+                return
+            self._collect_text(data)
+
+        def _collect_text(self, data):
             if self.hidden == ['head'] and data.strip():
                 self.hidden.pop()
             if self.hidden:
@@ -2233,8 +2411,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 self.hidden_characters += sum(not char.isspace() for char in _strip_invisible_format_controls(data))
                 if data.strip():
                     self.excluded_hidden_text = True
+                    self.hidden_parts.append(data)
             else:
-                self.parts.append(data)
+                self._emit(data)
 
     collector = _collect_html(TextCollector, text, parse_warnings)
     if collector.excluded_hidden_text and parse_warnings is not None:
@@ -2246,6 +2425,28 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
     if collector.conditional_image_alt and parse_warnings is not None:
         parse_warnings.append(_IMAGE_ALT_FALLBACK_WARNING)
     visible = re.sub(r'\s+', ' ', ''.join(collector.parts)).strip()
+    if readings is not None:
+        # Other plausible renderings, for the model to check that uncertain text cannot
+        # change its answer: the strictest non-Outlook and Outlook views (without text a
+        # stylesheet or zero-size/transparent style may hide), and the visible text plus
+        # definitely hidden text. None of them replaces the visible text. Image fallback
+        # text stays unresolved: a short instruction such as "Enter password" is beyond
+        # the model's judgement.
+        stylesheet = ''.join(collector.stylesheet_parts)
+        uncertain = (collector.uncertain_inline_style or collector.conditional_image_alt
+                     or collector.excluded_hidden_text or _stylesheet_may_hide_text(stylesheet)
+                     or (parse_warnings is not None and _MSO_CONDITIONAL_WARNING in parse_warnings))
+        if uncertain:
+            targets = _stylesheet_hidden_targets(stylesheet)
+            unresolved = []
+            if targets is not None:
+                views = _collect_html(lambda: TextCollector(targets), text, [], mark=True, unresolved=unresolved)
+            readings['resolved'] = targets is not None and not unresolved and not collector.conditional_image_alt
+            if readings['resolved']:
+                def joined(parts):
+                    return re.sub(r'\s+', ' ', ''.join(parts)).strip()
+                readings.update(strict=joined(views.strict_parts), outlook=joined(views.outlook_parts),
+                                hidden=joined([visible, ' ', *collector.hidden_parts]))
     if structure_stats is not None:
         structure_stats.update(hidden_characters=collector.hidden_characters,
                                visible_characters=sum(not char.isspace() for char in _strip_invisible_format_controls(visible)),
@@ -2570,7 +2771,8 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     def visible_html(part):
         part_warnings = []
         stats = {}
-        visible = _visible_content_text(part, part_warnings, structure_stats=stats)
+        readings = {}
+        visible = _visible_content_text(part, part_warnings, structure_stats=stats, readings=readings)
         # Require a large explicitly concealed block and an actionable image in
         # this same HTML document. Short preheaders and text-rich mail do not qualify.
         hidden_image_padding.append(
@@ -2587,39 +2789,59 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         stylesheet_uncertain = any(warning in part_warnings for warning in (
             _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
         ))
-        return (visible, stylesheet_uncertain,
-                stylesheet_uncertain or any(warning in part_warnings for warning in (
-                    _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
-                )))
+        # With every uncertain element located, the model can score each plausible
+        # rendering instead of abstaining (see _agreeing_model_views).
+        model_uncertain = stylesheet_uncertain or any(warning in part_warnings for warning in (
+            _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
+        ))
+        resolved = bool(readings.get('resolved'))
+        return (visible, stylesheet_uncertain, model_uncertain and not resolved,
+                readings if resolved else {}, model_uncertain and resolved)
 
     if content_parts is None:
         raw_parts = [subject, body]
         html_parts = [False, True]
-        parsed_parts = [(subject, False, False), visible_html(body)]
-        visible_parts = [visible for visible, _css_uncertain, _model_uncertain in parsed_parts]
-        stylesheet_uncertain_parts = [uncertain for _visible, uncertain, _model in parsed_parts]
+        parsed_parts = [(subject, False, False, {}, False), visible_html(body)]
+        visible_parts = [parsed[0] for parsed in parsed_parts]
+        stylesheet_uncertain_parts = [parsed[1] for parsed in parsed_parts]
+        model_uncertain_parts = [parsed[2] for parsed in parsed_parts]
+        reading_parts = [parsed[3] for parsed in parsed_parts]
+        resolved_parts = [parsed[4] for parsed in parsed_parts]
     else:
         # Each MIME part is its own document. Plain text must not be interpreted
         # as markup, nor may an unclosed tag in one part hide another part.
         raw_parts = [subject] + [part['content'] for part in content_parts]
         html_parts = [False] + [part['content_type'] == 'text/html' for part in content_parts]
         parsed_parts = [visible_html(part['content']) if part['content_type'] == 'text/html'
-                        else (part['content'], False, False) for part in content_parts]
-        visible_parts = [subject] + [visible for visible, _css_uncertain, _model_uncertain
-                                     in parsed_parts]
-        stylesheet_uncertain_parts = [False] + [uncertain for _visible, uncertain, _model
-                                                  in parsed_parts]
-        model_uncertain_parts = [False] + [uncertain for _visible, _css, uncertain
-                                           in parsed_parts]
+                        else (part['content'], False, False, {}, False) for part in content_parts]
+        visible_parts = [subject] + [parsed[0] for parsed in parsed_parts]
+        stylesheet_uncertain_parts = [False] + [parsed[1] for parsed in parsed_parts]
+        model_uncertain_parts = [False] + [parsed[2] for parsed in parsed_parts]
+        reading_parts = [{}] + [parsed[3] for parsed in parsed_parts]
+        resolved_parts = [False] + [parsed[4] for parsed in parsed_parts]
     raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
     if _model_view is not None:
         # The model and rule checks consume the same MIME-aware visible text.
-        model_parts = [re.sub(r'\s+', ' ', _strip_invisible_format_controls(part)).strip()
-                       for part in visible_parts]
+        def normalized(part):
+            return re.sub(r'\s+', ' ', _strip_invisible_format_controls(part)).strip()
+        model_parts = [normalized(part) for part in visible_parts]
+        reading_texts = [{key: normalized(readings[key]) for key in _MODEL_READINGS if key in readings}
+                         for readings in reading_parts]
+
+        def view_readings(included):
+            views = {}
+            for key in _MODEL_READINGS:
+                if any(key in texts for texts, use in zip(reading_texts[1:], included) if use):
+                    views[key] = '\n'.join(texts.get(key, model) for model, texts, use
+                                           in zip(model_parts[1:], reading_texts[1:], included) if use).strip()
+            return views
         _model_view['subject'] = model_parts[0]
         _model_view['body'] = '\n'.join(model_parts[1:]).strip()
+        _model_view['mime_views'] = [(_model_view['body'], any(model_uncertain_parts[1:]))]
+        _model_view['view_readings'] = {_model_view['body']: [view_readings([True] * (len(model_parts) - 1))]}
+        # Views the model could not score before rendering views existed.
+        _model_view['resolved_views'] = {_model_view['body']} if any(resolved_parts[1:]) else set()
         if content_parts is not None:
-            _model_view['mime_views'] = [(_model_view['body'], any(model_uncertain_parts[1:]))]
             choices = {}
             for part in content_parts:
                 for path in part.get('alternative_paths', [()]):
@@ -2655,6 +2877,8 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                             assignments.append(branches)
                         if len(assignments) == _MAX_MIME_MODEL_VIEWS:
                             break
+                readings_by_view = {}
+                earlier_uncertain = {}
                 for branches in assignments:
                     selected = dict(zip(groups, branches))
                     included = [
@@ -2669,7 +2893,14 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                     # Identical visible text is safe to score if any MIME path
                     # reaches it without uncertain rendering.
                     views[body_view] = views.get(body_view, True) and uncertain
+                    readings_by_view.setdefault(body_view, []).append(view_readings(included))
+                    # As above, but with resolved parts still counted as uncertain.
+                    earlier_uncertain[body_view] = earlier_uncertain.get(body_view, True) and any(
+                        use and (part_uncertain or part_resolved) for use, part_uncertain, part_resolved
+                        in zip(included, model_uncertain_parts[1:], resolved_parts[1:]))
                 _model_view['mime_views'] = list(views.items())
+                _model_view['view_readings'] = readings_by_view
+                _model_view['resolved_views'] = {body for body, uncertain in earlier_uncertain.items() if uncertain}
     html_image_parts = [(part, visible) for part, visible, is_html
                         in zip(raw_parts[1:], visible_parts[1:], html_parts[1:]) if is_html]
     image_counts = [_image_reference_counts(part, analysis_warnings)
@@ -2949,6 +3180,52 @@ def fuse_content_risk(
     }
 
 
+def _model_choice(predictions, threshold):
+    """The highest scored MIME view, or an unverified-rendering result when none could be used."""
+    scored = [prediction for prediction in predictions if prediction['_phishing_probability'] is not None]
+    if scored:
+        return max(scored, key=lambda prediction: prediction['_phishing_probability'])
+    if predictions:
+        return predictions[0]
+    return {'ml_status': 'unverified_rendering', '_phishing_probability': None,
+            'ml_phishing_probability': None, 'ml_legitimate_probability': None, 'ml_label': None,
+            'ml_prediction': None, 'ml_decision_threshold': round(threshold * 100, 1), 'ml_top_contributors': []}
+
+
+def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heuristic_score, minimum_level):
+    """Keep the MIME views whose plausible renderings all lead to the same decision.
+
+    The decision is whether the fused result alerts (Medium or above). Each kept
+    (body, prediction) is scored at its highest-risk rendering. A view whose renderings disagree is
+    dropped, so text that may be hidden can neither dilute a phishing message nor
+    pad a benign one into an alert. Returns the kept predictions, whether every view
+    was checked this way, and whether adding definitely hidden text (excluded from
+    every rendering) would also leave each decision unchanged.
+    """
+    def level(prediction):
+        probability = prediction['_phishing_probability']
+        return None if probability is None else fuse_content_risk(
+            ml_phishing_probability=probability, ml_decision_threshold=threshold,
+            heuristic_score=heuristic_score, minimum_level=minimum_level,
+        )['risk_level'] in {'medium', 'high', 'critical'}
+    kept, resolved, hidden_agrees = [], True, True
+    for body in bodies:
+        base = predictions[body]
+        renderings = [predictions[view[key]] for view in view_readings.get(body, ())
+                      for key in ('strict', 'outlook') if key in view]
+        if level(base) is None:
+            kept.append((body, base))
+            resolved = False
+            continue
+        if len({level(prediction) for prediction in (base, *renderings)}) > 1:
+            resolved = False
+            continue
+        kept.append((body, max((base, *renderings), key=lambda prediction: prediction['_phishing_probability'])))
+        hidden_agrees &= all(level(predictions[view['hidden']]) == level(base)
+                             for view in view_readings.get(body, ()) if 'hidden' in view)
+    return kept, resolved, hidden_agrees
+
+
 @app.post("/api/analyze-content")
 async def analyze_content_endpoint(request: ContentRequest):
     return await _analyze_content(request)
@@ -3170,34 +3447,52 @@ async def _analyze_content(
         _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
         _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
     ))
+    # Warnings about text that may be hidden or shown only in some clients stop
+    # blocking a verdict once every plausible rendering was scored and they agree.
+    resolved_warnings = set()
     if _content_pipeline is not None:
+        threshold = float(_content_pipeline.get('decision_threshold', 0.5))
         views = model_view.get('mime_views', [(model_view['body'], rendering_uncertain)])
+        view_readings = model_view.get('view_readings', {})
         bodies = [body for body, uncertain in views if not uncertain]
-        if not bodies:
-            ml = {
-                'ml_status': 'unverified_rendering',
-                '_phishing_probability': None,
-                'ml_phishing_probability': None,
-                'ml_legitimate_probability': None,
-                'ml_label': None,
-                'ml_prediction': None,
-                'ml_decision_threshold': round(
-                    float(_content_pipeline.get('decision_threshold', 0.5)) * 100, 1
-                ),
-                'ml_top_contributors': [],
-            }
-        else:
-            predictions = await _run_analysis(
-                lambda pipeline, subject, bodies: [
-                    predict_content(pipeline, subject, body, canonical_text=True)
-                    for body in bodies],
-                _content_pipeline, model_view['subject'], bodies)
-            scored = [prediction for prediction in predictions
-                      if prediction['_phishing_probability'] is not None]
-            ml = (max(scored, key=lambda prediction: prediction['_phishing_probability'])
-                  if scored else predictions[0])
-            if len(views) > 1 and (len(bodies) != len(views)
-                                   or len(scored) != len(predictions)):
+        kept, rendering_resolved, hidden_agrees = [], False, True
+        if bodies:
+            texts = list(dict.fromkeys([*bodies, *(text for body in bodies for view in view_readings.get(body, ())
+                                                   for text in view.values())]))
+            predictions = dict(zip(texts, await _run_analysis(
+                lambda pipeline, subject, texts: [
+                    predict_content(pipeline, subject, text, canonical_text=True) for text in texts],
+                _content_pipeline, model_view['subject'], texts)))
+            kept, rendering_resolved, hidden_agrees = _agreeing_model_views(
+                bodies, view_readings, predictions, threshold=threshold,
+                heuristic_score=result['total_score'], minimum_level=result['risk_floor'])
+
+        def alerts(ml):
+            return fuse_content_risk(
+                ml_phishing_probability=ml['_phishing_probability'], ml_decision_threshold=threshold,
+                heuristic_score=result['total_score'], minimum_level=result['risk_floor'],
+            )['risk_level'] in {'medium', 'high', 'critical'}
+        ml = _model_choice([prediction for _body, prediction in kept], threshold)
+        earlier = [(body, prediction) for body, prediction in kept
+                   if body not in model_view.get('resolved_views', set())]
+        if len(earlier) < len(kept) and alerts(ml) and not alerts(_model_choice(
+                [prediction for _body, prediction in earlier], threshold)):
+            # Only a newly scored rendering alerts. On such HTML (mostly account and
+            # security notices) the model alone raised 52 false alerts against 62 phishing
+            # catches (docs/evaluation.md), so keep the earlier abstention.
+            kept, rendering_resolved = earlier, False
+            ml = _model_choice([prediction for _body, prediction in kept], threshold)
+        if rendering_resolved and len(kept) == len(views):
+            rendering_uncertain = False
+            resolved_warnings = {_STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
+                                 _MSO_CONDITIONAL_WARNING}
+            if hidden_agrees:
+                resolved_warnings.add(_HIDDEN_HTML_TEXT_WARNING)
+            if resolved_warnings & set(result['analysis_warnings']):
+                result['extra_indicators'].append(indicator('info', 'content.rendering_views_agree'))
+        if kept:
+            scored = [prediction for _body, prediction in kept if prediction['_phishing_probability'] is not None]
+            if len(views) > 1 and (len(kept) != len(views) or len(scored) != len(kept)):
                 result['analysis_warnings'].append(_MIME_ALTERNATIVE_MODEL_WARNING)
         result.update({key: value for key, value in ml.items() if key != '_phishing_probability'})
         result["ml_metrics"] = _content_pipeline["metrics"]
@@ -3251,12 +3546,14 @@ async def _analyze_content(
     # Weak routing/text evidence cannot establish low risk when the main visible
     # content is an uninspected image, or when the model could not score the text
     # (e.g. Han script); a clean result already becomes unknown in that case.
-    # Keep independently supported alerts.
+    # Keep independently supported alerts. Resolved rendering warnings stay listed
+    # but no longer block.
+    blocking_warnings = [warning for warning in result['analysis_warnings'] if warning not in resolved_warnings]
     model_unscored = result.get('ml_status') in {'insufficient_context', 'insufficient_feature_coverage'}
-    if not result['analysis_complete'] and (result['risk_level'] == 'safe'
-                                            or (rendering_uncertain or remote_image_dominant or model_unscored)
-                                            and result['risk_level'] == 'low'):
-        if result['analysis_warnings'] == [_REMOTE_IMAGE_WARNING] and not remote_image_dominant:
+    if blocking_warnings and (result['risk_level'] == 'safe'
+                              or (rendering_uncertain or remote_image_dominant or model_unscored)
+                              and result['risk_level'] == 'low'):
+        if blocking_warnings == [_REMOTE_IMAGE_WARNING] and not remote_image_dominant:
             result['risk_label'] = 'No Indicators in Inspected Text — Remote Image Unchecked'
         else:
             result['risk_level'] = 'unknown'

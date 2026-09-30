@@ -20,6 +20,37 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 18:00 PT] — Score uncertain HTML through agreeing rendering views
+
+### Why
+- 31 of 64 genuine Gmail and Outlook.com downloads were undetermined. Hidden preheaders, `.hide-mobile` style rules and Outlook conditional tables made the model abstain, so a Safe or Low verdict was impossible even when every plausible reading was benign.
+
+### Files changed
+- `website/app.py`:
+  - `_stylesheet_hidden_targets()` reduces hiding rules to the classes, ids and class-attribute fragments their target selectors require. Rules that could reach any element (`div`, `*`, `:not()`, nesting, escapes) are not modelled.
+  - `_expand_mso_comments(mark=True)` brackets Outlook-only and Outlook-hidden content with private-use sentinels (input sentinels are stripped) and reports branches it cannot bracket.
+  - A second TextCollector pass builds the strict non-Outlook view, the strict Outlook view, and visible text plus definitely hidden text. It runs only when rendering is uncertain; the first pass is unchanged.
+  - `_agreeing_model_views()` keeps a MIME view only if all its readings lead to the same alert decision, scoring it at the highest reading.
+  - `_model_choice()` picks the scored view.
+  - An alert that only newly scored views raise falls back to the earlier scoring.
+  - Resolved stylesheet, inline-CSS and MSO warnings (and hidden-text warnings whose text would not change the decision) stay in `analysis_warnings` but no longer block a Safe or Low verdict. `content.rendering_views_agree` says so.
+  - Image fallback text stays unresolved.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the new message in English and Chinese. Asset versions were bumped.
+- Tests:
+  - `website/tests/test_rendering_views.py` covers selector targets, reading construction, sentinel forgery, agreeing and disagreeing views, hidden-text blocking, the model-only fallback, kept earlier alerts, and model-free behavior.
+  - `website/tests/test_html_input_coverage.py` replaces the "MSO always abstains" test with agreeing and disagreeing cases (including padding shown only to Outlook, and Outlook-only content behind padding). Two MIME tests now use a content-aware stand-in model.
+  - `website/tests/vercel_runtime_smoke.py` — the uncertain-rendering control uses an unmodelled `div{display:none}` rule.
+- `README.md`, `docs/evaluation.md` — behavior and measurement.
+
+### Effect
+- Undetermined results, main vs this change:
+  - own genuine downloads 31 → 24;
+  - 87 public HTML transactional templates 82 → 57;
+  - Nazario phishing unchanged.
+- Alerts unchanged in every cohort. No phishing message became Safe or Low.
+- 101 phishing alerts rose in severity.
+- The rejected variant, which also accepted new model-only alerts, caught 62 more phishing messages but added 52 false alerts on 151 genuine messages.
+
 ## [2026-09-30 17:00 PT] — Stop scoring address shape for authenticated senders
 
 ### Why

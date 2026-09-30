@@ -216,8 +216,10 @@ class HTMLInputCoverageTests(unittest.TestCase):
         with patch.object(app, '_content_pipeline', {'decision_threshold': 0.35, 'metrics': {}}), \
                 patch.object(app, 'predict_content', return_value=prediction) as predict:
             result = self.analyze(raw_email=message.as_string())
-        self.assertEqual(predict.call_count, 1)
-        self.assertIn(plain, predict.call_args.args[2])
+        # The HTML view is scored too: no element carries the hidden class, so its
+        # renderings agree.
+        self.assertEqual(predict.call_count, 2)
+        self.assertTrue(any(plain in call.args[2] for call in predict.call_args_list))
         self.assertEqual(result['ml_status'], 'available')
         # The callback rule adds independent evidence to the model signal (High or Critical).
         self.assertIn(result['risk_level'], {'high', 'critical'})
@@ -234,17 +236,21 @@ class HTMLInputCoverageTests(unittest.TestCase):
             'Your account is suspended. Enter your password now.</div>',
             subtype='html',
         )
-        prediction = {
-            'ml_status': 'available', 'ml_phishing_probability': 10.0,
-            '_phishing_probability': 0.1,
-            'ml_legitimate_probability': 90.0, 'ml_label': 'legitimate',
-            'ml_prediction': 0, 'ml_top_contributors': [],
-        }
+        def predict(_pipeline, _subject, body, **_kwargs):
+            probability = 0.9 if 'password' in body else 0.1
+            return {
+                'ml_status': 'available', 'ml_phishing_probability': probability * 100,
+                '_phishing_probability': probability,
+                'ml_legitimate_probability': 100 - probability * 100,
+                'ml_label': 'phishing' if probability > 0.5 else 'legitimate',
+                'ml_prediction': int(probability > 0.5), 'ml_top_contributors': [],
+            }
         with patch.object(app, '_content_pipeline', {'decision_threshold': 0.35, 'metrics': {}}), \
-                patch.object(app, 'predict_content', return_value=prediction) as predict:
+                patch.object(app, 'predict_content', side_effect=predict) as scored:
             result = self.analyze(raw_email=message.as_string())
-        self.assertEqual(predict.call_count, 1)
-        self.assertIn(plain, predict.call_args.args[2])
+        # The HTML view with and without the class-hidden text disagrees, so only the
+        # plain view is used and the result still abstains.
+        self.assertTrue(any(plain in call.args[2] for call in scored.call_args_list))
         self.assertEqual(result['ml_phishing_probability'], 10.0)
         self.assertEqual(result['risk_level'], 'unknown')
         self.assertFalse(result['analysis_complete'])
@@ -546,20 +552,46 @@ class HTMLInputCoverageTests(unittest.TestCase):
             self.assertIn('Immediately send your password', app._visible_content_text(html))
             self.assertTrue(app._has_password_form(html))
 
-    def test_mso_conditional_rendering_abstains_in_manual_and_mime_modes(self):
+    def test_mso_conditional_rendering_is_scored_when_every_client_view_agrees(self):
         html = ('<p>Please review the detailed project notes before our meeting tomorrow.</p>'
                 '<!--[if mso]><p>Additional project notes for this mail client.</p><![endif]-->')
         message = EmailMessage()
         message['Subject'] = 'Project update'
         message.set_content(html, subtype='html')
-        pipeline = {'decision_threshold': 0.35, 'metrics': {}}
-        with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'predict_content', side_effect=AssertionError('conditional view must abstain')) as predict:
+        pipeline = self.deployment_pipeline()
+        with patch.object(app, '_content_pipeline', pipeline):
             for request in ({'body': html}, {'raw_email': message.as_string()}):
-                result = self.analyze(**request)
-                self.assertEqual(result['risk_level'], 'unknown')
-                self.assertEqual(result['ml_status'], 'unverified_rendering')
-                self.assertFalse(result['analysis_complete'])
-            predict.assert_not_called()
+                with self.subTest(request=list(request)):
+                    result = self.analyze(**request)
+                    self.assertEqual(result['ml_status'], 'available')
+                    self.assertIn(result['risk_level'], {'safe', 'low'})
+                    self.assertFalse(result['analysis_complete'])
+                    self.assertTrue(any('conditional' in w.lower() for w in result['analysis_warnings']))
+                    self.assertIn('content.rendering_views_agree',
+                                  [item['code'] for item in result['extra_indicators']])
+
+    def test_mso_conditional_rendering_abstains_when_client_views_disagree(self):
+        # A stand-in model that flags "quarterly payout" unless diluted by padding.
+        def predict(_pipeline, _subject, body, **_kwargs):
+            probability = 0.9 if 'quarterly payout' in body and 'padding' not in body else 0.1
+            return {'ml_status': 'available', 'ml_phishing_probability': probability * 100,
+                    '_phishing_probability': probability, 'ml_legitimate_probability': 100 - probability * 100,
+                    'ml_label': None, 'ml_prediction': int(probability > 0.5), 'ml_top_contributors': []}
+        signal = '<p>Please confirm the quarterly payout details.</p>'
+        padding = '<p>Routine padding about the team calendar.</p>'
+        with patch.object(app, '_content_pipeline', {'decision_threshold': 0.35, 'metrics': {}}), \
+                patch.object(app, 'predict_content', side_effect=predict):
+            for html in (
+                    # Padding only Outlook shows cannot dilute what other clients show,
+                    f'{signal}<!--[if mso]>{padding}<![endif]-->',
+                    # and Outlook-only content cannot hide behind padding other clients show.
+                    f'<!--[if !mso]><!-->{padding}<!--<![endif]--><!--[if mso]>{signal}<![endif]-->'):
+                with self.subTest(html=html[:40]):
+                    result = self.analyze(subject='Update', body=html)
+                    self.assertEqual(result['ml_status'], 'unverified_rendering')
+                    self.assertEqual(result['risk_level'], 'unknown')
+                    self.assertNotIn('content.rendering_views_agree',
+                                     [item['code'] for item in result['extra_indicators']])
 
     def test_inert_comments_do_not_supply_conditional_evidence(self):
         fragment = '<a href="https://paypa1.example">Verify password</a>'

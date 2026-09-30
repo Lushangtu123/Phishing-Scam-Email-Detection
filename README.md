@@ -222,9 +222,10 @@ MSO conditional comments are inspected for text, links, password forms, and
 image references using one bounded expansion layer. Ordinary comments and
 solely negated MSO comments remain inert. Recognized MSO branches, including
 nested or malformed conditional content, carry an incomplete-analysis warning because client-specific rendering
-is not verified. The text model abstains on these HTML views; independent rule,
-link, and structure findings still apply, and other covered MIME views can
-still be scored.
+is not verified. The text model scores such a view only through rendering views
+(below); nested or malformed branches keep it unscored. Independent rule, link,
+and structure findings still apply, and other covered MIME views can still be
+scored.
 
 Remote `img`, `srcset`, VML `v:imagedata`/`v:fill` (including MSO conditional
 comments except solely negated `!mso` blocks; compound conditions are counted
@@ -413,7 +414,36 @@ Because selector matching and CSS cascade are not fully rendered, the API sets
 `ml_status=unverified_rendering` and leaves model scores null when every MIME
 view is uncertain. A separate trustworthy text/plain alternative may still be
 model-scored, but the whole-message analysis remains incomplete and cannot
-produce a complete Low or Safe verdict. Prose from only the CSS-uncertain HTML
+produce a complete Low or Safe verdict.
+
+**Rendering views.** When every uncertain element can be located, the model
+scores the HTML view three ways:
+
+- the visible text;
+- the strictest non-Outlook view, without text a stylesheet or zero-size or
+  transparent style may hide, and without Outlook-only (`[if mso]`) branches;
+- the strictest Outlook view, without content hidden from Outlook
+  (`<!--[if !mso]><!-->`).
+
+Uncertain elements are located when every hiding rule's target selector carries
+a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
+`*[class="x"]` qualify, while `div`, `*` and `:not(...)` do not.
+
+- If all views lead to the same alert decision, the view is scored at its
+  highest-risk reading. Its rendering warnings stay listed but stop blocking a
+  Safe or Low verdict, and `content.rendering_views_agree` explains this.
+- Definitely hidden text (for example `display:none` preheaders) stops blocking
+  only when adding it back would not change the decision either.
+- If the views disagree, the view stays unscored as before. Hidden text can
+  therefore neither dilute a phishing message nor pad a benign one into an
+  alert.
+- An alert that only a newly scored view would raise keeps the earlier
+  abstention. On such HTML the model alone raised 52 false alerts against 62
+  phishing catches (docs/evaluation.md).
+- Image fallback text stays unresolved: a short instruction such as "Enter
+  password" is beyond the model's judgement.
+
+Prose from only the CSS-uncertain HTML
 part is withheld from text rules, including bare URLs and displayed link labels;
 unambiguous MIME parts still contribute text rules. Explicit link destinations,
 forms, sender, and message-structure checks still run.

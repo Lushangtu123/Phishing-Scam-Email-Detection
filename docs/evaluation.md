@@ -1408,6 +1408,47 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Rendering views for uncertain HTML (2026-09-30)
+
+On the 64 genuine downloads, 31 results were undetermined. Most of that HTML was
+routine: hidden preheaders, `.hide-mobile` style rules, and Outlook conditional
+tables. Because any such rule made the model abstain, a Safe or Low verdict was
+impossible even when every plausible reading was clearly benign.
+
+**Change.** Uncertain HTML views are scored as rendering views: visible, strict
+non-Outlook, and strict Outlook. A view is scored only if all readings lead to
+the same alert decision (see README). Disagreeing views keep abstaining.
+
+**Measured.** Old code (main) against new code; Medium and above count as alerts:
+
+| Cohort | Alerts | Undetermined | Safe or Low |
+|---|---|---|---|
+| Own genuine downloads (64) | 28 → 28 | 31 → 24 | 5 → 12 |
+| Public HTML transactional templates (87) | 4 → 4 | 82 → 57 | 1 → 26 |
+| Nazario 2015–22 phishing (2,163) | 2,061 → 2,061 | 99 → 99 | 3 → 3 |
+| Nazario 2023–25 phishing (1,303) | 1,210 → 1,210 | 87 → 87 | 6 → 6 |
+
+- Every change came from a previously undetermined result.
+- No phishing message became Safe or Low, and no alert was lost.
+- 101 phishing alerts rose in severity (76 High → Critical, 25 Medium → High),
+  because a newly scored view scored higher.
+
+**Rejected variant.** Using every agreeing view's decision, alerts included, also
+turned 62 undetermined phishing messages into alerts, but it added 52 false
+alerts on the 151 genuine messages: 7 of the 64 downloads and 45 of the 87
+templates. All 62 catches rested on the model alone, whose false-alert rate on
+account and security notices is known to be high. The shipped rule therefore
+keeps abstaining when only a newly scored view would alert.
+
+**Limits:**
+
+- The templates are public samples with placeholders filled, not delivered mail.
+- 24 of 64 genuine downloads remain undetermined. The main remaining causes are:
+  - image fallback text, left unresolved on purpose;
+  - views that disagree: for one sample newsletter, the model scored 22% with the
+    preheader and 64% without it;
+  - model-only alerts on account notices.
+
 ### Authenticated senders outside the registries (2026-09-30)
 
 On the 64 genuine downloads, 11 alerts came only from sender-address heuristics.
