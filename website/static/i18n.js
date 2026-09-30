@@ -237,6 +237,16 @@ window.PhishGuardI18n = (() => {
     'content.drop.help': 'Drop a screenshot or email here, or click this area and paste a screenshot (Ctrl / ⌘ + V). One file, up to 2 MiB. Then click Analyze Content.',
     'content.file.label': 'Email or image file',
     'content.file.status': 'Upload an .eml email or PNG/JPEG/WebP image, up to 2 MiB. QR and text recognition runs in your browser (up to four images). Email images are extracted locally; remote images are not loaded. Manual fields are ignored while a file is selected.',
+    'content.emlGuide.summary': "How do I get the original .eml email?",
+    'content.emlGuide.intro': "An original .eml keeps the sender’s real address, the real link targets and your mail service’s SPF/DKIM/DMARC results. Screenshots and copied text lose them.",
+    'content.emlGuide.gmail': "Gmail (web): open the email → ⋮ (More) → Download message. After uploading, choose Gmail under “Downloaded from”.",
+    'content.emlGuide.outlook': "Outlook.com / Outlook on the web: open the email → ⋯ (More actions) → Download. The Outlook desktop app saves .msg files, which are not supported; use the web version.",
+    'content.emlGuide.apple': "Apple Mail (Mac): drag the email from the message list to the desktop, or choose File → Save As → Raw Message Source.",
+    'content.emlGuide.webmail': "QQ Mail, NetEase 163/126 and other webmail: open the email and look for Export or Download email (.eml) in its More menu.",
+    'content.emlGuide.mobile': "Mobile mail apps usually cannot export .eml; use the web version on a computer.",
+    'content.emlGuide.forward': "Download the email you received, not a forwarded copy: forwarding replaces the original headers with yours.",
+    'content.emlGuide.temp': "Temporary-inbox websites usually show only the rendered message, without the original headers.",
+    'content.emlGuide.privacy': "An .eml contains your address and the full message. Upload only mail you are willing to have analyzed; files are limited to 2 MiB.",
     'content.mailbox.label': "Downloaded from",
     'content.mailbox.unknown': "Other mailbox or not sure (authentication not trusted)",
     'content.mailbox.gmail': "Gmail (original message downloaded from Gmail)",
@@ -1245,7 +1255,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=7'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=8'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

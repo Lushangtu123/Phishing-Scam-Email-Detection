@@ -20,6 +20,29 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 10:30 PT] — Guide for getting an original .eml email
+
+### Why
+- A user's first samples came from a temporary-inbox website as copied text without headers.
+- Neither the trusted Gmail authentication check nor Outlook format confirmation can use such samples, and the upload area did not explain how to get an original message.
+
+### Files changed
+- `website/static/index.html` — a collapsed "How do I get the original .eml email?" panel under the upload area. It explains why an original .eml matters (real sender, real link targets, SPF/DKIM/DMARC). It then covers:
+  - how to download one from Gmail, Outlook.com, Apple Mail and QQ/NetEase webmail;
+  - that the Outlook desktop app saves .msg files (not supported), and that mobile apps usually cannot export;
+  - not to forward before downloading;
+  - that temporary-inbox sites lack headers;
+  - a privacy note.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — `content.emlGuide.*` strings in English and Chinese.
+- `website/static/style.css` — `.eml-guide` disclosure styling, matching the existing score-breakdown disclosure.
+- `website/static/404.html`, `website/static/cases.html`, `website/static/lang-init.js`, `website/tools/asset-versions/manifest.json` — asset versions bumped by the updater.
+
+### Effect
+- Collapsed by default, so the default layout gains one summary line.
+- Checked in a browser in English at desktop width and in Chinese at 375 px, with no horizontal overflow.
+- Visual baselines capture result areas and the page top only, so they are unaffected.
+- Detection is unchanged.
+
 ## [2026-09-29 23:30 PT] — Verified official sender: trust the topmost Gmail authentication header on request
 
 ### Why

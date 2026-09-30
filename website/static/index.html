@@ -14,9 +14,9 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=9"></script>
+  <script src="/static/lang-init.js?v=10"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=51" />
+  <link rel="stylesheet" href="/static/style.css?v=52" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -484,6 +484,22 @@
           <input id="raw-email-file" class="raw-email-file" type="file" accept=".eml,.png,.jpg,.jpeg,.webp,message/rfc822,image/png,image/jpeg,image/webp" />
           <div id="raw-email-status" class="raw-email-status" role="status" data-i18n="content.file.status">Upload an .eml email or PNG/JPEG/WebP image, up to 2 MiB. QR and text recognition runs in your browser (up to four images). Email images are extracted locally; remote images are not loaded. Manual fields are ignored while a file is selected.</div>
         </div>
+        <details class="eml-guide" id="content-eml-guide">
+          <summary data-i18n="content.emlGuide.summary">How do I get the original .eml email?</summary>
+          <div class="eml-guide-body">
+            <p data-i18n="content.emlGuide.intro">An original .eml keeps the sender’s real address, the real link targets and your mail service’s SPF/DKIM/DMARC results. Screenshots and copied text lose them.</p>
+            <ul>
+            <li data-i18n="content.emlGuide.gmail">Gmail (web): open the email → ⋮ (More) → Download message. After uploading, choose Gmail under “Downloaded from”.</li>
+            <li data-i18n="content.emlGuide.outlook">Outlook.com / Outlook on the web: open the email → ⋯ (More actions) → Download. The Outlook desktop app saves .msg files, which are not supported; use the web version.</li>
+            <li data-i18n="content.emlGuide.apple">Apple Mail (Mac): drag the email from the message list to the desktop, or choose File → Save As → Raw Message Source.</li>
+            <li data-i18n="content.emlGuide.webmail">QQ Mail, NetEase 163/126 and other webmail: open the email and look for Export or Download email (.eml) in its More menu.</li>
+            <li data-i18n="content.emlGuide.mobile">Mobile mail apps usually cannot export .eml; use the web version on a computer.</li>
+            <li data-i18n="content.emlGuide.forward">Download the email you received, not a forwarded copy: forwarding replaces the original headers with yours.</li>
+            <li data-i18n="content.emlGuide.temp">Temporary-inbox websites usually show only the rendered message, without the original headers.</li>
+            <li data-i18n="content.emlGuide.privacy">An .eml contains your address and the full message. Upload only mail you are willing to have analyzed; files are limited to 2 MiB.</li>
+            </ul>
+          </div>
+        </details>
         <div class="content-input-subject-row" id="content-mailbox-options" hidden>
           <label class="content-label" for="content-mailbox" data-i18n="content.mailbox.label">Downloaded from</label>
           <select id="content-mailbox" class="ocr-language-select" aria-describedby="content-mailbox-help"><option value="" data-i18n="content.mailbox.unknown">Other mailbox or not sure (authentication not trusted)</option><option value="gmail" data-i18n="content.mailbox.gmail">Gmail (original message downloaded from Gmail)</option></select>
@@ -1021,7 +1037,7 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=15"></script>
+<script src="/static/i18n.js?v=17"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
