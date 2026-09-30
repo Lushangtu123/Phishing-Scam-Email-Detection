@@ -284,7 +284,7 @@ def display_name_matches_domain(display_name: str, domain: str, local_part: str 
 # invitation, a comment, a signature request). The template is the platform's; the
 # document, message and links inside it are the other user's.
 _RELAY_SUBJECT = re.compile(
-    r"\b(?:shared|sharing|invited you|invit(?:e|ation)s? (?:you )?to|sent you|mentioned you|commented|replied to"
+    r"\b(?:shared|sharing|invit(?:ed|ing) you|invit(?:e|ation)s? (?:you )?to|sent you|mentioned you|commented|replied to"
     r"|assigned (?:you|to you|a task)|added you|requested (?:access|your signature)|wants to (?:share|connect)"
     r"|review and sign|please sign|signature (?:request|required)|left a comment|messaged you|new message from)\b"
     r"|分享了|邀请你|邀请您|给你发送|评论了|提到了你", re.IGNORECASE)

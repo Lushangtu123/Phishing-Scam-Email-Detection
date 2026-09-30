@@ -323,11 +323,15 @@ Raw input enables these checks:
       domain label, display names or product names such as Trello for Atlassian);
     - Reply-To points to another organization;
     - the subject is a share, invitation, comment or signature template.
-  - Besides the phishing-target brands, the international registry lists 17
+  - Besides the phishing-target brands, the international registry lists 26
     services (`display_check: sender_only`): GitHub, Dropbox, Crunchyroll, Slack,
     Canva, Duolingo, Asana, Atlassian (`id.atlassian.com` only), Coursera, EA,
-    Figma, GitLab, SoundCloud, Tumblr, Ubisoft, Spotify and Bluesky
-    (`bsky.social`). Each entry records the
+    Figma, GitLab, SoundCloud, Tumblr, Ubisoft, Spotify, Bluesky (`bsky.social`),
+    Vimeo, Notion, Box, Netlify, Reddit, Pinterest, Steam, Zoom and Quora.
+    Cloudflare and Adobe are left out on purpose. A user reported fully
+    authenticated phishing sent through `notify.cloudflare.com`. Adobe's sending
+    domains are not listed on an official page, and its share and signature
+    notices are widely abused. Each entry records the
     official pages read in `domain_sources`. These entries verify senders only:
     they add no display-name impersonation matches. When such a service's own mail
     is only incompletely analyzed (hidden or client-specific text, image fallback

@@ -9,7 +9,8 @@
     "display_names avoid common words and first names (Chase, Citi, Meta, Apple, UPS alone). PayPal, Amazon, Microsoft and Google keep the existing protected-brand rule (display_check), so their names are not matched twice.",
     "gov_suffixes lets a government entry accept that country's government domains (.gov, gov.uk, gc.ca, gov.au). brand_tlds accepts a brand top-level domain (DHL's .dhl).",
     "A matching domain proves nothing on its own because From is not authenticated; the registry is used to detect impersonation.",
-    "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded."
+    "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded.",
+    "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused."
   ],
   "regulatory_statements": [
     {
@@ -1263,6 +1264,196 @@
         "https://bsky.social/about/support"
       ],
       "review_note": "Help center (linked from the bsky.app web app; read 2026-09-30): make sure noreply@bsky.social is not blocked. Support is support@bsky.app. User handles such as alice.bsky.social are subdomains, but Bluesky controls their DNS and bsky.social publishes DMARC p=reject, so users cannot send authenticated mail from them."
+    },
+    {
+      "id": "vimeo",
+      "category": "service",
+      "name": "Vimeo",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "vimeo.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.vimeo.com/hc/en-us/articles/39764503435793-How-to-verify-an-email-came-from-Vimeo"
+      ],
+      "review_note": "Help center: authentic Vimeo emails come from addresses ending in @vimeo.com."
+    },
+    {
+      "id": "notion",
+      "category": "service",
+      "name": "Notion",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "notion.com",
+        "notion.so"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.notion.com",
+        "https://www.notion.so"
+      ],
+      "review_note": "Domain confirmed by the organization's homepage; no page listing its sending domains was found. notion.so redirects to notion.com. Published pages use notion.site, which is not included."
+    },
+    {
+      "id": "box",
+      "category": "service",
+      "name": "Box",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "box.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://support.box.com/hc/en-us/articles/360044196733-Configuring-Email-for-Box-Notifications"
+      ],
+      "review_note": "Support article: notifications come from noreply@box.com; box.com and its account, notify, reply, track and em2410 subdomains. Share notices carry another user's content and are treated as relays."
+    },
+    {
+      "id": "netlify",
+      "category": "service",
+      "name": "Netlify",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "netlify.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.netlify.com"
+      ],
+      "review_note": "Domain confirmed by the organization's homepage; no page listing its sending domains was found. User sites are hosted on netlify.app, which is not included."
+    },
+    {
+      "id": "reddit",
+      "category": "service",
+      "name": "Reddit",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "reddit.com",
+        "redditmail.com",
+        "redditforcommunity.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Reddit will never ask you for your password or 2FA codes, nor will we ask you via private messages to change your email address.",
+          "source": "https://support.reddithelp.com/hc/en-us/articles/360045734831-How-do-I-know-if-a-message-from-Reddit-is-official",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://support.reddithelp.com/hc/en-us/articles/360045734831-How-do-I-know-if-a-message-from-Reddit-is-official"
+      ],
+      "review_note": "Help center: emails come from @reddit.com, @redditmail.com or @redditforcommunity.com addresses."
+    },
+    {
+      "id": "pinterest",
+      "category": "service",
+      "name": "Pinterest",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "pinterest.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.pinterest.com/en/article/issues-receiving-emails-from-pinterest"
+      ],
+      "review_note": "Help center: Pinterest always sends email from addresses ending in @pinterest.com."
+    },
+    {
+      "id": "steam",
+      "category": "service",
+      "name": "Steam (Valve)",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "steampowered.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.steampowered.com/en/wizard/HelpWithSteamGuardCode"
+      ],
+      "review_note": "Steam Support asks users to add support@steampowered.com and noreply@steampowered.com to trusted senders.",
+      "sender_names": [
+        "Steam"
+      ]
+    },
+    {
+      "id": "zoom",
+      "category": "service",
+      "name": "Zoom",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "zoom.us"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060106"
+      ],
+      "review_note": "Support article: account and notification emails originate exclusively from no-reply@zoom.us. Account invitations carry another user's details and are treated as relays by their subject."
+    },
+    {
+      "id": "quora",
+      "category": "service",
+      "name": "Quora",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "quora.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Quora will never email, text, or call asking you to provide personal information.",
+          "source": "https://help.quora.com/hc/en-us/articles/360021238172-What-happens-if-I-get-fake-emails-or-social-media-messages-saying-that-someone-has-access-to-my-compromised-account-or-information",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.quora.com/hc/en-us/articles/360021238172-What-happens-if-I-get-fake-emails-or-social-media-messages-saying-that-someone-has-access-to-my-compromised-account-or-information"
+      ],
+      "review_note": "Domain confirmed by the organization's help center (help.quora.com); no page listing its sending domains was found."
     }
   ]
 }

@@ -20,6 +20,26 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 00:00 PT] — Add nine more service senders
+
+### Why
+- 18 of 72 genuine downloads were still undetermined, all from services outside the registry.
+
+### Files changed
+- `website/data/official_brands_intl.json` — `sender_only` entries, each with its sources:
+  - from official pages: Vimeo (`vimeo.com`), Box (`box.com`), Reddit (`reddit.com`, `redditmail.com`, `redditforcommunity.com`), Pinterest (`pinterest.com`), Steam (`steampowered.com`), Zoom (`zoom.us`);
+  - from the homepage or help center only: Notion (`notion.com`, `notion.so`), Netlify (`netlify.com`), Quora (`quora.com`).
+  - Reddit and Quora "will never" statements read on their help centers.
+  - A registry note records why Cloudflare and Adobe were left out: reported authenticated phishing through `notify.cloudflare.com`; no official Adobe sending-domain page, and widely abused share and sign notices.
+- `website/email_structure.py` — the relay subject pattern also matches "inviting you" (Zoom meeting invitations).
+- `website/tests/test_verified_official_sender.py` — a Zoom invitation is a relay; Reddit (`redditmail.com`) and Steam account mail are verified.
+- `README.md`, `docs/evaluation.md` — 26 services, the exclusions and the measurement.
+
+### Effect
+- Own genuine downloads (72): undetermined 18 → 3, Safe or Low 53 → 68, alerts unchanged at 1.
+- The three left are the Cloudflare and Adobe messages excluded on purpose.
+- Nazario with the top header trusted: unchanged.
+
 ## [2026-09-30 23:00 PT] — Verified services' own mail is Low instead of undetermined
 
 ### Why

@@ -1408,6 +1408,35 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Nine more services (2026-09-30)
+
+18 genuine downloads were still undetermined, all from services outside the
+registry. Nine services were added after reading their pages:
+
+| Evidence | Services |
+|---|---|
+| Official page listing sending addresses or domains | Vimeo, Box, Reddit, Pinterest, Steam, Zoom |
+| Homepage or help center only | Notion (notion.com, notion.so), Netlify, Quora |
+
+Two services were left out:
+
+- **Cloudflare.** A user on Cloudflare's community forum reported phishing sent
+  through `notify.cloudflare.com` with SPF, DKIM and DMARC all passing. That is
+  the verified-scam pattern already seen with PayPal and Microsoft.
+- **Adobe.** No official page lists its sending domains, and its Acrobat share
+  and signature notices are widely abused.
+
+The relay subject pattern also accepts "inviting you", the form of Zoom meeting
+invitations.
+
+| Cohort | Undetermined | Safe or Low | Alerts |
+|---|---|---|---|
+| Own genuine downloads (72) | 18 → 3 | 53 → 68 | 1 → 1 |
+| Nazario with headers, top header trusted (2,122) | 116 → 116 | 8 → 8 | 1,998 → 1,998 |
+
+The three remaining undetermined messages are the two Cloudflare notices and
+one Adobe code, excluded on purpose.
+
 ### Verified services no longer undetermined (2026-09-30)
 
 After the registry work, 38 of 72 genuine downloads were still undetermined. 20

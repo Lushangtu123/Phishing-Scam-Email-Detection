@@ -137,8 +137,10 @@ class PlatformRelayTests(unittest.TestCase):
         github = message('notifications@github.com', domain='github.com', name='Jane Doe',
                          subject='[org/repo] Urgent security notice (Issue #12)')
         canva = message('no-reply@canva.com', domain='canva.com', name='Canva', subject='A design has been shared with you!')
+        zoom = message('no-reply@zoom.us', domain='zoom.us', name='Zoom',
+                       subject='Jane Doe is inviting you to a scheduled Zoom meeting')
         reply_elsewhere = message(reply_to='refunds@example.net')
-        for raw in (drive, docusign, github, canva, reply_elsewhere):
+        for raw in (drive, docusign, github, canva, zoom, reply_elsewhere):
             with self.subTest(raw=raw[raw.index(b'From:'):][:60]):
                 self.assertEqual(self.relay(raw), (None, True))
 
@@ -152,6 +154,10 @@ class PlatformRelayTests(unittest.TestCase):
             (message('EA@e.ea.com', domain='e.ea.com', name='EA', subject='Your EA Security Code is: 131088'),
              'Electronic Arts'),
             (message(name='service@paypal.com'), 'PayPal'),
+            (message('noreply@redditmail.com', domain='redditmail.com', name='Reddit', subject='Your weekly digest'),
+             'Reddit'),
+            (message('noreply@steampowered.com', domain='steampowered.com', name='Steam',
+                     subject='Your Steam account: Access from new web or mobile device'), 'Steam (Valve)'),
             (message('noreply@bsky.social', domain='bsky.social', name='Bluesky',
                      subject='Reset your password'), 'Bluesky'),
             (message('no-reply@alerts.spotify.com', domain='spotify.com', name='Spotify',
