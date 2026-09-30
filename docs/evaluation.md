@@ -1408,6 +1408,32 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Routing findings and the link-count rule (2026-10-01)
+
+Two rules appeared often in the 43 remaining no-mailbox alerts on the 92 genuine
+downloads: `content.url_count` (24) and `structure.routing_mismatch` (10). Each was
+varied and scored on the same cohorts (same model):
+
+| Variant | Genuine alerts, no mailbox | Nazario alerts lost | Top-header-trusted lost |
+|---|---|---|---|
+| current | 43 | — | — |
+| routing: same registrable domain aligns | 43 | 0 | 0 |
+| link count threshold 6 → 12 | 43 | 6 | 7 |
+| link count threshold 6 → 20 | 42 | 8 | 8 |
+| link count rule off | 42 | 9 | 8 |
+
+Neither rule decides those alerts, so the link-count rule is unchanged: relaxing
+it costs phishing alerts and saves at most one genuine one.
+
+The routing rule accepted only exact domains or parent and child subdomains, so a
+Return-Path on `gaia.bounces.google.com` for mail from `accounts.google.com` was a
+mismatch. It flagged 20 of 92 genuine downloads (22%) and 777 of 3,466 Nazario
+phishing messages (22%): it did not separate them at all. Sibling hosts of one
+registrable domain now align, using the Public Suffix List with private suffixes,
+so users of a shared host such as `github.io` still differ. The finding now appears
+on 4 of 92 genuine downloads (4%) and 765 Nazario messages (22%). No verdict changed
+in any cohort.
+
 ### Address shape on a service's own domain without a mailbox (2026-10-01)
 
 Without a mailbox choice, 56 of the 92 genuine downloads still alerted (same

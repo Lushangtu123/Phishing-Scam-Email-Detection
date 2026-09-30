@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 06:00 PT] — Align routing headers by registrable domain
+
+### Why
+- `structure.routing_mismatch` accepted only exact or parent/child domains, so a Return-Path on `gaia.bounces.google.com` for mail from `accounts.google.com` was a mismatch.
+- It flagged 22% of the 92 genuine downloads and 22% of 3,466 Nazario phishing messages: no separation at all.
+
+### Files changed
+- `website/email_structure.py` — `_same_registrable_domain`, using the bundled Public Suffix List with private suffixes (`github.io` users stay distinct); Reply-To and Return-Path align with From when either relation holds.
+- `website/tests/test_routing_mismatch.py` — sibling hosts align; other organizations, sending services, `github.io` users and a foreign Reply-To still differ.
+- `README.md`, `docs/evaluation.md` — the rule, its measurement, and why the link-count rule was left unchanged.
+
+### Effect
+- The finding appears on 4 of 92 genuine downloads (was 20) and 765 of 3,466 Nazario messages (was 777).
+- No verdict changed in any cohort. Raising or removing the link-count threshold was measured and rejected: it lost 6–9 Nazario alerts and saved at most one genuine one.
+
 ## [2026-10-01 05:00 PT] — Stop scoring address shape on a service's own domain without a mailbox
 
 ### Why

@@ -76,3 +76,30 @@ class RoutingMismatchTests(unittest.TestCase):
                 self.assertEqual(structure['structure_score'], 2)
                 self.assertTrue(structure['parse_warnings'])
                 self.assertTrue(any(f'{name} domain' in item['msg'] for item in structure['indicators']))
+
+
+class RegistrableDomainRoutingTests(unittest.TestCase):
+    def routing_findings(self, sender, return_path, reply_to=None):
+        raw = f'From: Service <{sender}>\nReturn-Path: <{return_path}>\n'
+        if reply_to:
+            raw += f'Reply-To: {reply_to}\n'
+        raw += '\nYour weekly summary is ready. Nothing else is needed from you.\n'
+        return [item for item in analyze_raw_email(raw)['indicators']
+                if item.get('code') == 'structure.routing_mismatch']
+
+    def test_sibling_hosts_of_one_registrable_domain_align(self):
+        for sender, return_path in (('no-reply@accounts.google.com', 'x@gaia.bounces.google.com'),
+                                    ('hello@info.crunchyroll.com', 'bounce@mail.crunchyroll.com'),
+                                    ('news@mail.example.co.uk', 'b@bounce.example.co.uk')):
+            with self.subTest(sender=sender):
+                self.assertEqual(self.routing_findings(sender, return_path), [])
+
+    def test_other_organizations_and_shared_host_users_still_differ(self):
+        for sender, return_path in (('service@paypal.com', 'bounce@paypal-support.example'),
+                                    ('hello@acme.com', 'bounces@sendgrid.net'),
+                                    ('me@alice.github.io', 'x@mallory.github.io'),
+                                    ('support@example.co.uk', 'b@other.co.uk')):
+            with self.subTest(sender=sender):
+                self.assertEqual(len(self.routing_findings(sender, return_path)), 1)
+        self.assertEqual(len(self.routing_findings('a@accounts.google.com', 'b@bounces.google.com',
+                                                   reply_to='help@elsewhere.example')), 1)

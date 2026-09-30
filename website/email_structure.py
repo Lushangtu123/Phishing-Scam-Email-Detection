@@ -126,6 +126,10 @@ _CONSUMER_MAILBOX_DOMAINS = frozenset({
 MAILBOX_AUTHSERV_IDS = {"gmail": "mx.google.com", "outlook": "mx.microsoft.com"}
 # The bundled Public Suffix List snapshot only; never fetched at runtime.
 _ORGANIZATIONAL_DOMAINS = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
+# With private suffixes (github.io, netlify.app), each user's subdomain on a shared
+# host is its own registrable domain, so two such users never share an organization.
+_REGISTRABLE_DOMAINS = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None,
+                                             include_psl_private_domains=True)
 # An authenticated sender also needs a passing DKIM signature from its own organizational
 # domain; an SPF-only DMARC pass can come from a shared sending service.
 _AUTHENTICATED_SENDER_NEEDS_DKIM = True
@@ -234,6 +238,12 @@ def _dkim_pass_domains(value: str) -> set[str]:
         if match:
             domains.add(normalize_domain(match.group(1)))
     return domains - {''}
+
+
+def _same_registrable_domain(left: str, right: str) -> bool:
+    """Sibling hosts of one registrable domain (gaia.bounces.google.com, accounts.google.com)."""
+    registrable = _REGISTRABLE_DOMAINS(left).top_domain_under_public_suffix
+    return bool(registrable) and registrable == _REGISTRABLE_DOMAINS(right).top_domain_under_public_suffix
 
 
 def organizational_domain(domain: str) -> str:
@@ -902,7 +912,8 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         domains = {_domain(address) for value in header_candidates[name]
                    for _, address in getaddresses([value])} - {''}
         mismatch = next((other for other in sorted(domains) if from_domains
-                         and not any(_domains_align(other, sender) for sender in from_domains)), None)
+                         and not any(_domains_align(other, sender) or _same_registrable_domain(other, sender)
+                                     for sender in from_domains)), None)
         if mismatch:
             routing_mismatch = True
             indicators.append(indicator('low', 'structure.routing_mismatch', header=name, domain=mismatch,

@@ -399,7 +399,9 @@ Raw input enables these checks:
   organizations under "How to verify it yourself". For each it shows the official
   website to type in, its service numbers, and one source-linked "we will never…"
   statement;
-- From / Reply-To / Return-Path domain mismatches;
+- From / Reply-To / Return-Path domain mismatches. Sibling hosts of one registrable
+  domain (`gaia.bounces.google.com` and `accounts.google.com`) align; users of a shared
+  host such as `github.io` do not;
 - the same sender/domain heuristics used by the sender-only workflow;
 - executable, macro-enabled, disk-image, and archive attachment extensions or
   MIME types;
