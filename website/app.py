@@ -2930,7 +2930,7 @@ async def analyze_eml_endpoint(request: Request):
     # Minimal ASGI scopes (tests, the runtime smoke check) may omit the query string.
     mailbox = parse_qs(request.scope.get('query_string', b'').decode('latin-1')).get('mailbox', [''])[-1]
     if mailbox not in {'', *MAILBOX_AUTHSERV_IDS}:
-        raise HTTPException(status_code=400, detail='Unsupported mailbox; use gmail or leave it empty')
+        raise HTTPException(status_code=400, detail='Unsupported mailbox; use gmail, outlook or leave it empty')
     structure = await _run_analysis(analyze_raw_email, bytes(raw),
                                     trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
                                     mailbox_provider=mailbox or None)

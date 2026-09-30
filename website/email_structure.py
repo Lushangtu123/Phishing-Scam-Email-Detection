@@ -111,7 +111,9 @@ _CONSUMER_MAILBOX_DOMAINS = frozenset({
 # Per-upload mailbox choice: the receiving service's authserv-id. Only the topmost
 # Authentication-Results header is trusted, because the receiving service prepends it
 # above anything the sender wrote.
-MAILBOX_AUTHSERV_IDS = {"gmail": "mx.google.com"}
+# Outlook.com writes "mx.microsoft.com 1" above its ARC headers; the lower
+# X-MS-Exchange-Authentication-Results header is Microsoft's outbound relay, not the check.
+MAILBOX_AUTHSERV_IDS = {"gmail": "mx.google.com", "outlook": "mx.microsoft.com"}
 
 
 def _load_official_sender_domains(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, str]:

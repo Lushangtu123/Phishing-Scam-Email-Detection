@@ -260,7 +260,8 @@ window.PhishGuardI18n = (() => {
     'content.mailbox.label': "Downloaded from",
     'content.mailbox.unknown': "Other mailbox or not sure (authentication not trusted)",
     'content.mailbox.gmail': "Gmail (original message downloaded from Gmail)",
-    'content.mailbox.help': "Choose Gmail only for an original message you downloaded from Gmail (open the email, then ⋮ → Download message). The result then trusts Gmail’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing Gmail for other mail can make a forged check look trusted.",
+    'content.mailbox.outlook': "Outlook.com (original message downloaded from Outlook on the web)",
+    'content.mailbox.help': "Choose Gmail or Outlook.com only for an original message you downloaded from that service (Gmail: ⋮ → Download message; Outlook on the web: ⋯ → Download). The result then trusts that service’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing a service for mail it did not deliver can make a forged check look trusted.",
     'content.ocr.label': 'Image text language (OCR)',
     'content.ocr.eng': 'English',
     'content.ocr.chi': '简体中文 · Simplified Chinese',
@@ -1268,7 +1269,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=12'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=13'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

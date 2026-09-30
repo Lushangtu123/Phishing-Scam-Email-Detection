@@ -21,6 +21,17 @@ GMAIL_PASS = ('Authentication-Results: mx.google.com;\r\n'
               '       spf=pass (google.com: domain of bounce@{domain} designates 192.0.2.1 as permitted sender)'
               ' smtp.mailfrom=bounce@{domain};\r\n'
               '       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from={header_from}\r\n')
+# Outlook.com's layout: Microsoft's own result sits above an ARC set and the
+# outbound relay's X-MS-Exchange-Authentication-Results header.
+OUTLOOK_PASS = ('Received: from mailbox.prod.outlook.com by mailbox.prod.outlook.com with HTTPS\r\n'
+                'ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is 192.0.2.1)\r\n'
+                ' smtp.mailfrom={domain}; dmarc=pass action=none header.from={header_from}; dkim=pass\r\n'
+                'Authentication-Results: mx.microsoft.com 1; spf=pass (sender IP is\r\n'
+                ' 192.0.2.1) smtp.mailfrom={domain}; dkim=pass\r\n'
+                ' (signature was verified) header.d={domain};dmarc={dmarc}\r\n'
+                ' action=none header.from={header_from};compauth=pass reason=100\r\n'
+                'X-MS-Exchange-Authentication-Results: mx.microsoft.com 1; spf=none; dkim=none;\r\n'
+                ' dmarc=none action=none header.from={header_from};\r\n')
 RECEIPT = 'You sent a payment of $29.99 USD to Netflix. View the transaction details in your account.'
 
 
@@ -68,8 +79,27 @@ class VerifiedOfficialSenderTests(unittest.TestCase):
         self.assertIn('structure.auth_failed', [item['code'] for item in structure['indicators']])
 
 
+    def test_topmost_outlook_dmarc_pass_verifies_the_sender_only_for_outlook(self):
+        outlook = OUTLOOK_PASS.format(domain='paypal.com', header_from='paypal.com', dmarc='pass')
+        self.assertEqual(verified(message(auth=outlook), mailbox='outlook'),
+                         {'organization': 'PayPal', 'domain': 'paypal.com'})
+        self.assertIsNone(verified(message(auth=outlook), mailbox='gmail'))
+        self.assertIsNone(verified(message(), mailbox='outlook'))
+        guess = OUTLOOK_PASS.format(domain='paypal.com', header_from='paypal.com', dmarc='bestguesspass')
+        self.assertIsNone(verified(message(auth=guess), mailbox='outlook'))
+
+    def test_a_forged_microsoft_header_below_outlooks_result_is_ignored(self):
+        failing = OUTLOOK_PASS.format(domain='paypal-help.top', header_from='paypal.com', dmarc='fail')
+        forged = failing + ('Authentication-Results: mx.microsoft.com 1; spf=pass smtp.mailfrom=paypal.com;'
+                            ' dkim=pass header.d=paypal.com; dmarc=pass action=none header.from=paypal.com\r\n')
+        structure = analyze_raw_email(message(auth=forged), mailbox_provider='outlook')
+        self.assertIsNone(structure['verified_official_sender'])
+        self.assertEqual(structure['auth_results']['dmarc'], 'fail')
+        self.assertIn('structure.auth_failed', [item['code'] for item in structure['indicators']])
+
     def test_mailbox_parameter_is_validated(self):
         self.assertEqual(VisualRequest(mailbox='gmail').mailbox, 'gmail')
+        self.assertEqual(VisualRequest(mailbox='outlook').mailbox, 'outlook')
         with self.assertRaises(ValidationError):
             VisualRequest(mailbox='yahoo')
 

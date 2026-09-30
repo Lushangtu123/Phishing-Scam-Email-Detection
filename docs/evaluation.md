@@ -1389,8 +1389,7 @@ passing DMARC check still scored High, because production trusts no
   heuristics are not scored. With a Safe or Low floor, a Medium or High result
   becomes "Low Risk — Verified Official Sender". Floors of Medium or higher and
   Critical results are unchanged.
-- Outlook is not supported yet. Its header format needs to be confirmed on a
-  real downloaded message first.
+- Outlook.com was added later (see "Real Gmail and Outlook.com downloads" below).
 
 **Checks:**
 
@@ -1408,6 +1407,49 @@ passing DMARC check still scored High, because production trusts no
 **Limit:** no real Gmail-downloaded genuine notices were available, so the
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
+
+### Real Gmail and Outlook.com downloads (2026-09-30)
+
+The repository owner supplied 64 genuine original messages: 31 downloaded from
+Gmail and 33 from Outlook on the web. They are account and service notices from
+about 30 software, media and gaming services (sign-up confirmations, codes,
+password resets, welcome mail). The files stayed local and are not committed.
+
+**Outlook header format.** In all 33 Outlook messages the topmost
+`Authentication-Results` header is Microsoft's inbound check,
+`mx.microsoft.com 1; spf=… dkim=… dmarc=pass … header.from=…;compauth=pass`. It
+sits above an ARC set and a lower `X-MS-Exchange-Authentication-Results` header
+written by the sender's outbound relay (often `dmarc=none`). The existing
+parser reads the format, including the version number after the authserv-id and
+the missing space before `dmarc=`. `outlook` is therefore now a mailbox value,
+meaning `mx.microsoft.com`. `dmarc=bestguesspass` is not a pass. The same
+topmost-header rule applies, so a user who wrongly chooses Outlook for mail
+delivered elsewhere gets that service's header on top and nothing trusted.
+
+**Results.** Every message had a trusted DMARC pass on top. Medium and above
+count as alerts:
+
+| Mailbox | Messages | Alerts, no mailbox | Alerts, mailbox named | Verified official senders | Undetermined |
+|---|---|---|---|---|---|
+| Gmail | 31 | 13 | 13 | 0 | 16 |
+| Outlook.com | 33 | 24 | 22 | 2 | 8 |
+
+Only two senders (both Microsoft account notices) are in the official-brand
+registries. Both became "Low Risk — Verified Official Sender", from High and
+Critical. The other 35 alerts on these genuine messages come from:
+
+| Cause | Alerts |
+|---|---|
+| Model-led (probability above the 37.4% threshold) | 18 |
+| Sender-address heuristics alone (role usernames such as `no-reply`, keyword subdomains such as `account.` or `alerts.`, random-looking or deep-subdomain addresses) | 11 |
+| Other (sub-threshold model score plus weak rules, or structure floors) | 6 |
+
+24 of 64 (38%) were undetermined. The main reasons were hidden preheader text,
+Outlook conditional comments, and stylesheet visibility rules, which are routine
+in marketing and transactional HTML.
+
+**Limit:** 64 messages from one person's accounts. This is enough to find the
+failure modes, not to estimate rates.
 
 ### PDF attachment links and IPFS gateways (2026-09-30)
 

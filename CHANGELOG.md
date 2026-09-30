@@ -20,6 +20,27 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 16:00 PT] — Trust Outlook.com's own authentication result
+
+### Why
+- The verified-sender check supported only Gmail, because Outlook's header layout had not been seen on a real download.
+- 33 original messages downloaded from Outlook on the web confirmed it. The topmost `Authentication-Results` header is always `mx.microsoft.com 1; …` from Microsoft's inbound check.
+
+### Files changed
+- `website/email_structure.py` — `MAILBOX_AUTHSERV_IDS` adds `outlook` → `mx.microsoft.com`. The same topmost-header-only rule applies.
+- `website/visual_evidence.py`, `website/app.py` — `mailbox` accepts `outlook` for `/api/analyze-visual` and `/api/analyze-eml`.
+- `website/static/index.html`, `website/static/i18n.js`, `website/static/i18n-zh.js` — an "Outlook.com" dropdown option, and help text for both services. Asset versions were bumped.
+- `website/tests/test_verified_official_sender.py` — a synthetic Outlook layout (ARC set, lower `X-MS-Exchange-Authentication-Results`):
+  - verifies only with `outlook`;
+  - does not verify with `gmail`, or with `dmarc=bestguesspass`;
+  - a forged Microsoft header below a failing one is ignored.
+- `README.md`, `docs/evaluation.md` — Outlook support and the first real-download evaluation.
+
+### Effect
+- 64 genuine downloads (31 Gmail, 33 Outlook.com), kept local: alerts fall from 37 to 35.
+- The two Microsoft account notices (the only registry senders) went from High and Critical to "Low Risk — Verified Official Sender".
+- Remaining false alerts: 18 model-led, 11 from sender-address heuristics alone, 6 other. 24/64 undetermined.
+
 ## [2026-09-30 15:00 PT] — Callback-phishing rule and "if you already clicked" guidance
 
 ### Why

@@ -14,7 +14,7 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=14"></script>
+  <script src="/static/lang-init.js?v=15"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/static/style.css?v=55" />
 </head>
@@ -502,8 +502,8 @@
         </details>
         <div class="content-input-subject-row" id="content-mailbox-options" hidden>
           <label class="content-label" for="content-mailbox" data-i18n="content.mailbox.label">Downloaded from</label>
-          <select id="content-mailbox" class="ocr-language-select" aria-describedby="content-mailbox-help"><option value="" data-i18n="content.mailbox.unknown">Other mailbox or not sure (authentication not trusted)</option><option value="gmail" data-i18n="content.mailbox.gmail">Gmail (original message downloaded from Gmail)</option></select>
-          <p id="content-mailbox-help" class="raw-email-status" data-i18n="content.mailbox.help">Choose Gmail only for an original message you downloaded from Gmail (open the email, then ⋮ → Download message). The result then trusts Gmail’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing Gmail for other mail can make a forged check look trusted.</p>
+          <select id="content-mailbox" class="ocr-language-select" aria-describedby="content-mailbox-help"><option value="" data-i18n="content.mailbox.unknown">Other mailbox or not sure (authentication not trusted)</option><option value="gmail" data-i18n="content.mailbox.gmail">Gmail (original message downloaded from Gmail)</option><option value="outlook" data-i18n="content.mailbox.outlook">Outlook.com (original message downloaded from Outlook on the web)</option></select>
+          <p id="content-mailbox-help" class="raw-email-status" data-i18n="content.mailbox.help">Choose Gmail or Outlook.com only for an original message you downloaded from that service (Gmail: ⋮ → Download message; Outlook on the web: ⋯ → Download). The result then trusts that service’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing a service for mail it did not deliver can make a forged check look trusted.</p>
         </div>
         <div class="content-input-subject-row">
           <label class="content-label" for="content-ocr-language" data-i18n="content.ocr.label">Image text language (OCR)</label>
@@ -1052,7 +1052,7 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=25"></script>
+<script src="/static/i18n.js?v=27"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>

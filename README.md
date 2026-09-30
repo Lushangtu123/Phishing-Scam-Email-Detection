@@ -299,8 +299,8 @@ outer result incomplete. This does not unpack archives or execute attachments.
 Raw input enables these checks:
 
 - SPF, DKIM, and DMARC results from explicitly trusted authentication servers.
-  An uploaded `.eml` can also name the mailbox it was downloaded from (currently
-  Gmail). Only the topmost `Authentication-Results` header is then trusted, and
+  An uploaded `.eml` can also name the mailbox it was downloaded from: Gmail
+  (`mx.google.com`) or Outlook.com (`mx.microsoft.com`). Only the topmost `Authentication-Results` header is then trusted, and
   only if that service wrote it; headers below it, which a sender can add, are
   ignored. A trusted DMARC pass for the single From domain, when that domain is
   an organization's own sending domain in the official-brand registries, marks a
