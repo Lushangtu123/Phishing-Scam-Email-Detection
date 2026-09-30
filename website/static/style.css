@@ -1012,7 +1012,8 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 .eml-guide { margin: 12px 0 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sheen), var(--surface); }
 .eml-guide > summary {
   display: flex; align-items: center; gap: 10px; list-style: none; cursor: pointer;
-  padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted);
+  /* Whole-pixel height (42px with borders) so content below keeps its pixel grid. */
+  padding: 10px 16px; font-size: 13px; line-height: 20px; font-weight: 600; color: var(--text-muted);
 }
 .eml-guide > summary::-webkit-details-marker { display: none; }
 .eml-guide > summary::after {

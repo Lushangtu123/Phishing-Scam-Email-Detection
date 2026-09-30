@@ -34,13 +34,14 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - that temporary-inbox sites lack headers;
   - a privacy note.
 - `website/static/i18n.js`, `website/static/i18n-zh.js` — `content.emlGuide.*` strings in English and Chinese.
-- `website/static/style.css` — `.eml-guide` disclosure styling, matching the existing score-breakdown disclosure.
+- `website/static/style.css` — `.eml-guide` disclosure styling, matching the existing score-breakdown disclosure, with a whole-pixel summary height.
 - `website/static/404.html`, `website/static/cases.html`, `website/static/lang-init.js`, `website/tools/asset-versions/manifest.json` — asset versions bumped by the updater.
 
 ### Effect
 - Collapsed by default, so the default layout gains one summary line.
 - Checked in a browser in English at desktop width and in Chinese at 375 px, with no horizontal overflow.
-- Visual baselines capture result areas and the page top only, so they are unaffected.
+- The collapsed panel is exactly 42px tall (whole-pixel line height). A first version with a fractional height moved the content-result screenshots below it by a sub-pixel and failed the visual regression job.
+- With the fix, all 17 screenshots match main locally.
 - Detection is unchanged.
 
 ## [2026-09-29 23:30 PT] — Verified official sender: trust the topmost Gmail authentication header on request
