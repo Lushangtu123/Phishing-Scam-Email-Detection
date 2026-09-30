@@ -864,8 +864,10 @@ _RELAX_SUBDOMAIN_KEYWORDS = True
 _AUTHENTICATED_SENDER_NEEDS_NAME_MATCH = True
 
 
-def _relax_authenticated_sender(analysis: dict, authenticated: dict) -> dict:
-    """Show, but stop scoring, address-shape findings for a DMARC- and DKIM-authenticated domain."""
+def _relax_authenticated_sender(analysis: dict, authenticated: dict,
+                                code: str = 'sender.authenticated_domain') -> dict:
+    """Show, but stop scoring, address-shape findings for a DMARC- and DKIM-authenticated domain,
+    or (with code sender.service_domain) a sender-only service's own domain."""
     registrable = authenticated["organizational_domain"].replace(".", "")
     original_score = analysis["risk_score"]
     brand_floor = original_score > _sender_risk_score(analysis["risk_indicators"])
@@ -879,8 +881,8 @@ def _relax_authenticated_sender(analysis: dict, authenticated: dict) -> dict:
     if brand_floor:
         risk_score = max(risk_score, 60)
     if risk_score < original_score:
-        analysis["risk_indicators"].append(indicator('info', 'sender.authenticated_domain',
-                                                     domain=authenticated["domain"]))
+        analysis["risk_indicators"].append(indicator('info', code, domain=authenticated["domain"],
+                                                     organization=authenticated.get("organization", "")))
     analysis["risk_score"] = risk_score
     analysis["verdict"], analysis["label"] = _sender_verdict(risk_score)
     analysis["high_risk_count"] = sum(1 for item in analysis["risk_indicators"] if item["level"] == "high")
@@ -3462,6 +3464,10 @@ async def _analyze_content(
             if (authenticated and (authenticated["display_name_matches"] or not _AUTHENTICATED_SENDER_NEEDS_NAME_MATCH)
                     and selected_sender["email"].rpartition("@")[2].lower() == authenticated["domain"]):
                 selected_sender = _relax_authenticated_sender(selected_sender, authenticated)
+            service_domain = structure.get('service_domain_sender')
+            if service_domain and selected_sender["email"].rpartition("@")[2].lower() == service_domain["domain"]:
+                selected_sender = _relax_authenticated_sender(selected_sender, service_domain,
+                                                              'sender.service_domain')
             # Select locally before touching the external history store. An
             # attacker can inject many ambiguous From values into one message;
             # only the sender that actually drives the result gets one bounded

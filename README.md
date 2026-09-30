@@ -371,6 +371,13 @@ Raw input enables these checks:
     brand substrings, lookalikes, TLDs. So are links, content, attachments and
     the model. Authentication proves who sent the message, not that they are
     trustworthy.
+  - Without a trusted DMARC result (no mailbox chosen), the same address-shape
+    findings are also relaxed when From is on a `sender_only` service's own
+    domain, such as `no-reply@alerts.spotify.com`, and there is no decisive
+    authentication failure or platform-relay sign. A spoof of that address looks
+    exactly the same, so address shape cannot tell them apart; the result says the
+    sender is not proven and suggests choosing the mailbox. Payment and
+    large-platform brands are not relaxed.
 - protected-brand display-name and Unicode/IDN domain impersonation; display
   names use word boundaries to avoid matching ordinary names such as Appleton
   or Pineapple, while retaining detection of spaced, punctuated, and Unicode

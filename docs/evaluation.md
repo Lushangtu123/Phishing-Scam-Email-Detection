@@ -1408,6 +1408,58 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Address shape on a service's own domain without a mailbox (2026-10-01)
+
+Without a mailbox choice, 56 of the 92 genuine downloads still alerted (same
+model, `66668ec`). Of those alerts, 21 came from rules and sender findings alone,
+22 from both rules and the model, 11 from the model alone and 2 from the
+sub-threshold band. The most frequent findings were `sender.username_keywords`
+(32), `content.url_count` (28), `sender.unrecognized_provider` (27),
+`sender.domain_keywords` (20) and `sender.random_username` (14). Retraining
+alone could therefore affect at most about a third of them.
+
+The sender rules were relaxed in measured variants, scoring the 92 genuine
+downloads without a mailbox and all 3,466 Nazario 2015–25 phishing messages:
+
+| Variant | Genuine alerts | Nazario alerts lost |
+|---|---|---|
+| current | 56 | — |
+| "unrecognized provider" off for every sender | 51 | 28 |
+| username keywords off for every sender | 46 | 29 |
+| subdomain keywords off for every sender | 50 | 2 |
+| all three off for every sender | 38 | 48 |
+| subdomain keywords off, registry domains only | 50 | 1 |
+| address shape off, registry domains only | 42 | 2 |
+
+Relaxing any rule for every sender costs recall, because attackers pick their own
+usernames and subdomains. On an organization's own domain, the address is the
+same whether the message is genuine or spoofed: only authentication tells them
+apart. The two Nazario messages lost in the last variant were a genuine Netflix
+price notice (DMARC pass for netflix.com) and a PayPal "don't recognize the
+seller" callback scam sent through PayPal itself. Payment brands already abstain
+when verified, for that reason.
+
+The shipped rule is therefore limited to `sender_only` services. Without a
+trusted DMARC result, a From on such a service's own domain is named
+(`service_domain_sender`) when there is no decisive authentication failure and
+no platform-relay sign (display name, Reply-To, subject, relay address). Then the
+same address-shape findings relaxed for authenticated senders are shown at info
+level with `sender.service_domain`, which says this does not prove the service
+sent it. The registrable domain, links, content and model are still scored.
+
+| Cohort (same model) | Before | After |
+|---|---|---|
+| 92 genuine, no mailbox | 56 alert / 25 undetermined / 11 clean | 43 / 35 / 14 |
+| 92 genuine, with mailbox | 3 / 11 / 78 | unchanged |
+| 3,466 Nazario phishing | 3,289 alert / 168 / 9 | unchanged |
+| 2,122 Nazario, top header trusted | 2,011 alert / 103 / 8 | unchanged |
+
+HTML templates carry no From header, so they are unaffected. Of the 43 remaining
+no-mailbox alerts, 28 are still from `sender_only` services: their alerts come from
+content rules and the model, not the address. The other 15 are from Google (5),
+AliExpress (4), Microsoft (2), Amazon, Twitch, Cloudflare and `atlassian.net`.
+Choosing the mailbox remains the way to clear them.
+
 ### LinkedIn added to the service registry (2026-10-01)
 
 LinkedIn's help center names `cs.linkedin.com`, `e.linkedin.com` and

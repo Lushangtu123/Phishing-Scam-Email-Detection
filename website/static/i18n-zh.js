@@ -801,6 +801,7 @@
   'server.sender.list_rewritten': '发件人域名被邮件列表改写过（带 .invalid 后缀）；已按原始域名评估。',
   'server.content.rendering_views_agree': '这封邮件的 HTML 里有些内容可能被隐藏，或只在部分邮件客户端显示（Outlook 专用区块、样式规则）。每种显示方式都分别评估过，结果一致，因此采用该结果。',
   'server.sender.authenticated_domain': '邮箱服务商已验证这封邮件确实由 {domain} 发出（DMARC 和 DKIM）；地址的命名方式（角色词、子域名、随机样式）只显示、不计分。链接、正文和仿冒域名检查照常进行。',
+  'server.sender.service_domain': '发件地址在 {organization} 自己的域名（{domain}）上，所以地址的命名方式（角色词、子域名、随机样式）只显示、不计分。这不能证明邮件确实由该服务发出：上传时选择这封邮件所在的邮箱（Gmail 或 Outlook），才能检查它的验证结果。链接、正文和仿冒域名检查照常进行。',
 
   'server.content.hidden_text_padding': '一大段隐藏文字伴随以图片为主、带链接的邮件；可见内容与隐藏文字差异很大。请人工核查图片和链接目标。',
   'server.content.password_form': '内嵌 HTML 表单包含密码输入框；输入凭据前，请先检查表单的提交目标。',

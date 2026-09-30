@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 05:00 PT] — Stop scoring address shape on a service's own domain without a mailbox
+
+### Why
+- Without a mailbox choice, 56 of 92 genuine downloads alerted. Most of those alerts came from sender-address findings, not the model: 21 from rules alone and 22 from both, versus 11 from the model alone.
+- Relaxing those findings for every sender lost 28–48 Nazario phishing alerts. On a registry service's own domain the address is the same for genuine and spoofed mail, so address shape adds nothing there; only authentication does.
+
+### Files changed
+- `website/email_structure.py` — `service_domain_sender`: a From on a `sender_only` service's own domain, with no trusted DMARC result, no decisive authentication failure and no platform-relay sign.
+- `website/app.py` — `_relax_authenticated_sender` takes the info code; such senders get the address-shape relaxation with `sender.service_domain`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `sender.service_domain` says the sender is not proven and suggests choosing the mailbox. Asset versions bumped.
+- `website/tests/test_service_domain_sender.py` — named vs. not (payment brand, lookalike, generic name, relay address, relay subject, DMARC failure, verified sender); scoring.
+- `README.md`, `docs/evaluation.md` — the rule and the variant measurements.
+
+### Effect
+- 92 genuine downloads without a mailbox: alerts 56 → 43 (undetermined 25 → 35, clean 11 → 14).
+- With a mailbox, 3,466 Nazario phishing and 2,122 top-header-trusted Nazario: unchanged.
+
 ## [2026-10-01 04:00 PT] — Add LinkedIn to the service registry
 
 ### Why

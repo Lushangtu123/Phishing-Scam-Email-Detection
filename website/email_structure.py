@@ -1002,6 +1002,23 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                     for name, address in from_mailboxes),
             }
 
+    # Without a trusted DMARC result (no mailbox chosen, or none recorded), a From on a
+    # sender-only service's own domain can be spoofed exactly as written, so its address
+    # shape (alerts.spotify.com, security-noreply@) cannot tell a spoof from the real
+    # message; only authentication can. Name the service so address-shape findings stop
+    # scoring. Nothing is verified: links, content and requests are still scored, and
+    # platform relays (other users' content) are excluded as for verified senders.
+    service_domain_sender = None
+    if (verified_official_sender is None and authenticated_sender is None and not decisive_failure
+            and len(from_domains) == 1):
+        from_domain = next(iter(from_domains))
+        organization = _official_sender(from_domain)
+        if (organization in SENDER_ONLY_SERVICES
+                and not _platform_relay(from_mailboxes, header_candidates['Reply-To'],
+                                        '\n'.join(header_candidates['Subject']), organization, from_domain)):
+            service_domain_sender = {"organization": organization, "domain": from_domain,
+                                     "organizational_domain": organizational_domain(from_domain)}
+
     for attachment in attachments:
         suffix = PurePath(attachment["filename"]).suffix.lower()
         content_type = attachment["content_type"].lower().split(";", 1)[0].strip()
@@ -1030,6 +1047,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "authentication_trusted": dmarc_passes,
         "verified_official_sender": verified_official_sender,
         "authenticated_sender": authenticated_sender,
+        "service_domain_sender": service_domain_sender,
         "authentication_results_trusted": bool(auth_results),
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,
