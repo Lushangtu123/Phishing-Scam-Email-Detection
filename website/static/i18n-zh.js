@@ -832,6 +832,7 @@
   'server.structure.archive_attachment': '压缩包附件在打开前需要检查：{filename}。',
 
   'server.prefix.sender': '发件人：{text}',
+  'server.prefix.pdf_attachment': 'PDF 附件中的链接：{text}',
   'server.prefix.attached_message': '附件中的邮件：{text}',
   'server.prefix.image': '图片（{name}）：{text}',
   'server.prefix.image_recognition': '图片识别：{text}',

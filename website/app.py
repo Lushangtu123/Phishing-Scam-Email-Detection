@@ -2922,6 +2922,24 @@ async def _analyze_content(
         if floor_rank[structure["risk_floor"]] > floor_rank[result["risk_floor"]]:
             result["risk_floor"] = structure["risk_floor"]
 
+        # Link annotations read from PDF attachments go through the same destination
+        # checks as message links; the PDF text itself stays uninspected.
+        pdf_links = [('', target) for attachment in structure['attachments']
+                     for target in attachment.get('extracted_links', ())]
+        if pdf_links:
+            pdf_score, pdf_findings, pdf_floor = _analyze_link_destinations('', links=pdf_links)
+            if _has_shortener_url('', links=pdf_links):
+                pdf_score += 2
+                pdf_findings.append(indicator('high', 'content.shortened_urls'))
+            result["total_score"] += pdf_score
+            result["extra_indicators"].extend(
+                wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes') if key in item},
+                             'prefix.pdf_attachment')
+                for item in pdf_findings)
+            if floor_rank[pdf_floor] > floor_rank[result["risk_floor"]]:
+                result["risk_floor"] = pdf_floor
+            result["pdf_link_count"] = len(pdf_links)
+
         selected_sender = await _run_analysis(
             _select_message_sender, structure['header_candidates']['From'])
         verified_sender = structure.get('verified_official_sender')

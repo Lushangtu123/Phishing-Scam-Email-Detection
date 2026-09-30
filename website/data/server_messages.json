@@ -86,6 +86,7 @@
   "structure.archive_attachment": "Archive attachment requires inspection before opening: {filename}.",
 
   "prefix.sender": "Sender: {text}",
+  "prefix.pdf_attachment": "PDF attachment link: {text}",
   "prefix.attached_message": "Attached message: {text}",
   "prefix.image": "Image ({name}): {text}",
   "prefix.image_recognition": "Image recognition: {text}",

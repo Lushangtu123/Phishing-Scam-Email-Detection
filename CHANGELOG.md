@@ -20,6 +20,30 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 13:00 PT] — Check links inside PDF attachments
+
+### Why
+- PDF attachments were metadata-only, so a phishing link placed in a PDF was never checked.
+
+### Files changed
+- `website/email_structure.py`:
+  - `pdf_link_targets()` reads `/URI` link annotations (literal, escaped and hex strings) from plain objects and FlateDecode object streams;
+  - input is bounded to 2 MiB, inflation to 4 MiB, streams to 64 and links to 50, and only http(s) targets are kept;
+  - PDF attachments (by type or `.pdf` name, with a `%PDF` header) record `extracted_links` and stay `metadata_only`.
+- `website/app.py` — PDF targets go through `_analyze_link_destinations` and the shortener check. Findings are prefixed "PDF attachment link:" and raise the floor like message links. Results carry `pdf_link_count`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `prefix.pdf_attachment` in English and Chinese. Asset versions were bumped.
+- `website/tests/test_pdf_attachment_links.py` covers:
+  - extraction forms and web-only targets;
+  - count limits;
+  - decompression bombs (a 50 MB bomb returns in milliseconds) and broken streams;
+  - prefixed findings with the attachment still uninspected;
+  - benign and disguised files.
+- `README.md` — behaviour.
+
+### Effect
+- Of 1,303 Nazario 2023–25 phishing messages, 11 carry a PDF and 3 of those PDFs contain web links. None of those links is caught by the existing link rules: an IPFS gateway, an unlisted shortener, and genuine Microsoft links in a callback-phishing invoice. Alerts are unchanged (9/11).
+- The extraction works on real files. The gap is link-rule coverage, which the next change addresses for IPFS.
+
 ## [2026-09-30 11:30 PT] — "How to verify it yourself": official channels on the content result
 
 ### Why

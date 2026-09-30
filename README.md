@@ -336,6 +336,11 @@ Raw input enables these checks:
 - the same sender/domain heuristics used by the sender-only workflow;
 - executable, macro-enabled, disk-image, and archive attachment extensions or
   MIME types;
+- link annotations inside PDF attachments. The parser reads plain objects and
+  FlateDecode object streams, bounded in size, inflation, stream count and link
+  count, and never renders or executes anything. The targets go through the same
+  destination checks as message links, prefixed "PDF attachment link". The PDF
+  text is still not inspected, so the attachment stays `metadata_only`;
 - HTML anchor/form targets, Markdown, and plain-text link destinations, including displayed-host
   mismatch, Unicode/IDN and ASCII digit-substitution lookalikes, URL userinfo,
   deceptive brand subdomains, and credential-themed domains;

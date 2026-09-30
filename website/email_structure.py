@@ -9,6 +9,7 @@ from email.utils import parseaddr, getaddresses
 import json
 from pathlib import Path, PurePath
 import re
+import zlib
 import unicodedata
 import codecs
 from itertools import product
@@ -298,6 +299,59 @@ def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, l
     return score, indicators
 
 
+# PDF attachments: only link annotations (/URI) are read, from plain objects and from
+# FlateDecode streams (PDF 1.5 object streams). Nothing is rendered or executed, and
+# every step is bounded so a crafted file cannot exhaust memory or time.
+_MAX_PDF_BYTES = 2 * 1024 * 1024
+_MAX_PDF_INFLATED_BYTES = 4 * 1024 * 1024
+_MAX_PDF_STREAMS = 64
+_MAX_PDF_LINKS = 50
+_PDF_FLATE_STREAM = re.compile(rb"/FlateDecode(?:(?!endobj|endstream).){0,300}?stream\r?\n", re.S)
+_PDF_URI = re.compile(rb"/URI\s*(\((?:\\.|[^\\)])*\)|<[0-9A-Fa-f\s]*>)", re.S)
+_PDF_ESCAPES = {b"n": b"\n", b"r": b"\r", b"t": b"\t", b"b": b"\b", b"f": b"\f", b"(": b"(", b")": b")", b"\\": b"\\"}
+
+
+def _pdf_string(token: bytes) -> str:
+    if token.startswith(b"<"):
+        digits = re.sub(rb"\s", b"", token[1:-1])
+        try:
+            value = bytes.fromhex((digits + b"0" * (len(digits) % 2)).decode("ascii"))
+        except ValueError:
+            return ""
+    else:
+        value = re.sub(rb"\\([0-7]{1,3}|.)",
+                       lambda m: bytes([int(m.group(1), 8) & 0xFF]) if m.group(1)[:1].isdigit()
+                       else _PDF_ESCAPES.get(m.group(1), m.group(1)), token[1:-1], flags=re.S)
+    return value.decode("latin-1").strip()
+
+
+def pdf_link_targets(data: bytes) -> list[str]:
+    """http(s) targets of PDF link annotations, bounded in input, inflation and count."""
+    data = data[:_MAX_PDF_BYTES]
+    chunks, budget = [data], _MAX_PDF_INFLATED_BYTES
+    for index, match in enumerate(_PDF_FLATE_STREAM.finditer(data)):
+        if index >= _MAX_PDF_STREAMS or budget <= 0:
+            break
+        end = data.find(b"endstream", match.end())
+        if end < 0:
+            break
+        try:
+            inflated = zlib.decompressobj().decompress(data[match.end():end], budget)
+        except zlib.error:
+            continue
+        budget -= len(inflated)
+        chunks.append(inflated)
+    targets: list[str] = []
+    for chunk in chunks:
+        for match in _PDF_URI.finditer(chunk):
+            target = _pdf_string(match.group(1))
+            if re.match(r"(?:https?|hxxps?)://", target, re.IGNORECASE) and target not in targets:
+                targets.append(target)
+                if len(targets) >= _MAX_PDF_LINKS:
+                    return targets
+    return targets
+
+
 def _walk_message_parts(message):
     """Walk one message, leaving encapsulated messages to bounded analysis."""
     pending = [message]
@@ -387,6 +441,15 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 "content_type": content_type,
                 "inspection_status": "metadata_only",
             })
+            if content_type == "application/pdf" or PurePath(filename or "").suffix.lower() == ".pdf":
+                try:
+                    payload = part.get_payload(decode=True) or b""
+                except Exception:  # malformed transfer encoding: keep metadata only
+                    payload = b""
+                links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
+                # Only links are read; the PDF text stays uninspected (metadata_only).
+                if links:
+                    attachments[-1]["extracted_links"] = links
             if PurePath(filename or '').suffix.lower() == '.eml':
                 warning = message_text('warning.opaque_eml_attachment')
                 if warning not in parse_warnings:
