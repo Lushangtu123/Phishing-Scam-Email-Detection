@@ -1408,6 +1408,28 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Bluesky added to the service registry (2026-09-30)
+
+Bluesky's help center, which its web app links to, asks users not to block
+`noreply@bsky.social`. `bsky.social` is registered as a `sender_only` service,
+with "Bluesky" as a sender name.
+
+User handles such as `alice.bsky.social` are subdomains of it. Bluesky controls
+their DNS and `bsky.social` publishes `DMARC p=reject`, so users cannot send
+authenticated mail from them.
+
+The genuine password reset still alerted after registration. Its plain-text part
+wrote `Bluesky [https://bsky.app], the social internet`, and bare-URL extraction
+kept the closing `]`. `https://bsky.app]` then failed to parse and raised a
+Medium floor (`link.malformed_target`). A closing `]` is now trimmed from bare
+URLs unless the URL opened one, as a bracketed IPv6 host does.
+
+- Genuine downloads (72): alerts fall from 2 to 1. Only the Trello notice from
+  `po.atlassian.net` remains, excluded on purpose.
+- Nine Nazario 2015–25 phishing messages contain a URL followed by `]`. All nine
+  alert before and after, and none had the malformed-target finding.
+- No Nazario message has Bluesky in its From.
+
 ### Spotify added to the service registry (2026-09-30)
 
 Spotify's support page says an email is suspicious if the sender does not end in

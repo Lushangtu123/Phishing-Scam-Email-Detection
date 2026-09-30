@@ -58,5 +58,18 @@ class DisplayHostWwwTests(unittest.TestCase):
         self.assertTrue(self.mismatch('www.co.uk', 'https://evil.co.uk/'))
 
 
+class BareUrlTrimTests(unittest.TestCase):
+    def test_label_bracket_form_and_sentence_punctuation_are_trimmed(self):
+        text = 'Bluesky [https://bsky.app], the social internet. See https://example.org/help).'
+        self.assertEqual([target for _label, target in app._extract_links(text, parse_html=False)],
+                         ['https://bsky.app', 'https://example.org/help'])
+        _score, findings, _floor = app._analyze_link_destinations(text)
+        self.assertNotIn('link.malformed_target', [finding.get('code') for finding in findings])
+
+    def test_bracketed_ipv6_hosts_keep_their_brackets(self):
+        self.assertEqual(app._trim_bare_url('http://[2001:db8::1]/login.'), 'http://[2001:db8::1]/login')
+        self.assertEqual(app._trim_bare_url('http://[2001:db8::1]'), 'http://[2001:db8::1]')
+
+
 if __name__ == '__main__':
     unittest.main()

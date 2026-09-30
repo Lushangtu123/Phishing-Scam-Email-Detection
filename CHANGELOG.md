@@ -20,6 +20,25 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 22:00 PT] — Add Bluesky to the service registry; trim "]" after bare URLs
+
+### Why
+- A genuine Bluesky password reset alerted High.
+- Bluesky was not registered.
+- Its plain-text part used the "Label [https://bsky.app]" form. Bare-URL extraction kept the closing bracket, so `https://bsky.app]` failed to parse and raised a Medium floor that blocks the verified-sender cap.
+
+### Files changed
+- `website/data/official_brands_intl.json` — Bluesky as a `sender_only` service with `bsky.social` and sender name "Bluesky", sourced from its help center (linked from the bsky.app web app).
+  - User-handle subdomains cannot send authenticated mail: Bluesky controls their DNS and publishes `DMARC p=reject`.
+- `website/app.py` — `_trim_bare_url()` also drops a closing `]` from a bare URL unless the URL contains `[` (bracketed IPv6 hosts keep theirs).
+- `website/tests/test_alignment_regressions.py` — the label-bracket form, sentence punctuation, and IPv6 brackets.
+- `website/tests/test_verified_official_sender.py` — a Bluesky reset from `noreply@bsky.social` is a verified sender.
+- `README.md`, `docs/evaluation.md` — 17 services and the measurement.
+
+### Effect
+- Own genuine downloads (72): alerts 2 → 1. Only the Trello notice from `po.atlassian.net` remains, excluded on purpose.
+- The nine Nazario phishing messages with a URL followed by `]` all alert before and after.
+
 ## [2026-09-30 21:00 PT] — Add Spotify to the service registry
 
 ### Why

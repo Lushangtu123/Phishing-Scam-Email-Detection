@@ -1614,6 +1614,18 @@ def _collect_html(factory, text: str, parse_warnings=None, *, mark=False, unreso
     return collector
 
 
+def _trim_bare_url(url: str) -> str:
+    """Drop sentence punctuation after a bare URL, and a closing "]" from the common
+    "Label [https://example.com]" plain-text form unless the URL opened one (IPv6)."""
+    while True:
+        trimmed = url.rstrip(".,;:)")
+        if trimmed.endswith("]") and "[" not in trimmed:
+            trimmed = trimmed[:-1]
+        if trimmed == url:
+            return url
+        url = trimmed
+
+
 def _extract_links(text: str, *, parse_html: bool = True, parse_warnings=None,
                    visible_text: str | None = None) -> list[tuple[str, str]]:
     """Extract visible text and destination from Markdown and HTML links."""
@@ -1688,7 +1700,7 @@ def _extract_links(text: str, *, parse_html: bool = True, parse_warnings=None,
         pass
 
     links.extend(
-        ("", url.rstrip(".,;:)"))
+        ("", _trim_bare_url(url))
         for url in re.findall(r"(?:https?|hxxps?)://[^\s<>\"']+", scan_text, re.IGNORECASE)
     )
 

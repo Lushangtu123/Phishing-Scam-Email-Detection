@@ -1238,6 +1238,31 @@
         "https://support.spotify.com/us/article/spotify-email-legit/"
       ],
       "review_note": "Support page (read 2026-09-30): an email is suspicious if the sender email doesn't end in @spotify.com; report to spoof@spotify.com. Genuine mail also uses subdomains such as alerts.spotify.com, covered as subdomains of spotify.com."
+    },
+    {
+      "id": "bluesky",
+      "category": "service",
+      "name": "Bluesky",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "bsky.social"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "support@bsky.app"
+      ],
+      "display_check": "sender_only",
+      "sender_names": [
+        "Bluesky"
+      ],
+      "domain_sources": [
+        "https://blueskyweb.zendesk.com/hc/en-us/articles/44883632395405-Unable-to-receive-the-Two-Factor-Authentication-2FA-code",
+        "https://bsky.social/about/support"
+      ],
+      "review_note": "Help center (linked from the bsky.app web app; read 2026-09-30): make sure noreply@bsky.social is not blocked. Support is support@bsky.app. User handles such as alice.bsky.social are subdomains, but Bluesky controls their DNS and bsky.social publishes DMARC p=reject, so users cannot send authenticated mail from them."
     }
   ]
 }
