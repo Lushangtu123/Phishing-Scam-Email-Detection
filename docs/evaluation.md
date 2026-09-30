@@ -1408,6 +1408,43 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Text rules read certainly visible text (2026-10-01)
+
+Of 3,466 Nazario phishing messages, 195 did not alert: 186 undetermined and 9
+Low. The causes were:
+
+| Cause | Messages |
+|---|---|
+| HTML rendering unresolved, so the model abstained | 125 |
+| Too little text, or text the model does not cover (17 in Chinese) | 58 |
+| Safe or Low | 9 |
+| Other | 3 |
+
+In the largest group the text rules were blind too. Any HTML part with an
+uncertain stylesheet or inline style gave the rules an empty string, so a scam
+in plain sight scored nothing.
+
+When every hiding rule's targets are known (see "Rendering views"), text rules
+now read that part's certainly visible text: the text outside any element a
+stylesheet or an uncertain inline style may hide. Outlook-only branches are
+kept, as for other parts. Hidden text still cannot raise a score, and rules only
+add points, so hidden benign padding cannot lower one either.
+
+| Cohort | Alerts | Undetermined | Safe or Low |
+|---|---|---|---|
+| Own genuine downloads (72) | 1 → 1 | 3 → 3 | 68 → 68 |
+| Public HTML templates (87) | 4 → 4 | 57 → 57 | 26 → 26 |
+| Nazario 2015–25 phishing, no mailbox (3,466) | 3,271 → 3,289 | 186 → 168 | 9 → 9 |
+
+- Four tests used to require the model to abstain when benign padding was
+  class-hidden next to a visible callback scam. With the rules reading the
+  visible scam, every rendering alerts, so the model is used at its highest
+  rendering. The tests now check what they protect: the result alerts, stays
+  incomplete, and any model score is not below the visible text's own.
+- Most of the remaining 168 undetermined phishing messages have stylesheets
+  that could hide any element, dominant images, or too little text for the
+  model.
+
 ### Nine more services (2026-09-30)
 
 18 genuine downloads were still undetermined, all from services outside the

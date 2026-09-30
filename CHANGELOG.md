@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 01:00 PT] — Let text rules read the certainly visible text of uncertain HTML
+
+### Why
+- 125 of the 195 Nazario phishing messages that did not alert had HTML whose rendering the model could not resolve.
+- In those, the text rules also saw an empty string for any CSS-uncertain part, so visible scams scored nothing.
+
+### Files changed
+- `website/app.py`:
+  - The rendering-view pass also collects certainly visible text: outside elements a stylesheet or uncertain inline style may hide, with Outlook branches kept.
+  - This text is available whenever every hiding rule's targets are known, even if the model's renderings stay unresolved.
+  - Text rules score it for CSS-uncertain parts instead of an empty string.
+- `website/tests/test_html_input_coverage.py` — four padding tests now assert the protected outcome instead of model abstention: an alert, an incomplete analysis, and no model score below the visible text's own.
+- `README.md`, `docs/evaluation.md` — rule and measurement.
+
+### Effect
+- Nazario 2015–25 phishing without a mailbox: alerts 3,271 → 3,289, undetermined 186 → 168. No alert lost.
+- Own genuine downloads (72) and 87 public HTML templates: unchanged.
+
 ## [2026-10-01 00:00 PT] — Add nine more service senders
 
 ### Why

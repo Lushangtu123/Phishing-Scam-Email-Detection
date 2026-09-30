@@ -972,6 +972,18 @@ class HTMLInputCoverageTests(unittest.TestCase):
         self.assertTrue(any('hidden html text' in warning.lower()
                             for warning in result['analysis_warnings']))
 
+    def assert_padding_cannot_dilute(self, result, subject, visible):
+        """Possibly hidden benign padding must not lower the verdict on visible phishing.
+
+        Text rules read what no style can hide, so the visible callback scam alerts in
+        every rendering; a model score, if used, is never below the visible text's own.
+        """
+        control = self.analyze(subject=subject, body=f'<p>{visible}</p>')
+        self.assertIn(result['risk_level'], {'high', 'critical'})
+        self.assertFalse(result['analysis_complete'])
+        if result['ml_phishing_probability'] is not None:
+            self.assertGreaterEqual(result['ml_phishing_probability'], control['ml_phishing_probability'])
+
     def test_unevaluated_opacity_math_cannot_leave_complete_low_risk(self):
         pipeline = self.deployment_pipeline()
         phishing = ('Your subscription renewal of $499 is complete. If you did not '
@@ -981,9 +993,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
             result = self.analyze(subject='Invoice problem - call support', body=(
                 f'<p>{phishing}</p><div style="opacity:calc(1 - 1)">{routine}</div>'
             ))
-        self.assertFalse(result['analysis_complete'])
-        self.assertEqual(result['ml_status'], 'unverified_rendering')
-        self.assertNotEqual(result['risk_level'], 'low')
+            self.assert_padding_cannot_dilute(result, 'Invoice problem - call support', phishing)
 
     def test_stylesheet_hide_rule_cannot_produce_complete_low_risk(self):
         pipeline = self.deployment_pipeline()
@@ -994,10 +1004,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
         html = f'<style>.pad {{ display:none }}</style><p>{visible}</p><div class="pad">{padding}</div>'
         with patch.object(app, '_content_pipeline', pipeline):
             result = self.analyze(subject=subject, body=html)
-        self.assertFalse(result['analysis_complete'])
-        self.assertNotEqual(result['risk_level'], 'low')
-        self.assertIsNone(result['ml_phishing_probability'])
-        self.assertEqual(result['ml_status'], 'unverified_rendering')
+            self.assert_padding_cannot_dilute(result, subject, visible)
         self.assertTrue(any('stylesheet' in warning.lower()
                             for warning in result['analysis_warnings']))
 
@@ -1013,9 +1020,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
                         f'<style>.pad{{{rule}}}</style><p>{phishing}</p>'
                         f'<div class="pad">{routine}</div>'
                     ))
-                    self.assertFalse(result['analysis_complete'])
-                    self.assertEqual(result['ml_status'], 'unverified_rendering')
-                    self.assertNotEqual(result['risk_level'], 'low')
+                    self.assert_padding_cannot_dilute(result, 'Invoice problem - call support', phishing)
 
     def test_quoted_css_brace_cannot_bypass_stylesheet_warning(self):
         pipeline = self.deployment_pipeline()
@@ -1027,9 +1032,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
                 '<style>.pad { content:"}"; display:none }</style>'
                 f'<p>{visible}</p><div class="pad">{padding}</div>'
             ))
-        self.assertFalse(result['analysis_complete'])
-        self.assertEqual(result['ml_status'], 'unverified_rendering')
-        self.assertIsNone(result['ml_phishing_probability'])
+            self.assert_padding_cannot_dilute(result, 'Invoice problem - call support', visible)
 
     def test_nested_stylesheet_scan_stays_bounded_near_body_limit(self):
         css = '@media screen {' * 2000 + 'p{color:red}' + '}' * 2000

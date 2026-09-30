@@ -471,7 +471,9 @@ a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
 - Image fallback text stays unresolved: a short instruction such as "Enter
   password" is beyond the model's judgement.
 
-Prose from only the CSS-uncertain HTML
+Where every hiding rule's targets can be located, text rules read the text no
+style can hide in a CSS-uncertain HTML part, so a visible scam still triggers
+them. Otherwise, prose from only the CSS-uncertain HTML
 part is withheld from text rules, including bare URLs and displayed link labels;
 unambiguous MIME parts still contribute text rules. Explicit link destinations,
 forms, sender, and message-structure checks still run.

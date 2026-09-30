@@ -2246,6 +2246,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.targets = targets
             self.strict_parts = []
             self.outlook_parts = []
+            self.certain_parts = []
             self.hidden_parts = []
             self.outlook_only = 0
             self.hidden_from_outlook = 0
@@ -2269,6 +2270,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 return
             if self.elements[-1][5] if uncertain is None and self.elements else bool(uncertain):
                 return
+            self.certain_parts.append(text)
             if not self.outlook_only:
                 self.strict_parts.append(text)
             if not self.hidden_from_outlook:
@@ -2473,9 +2475,14 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             if targets is not None:
                 views = _collect_html(lambda: TextCollector(targets), text, [], mark=True, unresolved=unresolved)
             readings['resolved'] = targets is not None and not unresolved and not collector.conditional_image_alt
+
+            def joined(parts):
+                return re.sub(r'\s+', ' ', ''.join(parts)).strip()
+            if targets is not None and 'malformed' not in unresolved:
+                # Text rules may read what no style can hide, even where the model's
+                # renderings stay unresolved (image fallbacks, odd conditional comments).
+                readings['certain'] = joined(views.certain_parts)
             if readings['resolved']:
-                def joined(parts):
-                    return re.sub(r'\s+', ' ', ''.join(parts)).strip()
                 readings.update(strict=joined(views.strict_parts), outlook=joined(views.outlook_parts),
                                 hidden=joined([visible, ' ', *collector.hidden_parts]))
     if structure_stats is not None:
@@ -2827,29 +2834,32 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         ))
         resolved = bool(readings.get('resolved'))
         return (visible, stylesheet_uncertain, model_uncertain and not resolved,
-                readings if resolved else {}, model_uncertain and resolved)
+                {key: value for key, value in readings.items() if key != 'certain'} if resolved else {},
+                model_uncertain and resolved, readings.get('certain'))
 
     if content_parts is None:
         raw_parts = [subject, body]
         html_parts = [False, True]
-        parsed_parts = [(subject, False, False, {}, False), visible_html(body)]
+        parsed_parts = [(subject, False, False, {}, False, None), visible_html(body)]
         visible_parts = [parsed[0] for parsed in parsed_parts]
         stylesheet_uncertain_parts = [parsed[1] for parsed in parsed_parts]
         model_uncertain_parts = [parsed[2] for parsed in parsed_parts]
         reading_parts = [parsed[3] for parsed in parsed_parts]
         resolved_parts = [parsed[4] for parsed in parsed_parts]
+        certain_parts = [parsed[5] for parsed in parsed_parts]
     else:
         # Each MIME part is its own document. Plain text must not be interpreted
         # as markup, nor may an unclosed tag in one part hide another part.
         raw_parts = [subject] + [part['content'] for part in content_parts]
         html_parts = [False] + [part['content_type'] == 'text/html' for part in content_parts]
         parsed_parts = [visible_html(part['content']) if part['content_type'] == 'text/html'
-                        else (part['content'], False, False, {}, False) for part in content_parts]
+                        else (part['content'], False, False, {}, False, None) for part in content_parts]
         visible_parts = [subject] + [parsed[0] for parsed in parsed_parts]
         stylesheet_uncertain_parts = [False] + [parsed[1] for parsed in parsed_parts]
         model_uncertain_parts = [False] + [parsed[2] for parsed in parsed_parts]
         reading_parts = [{}] + [parsed[3] for parsed in parsed_parts]
         resolved_parts = [False] + [parsed[4] for parsed in parsed_parts]
+        certain_parts = [None] + [parsed[5] for parsed in parsed_parts]
     raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
     if _model_view is not None:
         # The model and rule checks consume the same MIME-aware visible text.
@@ -2969,8 +2979,9 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                      if is_html and stylesheet_uncertain else part_links)
     # CSS may hide arbitrary body text. Do not derive high phishing scores from
     # prose that might be hidden; independent destination/form checks still run.
-    scored_parts = [visible if not uncertain else '' for visible, uncertain
-                    in zip(visible_parts, stylesheet_uncertain_parts)]
+    # Where every hiding rule's targets are known, the text no style can hide is scored.
+    scored_parts = [visible if not uncertain else (certain or '') for visible, uncertain, certain
+                    in zip(visible_parts, stylesheet_uncertain_parts, certain_parts)]
     full_orig = re.sub(r'\s+', ' ', '\n'.join(scored_parts)).strip()
     analysis_text = _strip_invisible_format_controls(full_orig)
     full_lower = analysis_text.lower()
