@@ -20,6 +20,27 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 07:00 PT] — Score text that inline zero-size wrappers do not hide; read obfuscated callback numbers
+
+### Why
+- 53 of the 168 undetermined Nazario phishing messages carried the inline-CSS warning. Any inline zero `font-size` or transparent color marked the message uncertain and passed that on to every descendant, even when a child restored the size, as in the `font-size:0` layout wrappers of HTML mail.
+- Scoring those messages exposed three PayPal payment callback scams. Their lure, "Don't recognize this seller, … contact PayPal at I(888) 673-593I", missed the callback rule on the wording and on a letter written for a digit, so the verified-sender rule lowered the model's alert to Low.
+
+### Files changed
+- `website/app.py`:
+  - `_style_values` is split out of `_inline_visibility`;
+  - `_inline_text_state` reports zero size, transparent colour and uncertain opacity per inline style;
+  - the text collector tracks the inherited state per element, lets a positive absolute size or a visible colour restore it, and raises `warning.inline_css_visibility` only when visible text is emitted under it;
+  - the callback rule accepts "don't/do not recognize", and reads I, l, | and O as digits where they touch a number (`_PHONE_LOOKALIKE`), quoting the number as written.
+- `website/tests/test_html_input_coverage.py` — restored wrappers, relative sizes, transparent parents, image text, and zero-size padding beside restored text.
+- `website/tests/test_sensitive_requests.py` — "don't recognize", obfuscated numbers, vanity numbers, and the quoted number.
+- `README.md`, `docs/evaluation.md` — the rules, the measurements and the unregistered PayPal number.
+
+### Effect
+- Nazario 2015–25 phishing: 3,289 → 3,316 alerts (undetermined 168 → 141). Top-header-trusted run: 2,011 → 2,032.
+- 92 genuine downloads: one undetermined → Low with and without a mailbox; no new alerts. Public HTML templates unchanged.
+- Callback rule: no new flags on 1,930 genuine or public legitimate messages; 62 → 71 on Nazario.
+
 ## [2026-10-01 06:00 PT] — Align routing headers by registrable domain
 
 ### Why

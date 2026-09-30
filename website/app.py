@@ -1995,8 +1995,8 @@ _P_IMPLIED_END_START_TAGS = {
 }
 
 
-def _inline_visibility(style: str) -> tuple[bool, bool | None, bool, bool]:
-    """Read bounded visibility declarations, respecting !important."""
+def _style_values(style: str) -> dict[str, tuple[str, bool]]:
+    """Visibility-related declarations of one style: name -> (value, !important)."""
     # A semicolon inside quoted content, url(), or a CSS escape is not a
     # declaration boundary. Splitting it blindly can hide genuinely visible
     # text when an unrelated property contains the string "; display:none".
@@ -2050,6 +2050,39 @@ def _inline_visibility(style: str) -> tuple[bool, bool | None, bool, bool]:
         value = re.sub(r'!\s*important\s*$', '', value).strip()
         if name not in values or important or not values[name][1]:
             values[name] = (value, important)
+    return values
+
+
+_ZERO_LENGTH = re.compile(r'[+]?0+(?:\.0+)?(?:[a-z]+|%)?')
+_TRANSPARENT_COLOR = re.compile(r'transparent|(?:rgba|hsla)\([^)]*,\s*0+(?:\.0+)?\s*\)')
+# Sizes that do not scale with the parent's font size, so they restore text inside
+# a zero-size wrapper (the inline-block spacing technique in HTML mail layouts).
+_ABSOLUTE_FONT_SIZE = re.compile(
+    r'[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:px|pt|pc|in|cm|mm|q|rem|vw|vh|vmin|vmax)'
+    r'|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large')
+
+
+def _inline_text_state(style: str) -> tuple[bool | None, bool | None, bool]:
+    """(zero font size, transparent colour, uncertain opacity) declared by one inline style.
+
+    None means not declared or inherited, so the parent's state applies. A positive
+    absolute size or a visible colour restores text inside a zero-size or transparent
+    parent; relative sizes (em, %) of a zero size stay zero.
+    """
+    values = _style_values(style)
+    font_size = values.get('font-size', ('', False))[0]
+    color = values.get('color', ('', False))[0]
+    zero_size = (True if _ZERO_LENGTH.fullmatch(font_size)
+                 else False if _ABSOLUTE_FONT_SIZE.fullmatch(font_size) else None)
+    transparent = (None if color in {'', 'inherit', 'unset', 'currentcolor'}
+                   else bool(_TRANSPARENT_COLOR.fullmatch(color)))
+    opacity = values.get('opacity', ('', False))[0]
+    return zero_size, transparent, opacity.startswith('calc(') and not _inline_visibility(style)[2]
+
+
+def _inline_visibility(style: str) -> tuple[bool, bool | None, bool, bool]:
+    """Read bounded visibility declarations, respecting !important."""
+    values = _style_values(style)
     display_hidden = values.get('display', ('', False))[0] == 'none'
     visibility = values.get('visibility', ('', False))[0]
     if visibility in {'hidden', 'collapse'}:
@@ -2308,8 +2341,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         def _visually_hidden(self):
             return bool(self.elements and (self.elements[-1][1] or self.elements[-1][2]))
 
-        def _emit(self, text, tokens=None):
+        def _emit(self, text, tokens=None, inline=None):
             self.parts.append(text)
+            if inline is None:
+                inline = bool(self.elements) and any(self.elements[-1][6])
+            # Only text a zero-size or transparent style actually reaches is uncertain.
+            if inline and text.strip():
+                self.uncertain_inline_style = True
             if self.targets is None:
                 return
             if tokens is None:
@@ -2394,19 +2432,25 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                                  for element in self.elements]
             # Browsers retain the first duplicate attribute, not the last.
             style = next((value for name, value in attrs if name == 'style'), '')
-            display_hidden, visibility_hidden, opacity_hidden, uncertain_style = _inline_visibility(style or '')
+            display_hidden, visibility_hidden, opacity_hidden, _uncertain = _inline_visibility(style or '')
             parent_display = self.elements[-1][1] if self.elements else False
             parent_visibility = self.elements[-1][2] if self.elements else False
             element_display = (parent_display or any(name == 'hidden' for name, _ in attrs)
                                or display_hidden or opacity_hidden)
             element_visibility = parent_visibility if visibility_hidden is None else visibility_hidden
-            if uncertain_style and not (element_display or element_visibility):
-                self.uncertain_inline_style = True
+            # Zero size, transparent colour and uncertain opacity as inherited here. A child
+            # can restore the first two (font-size:14px inside a font-size:0 layout wrapper).
+            zero_size, transparent, opacity_uncertain = _inline_text_state(style or '')
+            parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
+            inline_state = (parent_inline[0] if zero_size is None else zero_size,
+                            parent_inline[1] if transparent is None else transparent,
+                            parent_inline[2] or opacity_uncertain)
+            inline_uncertain = any(inline_state)
             # Hiding targets that can reach this element, inherited from its ancestors;
-            # '#inline' marks a zero-size or transparent inline style.
+            # '#inline' marks text in a zero-size or transparent inline style.
             element_tokens = frozenset() if self.targets is None else (
-                (self.elements[-1][5] if self.elements else frozenset()) | self._targeted(attrs)
-                | ({'#inline'} if uncertain_style else frozenset()))
+                ((self.elements[-1][5] if self.elements else frozenset()) - {'#inline'})
+                | self._targeted(attrs) | ({'#inline'} if inline_uncertain else frozenset()))
             if tag == 'source' and any(name == 'srcset' and value and value.strip()
                                        for name, value in attrs):
                 for index in range(len(self.elements) - 1, -1, -1):
@@ -2431,7 +2475,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         # With no image resource, HTML's replacement text is
                         # the text the reader can see or hear.
                         for piece in (' ', alt, ' '):
-                            self._emit(piece, element_tokens)
+                            self._emit(piece, element_tokens, inline_uncertain)
                     else:
                         # A two-word decorative label such as "Company logo"
                         # should not disable scoring of an otherwise text-rich
@@ -2457,7 +2501,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     except ValueError:
                         pass
                 self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
-                                      element_tokens))
+                                      element_tokens, inline_state))
                 if tag == 'p':
                     self.open_paragraph = True
             if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
@@ -2813,7 +2857,8 @@ _CALLBACK_TRIGGER = re.compile(
     # An unexpected charge or a not-me framing. "Refund policy", "change your reservation"
     # or "cancel this hotel booking" in genuine receipts do not count.
     r"\b(?:(?:was|is|wasn['’]t)\s+not\s+you|not\s+(?:authori[sz]ed|recogni[sz]ed)|did(?:n['’]t|\s+not)\s+(?:make|authori[sz]e|order|place|"
-    r"recogni[sz]e|request)|unauthori[sz]ed|if\s+(?:this|it)\s+wasn['’]t\s+you|if\s+you\s+did(?:n['’]t|\s+not)"
+    r"recogni[sz]e|request)|do(?:n['’]t|\s+not)\s+recogni[sz]e|unauthori[sz]ed|if\s+(?:this|it)\s+wasn['’]t\s+you"
+    r"|if\s+you\s+did(?:n['’]t|\s+not)"
     r"|dispute|(?:has|have)\s+been\s+(?:charged|debited|auto[\s-]?renewed|renewed)|will\s+be\s+(?:charged|debited)"
     r"|auto[\s-]?renew(?:al|ed)?|cancel\s+(?:(?:this|the|your|my)\s+)?(?:order|subscription|renewal|charge|payment|"
     r"transaction|membership|plan|purchase))\b"
@@ -2822,18 +2867,26 @@ _CALLBACK_CALL = re.compile(r"\b(?:call|dial|phone|ring|reach|contact|helpline|t
                             r"|致电|拨打|来电|联系客服|客服电话|热线", re.IGNORECASE)
 
 
+# Letters written for digits in a phone number ("I(888) 673-593I"), a way to slip past
+# number filters. Only a letter touching a digit or an opening bracket, and not part of
+# a word, is read as a digit; the replacement keeps the text length.
+_PHONE_LOOKALIKE = re.compile(r"(?<![A-Za-z])[Il|O](?=[\d(])|(?<=[\d)\-.])[Il|O](?![A-Za-z])")
+_PHONE_LOOKALIKE_DIGITS = {"I": "1", "l": "1", "|": "1", "O": "0"}
+
+
 def _callback_request(text: str, official_numbers=frozenset()) -> str | None:
     """A phone number asked to be called, with dispute/cancel/refund framing within ~200 characters.
 
     Numbers published as an organization's official service numbers never count.
     """
-    for match in _CALLBACK_PHONE.finditer(text):
+    unmasked = _PHONE_LOOKALIKE.sub(lambda match: _PHONE_LOOKALIKE_DIGITS[match.group(0)], text)
+    for match in _CALLBACK_PHONE.finditer(unmasked):
         digits = re.sub(r"\D", "", match.group(0))
         if len(digits) < 7 or digits in official_numbers or digits.lstrip("1") in official_numbers:
             continue
         window = text[max(0, match.start() - 200):match.end() + 200]
         if _CALLBACK_CALL.search(window) and _CALLBACK_TRIGGER.search(window):
-            return match.group(0).strip()
+            return text[match.start():match.end()].strip()
     return None
 
 

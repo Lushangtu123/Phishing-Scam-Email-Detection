@@ -414,9 +414,10 @@ Raw input enables these checks:
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
 - callback requests: a phone number next to both a call instruction and
-  unexpected-charge or not-me wording ("did not authorize", "auto-renewal",
-  "dispute", 扣款, 自动续费). Numbers listed in the official brand registries
-  are skipped;
+  unexpected-charge or not-me wording ("did not authorize", "don't recognize",
+  "auto-renewal", "dispute", 扣款, 自动续费). Letters written for digits next to a
+  number (`I(888) 673-593I`) are read as digits, and the finding quotes the number as
+  written. Numbers listed in the official brand registries are skipped;
 - HTML anchor/form targets, Markdown, and plain-text link destinations, including displayed-host
   mismatch, Unicode/IDN and ASCII digit-substitution lookalikes, URL userinfo,
   deceptive brand subdomains, and credential-themed domains;
@@ -461,8 +462,12 @@ text is present. Literal `opacity:calc(0)` is handled the same way. Inline
 `visibility:hidden` element, but not a child of `display:none` or `opacity:0`.
 Stylesheet rules containing `display:none`, `visibility:hidden`/`collapse`, or
 `opacity:0`, zero `font-size`, or transparent text color are detected
-conservatively, including inside media-rule blocks. Inline zero `font-size` and
-transparent text color also mark rendering uncertain. Other `calc(...)` opacity
+conservatively, including inside media-rule blocks. Text that an inline zero
+`font-size` or transparent text color reaches also marks rendering uncertain. A child
+restores it with a positive absolute size (`14px`, `1rem`, `small`) or a visible
+color, as in the `font-size:0` layout wrappers of HTML mail; sizes relative to the
+zero parent (`1em`, `100%`) stay zero, and a wrapper with no text of its own marks
+nothing. Other `calc(...)` opacity
 expressions are left unscored when their visible result cannot be established.
 Because selector matching and CSS cascade are not fully rendered, the API sets
 `ml_status=unverified_rendering` and leaves model scores null when every MIME

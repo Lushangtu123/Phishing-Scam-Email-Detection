@@ -99,6 +99,11 @@ CALLBACK_CASES = [
     ('Questions? Order by Phone? Call 800.538.7424. Why not you? Limited quantities.', False),
     ('Your order has shipped. For questions about your order, call 1-866-220-3355.', False),
     ('If you did not authorize this sign-in, change your password in the app. No phone number is ever needed.', False),
+    # "Don't recognize" framing, and letters written for digits to slip past number filters.
+    ("YOUR NOTE TO Hayley: Don't recognize this seller, Please contact PayPal at I(888) 673-593I", True),
+    ('If you did not make this purchase call +1 (8O8) 555-l234 now.', True),
+    # Vanity numbers and words next to numbers are not rewritten.
+    ('Questions about your order? Call 1-800-FLOWERS or 1-800-555-0199. Order 12345678 Or visit us.', False),
 ]
 
 
@@ -112,6 +117,11 @@ class CallbackRequestTests(unittest.TestCase):
         text = '您的账户已自动续费，如非本人操作，请拨打 95588 或 400-123-4567。'
         self.assertEqual(app._callback_request(text, frozenset({'4001234567'})), None)
         self.assertIn('95588', app._OFFICIAL_SERVICE_NUMBERS)
+
+    def test_the_finding_quotes_the_number_as_written(self):
+        text = "Don't recognize this seller? Please contact PayPal at I(888) 673-593I."
+        self.assertEqual(app._callback_request(text), 'I(888) 673-593I')
+        self.assertIsNone(app._callback_request(text, frozenset({'8886735931'})))
 
     def test_callback_request_is_a_high_signal_with_the_number(self):
         body = ('Your McAfee plan has been renewed and you have been charged $349.99. '

@@ -1022,6 +1022,39 @@ class HTMLInputCoverageTests(unittest.TestCase):
                     ))
                     self.assert_padding_cannot_dilute(result, 'Invoice problem - call support', phishing)
 
+    def test_inline_zero_size_is_uncertain_only_where_it_reaches_text(self):
+        def warnings(html):
+            found = []
+            app._visible_content_text(html, found)
+            return app._INLINE_CSS_VISIBILITY_WARNING in found
+        body = 'Your order has shipped and will arrive on Tuesday.'
+        # A zero-size layout wrapper whose children restore the size hides nothing.
+        for html in (f'<td style="font-size:0"><div style="font-size:14px">{body}</div></td>',
+                     f'<div style="color:transparent"><p style="color:#222">{body}</p></div>',
+                     f'<td style="font-size:0;line-height:0"> <img src="x.png" alt=""> </td><p>{body}</p>'):
+            with self.subTest(html=html[:50]):
+                self.assertFalse(warnings(html))
+        # Text a zero size or transparent colour reaches stays uncertain, including sizes
+        # relative to the zero parent and image text inside the wrapper.
+        for html in (f'<td style="font-size:0">{body}</td>',
+                     f'<td style="font-size:0"><span style="font-size:1em">{body}</span></td>',
+                     f'<td style="font-size:0"><span style="font-size:100%">{body}</span></td>',
+                     f'<div style="color:rgba(0,0,0,0)"><p>{body}</p></div>',
+                     f'<td style="font-size:0"><img alt="{body}"></td>'):
+            with self.subTest(html=html[:50]):
+                self.assertTrue(warnings(html))
+
+    def test_restored_wrapper_cannot_carry_zero_size_padding(self):
+        pipeline = self.deployment_pipeline()
+        phishing = ('Your subscription renewal of $499 is complete. If you did not '
+                    'authorize this charge, call 1-888-555-0199 immediately.')
+        routine = 'Please review the project notes before our meeting tomorrow. ' * 30
+        with patch.object(app, '_content_pipeline', pipeline):
+            result = self.analyze(subject='Invoice problem - call support', body=(
+                f'<div style="font-size:0"><p style="font-size:14px">{phishing}</p>'
+                f'<span>{routine}</span></div>'))
+            self.assert_padding_cannot_dilute(result, 'Invoice problem - call support', phishing)
+
     def test_quoted_css_brace_cannot_bypass_stylesheet_warning(self):
         pipeline = self.deployment_pipeline()
         visible = ('Your subscription renewal of $499 is complete. If you did not '

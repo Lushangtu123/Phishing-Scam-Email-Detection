@@ -1408,6 +1408,55 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Inline zero-size wrappers and obfuscated callback numbers (2026-10-01)
+
+Of the 168 Nazario phishing messages still undetermined, 107 were unscored because
+rendering was uncertain, and inline CSS was the most common cause (53). Any element
+with an inline zero `font-size` or transparent color marked the whole message
+uncertain, and every descendant inherited that, even when a child set
+`font-size:14px`. HTML mail uses `font-size:0` wrappers to remove the gaps between
+inline blocks, with the size restored inside, so real text was rarely affected.
+
+Now the zero size and transparent color are tracked per element. A positive absolute
+size or a visible color on a child restores its text; relative sizes (`em`, `%`) of a
+zero parent stay zero, and the warning is raised only when visible text is actually
+emitted under such a style.
+
+Checking the effect exposed three PayPal "You sent a $179.99 payment" callback scams
+sent through PayPal itself. Rendering had kept them undetermined. Once scored, the
+model flagged them, but the verified-sender rule lowered them to Low. Their lure,
+"Don't recognize this seller, Please contact PayPal at I(888) 673-593I", slipped past
+the callback rule twice: "don't recognize" was not not-me wording, and the letter I
+stood for the digit 1. Both are now covered.
+
+The callback rule alone, old and new, on the visible text:
+
+| Set | Old | New |
+|---|---|---|
+| 92 genuine downloads | 0 | 0 |
+| 58 UniqueData real legitimate | 0 | 0 |
+| 10 Postmark templates | 0 | 0 |
+| 1,770 Apache 2025 messages | 0 | 0 |
+| 3,466 Nazario phishing | 62 | 71 |
+
+Full pipeline, same model, `d188db4` against this change:
+
+| Cohort | Before: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, no mailbox | 43 / 35 / 14 | 43 / 34 / 15 |
+| 92 genuine downloads, mailbox chosen | 3 / 11 / 78 | 3 / 10 / 79 |
+| 87 public HTML templates | 4 / 60 / 23 | unchanged |
+| Nazario 2015–25 phishing (3,466) | 3,289 / 168 / 9 | 3,316 / 141 / 9 |
+| Nazario, top header trusted (2,122) | 2,011 / 103 / 8 | 2,032 / 82 / 8 |
+
+No message moved toward a less severe verdict in any cohort.
+
+**Limit:** PayPal's own service number is not in the registry, because its help
+pages load their numbers with JavaScript and no official page could be read to
+confirm it. A genuine PayPal notice saying "if you don't recognize this, call" with
+its real number would be flagged. None of the genuine or public legitimate sets
+above contains one.
+
 ### Routing findings and the link-count rule (2026-10-01)
 
 Two rules appeared often in the 43 remaining no-mailbox alerts on the 92 genuine
