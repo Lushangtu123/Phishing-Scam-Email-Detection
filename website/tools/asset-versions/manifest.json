@@ -8,12 +8,12 @@
     "sha256": "8ee845a0f020ee575b6c1e7dd7c2505c15aa0f380fd3cd543b951e7055b13fc7"
   },
   "app-content-render.js": {
-    "version": "7",
-    "sha256": "72996329520712a493eb02a7467576387a23ee0cd8b6103d1390fe56cbfa921a"
+    "version": "8",
+    "sha256": "2561b9a5723ab8621a185eca77d79512330278664118851bf9ad6e1e01ca583c"
   },
   "app-content.js": {
-    "version": "4",
-    "sha256": "c8fc3340ce79be14f6c8a8f161d29d216f66dbfb418f3320b34493ae070e693e"
+    "version": "6",
+    "sha256": "0f373bc4110832d45f5a1adb3494ed0135830580c7ddce76ceeffe648d4fc88a"
   },
   "app-core.js": {
     "version": "5",
@@ -44,8 +44,8 @@
     "sha256": "5c0dd965535ee263621d393df0e99e5b0443d0b778c95e7bcfe656c864f4dfb1"
   },
   "app.js": {
-    "version": "53",
-    "sha256": "85e132a1fc2945d727e65ff2a083b58c5269d8d2774ebc193e8924f7e9dc70a6"
+    "version": "54",
+    "sha256": "12c6978ff188a6452e9527f496ffe9a54802af645a62ab9e1f839edfa4d3d843"
   },
   "cases-theme.js": {
     "version": "1",
@@ -72,24 +72,24 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "16",
-    "sha256": "cbb7048abbbf33f335fd37ee2be32309e10917e72c22f617add0acc9798c892a"
+    "version": "17",
+    "sha256": "fc44b407447d7e71b81bd24e04e492a77aff8d907a329b6376b8cc5834bf4f54"
   },
   "i18n.js": {
-    "version": "33",
-    "sha256": "770e126af254ba8c5331808f5c7728007e02e3aaa440ca46c8bf60affea5b6ae"
+    "version": "35",
+    "sha256": "8a4ea1b1a2918d122fa7b2cd9e75deaefebbe7830959bc8f69b6628039df631a"
   },
   "lang-init.js": {
-    "version": "18",
-    "sha256": "66cacb996b7416c446dee7268986e4f8c22a4c555afd5e0ee978864515539396"
+    "version": "19",
+    "sha256": "dfd37492dd42ea9d95ae391ad25f14c9220e8a569fe9f0f3c84a5f7f1984e545"
   },
   "request.js": {
     "version": "1",
     "sha256": "75de1dd9c937a1b0d3c75d8bb2ef2c09f0063ec9271564234a0bd5deac55d415"
   },
   "style.css": {
-    "version": "55",
-    "sha256": "ed44987a4a1e7bb0ff10eab8005b0590bd395ffb0d469d989936fe77fa9eea40"
+    "version": "57",
+    "sha256": "7eb9a002ca1cb6381a092ae7b50034a6d376050fada03b920400dc7d84cb3759"
   },
   "theme-init.js": {
     "version": "1",

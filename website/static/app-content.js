@@ -44,12 +44,51 @@ function invalidateContent() {
   setError('content-error');
 }
 
+// The receiving service writes its own check as the topmost Authentication-Results
+// header. This only suggests a choice: an .eml received as an attachment can carry a
+// forged top header, so the reader must confirm where the file came from.
+let _rawMailboxDetected = '';
+function detectMailboxService(buffer) {
+  // Headers are ASCII: read the first 256 KiB byte by byte, never failing the upload.
+  let head = '';
+  try {
+    const bytes = new Uint8Array(buffer).subarray(0, 262144);
+    for (let index = 0; index < bytes.length; index += 8192) {
+      head += String.fromCharCode(...bytes.subarray(index, index + 8192));
+    }
+  } catch (_error) {
+    return '';
+  }
+  const end = head.search(/\r?\n\r?\n/);
+  const headers = (end < 0 ? head : head.slice(0, end)).replace(/\r?\n[ \t]+/g, ' ');
+  const match = headers.match(/^authentication-results:\s*"?([^;\s"]+)/im);
+  return { 'mx.google.com': 'gmail', 'mx.microsoft.com': 'outlook' }[match ? match[1].toLowerCase() : ''] || '';
+}
+
+function refreshMailboxHint() {
+  const hint = document.getElementById('content-mailbox-hint');
+  const service = MAILBOX_SERVICE_NAMES[_rawMailboxDetected];
+  hint.hidden = !service || document.getElementById('content-mailbox-options').hidden
+    || document.getElementById('content-mailbox').value === _rawMailboxDetected;
+  if (hint.hidden) return;
+  document.getElementById('content-mailbox-hint-text').textContent = t('content.mailbox.detected', { service });
+  document.getElementById('content-mailbox-use').textContent = t('content.mailbox.use', { service });
+}
+
+function chooseDetectedMailbox() {
+  if (!_rawMailboxDetected) return;
+  document.getElementById('content-mailbox').value = _rawMailboxDetected;
+  invalidateContent();
+  refreshMailboxHint();
+}
+
 // The mailbox choice applies only to an .eml file; images and pasted text have no
 // receiving-service authentication header to trust.
 function setMailboxOptions(file) {
   const eml = !!file && (/\.eml$/i.test(file.name) || file.type === 'message/rfc822');
   document.getElementById('content-mailbox-options').hidden = !eml;
   if (!eml) document.getElementById('content-mailbox').value = '';
+  refreshMailboxHint();
 }
 
 function mailboxChoice() {
@@ -68,6 +107,7 @@ function clearRawEmail() {
   if (semantics) { semantics.checked = false; semantics.disabled = true; }
   window.PhishGuardVision?.cancel();
   document.getElementById('raw-email-file').value = '';
+  _rawMailboxDetected = '';
   setMailboxOptions(null);
   setRawStatus('');
   ['content-subject', 'content-body'].forEach(id => {
@@ -93,7 +133,20 @@ function setupInputEvents() {
     invalidateContent();
   });
   document.getElementById('content-image-understanding')?.addEventListener('change', invalidateContent);
-  document.getElementById('content-mailbox').addEventListener('change', invalidateContent);
+  document.getElementById('content-mailbox').addEventListener('change', () => {
+    invalidateContent();
+    refreshMailboxHint();
+  });
+  document.getElementById('content-mailbox-use').addEventListener('click', chooseDetectedMailbox);
+  document.getElementById('content-accuracy-rerun').addEventListener('click', () => {
+    chooseDetectedMailbox();
+    runContentAnalysis();
+  });
+  document.getElementById('content-accuracy-guide').addEventListener('click', () => {
+    const guide = document.getElementById('content-eml-guide');
+    guide.open = true;
+    guide.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+  });
   const rawInput = document.getElementById('raw-email-file');
   if (rawInput) {
     rawInput.addEventListener('change', async event => {
@@ -129,6 +182,8 @@ function setupInputEvents() {
         }
         _rawEmailSource = source;
         _visualFile = file || null;
+        _rawMailboxDetected = file && (/\.eml$/i.test(file.name) || file.type === 'message/rfc822')
+          ? detectMailboxService(source) : '';
         setMailboxOptions(file);
         refreshEnhancedOptions();
         setRawStatus(file ? { key: 'content.file.loaded', params: { name: file.name } } : '');
@@ -287,12 +342,13 @@ async function runContentAnalysis() {
         : await postJSON('/api/analyze-content', buildContentPayload(subject, body, ''), request);
     }
     if (requestId !== _contentRequestId) return;
-    renderContentResult(data);
-    recordRecentCheck(contentRecentEntry(data));
-    window.PhishGuardVision?.render(document.getElementById('visual-evidence'), data.visual_analysis, _visualFile);
     const rawSnapshot = _rawEmailSource;
     const mode = _visualFile && /\.eml$/i.test(_visualFile.name) ? 'eml'
       : _visualFile ? 'image' : rawSnapshot ? 'eml' : 'content';
+    contentInputContext = { mode, mailbox: mailboxChoice(), detected: mode === 'eml' ? _rawMailboxDetected : '' };
+    renderContentResult(data);
+    recordRecentCheck(contentRecentEntry(data));
+    window.PhishGuardVision?.render(document.getElementById('visual-evidence'), data.visual_analysis, _visualFile);
     window.PhishGuardFeedback?.set('content', {
       inputMode: mode, fingerprintInput: rawSnapshot || subject + '\0' + body,
       analysis: feedbackAnalysis(data),

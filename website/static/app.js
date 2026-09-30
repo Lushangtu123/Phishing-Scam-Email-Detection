@@ -74,6 +74,7 @@ function rerenderForLanguage() {
     renderResult(lastResults.sender, { languageOnly: true });
     if (_lastVerifyResult && !hidden('verify-result')) renderVerifyResult(_lastVerifyResult);
   }
+  refreshMailboxHint();
   if (lastResults.content && !hidden('content-result-area')) {
     renderContentResult(lastResults.content, { languageOnly: true });
     window.PhishGuardVision?.render(document.getElementById('visual-evidence'), lastResults.content.visual_analysis, _visualFile);

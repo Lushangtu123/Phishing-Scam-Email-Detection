@@ -50,6 +50,32 @@ function contentMode(data) {
 
 // `languageOnly` re-renders the same result after a language switch without
 // replaying the score animation, scrolling or moving focus.
+// How the last analysis was requested (not part of the API result or reports):
+// mode 'content' | 'image' | 'eml', the mailbox chosen, and the service whose own
+// check tops an uploaded .eml.
+let contentInputContext = { mode: 'content', mailbox: '', detected: '' };
+const MAILBOX_SERVICE_NAMES = { gmail: 'Gmail', outlook: 'Outlook.com' };
+
+// A more reliable result is often one step away: the original .eml instead of text or
+// a screenshot, or the mailbox choice for an .eml whose receiving service is known.
+// Shown only for alerting or undetermined results, where it matters most.
+function renderAccuracyTip(data) {
+  const tip = document.getElementById('content-accuracy-tip');
+  const { mode, mailbox, detected } = contentInputContext;
+  const unsettled = ['medium', 'high', 'critical', 'unknown'].includes(data.risk_level);
+  const upload = unsettled && (mode === 'content' || mode === 'image');
+  const choose = unsettled && mode === 'eml' && !mailbox && !!MAILBOX_SERVICE_NAMES[detected];
+  tip.hidden = !(upload || choose);
+  if (tip.hidden) return;
+  const service = MAILBOX_SERVICE_NAMES[detected] || '';
+  document.getElementById('content-accuracy-tip-text').textContent = upload
+    ? t('content.tip.upload') : t('content.tip.choose', { service });
+  const rerun = document.getElementById('content-accuracy-rerun');
+  rerun.hidden = !choose;
+  rerun.textContent = choose ? t('content.tip.rerun', { service }) : '';
+  document.getElementById('content-accuracy-guide').hidden = !upload;
+}
+
 function renderContentResult(data, { languageOnly = false } = {}) {
   lastResults.content = data;
   const cfg = RISK_CONFIG[data.risk_level] || RISK_CONFIG.medium;
@@ -267,6 +293,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
 
   // What to do if the reader already acted on an alerting message.
   document.getElementById('content-remediation').hidden = !['medium', 'high', 'critical'].includes(data.risk_level);
+  renderAccuracyTip(data);
 
   const area = document.getElementById('content-result-area');
   area.classList.remove('hidden');

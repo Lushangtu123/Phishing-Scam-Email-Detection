@@ -300,6 +300,13 @@ outer result incomplete. This does not unpack archives or execute attachments.
 Raw input enables these checks:
 
 - SPF, DKIM, and DMARC results from explicitly trusted authentication servers.
+  The page nudges readers toward this path. When an uploaded `.eml` is topped by
+  Gmail's or Outlook.com's own check, a hint under "Downloaded from" suggests
+  that choice without making it, since a received `.eml` attachment can carry a
+  forged top header. An alerting or undetermined result shows "A more reliable
+  result": for pasted text or screenshots, a pointer to the original `.eml` and
+  the download guide; for an `.eml` with a recognized service but no choice, a
+  "Choose … and analyze again" button.
   An uploaded `.eml` can also name the mailbox it was downloaded from: Gmail
   (`mx.google.com`) or Outlook.com (`mx.microsoft.com`). Only the topmost `Authentication-Results` header is then trusted, and
   only if that service wrote it; headers below it, which a sender can add, are

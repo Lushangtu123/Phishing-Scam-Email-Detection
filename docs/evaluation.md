@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Before and after this series, and the mailbox nudge (2026-10-01)
+
+The content model artifact was unchanged throughout (SHA-256 `a0a503a0…`). The
+same inputs were run on `7e9e904` (before this series) and on `19f6235`:
+
+| Cohort | Before: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 50 / 34 / 8 | 3 / 15 / 74 |
+| 92 genuine downloads, no mailbox | 56 / 33 / 3 | 56 / 25 / 11 |
+| 87 public HTML templates | 4 / 82 / 1 | 4 / 57 / 26 |
+| Nazario 2015–25 phishing (3,466) | 3,270 / 186 / 10 | 3,289 / 168 / 9 |
+
+Almost all of the false-alert reduction needs an uploaded `.eml` with its
+mailbox chosen. Without it, 56 of 92 genuine messages still alert, because the
+registry, authenticated-sender and relay rules all depend on the mail service's
+own check. The page now points readers to that path:
+
+- an upload hint when the file's top header is Gmail's or Outlook.com's;
+- a result tip for alerting or undetermined results from pasted text or
+  screenshots;
+- a rerun button for an `.eml` with a recognized service and no choice.
+
+These are guidance only; scoring is unchanged.
+
 ### Independent review fixes (2026-10-01)
 
 An independent read-only review of `ec3d752` built synthetic inputs for six

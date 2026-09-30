@@ -2029,3 +2029,57 @@ test('forced-colours mode keeps dots, rings, badges and level labels distinguish
   assert.match(cases, /\.status-dot, #evidence li::before[^{]*\{ forced-color-adjust: none; background: CanvasText;/);
   assert.match(cases, /\.badge, \.feedback-badge \{ border: 1px solid CanvasText; \}/);
 });
+
+test('an .eml topped by Gmail\'s own check suggests the mailbox choice without making it', async () => {
+  const { context, elements } = loadFrontend({ fetch: async () => response(contentResult('File result')) });
+  context.setupInputEvents();
+  const raw = emlBytes('Authentication-Results: mx.google.com;\r\n  dmarc=pass header.from=example.com\r\n'
+    + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
+  await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'mail.eml', arrayBuffer: async () => raw }] } });
+  assert.equal(elements.get('content-mailbox').value, '');
+  assert.equal(elements.get('content-mailbox-hint').hidden, false);
+  assert.match(elements.get('content-mailbox-hint-text').textContent, /Gmail’s own sender check/);
+  elements.get('content-mailbox-use').listeners.click();
+  assert.equal(elements.get('content-mailbox').value, 'gmail');
+  assert.equal(elements.get('content-mailbox-hint').hidden, true);
+  const other = emlBytes('Authentication-Results: mx.example.net; dmarc=pass\r\nFrom: a@example.com\r\n\r\nBody');
+  await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'other.eml', arrayBuffer: async () => other }] } });
+  assert.equal(elements.get('content-mailbox-hint').hidden, true);
+});
+
+test('an alerting result suggests the original .eml, or rerunning with the detected mailbox', async () => {
+  const requests = [];
+  const alerting = { ...contentResult('Alert'), risk_level: 'high' };
+  const { context, elements } = loadFrontend({ fetch: async (url, options) => {
+    requests.push({ url, body: JSON.parse(options.body) });
+    return response(alerting);
+  } });
+  context.setupInputEvents();
+  elements.get('content-body').value = 'Your account is locked.';
+  await context.runContentAnalysis();
+  assert.equal(elements.get('content-accuracy-tip').hidden, false);
+  assert.match(elements.get('content-accuracy-tip-text').textContent, /original email \(\.eml\)/);
+  assert.equal(elements.get('content-accuracy-guide').hidden, false);
+  assert.equal(elements.get('content-accuracy-rerun').hidden, true);
+
+  const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
+    + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
+  await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'mail.eml', arrayBuffer: async () => raw }] } });
+  await context.runContentAnalysis();
+  assert.equal(requests.at(-1).url, '/api/analyze-visual');
+  assert.equal(requests.at(-1).body.mailbox, undefined);
+  assert.equal(elements.get('content-accuracy-rerun').hidden, false);
+  assert.match(elements.get('content-accuracy-rerun').textContent, /Outlook\.com/);
+  await elements.get('content-accuracy-rerun').listeners.click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(requests.at(-1).body.mailbox, 'outlook');
+  assert.equal(elements.get('content-accuracy-tip').hidden, true);
+});
+
+test('a clean result shows no accuracy tip', async () => {
+  const { context, elements } = loadFrontend({ fetch: async () => response(contentResult('Clean')) });
+  context.setupInputEvents();
+  elements.get('content-body').value = 'Lunch at noon?';
+  await context.runContentAnalysis();
+  assert.equal(elements.get('content-accuracy-tip').hidden, true);
+});

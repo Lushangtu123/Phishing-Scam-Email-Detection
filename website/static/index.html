@@ -14,9 +14,9 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=18"></script>
+  <script src="/static/lang-init.js?v=19"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=55" />
+  <link rel="stylesheet" href="/static/style.css?v=57" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -504,6 +504,7 @@
           <label class="content-label" for="content-mailbox" data-i18n="content.mailbox.label">Downloaded from</label>
           <select id="content-mailbox" class="ocr-language-select" aria-describedby="content-mailbox-help"><option value="" data-i18n="content.mailbox.unknown">Other mailbox or not sure (authentication not trusted)</option><option value="gmail" data-i18n="content.mailbox.gmail">Gmail (original message downloaded from Gmail)</option><option value="outlook" data-i18n="content.mailbox.outlook">Outlook.com (original message downloaded from Outlook on the web)</option></select>
           <p id="content-mailbox-help" class="raw-email-status" data-i18n="content.mailbox.help">Choose Gmail or Outlook.com only for an original message you downloaded from that service (Gmail: ⋮ → Download message; Outlook on the web: ⋯ → Download). The result then trusts that service’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing a service for mail it did not deliver can make a forged check look trusted.</p>
+          <p id="content-mailbox-hint" class="raw-email-status mailbox-hint" hidden><span id="content-mailbox-hint-text"></span> <button type="button" id="content-mailbox-use" class="btn-ghost btn-inline"></button></p>
         </div>
         <div class="content-input-subject-row">
           <label class="content-label" for="content-ocr-language" data-i18n="content.ocr.label">Image text language (OCR)</label>
@@ -683,6 +684,16 @@
           <li data-i18n="content.remedy.malware">Opened an attachment, ran a program or installed remote-control software: disconnect from the internet, uninstall the remote-control software and run a full security scan. Changing passwords alone is not enough; change important passwords from another, clean device.</li>
           <li data-i18n="content.remedy.money">Sent money or gift cards: contact your bank or payment provider immediately, then report it to the police (in the US, also reportfraud.ftc.gov).</li>
         </ul>
+      </section>
+
+      <!-- Outside the result area too; shown when the input or mailbox choice can give a more reliable result. -->
+      <section id="content-accuracy-tip" class="remediation-card accuracy-tip" hidden aria-labelledby="content-accuracy-tip-title">
+        <h3 class="col-title" id="content-accuracy-tip-title" data-i18n="content.tip.title">A more reliable result</h3>
+        <p id="content-accuracy-tip-text"></p>
+        <div class="accuracy-tip-actions">
+          <button type="button" id="content-accuracy-rerun" class="btn btn-primary btn-inline" hidden></button>
+          <button type="button" id="content-accuracy-guide" class="btn-ghost btn-inline" hidden data-i18n="content.tip.guide">How to get the original .eml</button>
+        </div>
       </section>
 
       <!-- Content Loading -->
@@ -1052,7 +1063,7 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=33"></script>
+<script src="/static/i18n.js?v=35"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
@@ -1065,11 +1076,11 @@
 <script src="/static/app-config.js?v=3"></script>
 <script src="/static/app-sender.js?v=5"></script>
 <script src="/static/app-verify.js?v=4"></script>
-<script src="/static/app-content.js?v=4"></script>
-<script src="/static/app-content-render.js?v=7"></script>
+<script src="/static/app-content.js?v=6"></script>
+<script src="/static/app-content-render.js?v=8"></script>
 <script src="/static/app-reports.js?v=3"></script>
 <script src="/static/app-metrics.js?v=4"></script>
-<script src="/static/app.js?v=53"></script>
+<script src="/static/app.js?v=54"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->
 <script src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>

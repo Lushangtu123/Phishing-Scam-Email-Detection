@@ -577,6 +577,13 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 .remediation-card[hidden], .content-result-area.hidden + .remediation-card { display: none; }
 .remediation-card ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.65; }
 .remediation-card li + li { margin-top: 6px; }
+.accuracy-tip p { margin: 8px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.65; }
+.accuracy-tip-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.accuracy-tip-actions:not(:has(button:not([hidden]))) { display: none; }
+.accuracy-tip-actions [hidden], .mailbox-hint [hidden] { display: none; }
+.btn-inline { height: auto; padding: 6px 14px; font-size: 13px; }
+.mailbox-hint[hidden] { display: none; }
+.content-result-area.hidden ~ .accuracy-tip { display: none; }
 /* How to verify it yourself: official channels for organizations the message names. */
 .official-list { display: grid; gap: 14px; }
 .official-item p { margin: 0 0 6px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }

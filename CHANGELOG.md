@@ -20,6 +20,38 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 03:00 PT] — Nudge readers toward an uploaded .eml with its mailbox chosen
+
+### Why
+- The same model and inputs on `7e9e904` and `19f6235`:
+  - with the mailbox chosen, genuine false alerts fell from 50 to 3 of 92;
+  - without it, they stayed at 56 of 92.
+- The verified-sender, authenticated-sender and relay rules all need the mail service's own check, so most readers never got the improvement.
+
+### Files changed
+- `website/static/app-content.js`:
+  - `detectMailboxService()` reads the topmost Authentication-Results authserv-id of an uploaded `.eml` (`mx.google.com` → Gmail, `mx.microsoft.com` → Outlook.com), byte by byte and never failing the upload.
+  - A hint under "Downloaded from" suggests the choice with a "Use …" button but never makes it: a received `.eml` attachment can carry a forged top header.
+  - The rerun and guide buttons are wired up.
+- `website/static/app-content-render.js`:
+  - `renderAccuracyTip()` shows "A more reliable result" for alerting or undetermined results.
+  - For pasted text or screenshots it gives the upload advice and a button that opens the `.eml` guide.
+  - For an `.eml` with a recognized service and no choice, it offers "Choose … and analyze again".
+  - The input context is kept outside the API result, so reports are unchanged.
+- `website/static/app.js` — the hint follows a language switch.
+- `website/static/index.html`, `style.css` — the hint and a tip card outside the result area (hidden by default, so result screenshots are unchanged).
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese text. Asset versions were bumped.
+- `website/static/app.test.mjs` covers:
+  - the hint suggests without choosing, and not for another service;
+  - the upload tip and guide for pasted text;
+  - the rerun button sends `mailbox`;
+  - no tip for a clean result.
+- `README.md`, `docs/evaluation.md` — the before/after comparison and the guidance.
+
+### Effect
+- Guidance only; scoring is unchanged.
+- Checked in a browser in English and Chinese: the upload hint for a Gmail-topped file, the upload tip with the guide button, and the rerun button.
+
 ## [2026-10-01 02:00 PT] — Fix six issues from an independent review
 
 ### Why
