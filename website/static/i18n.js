@@ -849,6 +849,7 @@ window.PhishGuardI18n = (() => {
     'server.link.credential_collection_host': 'Link destination ({host}) combines credential and collection wording.',
     'server.link.sensitive_host': 'Link destination ({host}) uses account-related wording on an unrecognized domain; this alone does not establish phishing.',
 
+    'server.structure.platform_relay': "Sent through {organization}'s own servers ({domain}) on behalf of another user: a share, invitation, comment or similar notice. The platform is genuine, but the document, message and links come from that user, so this is not treated as an official message.",
     'server.structure.verified_official_sender': "Verified sender: a trusted DMARC pass shows this message came from {organization}'s own domain ({domain}). Its links and requests are still checked.",
     'server.structure.brand_display_name': "Protected brand identity '{brand}' is displayed from an unrelated domain ({domain}).",
     'server.structure.idn_sender_domain': 'Sender domain ({domain}) is a Unicode/IDN confusable for {brand}.',
@@ -1271,7 +1272,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=15'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=16'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

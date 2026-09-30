@@ -31,7 +31,10 @@ class OfficialBrandRegistryTests(unittest.TestCase):
             with self.subTest(brand=brand['id']):
                 self.assertTrue(brand['official_domains'])
                 # Brands without names rely on the existing protected-brand rule.
-                self.assertTrue(brand['display_names'] or brand.get('display_check') == 'protected_brand_rule')
+                self.assertTrue(brand['display_names'] or brand.get('display_check') in {'protected_brand_rule', 'sender_only'})
+                if brand.get('display_check') == 'sender_only':
+                    self.assertFalse(brand['display_names'])
+                    self.assertTrue(all(url.startswith('https://') for url in brand['domain_sources']))
                 for domain in brand['official_domains']:
                     self.assertEqual(es.normalize_domain(domain), domain)
                     self.assertIn('.', domain)

@@ -8,7 +8,8 @@
     "Domains were confirmed from the organization's own pages (listed sending domains, report addresses, or homepage titles). Entries marked 'from prior knowledge' in review_note still need confirmation.",
     "display_names avoid common words and first names (Chase, Citi, Meta, Apple, UPS alone). PayPal, Amazon, Microsoft and Google keep the existing protected-brand rule (display_check), so their names are not matched twice.",
     "gov_suffixes lets a government entry accept that country's government domains (.gov, gov.uk, gc.ca, gov.au). brand_tlds accepts a brand top-level domain (DHL's .dhl).",
-    "A matching domain proves nothing on its own because From is not authenticated; the registry is used to detect impersonation."
+    "A matching domain proves nothing on its own because From is not authenticated; the registry is used to detect impersonation.",
+    "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded."
   ],
   "regulatory_statements": [
     {
@@ -894,6 +895,322 @@
       "unverified_statements": [],
       "official_contact_emails": [],
       "review_note": "Domains confirmed by homepages; statement text did not render."
+    },
+    {
+      "id": "github",
+      "category": "service",
+      "name": "GitHub",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "github.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://docs.github.com/en/subscriptions-and-notifications/get-started/configuring-notifications"
+      ],
+      "review_note": "Docs name notifications@github.com. Notifications carry other users' issue and pull-request text; they use the actor's display name and are treated as relays."
+    },
+    {
+      "id": "dropbox",
+      "category": "service",
+      "name": "Dropbox",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "dropbox.com",
+        "dropboxmail.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.dropbox.com/security/phishing-virus-protection"
+      ],
+      "review_note": "Help center: official emails come from verified Dropbox domains such as dropbox.com or dropboxmail.com."
+    },
+    {
+      "id": "crunchyroll",
+      "category": "service",
+      "name": "Crunchyroll",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "crunchyroll.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Crunchyroll will never contact you by social media, text, or phone to request your account details.",
+          "source": "https://help.crunchyroll.com/article/phishing-or-suspicious-emails",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.crunchyroll.com/article/phishing-or-suspicious-emails",
+        "https://www.crunchyroll.com"
+      ],
+      "review_note": "Phishing article gives crunchyrolll.com.co and cruunchyroll.com as fake look-alikes of crunchyroll.com."
+    },
+    {
+      "id": "slack",
+      "category": "service",
+      "name": "Slack",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "slack.com",
+        "slack-mail.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://slack.com/help/articles/218876627-Trouble-receiving-emails-from-Slack"
+      ],
+      "review_note": "Help center asks IT teams not to block emails from @slack.com and @slack-mail.com."
+    },
+    {
+      "id": "canva",
+      "category": "service",
+      "name": "Canva",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "canva.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.canva.com/help/ensure-your-organization-receives-canva-emails/"
+      ],
+      "review_note": "Account emails come from account.canva.com; general notifications and design shares from canva.com. Design shares carry another user's design and are treated as relays by their subject."
+    },
+    {
+      "id": "duolingo",
+      "category": "service",
+      "name": "Duolingo",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "duolingo.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.duolingo.com"
+      ],
+      "review_note": "Domain confirmed by the organization's homepage; no page listing its sending domains was found."
+    },
+    {
+      "id": "asana",
+      "category": "service",
+      "name": "Asana",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "asana.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://asana.com"
+      ],
+      "review_note": "Domain confirmed by the organization's homepage; no page listing its sending domains was found."
+    },
+    {
+      "id": "atlassian",
+      "category": "service",
+      "name": "Atlassian",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "id.atlassian.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://community.atlassian.com/forums/Atlassian-Account-articles/Changes-to-the-sending-domain-and-IP-addresses-for-critical/ba-p/2694168"
+      ],
+      "review_note": "Atlassian Identity Team: account management emails (password resets, 2FA) come from id.atlassian.com. atlassian.net is excluded: <tenant>.atlassian.net sites belong to customers.",
+      "sender_names": [
+        "Trello",
+        "Jira",
+        "Confluence",
+        "Bitbucket"
+      ]
+    },
+    {
+      "id": "coursera",
+      "category": "service",
+      "name": "Coursera",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "coursera.org"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.coursera.org"
+      ],
+      "review_note": "Domain confirmed by the organization's homepage; no page listing its sending domains was found."
+    },
+    {
+      "id": "ea",
+      "category": "service",
+      "name": "Electronic Arts",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "ea.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "We’ll never ask you for your password, verification codes, or login credentials through email, social media, forum messages, or console messaging systems.",
+          "source": "https://help.ea.com/en/articles/security-and-rules/avoid-phishing/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.ea.com/en/articles/security-and-rules/avoid-phishing/"
+      ],
+      "review_note": "Help center: EA sends emails from addresses that include ea.com, including e.ea.com.",
+      "sender_names": [
+        "EA"
+      ]
+    },
+    {
+      "id": "figma",
+      "category": "service",
+      "name": "Figma",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "figma.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.figma.com/hc/en-us/articles/32242981110679-What-are-Figma-s-official-email-addresses"
+      ],
+      "review_note": "Help center: Figma contacts you from addresses ending in @figma.com or @ext.figma.com."
+    },
+    {
+      "id": "gitlab",
+      "category": "service",
+      "name": "GitLab",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "gitlab.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://about.gitlab.com"
+      ],
+      "review_note": "Domain confirmed by the organization's homepage; no page listing its sending domains was found. mg.gitlab.com, the transactional sender, is its subdomain."
+    },
+    {
+      "id": "soundcloud",
+      "category": "service",
+      "name": "SoundCloud",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "soundcloud.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.soundcloud.com/hc/en-us/articles/115003566188-Phishing-attempts-have-been-made-on-my-account"
+      ],
+      "review_note": "Help center: any sign-in page outside the soundcloud.com domain is phishing."
+    },
+    {
+      "id": "tumblr",
+      "category": "service",
+      "name": "Tumblr",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "tumblr.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Tumblr staff will never ask you for your password.",
+          "source": "https://tumblr.tumblr.com/post/797471395292594176/keeping-your-tumblr-safe",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://tumblr.tumblr.com/post/797471395292594176/keeping-your-tumblr-safe"
+      ],
+      "review_note": "Official Tumblr blog: communication comes from tumblr.com or tumblr.zendesk.com. The shared Zendesk domain is excluded."
+    },
+    {
+      "id": "ubisoft",
+      "category": "service",
+      "name": "Ubisoft",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "ubisoft.com",
+        "ubi.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.ubisoft.com/en-us/help/ubisoft-account/connectivity-and-performance/article/troubleshooting-email-issues-on-your-ubisoft-account/000063351"
+      ],
+      "review_note": "Help center lists AccountSupport@ubi.com, no-reply.account@ubisoft.com and updates@account.ubisoft.com."
     }
   ]
 }

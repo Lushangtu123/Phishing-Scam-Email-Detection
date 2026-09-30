@@ -20,6 +20,40 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 19:00 PT] — Add 15 service senders and stop treating platform relays as official
+
+### Why
+- On 64 genuine downloads, 22 false alerts were model-led alerts on codes, password resets and welcome mail from services outside the registry.
+- A worst-case check found an existing gap. With the top header trusted, 22 Google Drive share phishing messages counted as verified Google mail, and their High alerts became undetermined.
+
+### Files changed
+- `website/email_structure.py`:
+  - `_platform_relay()` treats a verified domain as a relay, not an official sender, when any of these holds:
+    - a display name says "via" or does not name the organization;
+    - Reply-To points to another organization;
+    - the subject is a share, invitation, comment or signature template.
+  - It adds `structure.platform_relay`.
+  - Organization names include display names and new `sender_names` (product names).
+  - `sender_only` services name official channels only as the verified sender.
+- `website/data/official_brands_intl.json`:
+  - 15 `sender_only` services, each with `domain_sources` (pages read on 2026-09-30) and a review note: GitHub, Dropbox, Crunchyroll, Slack, Canva, Duolingo, Asana, Atlassian (`id.atlassian.com` only), Coursera, Electronic Arts, Figma, GitLab, SoundCloud, Tumblr and Ubisoft.
+  - Three "will never" statements (Crunchyroll, EA, Tumblr) read on their sources.
+  - `atlassian.net` and `tumblr.zendesk.com` excluded as customer-controlled or shared.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `structure.platform_relay` in English and Chinese. Asset versions were bumped.
+- `website/tests/test_verified_official_sender.py` covers:
+  - relays: Drive, Docusign, a GitHub issue notice, a Canva share, and a Reply-To elsewhere;
+  - the services' own account mail, including Trello via Atlassian and PayPal's address-as-name;
+  - customer-controlled domains.
+  The fixture now sets matching display names.
+- `website/tests/test_official_brands.py` — `sender_only` entries need empty display names and https domain sources.
+- `README.md`, `docs/evaluation.md` — the rule, the services and the measurement.
+
+### Effect
+- Own genuine downloads (main → this change): alerts 28 → 6, undetermined 24 → 34, Safe or Low 12 → 24.
+- Nazario 2023–25 phishing with the top header trusted: alerts 1,198 → 1,220; the 22 are the restored Drive shares. No alert lost.
+- Nazario 2015–22 unchanged.
+- The services do not appear in Nazario, so their relay handling rests on documented templates and unit tests.
+
 ## [2026-09-30 18:00 PT] — Score uncertain HTML through agreeing rendering views
 
 ### Why

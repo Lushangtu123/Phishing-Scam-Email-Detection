@@ -78,6 +78,7 @@
   "link.credential_collection_host": "Link destination ({host}) combines credential and collection wording.",
   "link.sensitive_host": "Link destination ({host}) uses account-related wording on an unrecognized domain; this alone does not establish phishing.",
 
+  "structure.platform_relay": "Sent through {organization}'s own servers ({domain}) on behalf of another user: a share, invitation, comment or similar notice. The platform is genuine, but the document, message and links come from that user, so this is not treated as an official message.",
   "structure.verified_official_sender": "Verified sender: a trusted DMARC pass shows this message came from {organization}'s own domain ({domain}). Its links and requests are still checked.",
   "structure.brand_display_name": "Protected brand identity '{brand}' is displayed from an unrelated domain ({domain}).",
   "structure.idn_sender_domain": "Sender domain ({domain}) is a Unicode/IDN confusable for {brand}.",

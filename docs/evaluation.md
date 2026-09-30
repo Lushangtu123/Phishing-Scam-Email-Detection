@@ -1408,6 +1408,60 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Service senders and platform relays (2026-09-30)
+
+Model-led alerts on genuine account mail were the largest remaining false-alert
+group on the 64 genuine downloads: codes, password resets and welcome mail from
+GitHub, Dropbox, Crunchyroll and similar services.
+
+**A gap in the existing registry.** Before adding services, the existing
+registry was checked in the worst case: Nazario 2023–25 phishing with its
+topmost header trusted, as if downloaded from Gmail.
+
+- 24 Google Drive share phishing messages and 14 Docusign envelopes counted as
+  verified official senders.
+- 22 of the Drive shares dropped from High to undetermined, because the
+  verified-sender cap removed the model-led alert.
+- Drive shares really are delivered to Gmail, so this was a live gap for
+  Gmail uploads.
+
+**Relay rule.** All 38 Drive and Docusign messages had "via" in the display
+name and a Reply-To to another organization; none of 59 genuine verified
+senders had either. Canva documents that its design-share notices use the same
+`no-reply@canva.com` address as its account mail, and a reported 2025 campaign
+used those notices with SPF, DKIM and DMARC passing. The subject template and
+display-name checks cover that case. None of the 59 genuine messages matched
+them, apart from one Trello code, which the Atlassian product names now cover.
+
+**Services.** 15 services were added after reading their pages:
+
+| Evidence | Services |
+|---|---|
+| Official page listing sending addresses or domains | GitHub, Dropbox, Slack, Canva, Atlassian, EA, Figma, Ubisoft, Tumblr |
+| Official phishing page naming the domain | Crunchyroll, SoundCloud |
+| Homepage only | Duolingo, Asana, Coursera, GitLab |
+
+Old code (main) against new code, top header trusted for Nazario:
+
+| Cohort | Alerts | Undetermined | Safe or Low |
+|---|---|---|---|
+| Own genuine downloads (64) | 28 → 6 | 24 → 34 | 12 → 24 |
+| Nazario 2015–22 phishing with headers (820) | 780 → 780 | 38 → 38 | 2 → 2 |
+| Nazario 2023–25 phishing with headers (1,302) | 1,198 → 1,220 | 98 → 76 | 6 → 6 |
+
+- The 22 new Nazario alerts are the Drive shares restored by the relay rule.
+- No phishing message lost an alert.
+- 10 of the 22 genuine messages that stopped alerting are undetermined rather
+  than Low, because their HTML still leaves the model unsure how it renders.
+
+**Limits:**
+
+- None of the 15 services appear as authenticated senders in Nazario, so the
+  relay rule's coverage of their share notices rests on the documented
+  templates and unit tests, not on observed phishing.
+- A platform notice whose display name is the platform, with no Reply-To and an
+  unlisted subject, would still be capped.
+
 ### Rendering views for uncertain HTML (2026-09-30)
 
 On the 64 genuine downloads, 31 results were undetermined. Most of that HTML was

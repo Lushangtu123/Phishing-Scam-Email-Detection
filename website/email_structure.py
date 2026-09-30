@@ -140,6 +140,15 @@ def _load_official_sender_domains(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, str
     return domains
 
 
+def _load_organization_names(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, tuple[str, ...]]:
+    """Organization -> names its own mail may carry: display names, product names, its name."""
+    return {
+        brand["name"]: tuple(dict.fromkeys((*brand["display_names"], *brand.get("sender_names", ()), brand["name"])))
+        for path in paths
+        for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]
+    }
+
+
 def _official_sender(domain: str) -> str | None:
     """Organization whose official domain (or a subdomain of it) this is; never a consumer mailbox."""
     if domain in _CONSUMER_MAILBOX_DOMAINS:
@@ -164,9 +173,13 @@ def _load_official_channels(paths=_OFFICIAL_BRANDS_PATHS) -> tuple[dict, ...]:
             # Prefer a "we will never …" statement; it tells the reader what to refuse.
             statement = next((item for item in statements if _NEVER_STATEMENT.search(item["quote"])),
                              next(iter(statements), None))
+            # Services registered only to verify their own senders ("sender_only") are
+            # named by the verified sender, not by matching words such as "Slack" in text.
+            names = (brand.get("sender_names", ()) if brand.get("display_check") == "sender_only"
+                     else brand["display_names"] or (brand["name"],))
             channels.append({
                 "organization": brand["name"],
-                "names": tuple(sorted(brand["display_names"] or (brand["name"],), key=len, reverse=True)),
+                "names": tuple(sorted(names, key=len, reverse=True)),
                 "website": brand["official_domains"][0],
                 "service_numbers": list(brand.get("service_numbers") or ()),
                 "statement": statement["quote"] if statement else None,
@@ -260,6 +273,38 @@ def display_name_matches_domain(display_name: str, domain: str, local_part: str 
     return len(label) >= 4 and label in "".join(tokens)
 
 
+# Subjects of platform notifications that carry another user's content (a share, an
+# invitation, a comment, a signature request). The template is the platform's; the
+# document, message and links inside it are the other user's.
+_RELAY_SUBJECT = re.compile(
+    r"\b(?:shared|sharing|invited you|invit(?:e|ation)s? (?:you )?to|sent you|mentioned you|commented|replied to"
+    r"|assigned (?:you|to you|a task)|added you|requested (?:access|your signature)|wants to (?:share|connect)"
+    r"|review and sign|please sign|signature (?:request|required)|left a comment|messaged you|new message from)\b"
+    r"|分享了|邀请你|邀请您|给你发送|评论了|提到了你", re.IGNORECASE)
+
+
+def _platform_relay(from_mailboxes, reply_to_values, subject: str, organization: str, domain: str) -> str | None:
+    """Why mail from an organization's own domain carries someone else's content, or None.
+
+    Drive, Docusign, Canva and similar notifications are sent and signed by the
+    platform, so DMARC passes, but a user wrote the document, message and links.
+    """
+    organization_domain = organizational_domain(domain)
+    names = _ORGANIZATION_NAMES.get(organization, (organization,))
+    for name, address in from_mailboxes:
+        if re.search(r"\bvia\b", name, re.IGNORECASE):
+            return "via"
+        if not (display_name_matches_domain(name, domain, address.rpartition("@")[0])
+                or any(_display_name_claims(name, alias) for alias in names)):
+            return "display_name"
+    for _name, address in getaddresses(list(reply_to_values)):
+        if "@" in address and organizational_domain(_domain(address)) != organization_domain:
+            return "reply_to"
+    if _RELAY_SUBJECT.search(subject):
+        return "subject"
+    return None
+
+
 def _dmarc_header_from(value: str) -> str:
     match = re.search(r"\bdmarc\s*=\s*pass\b[^;]*?\bheader\.from\s*=\s*\"?([^\s;\"()]+)", value, re.IGNORECASE)
     return normalize_domain(match.group(1)) if match else ""
@@ -306,6 +351,7 @@ def normalize_domain(domain: str) -> str:
 
 _OFFICIAL_BRANDS = _load_official_brands()
 _OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
+_ORGANIZATION_NAMES = _load_organization_names()
 _OFFICIAL_CHANNELS = _load_official_channels()
 # Digits of every published official service number, e.g. 95588, 18005551234.
 OFFICIAL_SERVICE_NUMBERS = frozenset(re.sub(r"\D", "", number) for channel in _OFFICIAL_CHANNELS
@@ -875,7 +921,14 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         from_domain = next(iter(from_domains))
         if from_domain == dmarc_header_from:
             organization = _official_sender(from_domain)
-            if organization:
+            relay = organization and _platform_relay(
+                from_mailboxes, header_candidates['Reply-To'], '\n'.join(header_candidates['Subject']),
+                organization, from_domain)
+            if relay:
+                # Genuinely sent by the platform, but for another user: not an official message.
+                indicators.append(indicator('info', 'structure.platform_relay', organization=organization,
+                                            domain=from_domain))
+            elif organization:
                 verified_official_sender = {"organization": organization, "domain": from_domain}
                 indicators.append(indicator('info', 'structure.verified_official_sender',
                                             organization=organization, domain=from_domain))

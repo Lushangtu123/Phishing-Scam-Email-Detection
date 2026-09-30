@@ -36,10 +36,11 @@ RECEIPT = 'You sent a payment of $29.99 USD to Netflix. View the transaction det
 
 
 def message(sender='service@paypal.com', *, auth=None, domain='paypal.com', header_from=None, body=RECEIPT,
-            html=False):
+            html=False, name='PayPal', subject='Receipt for your payment', reply_to=None):
     auth = GMAIL_PASS.format(domain=domain, header_from=header_from or domain) if auth is None else auth
     content_type = 'text/html; charset=utf-8' if html else 'text/plain; charset=utf-8'
-    return (auth + f'From: PayPal <{sender}>\r\nTo: user@example.com\r\nSubject: Receipt for your payment\r\n'
+    reply = f'Reply-To: {reply_to}\r\n' if reply_to else ''
+    return (auth + f'From: {name} <{sender}>\r\n{reply}To: user@example.com\r\nSubject: {subject}\r\n'
             f'MIME-Version: 1.0\r\nContent-Type: {content_type}\r\n\r\n{body}\r\n').encode()
 
 
@@ -50,7 +51,8 @@ def verified(raw, mailbox='gmail'):
 class VerifiedOfficialSenderTests(unittest.TestCase):
     def test_topmost_gmail_dmarc_pass_on_an_official_domain_verifies_the_sender(self):
         self.assertEqual(verified(message()), {'organization': 'PayPal', 'domain': 'paypal.com'})
-        self.assertEqual(verified(message('alerts@notify.wellsfargo.com', domain='notify.wellsfargo.com')),
+        self.assertEqual(verified(message('alerts@notify.wellsfargo.com', domain='notify.wellsfargo.com',
+                                          name='Wells Fargo Online')),
                          {'organization': 'Wells Fargo', 'domain': 'notify.wellsfargo.com'})
         structure = analyze_raw_email(message(), mailbox_provider='gmail')
         self.assertIn('structure.verified_official_sender', [item['code'] for item in structure['indicators']])
@@ -119,6 +121,50 @@ class VerifiedOfficialSenderTests(unittest.TestCase):
         self.assertEqual(upload(b'mailbox=gmail')['verified_official_sender'],
                          {'organization': 'PayPal', 'domain': 'paypal.com'})
         self.assertIsNone(upload(b'')['verified_official_sender'])
+
+
+class PlatformRelayTests(unittest.TestCase):
+    def relay(self, raw):
+        structure = analyze_raw_email(raw, mailbox_provider='gmail')
+        codes = [item['code'] for item in structure['indicators']]
+        return structure['verified_official_sender'], 'structure.platform_relay' in codes
+
+    def test_notifications_carrying_another_users_content_are_not_official(self):
+        drive = message('drive-shares-dm-noreply@google.com', domain='google.com', name='Invoice Dept (via Google Drive)',
+                        subject='Document shared with you: "Invoice"', reply_to='someone@example.net')
+        docusign = message('dse@docusign.net', domain='docusign.net', name='Accounts via Docusign',
+                           subject='Please review and sign', reply_to='billing@example.net')
+        github = message('notifications@github.com', domain='github.com', name='Jane Doe',
+                         subject='[org/repo] Urgent security notice (Issue #12)')
+        canva = message('no-reply@canva.com', domain='canva.com', name='Canva', subject='A design has been shared with you!')
+        reply_elsewhere = message(reply_to='refunds@example.net')
+        for raw in (drive, docusign, github, canva, reply_elsewhere):
+            with self.subTest(raw=raw[raw.index(b'From:'):][:60]):
+                self.assertEqual(self.relay(raw), (None, True))
+
+    def test_the_services_own_account_mail_is_still_official(self):
+        cases = (
+            (message('no-reply@canva.com', domain='canva.com', name='Canva', subject='Your Canva code is 980028'), 'Canva'),
+            (message('noreply@github.com', domain='github.com', name='GitHub', subject='[GitHub] Please reset your password'),
+             'GitHub'),
+            (message('noreply@id.atlassian.com', domain='id.atlassian.com', name='Trello',
+                     subject='18ZN4F is your verification code'), 'Atlassian'),
+            (message('EA@e.ea.com', domain='e.ea.com', name='EA', subject='Your EA Security Code is: 131088'),
+             'Electronic Arts'),
+            (message(name='service@paypal.com'), 'PayPal'),
+            (message(reply_to='help@paypal.com'), 'PayPal'),
+        )
+        for raw, organization in cases:
+            with self.subTest(organization=organization):
+                sender, relayed = self.relay(raw)
+                self.assertFalse(relayed)
+                self.assertEqual(sender['organization'], organization)
+
+    def test_customer_controlled_platform_domains_are_not_registered(self):
+        for sender in ('jira@evil-corp.atlassian.net', 'support@evil.zendesk.com'):
+            with self.subTest(sender=sender):
+                domain = sender.rpartition('@')[2]
+                self.assertEqual(self.relay(message(sender, domain=domain, name='Atlassian')), (None, False))
 
 
 class VerifiedSenderRiskTests(unittest.TestCase):

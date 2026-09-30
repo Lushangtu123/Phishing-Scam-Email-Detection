@@ -831,6 +831,7 @@
   'server.link.credential_collection_host': '链接目标（{host}）同时包含凭据和收集类字样。',
   'server.link.sensitive_host': '链接目标（{host}）在未识别的域名上使用了账户相关字样；仅凭这一点不能认定为钓鱼。',
 
+  'server.structure.platform_relay': "这封邮件由 {organization} 的官方服务器（{domain}）代其他用户发送，例如分享、邀请、评论等通知。平台是真的，但其中的文件、留言和链接来自那位用户，因此不按官方邮件对待。",
   'server.structure.verified_official_sender': "已验证发件人：可信的 DMARC 验证结果显示此邮件来自 {organization} 的官方域名（{domain}）。邮件中的链接和要求仍会照常检查。",
   'server.structure.brand_display_name': "来自无关域名（{domain}）的邮件显示了受保护的品牌身份 '{brand}'。",
   'server.structure.idn_sender_domain': '发件人域名（{domain}）是 {brand} 的 Unicode/IDN 易混淆仿冒域名。',

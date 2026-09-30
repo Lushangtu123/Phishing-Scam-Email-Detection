@@ -312,6 +312,22 @@ Raw input enables these checks:
     "Low Risk — Verified Official Sender".
   - Lookalike links, dangerous attachments, requests for codes, and other evidence
     that sets a Medium or higher floor still alert.
+  - **Platform relays are not official.** Drive shares, Docusign envelopes, Canva
+    designs, GitHub issue notifications and similar mail are signed by the
+    platform but carry another user's document, message and links. A verified
+    domain is treated as a relay, shown as `structure.platform_relay`, and not
+    capped when any of these holds:
+    - a From display name says "via" or does not name the organization (its
+      domain label, display names or product names such as Trello for Atlassian);
+    - Reply-To points to another organization;
+    - the subject is a share, invitation, comment or signature template.
+  - Besides the phishing-target brands, the international registry lists 15
+    services (`display_check: sender_only`): GitHub, Dropbox, Crunchyroll, Slack,
+    Canva, Duolingo, Asana, Atlassian (`id.atlassian.com` only), Coursera, EA,
+    Figma, GitLab, SoundCloud, Tumblr and Ubisoft. Each entry records the
+    official pages read in `domain_sources`. These entries verify senders only:
+    they add no display-name impersonation matches. Customer-controlled or
+    shared domains such as `atlassian.net` and `tumblr.zendesk.com` are excluded.
 - **authenticated senders** that are not in the registries. With a mailbox named,
   the From domain needs a trusted, aligned DMARC pass and a passing DKIM signature
   from the same organizational domain. It must not be a consumer mailbox domain
