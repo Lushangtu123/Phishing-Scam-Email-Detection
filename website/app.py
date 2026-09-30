@@ -811,24 +811,11 @@ def _analyze_sender_address(email: str) -> dict:
 
     high_risks = sum(1 for r in risk_indicators if r["level"] == "high")
     med_risks = sum(1 for r in risk_indicators if r["level"] == "medium")
-    low_risks = sum(1 for r in risk_indicators if r["level"] == "low")
     phish_features = sum(1 for v in feature_values if v == -1)
-    risk_score = min(
-        100,
-        high_risks * 28
-        + med_risks * 10
-        + low_risks * 3
-    )
+    risk_score = _sender_risk_score(risk_indicators)
     if feature_dict.get("_brand_substitution_detected") is True:
         risk_score = max(risk_score, 60)
-    if risk_score >= 80:
-        verdict, label = "critical", "Critical Sender Risk"
-    elif risk_score >= 60:
-        verdict, label = "high", "High Sender Risk"
-    elif risk_score >= 30:
-        verdict, label = "medium", "Suspicious Sender"
-    else:
-        verdict, label = "low", "Low Sender Risk"
+    verdict, label = _sender_verdict(risk_score)
 
     return {
         "email": email,
@@ -846,6 +833,57 @@ def _analyze_sender_address(email: str) -> dict:
         "disposable_service": disposable_service,
         **disposable_classification,
     }
+
+
+def _sender_risk_score(risk_indicators: list[dict]) -> int:
+    levels = [item["level"] for item in risk_indicators]
+    return min(100, levels.count("high") * 28 + levels.count("medium") * 10 + levels.count("low") * 3)
+
+
+def _sender_verdict(risk_score: int) -> tuple[str, str]:
+    if risk_score >= 80:
+        return "critical", "Critical Sender Risk"
+    if risk_score >= 60:
+        return "high", "High Sender Risk"
+    if risk_score >= 30:
+        return "medium", "Suspicious Sender"
+    return "low", "Low Sender Risk"
+
+
+# Address-shape findings an authenticated domain's owner chooses for itself. Anything
+# about the registrable domain (brand, lookalike, keywords, TLD) is still scored.
+_AUTHENTICATED_SENDER_RELAXED = frozenset({
+    'sender.username_keywords', 'sender.random_username', 'sender.long_username',
+    'sender.long_address', 'sender.unrecognized_provider', 'sender.deep_subdomains',
+})
+_RELAX_SUBDOMAIN_KEYWORDS = True
+# Relax only when the display name names the authenticated organization, so "IT Support"
+# or "monkey.org Portal" from an unrelated authenticated domain keeps its address findings.
+_AUTHENTICATED_SENDER_NEEDS_NAME_MATCH = True
+
+
+def _relax_authenticated_sender(analysis: dict, authenticated: dict) -> dict:
+    """Show, but stop scoring, address-shape findings for a DMARC- and DKIM-authenticated domain."""
+    registrable = authenticated["organizational_domain"].replace(".", "")
+    original_score = analysis["risk_score"]
+    brand_floor = original_score > _sender_risk_score(analysis["risk_indicators"])
+    for item in analysis["risk_indicators"]:
+        relaxed = item.get("code") in _AUTHENTICATED_SENDER_RELAXED or (
+            _RELAX_SUBDOMAIN_KEYWORDS and item.get("code") == "sender.domain_keywords"
+            and not any(keyword in registrable for keyword in SUSPICIOUS_KEYWORDS))
+        if relaxed and item["level"] != "info":
+            item["level"] = "info"
+    risk_score = _sender_risk_score(analysis["risk_indicators"])
+    if brand_floor:
+        risk_score = max(risk_score, 60)
+    if risk_score < original_score:
+        analysis["risk_indicators"].append(indicator('info', 'sender.authenticated_domain',
+                                                     domain=authenticated["domain"]))
+    analysis["risk_score"] = risk_score
+    analysis["verdict"], analysis["label"] = _sender_verdict(risk_score)
+    analysis["high_risk_count"] = sum(1 for item in analysis["risk_indicators"] if item["level"] == "high")
+    analysis["med_risk_count"] = sum(1 for item in analysis["risk_indicators"] if item["level"] == "medium")
+    return analysis
 
 
 def _sender_account_observability(analysis: dict) -> str:
@@ -3018,6 +3056,10 @@ async def _analyze_content(
             result["sender_analysis"] = selected_sender
             result["sender_score"] = 0
         elif selected_sender is not None:
+            authenticated = structure.get('authenticated_sender')
+            if (authenticated and (authenticated["display_name_matches"] or not _AUTHENTICATED_SENDER_NEEDS_NAME_MATCH)
+                    and selected_sender["email"].rpartition("@")[2].lower() == authenticated["domain"]):
+                selected_sender = _relax_authenticated_sender(selected_sender, authenticated)
             # Select locally before touching the external history store. An
             # attacker can inject many ambiguous From values into one message;
             # only the sender that actually drives the result gets one bounded

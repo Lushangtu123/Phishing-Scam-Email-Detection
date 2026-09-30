@@ -311,6 +311,20 @@ Raw input enables these checks:
     "Low Risk — Verified Official Sender".
   - Lookalike links, dangerous attachments, requests for codes, and other evidence
     that sets a Medium or higher floor still alert.
+- **authenticated senders** that are not in the registries. With a mailbox named,
+  the From domain needs a trusted, aligned DMARC pass and a passing DKIM signature
+  from the same organizational domain. It must not be a consumer mailbox domain
+  (including mail.ru, Yandex and GMX). Every From display name must also name that
+  organization: "Dropbox" from `txn.dropbox.com` qualifies. Generic names such as
+  "IT Support", and names or local parts that carry another organization's domain
+  (for example "monkey.org Portal"), do not.
+  - Address-shape findings are then shown at info level and not scored. These are
+    role or keyword usernames, random-looking or long usernames, keyword
+    subdomains, deep subdomains, and "unrecognized provider".
+  - Everything about the registrable domain is still scored: keywords in it,
+    brand substrings, lookalikes, TLDs. So are links, content, attachments and
+    the model. Authentication proves who sent the message, not that they are
+    trustworthy.
 - protected-brand display-name and Unicode/IDN domain impersonation; display
   names use word boundaries to avoid matching ordinary names such as Appleton
   or Pineapple, while retaining detection of spaced, punctuated, and Unicode

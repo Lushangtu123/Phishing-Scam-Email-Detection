@@ -1408,6 +1408,56 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Authenticated senders outside the registries (2026-09-30)
+
+On the 64 genuine downloads, 11 alerts came only from sender-address heuristics.
+Examples: `no-reply` or `confirm` usernames, and `account.`, `alerts.` or
+`login.` subdomains of the brand's own domain. With a trusted, aligned
+DMARC pass, the domain owner chose those names, so they say little. The risk is
+phishing from attacker-owned domains that also pass DMARC.
+
+**Worst case for missed phishing.** For Nazario 2023–25 phishing, each
+message's topmost `Authentication-Results` header (hostedemail.com) was treated
+as trusted, as if the user had named that mailbox. 548 of 1,303 messages then
+have an authenticated, non-consumer sender (643 with DMARC alone), so phishers
+passing DMARC is common.
+
+| Variant | Genuine alerts (of 64) | Phishing alerts (of 1,303) |
+|---|---|---|
+| Current | 35 | 1,199 |
+| Relax on DMARC alone | 28 | 1,191 (−8) |
+| Relax on DMARC + aligned DKIM | 28 | 1,192 (−7) |
+| Usernames only, DMARC + DKIM | 31 | 1,193 (−6) |
+| **DMARC + DKIM + display name names the domain (shipped)** | **28** | **1,199 (−0)** |
+
+- The phishing messages that lost alerts all had display names unrelated to the
+  authenticated domain: "IT Support", "Mail Support", "Track & Trace", "NTFX",
+  "monkey.org Portal Notification", or a hotel name above a PayPal subject.
+- Every genuine message that gained named its own organization.
+- A second pass found two gaps, now closed:
+  - a display name that was another address (`…@hotmail.com` from mail.ru);
+  - a local part carrying the recipient's domain (`"monkey.org accounting"@…`).
+- With the shipped rule, phishing severity barely moves: Critical 381→380,
+  High 769→768, Medium 49→51.
+- Genuine platform mail that phishers abuse, such as Google Drive share notices,
+  is still relaxed (Google did send it). Those alerts come from content, and
+  none were lost.
+- 57 of the 60 authenticated genuine senders pass the name check. The misses are
+  a product sent from its parent company's domain, and a brand whose domain
+  label differs from its name; they only miss the benefit.
+
+**Limits:**
+
+- The display-name condition and the two fixes were designed after reading the
+  Nazario 2023–25 losses, so "−0" is partly fitted.
+- Nazario 2015–22 was run as a held-out check. It has only 61 authenticated
+  senders, and even the unguarded variant lost no alerts there, so it cannot
+  confirm the guard.
+- All 7 genuine messages that stopped alerting became undetermined, not Low.
+  Their HTML (hidden preheaders, conditional comments) keeps the model from
+  running, so sender heuristics were the only signal. The undetermined rate is
+  the next thing to fix.
+
 ### Real Gmail and Outlook.com downloads (2026-09-30)
 
 The repository owner supplied 64 genuine original messages: 31 downloaded from

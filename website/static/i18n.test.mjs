@@ -339,7 +339,7 @@ test('localized server wording matches what the backend sends', () => {
   }
   for (const [verdict, label] of Object.entries({critical: 'Critical Sender Risk', high: 'High Sender Risk',
     medium: 'Suspicious Sender', low: 'Low Sender Risk'})) {
-    assert.match(app, new RegExp(`verdict, label = "${verdict}", "${label}"`));
+    assert.match(app, new RegExp(`return "${verdict}", "${label}"`));
     assert.equal(en[`sender.verdict.${verdict}`], label);
   }
   const serverLabels = new Set([...readFileSync(new URL('../visual_evidence.py', import.meta.url), 'utf8').matchAll(/risk_label'\] = '([^']+)'/g),

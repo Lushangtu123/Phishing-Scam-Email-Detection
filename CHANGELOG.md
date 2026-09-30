@@ -20,6 +20,45 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 17:00 PT] — Stop scoring address shape for authenticated senders
+
+### Why
+- On 64 genuine Gmail and Outlook.com downloads, 11 of 35 alerts came only from address-shape heuristics on the brand's own authenticated domain, such as `no-reply@` or `account.` subdomains.
+- Phishers often pass DMARC too. 548 of 1,303 Nazario 2023–25 phishing messages would count as authenticated if their top header were trusted. So the relaxation needed a guard that holds in that worst case.
+
+### Files changed
+- `website/email_structure.py`:
+  - `authenticated_sender` requires all of:
+    - a trusted aligned DMARC pass, from a named mailbox;
+    - a passing DKIM signature from the same organizational domain (bundled Public Suffix List);
+    - a single From domain that is not a consumer mailbox.
+  - It records whether every display name names that organization (`display_name_matches_domain`):
+    - generic words do not count;
+    - a name or local part carrying another organization's domain never matches.
+  - `_dkim_pass_domains()` reads `header.d` / `header.i` from passing DKIM clauses.
+  - The Authentication-Results clause splitter was factored out.
+  - The consumer-mailbox list adds common Russian, German, Korean, Chinese and other webmail domains.
+- `website/app.py`:
+  - `_relax_authenticated_sender()` sets these findings to info and rescores the sender:
+    - username keywords, random or long usernames, long address;
+    - unrecognized provider, deep subdomains;
+    - domain keywords that are absent from the registrable domain.
+  - It adds `sender.authenticated_domain`.
+  - Sender score and verdict are factored into `_sender_risk_score()` and `_sender_verdict()`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the `sender.authenticated_domain` message in English and Chinese. Asset versions were bumped.
+- `website/static/i18n.test.mjs` — the sender-label check follows the refactored verdict function.
+- `website/tests/test_authenticated_sender.py` covers:
+  - name matching, including generic, foreign-domain, encoded and empty names;
+  - DKIM domain parsing;
+  - alignment, consumer and untrusted cases;
+  - end-to-end relaxation, the cases that keep scoring, and registrable-domain keywords that still count.
+- `README.md`, `docs/evaluation.md` — the rule and the measurement.
+
+### Effect
+- Genuine downloads: alerts fall from 35 to 28. All 7 changed messages became undetermined, not Low, because their HTML keeps the model from running.
+- Nazario 2023–25 phishing, top header trusted (worst case): 1,199 alerts unchanged. Without the display-name condition, 7 would have been lost.
+- The condition was designed after reading those losses, and the 2015–22 held-out check has too few authenticated senders to confirm it.
+
 ## [2026-09-30 16:00 PT] — Trust Outlook.com's own authentication result
 
 ### Why

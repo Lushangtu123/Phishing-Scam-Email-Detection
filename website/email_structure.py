@@ -6,6 +6,8 @@ from email import policy
 from email.parser import BytesParser, Parser
 from email.message import EmailMessage
 from email.utils import parseaddr, getaddresses
+from email.errors import HeaderParseError
+from email.header import decode_header, make_header
 import json
 from pathlib import Path, PurePath
 import re
@@ -13,6 +15,8 @@ import zlib
 import unicodedata
 import codecs
 from itertools import product
+
+import tldextract
 
 from server_messages import indicator, text as message_text, warning_indicator
 
@@ -107,6 +111,11 @@ _CONSUMER_MAILBOX_DOMAINS = frozenset({
     "qq.com", "foxmail.com", "163.com", "126.com", "yeah.net", "sina.com", "sohu.com",
     "icloud.com", "me.com", "mac.com", "gmail.com", "googlemail.com", "outlook.com",
     "hotmail.com", "live.com", "msn.com", "yahoo.com", "aol.com", "proton.me", "protonmail.com",
+    "139.com", "189.cn", "aliyun.com", "sina.cn", "live.cn", "yahoo.co.jp", "yahoo.co.uk", "hotmail.co.uk",
+    "hotmail.fr", "outlook.fr", "mail.ru", "inbox.ru", "list.ru", "bk.ru", "yandex.ru", "yandex.com", "ya.ru",
+    "gmx.com", "gmx.de", "gmx.net", "web.de", "t-online.de", "zoho.com", "zohomail.com", "mail.com",
+    "email.com", "naver.com", "daum.net", "hanmail.net", "rediffmail.com", "tutanota.com", "tuta.io",
+    "laposte.net", "orange.fr", "libero.it", "seznam.cz", "wp.pl", "o2.pl", "interia.pl",
 })
 # Per-upload mailbox choice: the receiving service's authserv-id. Only the topmost
 # Authentication-Results header is trusted, because the receiving service prepends it
@@ -114,6 +123,11 @@ _CONSUMER_MAILBOX_DOMAINS = frozenset({
 # Outlook.com writes "mx.microsoft.com 1" above its ARC headers; the lower
 # X-MS-Exchange-Authentication-Results header is Microsoft's outbound relay, not the check.
 MAILBOX_AUTHSERV_IDS = {"gmail": "mx.google.com", "outlook": "mx.microsoft.com"}
+# The bundled Public Suffix List snapshot only; never fetched at runtime.
+_ORGANIZATIONAL_DOMAINS = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
+# An authenticated sender also needs a passing DKIM signature from its own organizational
+# domain; an SPF-only DMARC pass can come from a shared sending service.
+_AUTHENTICATED_SENDER_NEEDS_DKIM = True
 
 
 def _load_official_sender_domains(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, str]:
@@ -179,6 +193,71 @@ def official_channels(texts, *, first: str | None = None, limit: int = 2) -> lis
         if any(_display_name_claims(text, name) for text in texts if text for name in channel["names"]):
             found.append(channel)
     return [{key: value for key, value in channel.items() if key != "names"} for channel in found[:limit]]
+
+
+def _dkim_pass_domains(value: str) -> set[str]:
+    """Signing domains (header.d, or the domain of header.i) of every passing DKIM clause."""
+    domains = set()
+    for segment in _authentication_segments(value)[0][1:]:
+        if not re.match(r'dkim\s*=\s*pass(?=\s|$)', segment, re.IGNORECASE):
+            continue
+        match = (re.search(r'\bheader\.d\s*=\s*"?([^\s;"]+)', segment, re.IGNORECASE)
+                 or re.search(r'\bheader\.i\s*=\s*"?[^\s;"@]*@([^\s;"]+)', segment, re.IGNORECASE))
+        if match:
+            domains.add(normalize_domain(match.group(1)))
+    return domains - {''}
+
+
+def organizational_domain(domain: str) -> str:
+    """Registrable domain under the bundled Public Suffix List (mail.example.co.uk -> example.co.uk)."""
+    return _ORGANIZATIONAL_DOMAINS(domain).top_domain_under_public_suffix or domain
+
+
+# Words any sender can put in a display name; they never tie a name to a domain.
+_GENERIC_DISPLAY_WORDS = frozenset("""
+    access account accounts admin administrator alert alerts and app apps auth bank billing care center centre
+    cloud co com community confirm confirmation contact corp customer customers delivery department dept desk
+    digital do email for from global group hello help helpdesk hi host hosting hr id inc info information it llc
+    login ltd mail member members membership message messages net network news newsletter no noreply not
+    notification notifications notify of office official online org payroll portal reply secure security server
+    service services sign system systems team teams the trace track tracking update updates verification verify
+    web webmail welcome www you your
+""".split())
+
+
+def _names_other_domain(text: str, organization: str) -> bool:
+    """Whether text contains a domain (or address) of another organization, e.g. "monkey.org"."""
+    for candidate in re.findall(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+", text):
+        extracted = _ORGANIZATIONAL_DOMAINS(candidate)
+        if extracted.suffix and extracted.domain and extracted.top_domain_under_public_suffix != organization:
+            return True
+    return False
+
+
+def display_name_matches_domain(display_name: str, domain: str, local_part: str = "") -> bool:
+    """Whether a From display name names the organization that owns this domain.
+
+    "Dropbox" <no-reply@txn.dropbox.com> matches; "IT Support" or "monkey.org Portal"
+    <account@unrelated.example> does not, nor does any name or local part that
+    carries another organization's domain. An empty name shows only the address.
+    """
+    name = display_name.strip().strip('"')
+    if '=?' in name:
+        try:
+            name = str(make_header(decode_header(name)))
+        except (ValueError, LookupError, HeaderParseError):
+            pass
+    folded = unicodedata.normalize("NFKC", name).casefold()
+    organization = organizational_domain(domain)
+    if _names_other_domain(folded, organization) or _names_other_domain(local_part.casefold(), organization):
+        return False
+    if not folded.strip():
+        return True
+    label = re.sub(r"[^a-z0-9]", "", organization.split(".", 1)[0])
+    tokens = [token for token in re.findall(r"[a-z0-9]+", folded) if token not in _GENERIC_DISPLAY_WORDS]
+    if any(token == label or (len(token) >= 3 and token in label) for token in tokens):
+        return True
+    return len(label) >= 4 and label in "".join(tokens)
 
 
 def _dmarc_header_from(value: str) -> str:
@@ -554,8 +633,8 @@ def analyze_raw_email(
     return result
 
 
-def _authentication_results(value: str) -> tuple[str, dict[str, str], bool]:
-    """Read result clauses, never method-like text inside comments or strings."""
+def _authentication_segments(value: str) -> tuple[list[str], bool]:
+    """Split an Authentication-Results value into clauses, dropping comments."""
     segments, current = [], []
     comment_depth = 0
     quoted = escaped = False
@@ -585,7 +664,12 @@ def _authentication_results(value: str) -> tuple[str, dict[str, str], bool]:
         else:
             current.append(char)
     segments.append(''.join(current).strip())
-    complete = not (comment_depth or quoted or escaped)
+    return segments, not (comment_depth or quoted or escaped)
+
+
+def _authentication_results(value: str) -> tuple[str, dict[str, str], bool]:
+    """Read result clauses, never method-like text inside comments or strings."""
+    segments, complete = _authentication_segments(value)
     identity = re.fullmatch(r'(?:"([^"\\]+)"|([^\s";]+))(?:\s+\d+)?', segments[0])
     authserv_id = (identity.group(1) or identity.group(2)).lower() if identity else ''
     results = {}
@@ -738,6 +822,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     }
     auth_results: dict[str, str] = {}
     dmarc_header_from = ""
+    dkim_pass_domains: set[str] = set()
     untrusted_authentication_claims = []
     mailbox_authserv_id = MAILBOX_AUTHSERV_IDS.get(mailbox_provider or "")
     if mailbox_authserv_id:
@@ -757,6 +842,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         if claimed_results and trusted_header and not auth_results:
             auth_results = claimed_results
             dmarc_header_from = _dmarc_header_from(str(auth_header))
+            dkim_pass_domains = _dkim_pass_domains(str(auth_header))
         elif claimed_results:
             untrusted_authentication_claims.append({
                 "authserv_id": authserv_id,
@@ -794,6 +880,23 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 indicators.append(indicator('info', 'structure.verified_official_sender',
                                             organization=organization, domain=from_domain))
 
+    # Any other organization's domain (not a consumer mailbox) with a trusted, aligned
+    # DMARC pass is authenticated: its address naming is the owner's choice. This is
+    # not official: it only says who sent the message, not that they are trustworthy.
+    authenticated_sender = None
+    if dmarc_passes and not decisive_failure and len(from_domains) == 1:
+        from_domain = next(iter(from_domains))
+        organization_domain = organizational_domain(from_domain)
+        if (from_domain == dmarc_header_from
+                and not {from_domain, organization_domain} & _CONSUMER_MAILBOX_DOMAINS
+                and (not _AUTHENTICATED_SENDER_NEEDS_DKIM
+                     or any(organizational_domain(domain) == organization_domain for domain in dkim_pass_domains))):
+            authenticated_sender = {
+                "domain": from_domain, "organizational_domain": organization_domain,
+                "display_name_matches": all(display_name_matches_domain(name, from_domain, address.rpartition("@")[0])
+                                            for name, address in from_mailboxes),
+            }
+
     for attachment in attachments:
         suffix = PurePath(attachment["filename"]).suffix.lower()
         content_type = attachment["content_type"].lower().split(";", 1)[0].strip()
@@ -821,6 +924,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "auth_results": auth_results,
         "authentication_trusted": dmarc_passes,
         "verified_official_sender": verified_official_sender,
+        "authenticated_sender": authenticated_sender,
         "authentication_results_trusted": bool(auth_results),
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,
