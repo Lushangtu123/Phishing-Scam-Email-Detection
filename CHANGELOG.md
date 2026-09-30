@@ -20,6 +20,36 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-09-30 15:00 PT] — Callback-phishing rule and "if you already clicked" guidance
+
+### Why
+- Callback phishing (fake renewal or charge notices that ask the reader to phone a "support" number) often has no link, so link rules miss it. The PDF review found one such invoice with only genuine Microsoft links.
+- Alerting results said what was wrong but not what to do if the reader had already clicked, replied or paid.
+
+### Files changed
+- `website/app.py` — `_callback_request()` looks for a US/Canada or Chinese 400/800 phone number. It fires only when the 200 characters around the number contain both:
+  - a call word ("call", "toll-free", 致电, 客服电话);
+  - unexpected-charge or not-me framing ("did not authorize", "has been charged", "auto-renewal", "dispute", "cancel your subscription", 扣款, 自动续费, 非本人).
+- Numbers in the official brand registries are skipped. A hit adds a `content.callback_request` finding (+4, High floor) that names the number.
+- `website/email_structure.py` — `OFFICIAL_SERVICE_NUMBERS`, digit-normalized from the registry service numbers.
+- `website/static/index.html`, `app-content-render.js`, `style.css` — a "If you already clicked, replied or entered something" card below the result for Medium and above, with steps for:
+  - opened a link;
+  - entered a password;
+  - entered a code or approved a sign-in;
+  - ran an attachment or remote-control software;
+  - sent money or gift cards.
+  The card sits outside `#content-result-area`, so result screenshots are unchanged.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese text. Asset versions were bumped.
+- `website/tests/test_sensitive_requests.py` — callback positives (English and Chinese), near-miss negatives (reservation changes, hotel cancel links, "Why not you" marketing, sign-in alerts without a number), registry-number exclusion, and an end-to-end renewal scam.
+- `website/tests/test_html_input_coverage.py` — a callback-style fixture now expects High or Critical.
+- `README.md`, `docs/evaluation.md` — rule, guidance and evaluation.
+
+### Effect
+- Nazario 2023–25 phishing (1,239 imported): 55 hits. Alerts rise from 1,150 to 1,151; 19 High to Critical, 2 Medium to High, 1 Low to High.
+- 0 hits and no changes on 5,054 Apache and 57 UniqueData legitimate messages.
+- Rule-only hit rate on other legitimate text: DiFraud 3/9,198, PhishFuzzer legacy 1/5,988, Marketing-Emails, Postmark templates and recent PhishFuzzer 0.
+- Genuine fraud-alert mail that asks the reader to call an unlisted number can still trigger the rule.
+
 ## [2026-09-30 14:00 PT] — Flag links to public IPFS gateways
 
 ### Why

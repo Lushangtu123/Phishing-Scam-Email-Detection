@@ -1450,6 +1450,35 @@ The new `link.ipfs_gateway` rule (+4, High floor) recognizes:
 Limit: NFT and Web3 services may legitimately link to IPFS gateways. None
 appear in these legitimate cohorts, so that false-positive risk is untested.
 
+### Callback phishing and post-click guidance (2026-09-30)
+
+Callback phishing sends a fake renewal, charge or order notice and asks the
+reader to phone a "support" number. Many of these messages carry no link.
+The new `content.callback_request` rule (+4, High floor) needs a phone number
+with both a call word and unexpected-charge or not-me framing within 200
+characters. Registry service numbers are skipped.
+
+A first version that also accepted plain "cancel" or "refund" hit 15/9,198
+DiFraud legitimate messages, mostly airline and hotel confirmations. The
+trigger was narrowed to specific cancel objects and charge or not-me wording.
+
+| Cohort | Callback hits | Alerts before → after | Level changes |
+|---|---|---|---|
+| Nazario 2023–25 phishing (1,239 imported) | 55 | 1,150 → 1,151 | 19 High→Critical, 2 Medium→High, 1 Low→High |
+| Apache 2025 list mail (5,054 legitimate) | 0 | unchanged | none |
+| UniqueData (57 legitimate) | 0 | unchanged | none |
+
+Rule-only hits on other legitimate text: DiFraud 3/9,198, PhishFuzzer legacy
+1/5,988, and 0 on Marketing-Emails, Postmark templates and recent PhishFuzzer.
+
+Most hits were already alerts, so the rule mainly raises severity and names
+the number. Results at Medium and above now also show what to do if the reader
+already clicked, replied, entered a password or code, ran an attachment, or
+sent money. That card is guidance only and is not scored.
+
+Limit: genuine fraud alerts that ask the reader to call an unlisted number
+can trigger the rule.
+
 ## Initial local findings (2026-09-21)
 
 On the 200-message unreviewed public pilot, medium/high/critical count as alerts:

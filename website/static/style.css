@@ -572,6 +572,11 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 /* ── Result Columns ──────────────────────────────────────────────────────── */
 .result-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: start; }
 .col-card[hidden] { display: none; }
+/* What to do after acting on a risky message; hidden with the result area it follows. */
+.remediation-card { margin-top: 16px; padding: 18px 22px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sheen), var(--surface); }
+.remediation-card[hidden], .content-result-area.hidden + .remediation-card { display: none; }
+.remediation-card ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.65; }
+.remediation-card li + li { margin-top: 6px; }
 /* How to verify it yourself: official channels for organizations the message names. */
 .official-list { display: grid; gap: 14px; }
 .official-item p { margin: 0 0 6px; color: var(--text-muted); font-size: 13px; line-height: 1.6; }

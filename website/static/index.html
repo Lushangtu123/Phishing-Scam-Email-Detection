@@ -14,9 +14,9 @@
   <meta name="theme-color" content="#06080f" media="(prefers-color-scheme: dark)" />
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=13"></script>
+  <script src="/static/lang-init.js?v=14"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=54" />
+  <link rel="stylesheet" href="/static/style.css?v=55" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -673,6 +673,17 @@
         </div>
 
       </div>
+      <!-- Outside the result area so result screenshots are unchanged; shown for Medium and above. -->
+      <section id="content-remediation" class="remediation-card" hidden aria-labelledby="content-remediation-title">
+        <h3 class="col-title" id="content-remediation-title" data-i18n="content.remedy.title">If you already clicked, replied or entered something</h3>
+        <ul>
+          <li data-i18n="content.remedy.clicked">Only opened the link, entered nothing: close the page, and check whether the browser downloaded a file; do not open it.</li>
+          <li data-i18n="content.remedy.password">Entered a password: change it right away on the official website or app (not through this email), change it on every other site that uses the same password, and turn on two-step verification.</li>
+          <li data-i18n="content.remedy.code">Entered a verification code or approved a sign-in request: this is more serious. Change the password, sign out of all other devices in the account’s security settings, and review recent sign-ins. For a bank or payment account, call the number on your card or in the official app to freeze it.</li>
+          <li data-i18n="content.remedy.malware">Opened an attachment, ran a program or installed remote-control software: disconnect from the internet, uninstall the remote-control software and run a full security scan. Changing passwords alone is not enough; change important passwords from another, clean device.</li>
+          <li data-i18n="content.remedy.money">Sent money or gift cards: contact your bank or payment provider immediately, then report it to the police (in the US, also reportfraud.ftc.gov).</li>
+        </ul>
+      </section>
 
       <!-- Content Loading -->
       <div id="content-loading-area" class="loading-area hidden" role="status">
@@ -1041,7 +1052,7 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=23"></script>
+<script src="/static/i18n.js?v=25"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
@@ -1055,7 +1066,7 @@
 <script src="/static/app-sender.js?v=5"></script>
 <script src="/static/app-verify.js?v=4"></script>
 <script src="/static/app-content.js?v=4"></script>
-<script src="/static/app-content-render.js?v=6"></script>
+<script src="/static/app-content-render.js?v=7"></script>
 <script src="/static/app-reports.js?v=3"></script>
 <script src="/static/app-metrics.js?v=4"></script>
 <script src="/static/app.js?v=53"></script>

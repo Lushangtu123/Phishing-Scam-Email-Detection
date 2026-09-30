@@ -219,7 +219,9 @@ class HTMLInputCoverageTests(unittest.TestCase):
         self.assertEqual(predict.call_count, 1)
         self.assertIn(plain, predict.call_args.args[2])
         self.assertEqual(result['ml_status'], 'available')
-        self.assertEqual(result['risk_level'], 'high')
+        # The callback rule adds independent evidence to the model signal (High or Critical).
+        self.assertIn(result['risk_level'], {'high', 'critical'})
+        self.assertIn('content.callback_request', [item.get('code') for item in result['extra_indicators']])
         self.assertFalse(result['analysis_complete'])
 
     def test_uncertain_html_alternative_never_enters_plain_model_score(self):

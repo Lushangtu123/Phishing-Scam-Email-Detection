@@ -84,5 +84,44 @@ class SensitiveRequestTests(unittest.TestCase):
                           if item.get('code', '').startswith('content.sensitive_request.')])
 
 
+
+CALLBACK_CASES = [
+    ('If you do not authorized this charge, you have 24 hours. To cancel and receive an immediate refund of your '
+     'transaction, please contact our Customer Care on : +1 (818) 284-4559.', True),
+    ('Your Norton subscription has been auto-renewed for $399.99. If this wasn\'t you, call 1-888-555-0147 to cancel.', True),
+    ('You have been charged $499 for Geek Squad protection. To dispute this charge call (844) 555 0199 today.', True),
+    ('您的账户已自动续费 699 元，如非本人操作，请立即拨打 400-123-4567 办理退款。', True),
+    # Genuine receipts and itineraries list numbers for questions or changes.
+    ('To change your reservation, please call 1-800-433-7300 and refer to your record locator. '
+     'If you have questions regarding our refund policy, please visit www.aa.com/refunds.', False),
+    ('From your itinerary, click the How to cancel this hotel reservation link. To make changes after booking, '
+     'please call +1 (800) 997-6494.', False),
+    ('Questions? Order by Phone? Call 800.538.7424. Why not you? Limited quantities.', False),
+    ('Your order has shipped. For questions about your order, call 1-866-220-3355.', False),
+    ('If you did not authorize this sign-in, change your password in the app. No phone number is ever needed.', False),
+]
+
+
+class CallbackRequestTests(unittest.TestCase):
+    def test_phone_numbers_with_unexpected_charge_framing_are_flagged_and_receipts_are_not(self):
+        for text, expected in CALLBACK_CASES:
+            with self.subTest(text=text[:60]):
+                self.assertEqual(bool(app._callback_request(text)), expected)
+
+    def test_official_service_numbers_never_count(self):
+        text = '您的账户已自动续费，如非本人操作，请拨打 95588 或 400-123-4567。'
+        self.assertEqual(app._callback_request(text, frozenset({'4001234567'})), None)
+        self.assertIn('95588', app._OFFICIAL_SERVICE_NUMBERS)
+
+    def test_callback_request_is_a_high_signal_with_the_number(self):
+        body = ('Your McAfee plan has been renewed and you have been charged $349.99. '
+                'If this wasn\'t you, call our billing team at 1 (877) 555-0123 to cancel the renewal.')
+        result = json.loads(asyncio.run(app.analyze_content_endpoint(
+            app.ContentRequest(subject='Payment receipt', body=body))).body)
+        item = next(item for item in result['extra_indicators'] if item.get('code') == 'content.callback_request')
+        self.assertIn('877', item['params']['number'])
+        self.assertIn(result['risk_level'], {'high', 'critical'})
+
+
 if __name__ == '__main__':
     unittest.main()

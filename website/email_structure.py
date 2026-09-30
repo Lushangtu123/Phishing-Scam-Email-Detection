@@ -226,6 +226,9 @@ def normalize_domain(domain: str) -> str:
 _OFFICIAL_BRANDS = _load_official_brands()
 _OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
 _OFFICIAL_CHANNELS = _load_official_channels()
+# Digits of every published official service number, e.g. 95588, 18005551234.
+OFFICIAL_SERVICE_NUMBERS = frozenset(re.sub(r"\D", "", number) for channel in _OFFICIAL_CHANNELS
+                                     for number in channel["service_numbers"] if re.sub(r"\D", "", number))
 
 
 def _domain(address: str) -> str:

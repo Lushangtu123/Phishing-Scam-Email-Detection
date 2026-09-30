@@ -344,6 +344,10 @@ Raw input enables these checks:
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
+- callback requests: a phone number next to both a call instruction and
+  unexpected-charge or not-me wording ("did not authorize", "auto-renewal",
+  "dispute", 扣款, 自动续费). Numbers listed in the official brand registries
+  are skipped;
 - HTML anchor/form targets, Markdown, and plain-text link destinations, including displayed-host
   mismatch, Unicode/IDN and ASCII digit-substitution lookalikes, URL userinfo,
   deceptive brand subdomains, and credential-themed domains;

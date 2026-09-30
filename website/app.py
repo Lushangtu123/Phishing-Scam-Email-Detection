@@ -89,6 +89,7 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 from email_structure import (
     MAILBOX_AUTHSERV_IDS,
+    OFFICIAL_SERVICE_NUMBERS as _OFFICIAL_SERVICE_NUMBERS,
     official_channels as _official_channels,
     _PROTECTED_BRAND_DOMAINS,
     _confusable_skeleton,
@@ -2466,6 +2467,41 @@ _SENSITIVE_REQUEST_CODES = {
 }
 
 
+# Callback phishing: no link, just a phone number to "cancel", "dispute" or "refund" a
+# charge the reader never made. Genuine receipts also list phone numbers, but for
+# questions; the dispute or not-me framing next to the number is what separates them.
+_CALLBACK_PHONE = re.compile(
+    r"(?<![\d-])(?:\+?1[\s.-]*)?\(?[2-9]\d{2}\)?[\s.-]*\d{3}[\s.-]*\d{4}(?![\d-])"   # North American numbers
+    r"|(?<!\d)(?:400|800)[\s-]?\d{3}[\s-]?\d{4}(?!\d)"                                 # 中国 400/800 服务号
+)
+_CALLBACK_TRIGGER = re.compile(
+    # An unexpected charge or a not-me framing. "Refund policy", "change your reservation"
+    # or "cancel this hotel booking" in genuine receipts do not count.
+    r"\b(?:(?:was|is|wasn['’]t)\s+not\s+you|not\s+(?:authori[sz]ed|recogni[sz]ed)|did(?:n['’]t|\s+not)\s+(?:make|authori[sz]e|order|place|"
+    r"recogni[sz]e|request)|unauthori[sz]ed|if\s+(?:this|it)\s+wasn['’]t\s+you|if\s+you\s+did(?:n['’]t|\s+not)"
+    r"|dispute|(?:has|have)\s+been\s+(?:charged|debited|auto[\s-]?renewed|renewed)|will\s+be\s+(?:charged|debited)"
+    r"|auto[\s-]?renew(?:al|ed)?|cancel\s+(?:(?:this|the|your|my)\s+)?(?:order|subscription|renewal|charge|payment|"
+    r"transaction|membership|plan|purchase))\b"
+    r"|扣款|扣费|自动续费|不是本人|非本人|未授权|取消(?:该|此|这笔)?(?:订单|订阅|服务|扣费|续费|交易)", re.IGNORECASE)
+_CALLBACK_CALL = re.compile(r"\b(?:call|dial|phone|ring|reach|contact|helpline|toll[\s-]?free|support\s+(?:line|number))\b"
+                            r"|致电|拨打|来电|联系客服|客服电话|热线", re.IGNORECASE)
+
+
+def _callback_request(text: str, official_numbers=frozenset()) -> str | None:
+    """A phone number asked to be called, with dispute/cancel/refund framing within ~200 characters.
+
+    Numbers published as an organization's official service numbers never count.
+    """
+    for match in _CALLBACK_PHONE.finditer(text):
+        digits = re.sub(r"\D", "", match.group(0))
+        if len(digits) < 7 or digits in official_numbers or digits.lstrip("1") in official_numbers:
+            continue
+        window = text[max(0, match.start() - 200):match.end() + 200]
+        if _CALLBACK_CALL.search(window) and _CALLBACK_TRIGGER.search(window):
+            return match.group(0).strip()
+    return None
+
+
 def _sensitive_requests(text: str) -> list[str]:
     """Message codes for requests to hand over codes, secrets, gift cards, crypto or remote access.
 
@@ -2683,6 +2719,12 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
 
     # Requests to hand over one-time codes, secrets, gift cards, crypto or remote
     # access: one strong signal however many kinds appear, each kind listed.
+    callback_number = _callback_request(analysis_text, _OFFICIAL_SERVICE_NUMBERS)
+    if callback_number:
+        total_score += 4
+        risk_floor = max((risk_floor, 'high'), key={'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}.get)
+        extra_indicators.append(indicator('high', 'content.callback_request', number=callback_number))
+
     sensitive_requests = _sensitive_requests(analysis_text)
     if sensitive_requests:
         total_score += 4

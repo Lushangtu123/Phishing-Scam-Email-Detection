@@ -265,6 +265,9 @@ function renderContentResult(data, { languageOnly = false } = {}) {
     safetyCard.hidden = true;
   }
 
+  // What to do if the reader already acted on an alerting message.
+  document.getElementById('content-remediation').hidden = !['medium', 'high', 'critical'].includes(data.risk_level);
+
   const area = document.getElementById('content-result-area');
   area.classList.remove('hidden');
   if (languageOnly) return;

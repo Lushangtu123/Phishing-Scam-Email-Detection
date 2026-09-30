@@ -251,6 +251,12 @@ window.PhishGuardI18n = (() => {
     'content.verify.channel': "{organization}: don’t use this email’s links, buttons or phone numbers. Open the official app, or type {website} into your browser yourself.",
     'content.verify.phone': "Official customer service: {numbers}",
     'content.verify.source': "Source: {organization} official page",
+    'content.remedy.title': "If you already clicked, replied or entered something",
+    'content.remedy.clicked': "Only opened the link, entered nothing: close the page, and check whether the browser downloaded a file; do not open it.",
+    'content.remedy.password': "Entered a password: change it right away on the official website or app (not through this email), change it on every other site that uses the same password, and turn on two-step verification.",
+    'content.remedy.code': "Entered a verification code or approved a sign-in request: this is more serious. Change the password, sign out of all other devices in the account’s security settings, and review recent sign-ins. For a bank or payment account, call the number on your card or in the official app to freeze it.",
+    'content.remedy.malware': "Opened an attachment, ran a program or installed remote-control software: disconnect from the internet, uninstall the remote-control software and run a full security scan. Changing passwords alone is not enough; change important passwords from another, clean device.",
+    'content.remedy.money': "Sent money or gift cards: contact your bank or payment provider immediately, then report it to the police (in the US, also reportfraud.ftc.gov).",
     'content.mailbox.label': "Downloaded from",
     'content.mailbox.unknown': "Other mailbox or not sure (authentication not trusted)",
     'content.mailbox.gmail': "Gmail (original message downloaded from Gmail)",
@@ -806,6 +812,7 @@ window.PhishGuardI18n = (() => {
 
     'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
+    'server.content.callback_request': "Asks you to call {number} to cancel, dispute or refund a charge; callback scams use fake support numbers. Call only the number on the organization's official website, app or card.",
     'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
     'server.content.sensitive_request.one_time_code': "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
     'server.content.sensitive_request.password_pin': "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
@@ -1261,7 +1268,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=11'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=12'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
