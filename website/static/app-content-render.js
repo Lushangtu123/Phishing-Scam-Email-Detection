@@ -89,6 +89,17 @@ function renderAccuracyTip(data) {
 // scams dress up as deals too.
 const MAIL_TACTICS = ['credential', 'callback', 'subsidy', 'payment', 'remote_access', 'impersonation',
   'deceptive_link', 'spoofed_sender', 'dangerous_attachment'];
+// A model-driven alert on an account notice asks whether the reader requested it; the
+// answer is sent with a fresh analysis, and the server decides what it changes.
+function renderRequestedQuestion(data) {
+  const box = document.getElementById('content-requested');
+  box.hidden = data.requested_question !== true;
+  if (box.hidden) return;
+  document.getElementById('content-requested-text').textContent = t('content.requested.question');
+  document.getElementById('content-requested-yes').textContent = t('content.requested.yes');
+  document.getElementById('content-requested-no').textContent = t('content.requested.no');
+}
+
 function renderMailType(data) {
   const el = document.getElementById('crb-type');
   const type = data.mail_type?.type;
@@ -157,6 +168,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
   }
   document.getElementById('crb-sub').textContent = subParts.join(' • ');
   renderMailType(data);
+  renderRequestedQuestion(data);
   const scoreEl = document.getElementById('crb-score');
   // Prefer the blended ML+heuristic score when available; fall back to raw heuristic total.
   if (languageOnly) {

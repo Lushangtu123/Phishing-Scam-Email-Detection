@@ -673,6 +673,32 @@ Safety-footer phrases such as “unsubscribe” and “privacy policy” are rep
 as context but never subtract risk: an attacker can copy them. Regional English
 phrasing is not scored as malicious.
 
+### Questions only the reader can answer
+
+Two facts decide many results, and only the reader knows them. The page asks for
+both, and nothing changes until the reader answers:
+
+- **Where an `.eml` came from.** When an uploaded `.eml` is topped by Gmail's or
+  Outlook.com's own check, the page asks "Did you download it from {service}
+  yourself?" before analyzing. "Yes" chooses that mailbox; "No, or not sure" analyzes
+  without trusting the check. Choosing in the "Downloaded from" menu also answers it.
+  A new file is asked about again. Outlook.com downloads need this, because their
+  ARC seals do not survive "Download as EML".
+- **Whether an account notice was requested.** When a result alerts on the text model
+  alone (`fusion_basis` `model_only` or `model_led`, risk floor Safe or Low) and the
+  text is an account notice (a one-time code, password reset, sign-in alert or email
+  confirmation, in English or Chinese), the result carries `requested_question: true`.
+  The page then asks "Did you request it yourself just now?", and the answer is sent
+  with a fresh analysis: `requested` in `/api/analyze-content` and
+  `/api/analyze-visual`, or `?requested=` on `/api/analyze-eml`.
+  - "Yes" lowers the result to **Low Risk — Requested Account Notice**, with a
+    reminder to check the sender and links and never to share the code
+    (`content.requested_notice`).
+  - "No" keeps the alert and explains that an unrequested code or reset can mean
+    someone is trying the account, or phishing (`content.unrequested_notice`).
+  - Any rule, sender, link or structure finding at Medium or above means the
+    question is never asked, and an answer changes nothing.
+
 ### Mail-type note
 
 Beside the verdict, a content result carries `mail_type`. It is a note only and never

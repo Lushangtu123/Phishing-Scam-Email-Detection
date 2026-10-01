@@ -62,6 +62,8 @@ class VisualRequest(BaseModel):
     enhancement: VisualEnhancement | None = None
     # Mailbox the .eml was downloaded from; only then is its topmost authentication header trusted.
     mailbox: Literal['', 'gmail', 'outlook'] = ''
+    # The reader's answer to "Did you just request this?" for a model-driven account notice.
+    requested: Literal['', 'yes', 'no'] = ''
 
     def eml_bytes(self):
         if not self.eml_base64:

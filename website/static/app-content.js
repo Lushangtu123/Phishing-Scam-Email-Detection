@@ -48,6 +48,12 @@ function invalidateContent() {
 // header. This only suggests a choice: an .eml received as an attachment can carry a
 // forged top header, so the reader must confirm where the file came from.
 let _rawMailboxDetected = '';
+// The reader's answers that change how a result is read: whether an .eml with a known
+// service's check at the top was downloaded from that service, and whether a model-driven
+// account notice was requested. Both reset with the input they answer for.
+let _mailboxAnswered = false;
+let _analyzeAfterMailboxAnswer = false;
+let _requestedAnswer = '';
 function detectMailboxService(buffer) {
   // Headers are ASCII: read the first 256 KiB byte by byte, never failing the upload.
   let head = '';
@@ -65,19 +71,52 @@ function detectMailboxService(buffer) {
   return { 'mx.google.com': 'gmail', 'mx.microsoft.com': 'outlook' }[match ? match[1].toLowerCase() : ''] || '';
 }
 
-function refreshMailboxHint() {
+function refreshMailboxHint({ answerFirst = false } = {}) {
   const hint = document.getElementById('content-mailbox-hint');
   const service = MAILBOX_SERVICE_NAMES[_rawMailboxDetected];
-  hint.hidden = !service || document.getElementById('content-mailbox-options').hidden
-    || document.getElementById('content-mailbox').value === _rawMailboxDetected;
+  hint.hidden = !service || _mailboxAnswered || document.getElementById('content-mailbox-options').hidden
+    || document.getElementById('content-mailbox').value !== '';
   if (hint.hidden) return;
-  document.getElementById('content-mailbox-hint-text').textContent = t('content.mailbox.detected', { service });
+  document.getElementById('content-mailbox-hint-text').textContent = t('content.mailbox.detected', { service })
+    + (answerFirst ? ' ' + t('content.mailbox.answerFirst', { service }) : '');
   document.getElementById('content-mailbox-use').textContent = t('content.mailbox.use', { service });
+  document.getElementById('content-mailbox-decline').textContent = t('content.mailbox.decline');
+}
+
+// An .eml topped by Gmail's or Outlook.com's own check is asked about before it is
+// analyzed: the answer decides whether that check is trusted. A forwarded attachment can
+// carry a forged one, so the answer is never assumed.
+function mailboxQuestionPending() {
+  return !!MAILBOX_SERVICE_NAMES[_rawMailboxDetected] && !_mailboxAnswered && mailboxChoice() === ''
+    && !document.getElementById('content-mailbox-options').hidden;
+}
+
+function answerMailboxQuestion(useDetected) {
+  if (useDetected && _rawMailboxDetected) document.getElementById('content-mailbox').value = _rawMailboxDetected;
+  _mailboxAnswered = true;
+  invalidateContent();
+  refreshMailboxHint();
+  if (_analyzeAfterMailboxAnswer) {
+    _analyzeAfterMailboxAnswer = false;
+    runContentAnalysis();
+  }
+}
+
+function answerRequested(answer) {
+  _requestedAnswer = answer;
+  runContentAnalysis();
+}
+
+function resetContentAnswers() {
+  _mailboxAnswered = false;
+  _analyzeAfterMailboxAnswer = false;
+  _requestedAnswer = '';
 }
 
 function chooseDetectedMailbox() {
   if (!_rawMailboxDetected) return;
   document.getElementById('content-mailbox').value = _rawMailboxDetected;
+  _mailboxAnswered = true;
   invalidateContent();
   refreshMailboxHint();
 }
@@ -108,6 +147,7 @@ function clearRawEmail() {
   window.PhishGuardVision?.cancel();
   document.getElementById('raw-email-file').value = '';
   _rawMailboxDetected = '';
+  resetContentAnswers();
   setMailboxOptions(null);
   setRawStatus('');
   ['content-subject', 'content-body'].forEach(id => {
@@ -124,7 +164,10 @@ function setupInputEvents() {
     clearBtn.classList.toggle('visible', input.value.length > 0);
   });
   ['content-subject', 'content-body'].forEach(id => {
-    document.getElementById(id).addEventListener('input', invalidateContent);
+    document.getElementById(id).addEventListener('input', () => {
+      _requestedAnswer = '';
+      invalidateContent();
+    });
   });
   document.getElementById('cancel-content-scan')?.addEventListener('click', cancelContentAnalysis);
   document.getElementById('content-ocr-language').addEventListener('change', invalidateContent);
@@ -134,10 +177,14 @@ function setupInputEvents() {
   });
   document.getElementById('content-image-understanding')?.addEventListener('change', invalidateContent);
   document.getElementById('content-mailbox').addEventListener('change', () => {
+    _mailboxAnswered = true;
     invalidateContent();
     refreshMailboxHint();
   });
-  document.getElementById('content-mailbox-use').addEventListener('click', chooseDetectedMailbox);
+  document.getElementById('content-mailbox-use').addEventListener('click', () => answerMailboxQuestion(true));
+  document.getElementById('content-mailbox-decline').addEventListener('click', () => answerMailboxQuestion(false));
+  document.getElementById('content-requested-yes').addEventListener('click', () => answerRequested('yes'));
+  document.getElementById('content-requested-no').addEventListener('click', () => answerRequested('no'));
   document.getElementById('content-accuracy-rerun').addEventListener('click', () => {
     chooseDetectedMailbox();
     runContentAnalysis();
@@ -184,6 +231,7 @@ function setupInputEvents() {
         _visualFile = file || null;
         _rawMailboxDetected = file && (/\.eml$/i.test(file.name) || file.type === 'message/rfc822')
           ? detectMailboxService(source) : '';
+        resetContentAnswers();
         setMailboxOptions(file);
         refreshEnhancedOptions();
         setRawStatus(file ? { key: 'content.file.loaded', params: { name: file.name } } : '');
@@ -288,7 +336,14 @@ function clearContent() {
 }
 
 function buildContentPayload(subject, body, rawEmail) {
-  return rawEmail ? { raw_email: rawEmail } : { subject, body, raw_email: '' };
+  const payload = rawEmail ? { raw_email: rawEmail } : { subject, body, raw_email: '' };
+  return _requestedAnswer ? { ...payload, requested: _requestedAnswer } : payload;
+}
+
+function emlQuery() {
+  const params = [['mailbox', mailboxChoice()], ['requested', _requestedAnswer]]
+    .filter(([, value]) => value).map(([key, value]) => `${key}=${encodeURIComponent(value)}`);
+  return params.length ? '?' + params.join('&') : '';
 }
 
 async function runContentAnalysis() {
@@ -304,6 +359,13 @@ async function runContentAnalysis() {
     setError('content-error', t('content.error.empty'));
     document.getElementById('content-body').classList.add('shake');
     setTimeout(() => document.getElementById('content-body').classList.remove('shake'), 500);
+    return;
+  }
+
+  if (mailboxQuestionPending()) {
+    _analyzeAfterMailboxAnswer = true;
+    refreshMailboxHint({ answerFirst: true });
+    document.getElementById('content-mailbox-use').focus?.();
     return;
   }
 
@@ -334,11 +396,12 @@ async function runContentAnalysis() {
       if (requestId !== _contentRequestId) return;
       recognitionPayload = payload;
       const mailbox = mailboxChoice();
-      data = await postJSON('/api/analyze-visual', payload.eml_base64 && mailbox ? {...payload, mailbox} : payload, request);
+      const answers = { ...(payload.eml_base64 && mailbox ? { mailbox } : {}),
+        ...(_requestedAnswer ? { requested: _requestedAnswer } : {}) };
+      data = await postJSON('/api/analyze-visual', { ...payload, ...answers }, request);
     } else {
       data = _rawEmailSource
-        ? await postRequest('/api/analyze-eml' + (mailboxChoice() ? `?mailbox=${encodeURIComponent(mailboxChoice())}` : ''),
-          _rawEmailSource, 'message/rfc822', request)
+        ? await postRequest('/api/analyze-eml' + emlQuery(), _rawEmailSource, 'message/rfc822', request)
         : await postJSON('/api/analyze-content', buildContentPayload(subject, body, ''), request);
     }
     if (requestId !== _contentRequestId) return;

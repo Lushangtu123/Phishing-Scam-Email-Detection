@@ -2065,9 +2065,17 @@ test('an alerting result suggests the original .eml, or rerunning with the detec
   const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
     + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
   await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'mail.eml', arrayBuffer: async () => raw }] } });
+  // The reader is asked first; nothing is sent until they answer.
+  const sent = requests.length;
   await context.runContentAnalysis();
+  assert.equal(requests.length, sent);
+  assert.equal(elements.get('content-mailbox-hint').hidden, false);
+  assert.match(elements.get('content-mailbox-hint-text').textContent, /Did you download it from Outlook\.com yourself\? Answer this first/);
+  await elements.get('content-mailbox-decline').listeners.click();
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(requests.at(-1).url, '/api/analyze-visual');
   assert.equal(requests.at(-1).body.mailbox, undefined);
+  assert.equal(elements.get('content-mailbox-hint').hidden, true);
   assert.equal(elements.get('content-accuracy-rerun').hidden, false);
   assert.match(elements.get('content-accuracy-rerun').textContent, /Outlook\.com/);
   await elements.get('content-accuracy-rerun').listeners.click();
@@ -2096,6 +2104,8 @@ test('a model-driven alert says the text model raised it, without changing the v
     + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
   await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'mail.eml', arrayBuffer: async () => raw }] } });
   await context.runContentAnalysis();
+  await elements.get('content-mailbox-decline').listeners.click();
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.match(elements.get('content-accuracy-tip-text').textContent, /^This alert comes mainly from the text model.*Outlook\.com/);
   assert.equal(elements.get('content-accuracy-rerun').hidden, false);
 
@@ -2145,4 +2155,70 @@ test('the mail-type note names scam tactics or advertising beside the verdict', 
   result = { ...contentResult('No Phishing Indicators Found'), risk_level: 'safe', mail_type: null };
   await context.runContentAnalysis();
   assert.equal(note.hidden, true);
+});
+
+test('an .eml topped by a service check is asked about before it is analyzed', async () => {
+  const requests = [];
+  const { context, elements } = loadFrontend({ fetch: async (url, options) => {
+    requests.push({ url, body: JSON.parse(options.body) });
+    return response({ ...contentResult('Low Risk — Minor Concerns'), risk_level: 'low' });
+  } });
+  context.setupInputEvents();
+  const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
+    + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
+  const load = name => elements.get('raw-email-file').listeners.change(
+    { target: { files: [{ name, arrayBuffer: async () => raw }] } });
+  await load('mail.eml');
+  await context.runContentAnalysis();
+  assert.equal(requests.length, 0);
+  assert.match(elements.get('content-mailbox-hint-text').textContent, /Answer this first/);
+  assert.equal(elements.get('content-mailbox-decline').textContent, 'No, or not sure');
+  await elements.get('content-mailbox-use').listeners.click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(requests.at(-1).body.mailbox, 'outlook');
+  assert.equal(elements.get('content-mailbox-hint').hidden, true);
+
+  // A new file is asked about again.
+  await load('other.eml');
+  elements.get('content-mailbox').value = '';
+  await context.runContentAnalysis();
+  assert.equal(requests.length, 1);
+  // Choosing in the menu answers the question too.
+  elements.get('content-mailbox').listeners.change();
+  await context.runContentAnalysis();
+  assert.equal(requests.length, 2);
+  assert.equal(requests.at(-1).body.mailbox, undefined);
+});
+
+test('a model-driven account notice asks whether it was requested and sends the answer', async () => {
+  const requests = [];
+  const { context, elements } = loadFrontend({ fetch: async (url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push({ url, body });
+    return response(body.requested
+      ? { ...contentResult('Low Risk — Requested Account Notice'), risk_level: 'low', requested_question: false }
+      : { ...contentResult('High Risk — Model Signal Needs Review'), risk_level: 'high', fusion_basis: 'model_led',
+          requested_question: true });
+  } });
+  context.setupInputEvents();
+  elements.get('content-subject').value = 'Reset your password';
+  elements.get('content-body').value = 'We received a request to reset the password for your account.';
+  await context.runContentAnalysis();
+  const question = elements.get('content-requested');
+  assert.equal(question.hidden, false);
+  assert.match(elements.get('content-requested-text').textContent, /Did you request it yourself just now\?/);
+  assert.equal(requests.at(-1).body.requested, undefined);
+
+  await elements.get('content-requested-yes').listeners.click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(requests.at(-1).url, '/api/analyze-content');
+  assert.equal(requests.at(-1).body.requested, 'yes');
+  assert.equal(question.hidden, true);
+  assert.equal(elements.get('crb-title').textContent, 'Low Risk — Requested Account Notice');
+
+  // Editing the text drops the earlier answer.
+  elements.get('content-body').listeners.input();
+  await context.runContentAnalysis();
+  assert.equal(requests.at(-1).body.requested, undefined);
+  assert.equal(question.hidden, false);
 });

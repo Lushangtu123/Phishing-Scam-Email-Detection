@@ -43,6 +43,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from typing import Literal
+
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from config import load_settings
@@ -3106,6 +3108,38 @@ def _advertising_terms(text: str) -> list[str]:
     return found
 
 
+# Account notices the reader may have asked for a moment ago: one-time codes, password
+# resets, sign-in alerts, email confirmation. On these the text model alone raises most
+# of its false alerts, and only the reader knows whether they requested it.
+_ACCOUNT_NOTICE = re.compile(
+    r"\b(?:verification|security|login|log-in|sign[- ]in|one[- ]time|confirmation|authentication|access|passcode)"
+    r"\s+code\b|\byour code is\b|\breset (?:your )?password\b|\bpassword (?:reset|changed?)\b"
+    r"|\b(?:confirm|verify) (?:your )?(?:email|e-mail)(?: address)?\b|\bnew (?:sign[- ]in|login|device)\b|\bsigned in\b"
+    r"|验证码|重置密码|修改密码|登录提醒|新设备登录|确认(?:您的|你的)?邮箱", re.IGNORECASE)
+
+
+def _apply_requested_answer(result: dict, requested: str) -> None:
+    """Ask, or apply the answer, for a model-driven alert on an account notice.
+
+    Only an alert resting on the text model qualifies: no rule, sender, link or structure
+    finding set a Medium floor. "yes" lowers it to Low with a reminder to check the
+    sender and links; "no" keeps it and says why an unrequested notice matters.
+    """
+    notice = result.pop('account_notice', False)
+    model_driven = (result.get('risk_level') in {'medium', 'high'}
+                    and result.get('fusion_basis') in {'model_only', 'model_led'}
+                    and result.get('risk_floor') in {'safe', 'low'})
+    result['requested_question'] = bool(notice and model_driven and not requested)
+    if not (notice and model_driven):
+        return
+    if requested == 'yes':
+        result['risk_level'] = 'low'
+        result['risk_label'] = 'Low Risk — Requested Account Notice'
+        result['extra_indicators'].append(indicator('info', 'content.requested_notice'))
+    elif requested == 'no':
+        result['extra_indicators'].append(indicator('medium', 'content.unrequested_notice'))
+
+
 def _advertising(result: dict, bulk_mail: bool, *, strict: bool = False) -> bool:
     # Scams dressed as deals ("90% OFF", "limited-time offer") carry scam wording too;
     # such mail is never called advertising, whatever its sales terms.
@@ -3571,6 +3605,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         "safety_signals":    safety_found,
         "url_count":         url_count,
         "advertising_terms": _advertising_terms(analysis_text),
+        "account_notice": bool(_ACCOUNT_NOTICE.search(analysis_text)),
         "has_ip_url":        _has_ip_url(raw_text, links=links),
         "has_shortener":     _has_shortener_url(raw_text, links=links),
         "risk_floor":        risk_floor,
@@ -3581,6 +3616,8 @@ class ContentRequest(BaseModel):
     subject: str = Field(default="", max_length=500)
     body: str = Field(default="", max_length=50_000)
     raw_email: str = Field(default="", max_length=60_000)
+    # The reader's answer to "Did you just request this?" for a model-driven account notice.
+    requested: Literal['', 'yes', 'no'] = ''
 
 
 def fuse_content_risk(
@@ -3699,13 +3736,17 @@ async def analyze_eml_endpoint(request: Request):
     if not raw.strip():
         raise HTTPException(status_code=400, detail='Email file is empty')
     # Minimal ASGI scopes (tests, the runtime smoke check) may omit the query string.
-    mailbox = parse_qs(request.scope.get('query_string', b'').decode('latin-1')).get('mailbox', [''])[-1]
+    query = parse_qs(request.scope.get('query_string', b'').decode('latin-1'))
+    mailbox = query.get('mailbox', [''])[-1]
     if mailbox not in {'', *MAILBOX_AUTHSERV_IDS}:
         raise HTTPException(status_code=400, detail='Unsupported mailbox; use gmail, outlook or leave it empty')
+    requested = query.get('requested', [''])[-1]
+    if requested not in {'', 'yes', 'no'}:
+        raise HTTPException(status_code=400, detail='Unsupported requested answer; use yes, no or leave it empty')
     structure = await _run_analysis(analyze_raw_email, bytes(raw),
                                     trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
                                     mailbox_provider=mailbox or None)
-    return await _analyze_content(ContentRequest(), structure)
+    return await _analyze_content(ContentRequest(requested=requested), structure)
 
 
 async def _analyze_content(
@@ -4045,6 +4086,7 @@ async def _analyze_content(
             result['risk_level'] = 'unknown'
             result['risk_label'] = 'Analysis Incomplete — Risk Undetermined'
             result['combined_phishing_score'] = None
+    _apply_requested_answer(result, request.requested)
     result['mail_type'] = _mail_type(result, bool(structure and structure.get('bulk_mail')))
     result.pop('advertising_terms', None)
     return JSONResponse(annotate_content(result))
@@ -4087,7 +4129,7 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
     if not (raw or payload.subject.strip() or payload.body.strip() or payload.observations or payload.warnings):
         raise HTTPException(400, 'Image evidence or an email is required')
     base = json.loads((await _analyze_content(
-        ContentRequest(subject=payload.subject, body=payload.body), structure,
+        ContentRequest(subject=payload.subject, body=payload.body, requested=payload.requested), structure,
         observe_sender_history=observe_sender_history, allow_empty=True,
     )).body)
     findings = []

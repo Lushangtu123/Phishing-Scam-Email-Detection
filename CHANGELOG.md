@@ -20,6 +20,36 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 16:00 PT] — Ask where an .eml came from, and whether an account notice was requested
+
+### Why
+- Outlook.com downloads cannot be verified cryptographically: every DKIM body hash fails after "Download as EML". So 27 genuine downloads kept alerting unless the reader found the mailbox menu.
+- Most model-driven false alerts on genuine mail are account notices, and only the reader knows whether they requested one.
+
+### Files changed
+- `website/app.py`:
+  - `requested` on `ContentRequest` (and `?requested=` on `/api/analyze-eml`);
+  - `_ACCOUNT_NOTICE` (English and Chinese);
+  - `_apply_requested_answer` sets `requested_question` for a model-driven alert on an account notice. On "yes" it lowers the result to "Low Risk — Requested Account Notice"; on "no" it keeps the alert with `content.unrequested_notice`.
+- `website/visual_evidence.py`: `requested` on `VisualRequest`.
+- `website/static/app-content.js`:
+  - the detected-mailbox hint becomes a question (Yes / No, or not sure), asked before analysis;
+  - menu choices answer it, and a new file is asked again;
+  - the requested answer is sent and reset when the text changes.
+- `website/static/app-content-render.js`, `index.html`, `style.css`, `i18n.js`, `i18n-zh.js`: the requested question under the banner, the new risk label and messages. Asset versions bumped.
+- Tests:
+  - `website/tests/test_requested_notice.py`: asking, yes and no, independent evidence never answered away, other mail not asked, endpoint validation;
+  - `website/static/app.test.mjs`: both questions; two existing tests now answer the mailbox question.
+- `README.md`, `docs/evaluation.md`: the questions and their measurement.
+
+### Effect
+- Without an answer, every verdict is unchanged.
+- With "yes" to the mailbox question, the 92 genuine downloads alert 3 times.
+- With "yes" to the requested question:
+  - genuine `.eml` alerts 27 → 14, pasted 45 → 21;
+  - UniqueData 42 → 38.
+- 127 Nazario phishing messages would be asked. A truthful "no" keeps them alerting.
+
 ## [2026-10-01 15:00 PT] — Trust Gmail's ARC-sealed checks without a mailbox choice
 
 ### Why

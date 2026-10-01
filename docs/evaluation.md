@@ -1408,6 +1408,47 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Asking the reader: mailbox source and requested notices (2026-10-01)
+
+Two problems remained:
+- 27 Outlook.com downloads alerted without a mailbox choice.
+- Pasted genuine mail alerted on the text model.
+
+**Outlook.com downloads cannot be verified.** All 40 carry DKIM signatures, and none
+verifies after "Download as EML": all 58 signatures fail on the body hash, because
+Outlook re-encodes the body. Verifying the header part alone would be unsafe: a
+genuine signed header block can be reused with a replaced body. So the page now asks
+whether the file was downloaded from the detected service before it analyzes. With
+"yes", the 92 genuine downloads alert 3 times, as with a chosen mailbox.
+
+**Model-driven alerts on genuine mail are mostly account notices.** Among model-driven
+alerts:
+- 16 of 17 genuine `.eml` alerts are codes, resets, sign-in alerts or email
+  confirmations;
+- so are 28 of 35 genuine alerts when pasted as text;
+- 5 of 39 UniqueData alerts are;
+- 133 of 1,716 Nazario alerts are.
+
+Only the reader knows whether they asked for the notice, and phishing relies on
+notices they did not ask for. Counts with the served model, if every asked reader
+answers "yes":
+
+| Cohort | Alerts | Asked | Alerts after "yes" |
+|---|---|---|---|
+| 92 genuine downloads, `.eml`, no mailbox | 27 | 13 | 14 |
+| 92 genuine downloads, pasted as text | 45 | 24 | 21 |
+| UniqueData legitimate (text) | 42 | 4 | 38 |
+| PhishFuzzer recent legitimate seeds (text) | 72 | 10 | 62 |
+| PhishFuzzer recent-seed LLM legitimate (text) | 466 | 75 | 391 |
+| Nazario phishing (`.eml`) | 3,318 | 127 | 3,191 |
+| PhishFuzzer recent phishing seeds / LLM variants | 90 / 567 | 3 / 17 | 87 / 550 |
+
+The phishing rows show the cost only if a reader answers "yes" to a notice they
+never requested. A truthful "no" keeps the alert and adds why an unrequested notice
+matters. The gain is concentrated in account mail; public legitimate sets, which are
+mostly statements, orders and newsletters, improve less. Without an answer, every
+verdict is unchanged.
+
 ### Benign-notice wording, and Gmail's ARC seal (2026-10-01)
 
 Without a mailbox choice, 43 of the 92 genuine downloads alerted, most of them on the

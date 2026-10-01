@@ -251,8 +251,10 @@ window.PhishGuardI18n = (() => {
     'content.verify.channel': "{organization}: don’t use this email’s links, buttons or phone numbers. Open the official app, or type {website} into your browser yourself.",
     'content.verify.phone': "Official customer service: {numbers}",
     'content.verify.source': "Source: {organization} official page",
-    'content.mailbox.detected': "This file carries {service}’s own sender check at the top. If you downloaded it from {service} yourself, choose {service} for a more reliable result.",
-    'content.mailbox.use': "Use {service}",
+    'content.mailbox.detected': 'This file carries {service}’s own sender check at the top. Did you download it from {service} yourself?',
+    'content.mailbox.use': 'Yes, use {service}’s check',
+    'content.mailbox.answerFirst': 'Answer this first: it decides whether {service}’s check can be trusted.',
+    'content.mailbox.decline': 'No, or not sure',
     'content.tip.title': "A more reliable result",
     'content.tip.upload': "Upload the original email (.eml) and choose where you downloaded it (Gmail or Outlook.com). The check can then use your mail service’s own sender verification, which pasted text and screenshots lose. Genuine account and service emails are then far less often flagged.",
     'content.tip.choose': "This file carries {service}’s own sender check. If you downloaded it from {service} yourself, analyze it again with “Downloaded from: {service}”.",
@@ -319,6 +321,7 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.mediumModel': 'Medium Risk — Model Signal Needs Review',
     'content.riskLabel.low': 'Low Risk — Minor Concerns',
     'content.riskLabel.lowVerified': 'Low Risk — Verified Official Sender',
+    'content.riskLabel.lowRequested': 'Low Risk — Requested Account Notice',
     'content.riskLabel.safe': 'No Phishing Indicators Found',
     'content.riskLabel.remoteUnchecked': 'No Indicators in Inspected Text — Remote Image Unchecked',
     'content.riskLabel.incomplete': 'Analysis Incomplete — Risk Undetermined',
@@ -349,6 +352,9 @@ window.PhishGuardI18n = (() => {
     'content.mlLabel.legit': 'Likely Legitimate',
     'content.sub.modelOnly': 'Model-only risk signal; no independent rule, sender, or link evidence was found.',
     'content.sub.modelLed': 'Model-led risk signal; no strong independent rule, sender, or link evidence was found.',
+    'content.requested.question': 'This looks like an account notice (a code, password reset or sign-in alert), and only the text model flagged it. Did you request it yourself just now?',
+    'content.requested.yes': 'Yes, I just requested it',
+    'content.requested.no': 'No, I did not',
     'content.type.phishing': 'Looks like phishing or a scam: {tactics}.',
     'content.type.separator': ', ',
     'content.type.ad': 'Looks like advertising or marketing mail, not phishing. If you signed up with this sender you can unsubscribe; otherwise mark it as spam without clicking its links.',
@@ -841,6 +847,8 @@ window.PhishGuardI18n = (() => {
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
     'server.content.callback_request': "Asks you to call {number} to cancel, dispute or refund a charge; callback scams use fake support numbers. Call only the number on the organization's official website, app or card.",
     'server.content.subsidy_lure': 'A subsidy, allowance or tax-refund notice pressures you to claim it at once or by scanning a code. Government bodies and employers do not pay out this way by email.',
+    'server.content.requested_notice': 'You said you requested this account notice just now, so a text-model alert alone is not treated as phishing. Still check that the sender and any link belong to the service, and never share the code with anyone.',
+    'server.content.unrequested_notice': 'You did not request this account notice. An unrequested code, password reset or sign-in alert can mean someone is trying your account, or that the message is phishing: don\'t use its links; open the service\'s own site or app instead.',
     'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
     'server.content.sensitive_request.one_time_code': "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
     'server.content.sensitive_request.password_pin': "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
@@ -1300,7 +1308,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=22'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=23'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1425,7 +1433,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'safe', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'lowRequested', 'safe', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {
