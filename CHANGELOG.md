@@ -20,6 +20,46 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 19:00 PT] — Read common mail-template CSS instead of leaving genuine HTML undetermined
+
+### Why
+- With a mailbox chosen, 10 of the 92 genuine downloads ended undetermined; without one, 15. All were blocked by HTML rendering uncertainty:
+  - Google and LinkedIn templates hide a tag inside a class (`.desktop_hide table`, `.inline-button table`). A hiding selector without its own class or id left the whole stylesheet unmodelled.
+  - A Cloudflare template's Office settings block ends `<!` and `[endif]` on separate lines (a formatter's wrap). The conditional was not closed.
+  - Descriptive image alt text (three words or more) made every view unresolved, though only short instructions ("Enter password") are beyond the model.
+  - An MJML mobile menu, shown when its checkbox is ticked, was read as an ambiguous cascade.
+
+### Files changed
+- `website/app.py`:
+  - `_hidden_selector_targets`: a subject without tokens is reached through the nearest compound with tokens, when a descendant or child combinator follows that compound. The element's whole content counts as possibly hidden. A rule that shows counts only its subject's own tokens.
+  - `_stylesheet_hidden_targets`: interaction states (`:checked`, `:hover`, `:focus`, `:active`, `:target`) are one more context, and they are removed before selectors are compared.
+  - `_expand_mso_comments` accepts whitespace inside `<![endif]`.
+  - Image alt text:
+    - descriptive fallback text of linked images becomes an "images off" rendering that the model scores;
+    - fallback instructions stay unresolved;
+    - `warning.image_alt_fallback` stops blocking once every view agrees.
+- Tests:
+  - `website/tests/test_rendering_template_patterns.py`: 7 tests, including padding hidden through an ancestor (still High, callback) and a shown child that does not show its hidden parent;
+  - `website/tests/test_rendering_views.py`: the `:hover` rule in the fixture is now its own view.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, `bb24745` against this change:
+
+| Cohort | Alerts / undetermined / Safe or Low before | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 10 / 79 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 15 / 50 | 27 / 9 / 56 |
+| Nazario 2015–25 phishing (3,466) | 3,318 / 139 / 9 | 3,319 / 138 / 9 |
+| 87 public HTML templates | — | one welcome template undetermined → Low |
+| DataCon 2023 day 1 (611) | — | one Lookfantastic sales mail undetermined → Low (advertising) |
+
+- Unchanged: the pasted genuine text, PhishFuzzer recent, UniqueData and Postmark.
+- Still undetermined with a mailbox (6):
+  - LinkedIn ×2 and AliExpress ×2 now render fully, but the model alerts only on the new view (47–68%). They keep the earlier abstention.
+  - Cloudflare ×1 and Adobe ×1 score at the threshold (36–37% against 37.4%).
+- Tests: 888 passed, 10 skipped.
+
 ## [2026-10-01 18:00 PT] — Fix five findings from the review at b84c605
 
 ### Why

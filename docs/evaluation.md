@@ -1408,6 +1408,41 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Mail-template CSS that left genuine HTML undetermined (2026-10-01)
+
+With a mailbox chosen, 10 of the 92 genuine downloads were undetermined, and without
+one, 15. All were blocked by rendering uncertainty in their HTML part.
+
+| Cause | Messages (mailbox chosen) | Change |
+|---|---|---|
+| A tag hidden inside a class: `.desktop_hide table`, `.inline-button table`, `.image_block img+div` | Google ×3, LinkedIn ×2 | Reached through the class: that element's whole content counts as possibly hidden |
+| `<!` and `[endif]` wrapped onto separate lines around Office settings | Cloudflare ×2 | The conditional closes |
+| Descriptive alt text on linked images | LinkedIn ×2 | Scored as an "images off" view; instructions stay unresolved |
+| MJML menu shown when its checkbox is ticked | AliExpress ×2 | `:checked` and other interaction states are a context |
+
+A rule that shows counts only its subject's own class or id. Showing `.menu > a`
+cannot show a hidden `.menu`: a first version let the MJML menu's `> a` rule appear
+to show the whole menu container.
+
+| Cohort | Before: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 10 / 79 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 15 / 50 | 27 / 9 / 56 |
+| Nazario 2015–25 phishing (3,466) | 3,318 / 139 / 9 | 3,319 / 138 / 9 |
+
+- Unchanged: pasted genuine text, PhishFuzzer recent, UniqueData and Postmark.
+- Among the 87 public HTML templates, one welcome template went from undetermined
+  to Low.
+- In DataCon 2023 day 1, one Lookfantastic sales mail went from undetermined to Low
+  (advertising).
+
+Six genuine downloads stay undetermined with a mailbox:
+- LinkedIn ×2 and AliExpress ×2 now render fully, but the model alerts on that view
+  alone (47–68%), while the plain-text alternative or the earlier reading did not.
+  They keep the earlier abstention.
+- Cloudflare ×1 and Adobe ×1 score at the threshold (36–37% against 37.4%), so their
+  views disagree.
+
 ### Review at b84c605 (2026-10-01)
 
 A read-only review supplied synthetic fixtures for five findings. All five reproduced

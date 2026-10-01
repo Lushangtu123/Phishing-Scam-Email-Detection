@@ -531,15 +531,24 @@ scores the HTML view three ways:
 - the strictest non-Outlook view, without text a stylesheet or zero-size or
   transparent style may hide, and without Outlook-only (`[if mso]`) branches;
 - the strictest Outlook view, without content hidden from Outlook
-  (`<!--[if !mso]><!-->`).
+  (`<!--[if !mso]><!-->`);
+- with images off, the visible text plus the fallback descriptions of linked
+  images (alt text of at least three words).
 
 Uncertain elements are located when every hiding rule's target selector carries
 a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
-`*[class="x"]` qualify, while `div`, `*` and `:not(...)` do not.
+`*[class="x"]` qualify, while `div`, `*` and `:not(...)` do not. A bare tag inside
+such an element (`.inline-button table`, `.image_block img+div`) is reached through
+it, so that element's whole content counts as possibly hidden: more than the rule
+hides, never less. A rule that shows counts only its subject's own class or id:
+showing `.menu > a` does not show a hidden `.menu`. A conditional comment whose
+closing `<![endif]` a formatter wrapped across lines still closes.
 
 - Every combination of `@media` (or other at-rule) contexts is its own view,
   because conditions can hold together (`max-width:600px` and `min-width:400px`
-  at 500px). Each view replays the rules in source order, a repeated context at
+  at 500px). Interaction states (`:checked`, `:hover`, `:focus`, `:active`,
+  `:target`) are one more context, so a ticked mobile menu is a view of its own.
+  Each view replays the rules in source order, a repeated context at
   each of its positions; `!important` beats a later normal declaration, and
   `display` and `visibility` are separate properties. A class or id hidden by one
   selector and shown by another (unless both are a lone `.name` or `#name`, or the
@@ -562,7 +571,7 @@ a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
 - An alert that only a newly scored view would raise keeps the earlier
   abstention. On such HTML the model alone raised 52 false alerts against 62
   phishing catches (docs/evaluation.md).
-- Image fallback text stays unresolved: a short instruction such as "Enter
+- An image fallback instruction stays unresolved: a short text such as "Enter
   password" is beyond the model's judgement.
 
 Where every hiding rule's targets can be located, text rules read the text no

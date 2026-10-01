@@ -1606,7 +1606,8 @@ def _expand_mso_comments(text: str, parse_warnings=None, *, mark=False, unresolv
                 return
             if parse_warnings is not None and _MSO_CONDITIONAL_WARNING not in parse_warnings:
                 parse_warnings.append(_MSO_CONDITIONAL_WARNING)
-            conditional = re.fullmatch(r'\[if\s+[^\]]+\]>(.*?)<!\[endif\]',
+            # Formatters may wrap the closing tag: "<!" and "[endif]" on separate lines.
+            conditional = re.fullmatch(r'\[if\s+[^\]]+\]>(.*?)<!\s*\[endif\s*\]',
                                        data.strip(), flags=re.IGNORECASE | re.DOTALL)
             if not conditional:
                 # <!--[if mso]><!--> content <!--<![endif]--> shows everywhere; any other
@@ -2448,38 +2449,68 @@ def _split_selectors(prelude: str) -> list[str] | None:
     return selectors if depth == 0 else None
 
 
-def _hidden_selector_targets(selector: str):
-    """Class names, ids and class-attribute fragments one of which a matched element must carry.
-
-    Returns () for a selector that only styles generated content (::before), and None
-    when any element could match (a bare tag, *, :not(), an attribute other than class/id).
-    """
-    # The subject is the last compound selector; combinators inside [] or () do not count.
-    subject, depth = [], 0
-    for character in selector.strip():
-        depth += (character in '([') - (character in ')]')
-        if depth == 0 and (character.isspace() or character in '>+~'):
-            subject = []
-        else:
-            subject.append(character)
-    subject = ''.join(subject)
-    if not subject:
-        return None
-    if re.search(r'::|:(?:before|after|first-line|first-letter|marker|placeholder|selection)\b', subject, re.IGNORECASE):
-        return ()
-    subject = re.sub(r':not\([^)]*\)', '', subject, flags=re.IGNORECASE)
-    fragments = re.findall(r'\[\s*class\s*[~|^$*]?=\s*([^\]\s]+)\s*\]', subject, re.IGNORECASE)
-    ids = re.findall(r'\[\s*id\s*=\s*([^\]\s]+)\s*\]', subject, re.IGNORECASE)
-    classes = re.findall(r'\.(-?[_a-zA-Z][\w-]*)', subject)
-    ids += re.findall(r'#(-?[_a-zA-Z][\w-]*)', subject)
-    if not (classes or ids or fragments):
-        return None
+def _compound_tokens(compound: str) -> list:
+    """The class, id and class-attribute tokens a compound selector requires."""
+    compound = re.sub(r':not\([^)]*\)', '', compound, flags=re.IGNORECASE)
+    fragments = re.findall(r'\[\s*class\s*[~|^$*]?=\s*([^\]\s]+)\s*\]', compound, re.IGNORECASE)
+    ids = re.findall(r'\[\s*id\s*=\s*([^\]\s]+)\s*\]', compound, re.IGNORECASE)
+    classes = re.findall(r'\.(-?[_a-zA-Z][\w-]*)', compound)
+    ids += re.findall(r'#(-?[_a-zA-Z][\w-]*)', compound)
     return ([('class', name.casefold()) for name in classes] + [('id', name.casefold()) for name in ids]
             + [('fragment', fragment.strip('"\'').casefold()) for fragment in fragments])
 
 
+def _hidden_selector_targets(selector: str, *, ancestors: bool = True):
+    """Class names, ids and class-attribute fragments one of which a matched element,
+    or an ancestor of it, must carry.
+
+    Returns () for a selector that only styles generated content (::before), and None
+    when any element could match (a bare tag, *, :not(), an attribute other than class/id).
+    A subject without tokens inside a compound that has them (".inline-button table",
+    ".desktop_hide table" in mail templates) lies within an element carrying them, so
+    that element's whole content counts as reachable: more than the rule hides, never less.
+    """
+    # Compounds and the combinators between them; combinators inside [] or () do not count.
+    compounds, combinators, current, depth, pending = [], [], [], 0, None
+    for character in selector.strip():
+        depth += (character in '([') - (character in ')]')
+        if depth == 0 and (character.isspace() or character in '>+~'):
+            if current:
+                compounds.append(''.join(current))
+                current = []
+                pending = ' '
+            if character in '>+~':
+                pending = character
+        else:
+            if pending and compounds:
+                combinators.append(pending)
+            pending = None
+            current.append(character)
+    if current:
+        compounds.append(''.join(current))
+    if not compounds or len(combinators) != len(compounds) - 1:
+        return None
+    subject = compounds[-1]
+    if re.search(r'::|:(?:before|after|first-line|first-letter|marker|placeholder|selection)\b', subject, re.IGNORECASE):
+        return ()
+    tokens = _compound_tokens(subject)
+    if tokens or not ancestors:
+        return tokens or None
+    # The nearest compound with tokens followed by a descendant or child combinator
+    # contains the subject: later sibling steps stay inside its content.
+    for index in range(len(compounds) - 2, -1, -1):
+        ancestor = _compound_tokens(compounds[index])
+        if ancestor and combinators[index] in {' ', '>'}:
+            return ancestor
+    return None
+
+
 # Media contexts whose every combination is scored (2**5 = 32 views); more is unmodelled.
 _MAX_MEDIA_CONTEXTS = 5
+# States a reader brings about (a ticked menu checkbox, a hovered link). Rules that need
+# one apply in a context of their own, interaction, like an @media condition.
+_INTERACTION_STATES = re.compile(r':(?:checked|hover|focus|focus-within|focus-visible|active|target)(?![\w-])',
+                                 re.IGNORECASE)
 
 
 def _declares_shown(block: str) -> bool:
@@ -2546,16 +2577,23 @@ def _stylesheet_hidden_targets(css: str):
                 if opacity or uncertain:
                     declared.append(('other', True, any(values.get(name, ('', False))[1]
                                                         for name in ('opacity', 'font-size', 'color'))))
-                context = ' '.join(re.sub(r'\s+', ' ', item) for item in preludes if item.startswith('@'))
+                media = ' '.join(re.sub(r'\s+', ' ', item) for item in preludes if item.startswith('@'))
                 for selector in _split_selectors(prelude) or [None]:
+                    context = media
+                    if selector is not None and _INTERACTION_STATES.search(selector):
+                        selector = _INTERACTION_STATES.sub('', selector)
+                        context = (media, '#interaction')
                     targets = None if selector is None else _hidden_selector_targets(selector)
                     if targets is None:
                         if hides:
                             return None
                         continue
+                    # Showing ".menu > a" does not show a hidden ".menu": only the subject's
+                    # own tokens count for a declaration that shows.
+                    shown_targets = _hidden_selector_targets(selector, ancestors=False) or ()
                     selector = re.sub(r'\s+', ' ', selector.strip())
                     compound = None if re.fullmatch(r'[.#]-?[_a-zA-Z][\w-]*', selector) else selector
-                    events.extend((context, name, state, important, frozenset(targets), compound)
+                    events.extend((context, name, state, important, frozenset(targets if state else shown_targets), compound)
                                   for name, state, important in declared)
         index += 1
     rules_for = {}
@@ -2566,7 +2604,9 @@ def _stylesheet_hidden_targets(css: str):
                           if len({state for state, _compound in rules}) > 1
                           and len({compound for _state, compound in rules}) > 1)
     union = {token for _context, _name, state, _important, targets, _compound in events if state for token in targets}
-    contexts = list(dict.fromkeys(context for context, *_rest in events if context))
+    def conditions(context):
+        return [item for item in (context if isinstance(context, tuple) else (context,)) if item]
+    contexts = list(dict.fromkeys(item for context, *_rest in events for item in conditions(context)))
     if len(contexts) > _MAX_MEDIA_CONTEXTS:
         return None
     views, cascades = [], []
@@ -2574,7 +2614,7 @@ def _stylesheet_hidden_targets(css: str):
         active = {context for position, context in enumerate(contexts) if mask >> position & 1}
         winners = {}
         for context, name, state, important, targets, _compound in events:
-            if context and context not in active:
+            if not set(conditions(context)) <= active:
                 continue
             for token in targets:
                 if (token, name) not in winners or important or not winners[token, name][0]:
@@ -2627,6 +2667,10 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.linked_visible_images = 0
             self.stylesheet_parts = []
             self.conditional_image_alt = False
+            # Fallback text of linked images: instructions stay unresolved; descriptions
+            # are scored as an extra "images off" rendering.
+            self.alt_instruction = False
+            self.alt_descriptions = []
             self.uncertain_inline_style = False
             self.open_paragraph = False
 
@@ -2784,16 +2828,18 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         # should not disable scoring of an otherwise text-rich
                         # email. Longer fallback instructions may change what a
                         # reader sees when images fail or are blocked.
-                        self.conditional_image_alt |= (
-                            bool(re.search(
-                                r'\b(?:enter|provide|send|share|submit|type|verify|confirm|reset|update)\s+'
-                                r'(?:(?:your|the|a)\s+)?(?:password|passcode|otp|one-time password|'
-                                r'credit card number|account)\b', alt, re.IGNORECASE,
-                            ))
-                            or (sum(not char.isspace() for char in alt) >= 12
-                                and (len(re.findall(r'\w+', alt, flags=re.UNICODE)) >= 3
-                                     or bool(non_latin_script_segments(alt, 12))))
-                        )
+                        instruction = bool(re.search(
+                            r'\b(?:enter|provide|send|share|submit|type|verify|confirm|reset|update)\s+'
+                            r'(?:(?:your|the|a)\s+)?(?:password|passcode|otp|one-time password|'
+                            r'credit card number|account)\b', alt, re.IGNORECASE,
+                        ))
+                        description = (sum(not char.isspace() for char in alt) >= 12
+                                       and (len(re.findall(r'\w+', alt, flags=re.UNICODE)) >= 3
+                                            or bool(non_latin_script_segments(alt, 12))))
+                        self.conditional_image_alt |= instruction or description
+                        self.alt_instruction |= instruction
+                        if description and not instruction:
+                            self.alt_descriptions.append(alt)
             if tag not in _HTML_VOID_ELEMENTS:
                 href = dict(attrs).get('href') or ''
                 actionable_anchor = False
@@ -2864,8 +2910,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         # Other plausible renderings, for the model to check that uncertain text cannot
         # change its answer: the strictest non-Outlook and Outlook views (without text a
         # stylesheet or zero-size/transparent style may hide), and the visible text plus
-        # definitely hidden text. None of them replaces the visible text. Image fallback
-        # text stays unresolved: a short instruction such as "Enter password" is beyond
+        # definitely hidden text, and with images off, the visible text plus the fallback
+        # descriptions of linked images. None of them replaces the visible text. A
+        # fallback instruction such as "Enter password" stays unresolved: it is beyond
         # the model's judgement.
         stylesheet = ''.join(collector.stylesheet_parts)
         uncertain = (collector.uncertain_inline_style or collector.conditional_image_alt
@@ -2878,7 +2925,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 views = _collect_html(lambda: TextCollector(targets), text, [], mark=True, unresolved=unresolved)
                 if views.cascade_conflict:
                     unresolved.append('cascade')
-            readings['resolved'] = targets is not None and not unresolved and not collector.conditional_image_alt
+            readings['resolved'] = targets is not None and not unresolved and not collector.alt_instruction
 
             def joined(parts):
                 return re.sub(r'\s+', ' ', ''.join(parts)).strip()
@@ -2892,6 +2939,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 readings.update(strict=joined(views.strict_parts), outlook=joined(views.outlook_parts),
                                 hidden=joined([visible, ' ', *collector.hidden_parts]))
                 readings.update({f'media_{index}': text for index, text in enumerate(readings['media'])})
+                if collector.alt_descriptions:
+                    readings['images_off'] = joined([visible, *(f' {alt} ' for alt in collector.alt_descriptions)])
     if structure_stats is not None:
         structure_stats.update(hidden_characters=collector.hidden_characters,
                                visible_characters=sum(not char.isspace() for char in _strip_invisible_format_controls(visible)),
@@ -4212,7 +4261,7 @@ async def _analyze_content(
         if rendering_resolved and len(kept) == len(views):
             rendering_uncertain = False
             resolved_warnings = {_STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
-                                 _MSO_CONDITIONAL_WARNING}
+                                 _MSO_CONDITIONAL_WARNING, _IMAGE_ALT_FALLBACK_WARNING}
             if hidden_agrees:
                 resolved_warnings.add(_HIDDEN_HTML_TEXT_WARNING)
             if resolved_warnings & set(result['analysis_warnings']):
