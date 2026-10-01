@@ -684,18 +684,24 @@ both, and nothing changes until the reader answers:
   without trusting the check. Choosing in the "Downloaded from" menu also answers it.
   A new file is asked about again. Outlook.com downloads need this, because their
   ARC seals do not survive "Download as EML".
-- **Whether an account notice was requested.** When a result alerts on the text model
-  alone (`fusion_basis` `model_only` or `model_led`, risk floor Safe or Low) and the
-  text is an account notice (a one-time code, password reset, sign-in alert or email
-  confirmation, in English or Chinese), the result carries `requested_question: true`.
-  The page then asks "Did you request it yourself just now?", and the answer is sent
-  with a fresh analysis: `requested` in `/api/analyze-content` and
-  `/api/analyze-visual`, or `?requested=` on `/api/analyze-eml`.
-  - "Yes" lowers the result to **Low Risk — Requested Account Notice**, with a
-    reminder to check the sender and links and never to share the code
+- **Whether a notice is about the reader's own action.** When a result alerts on the
+  text model alone (`fusion_basis` `model_only` or `model_led`, risk floor Safe or Low),
+  the page may ask about the notice. It does when the text describes something the
+  reader would have done themselves, in English or Chinese: a one-time code, password
+  reset, sign-in, email confirmation, new account, order or purchase, job application
+  or support request. The result then carries `requested_question: true`. The page asks
+  "Are you sure you did this yourself just now?", and the answer is sent with a fresh
+  analysis: `requested` in `/api/analyze-content` and `/api/analyze-visual`, or
+  `?requested=` on `/api/analyze-eml`.
+  - Deliveries, payments received, renewals, memberships and statements are left out.
+    A reader expecting a parcel or a payment would say yes to the phishing that
+    imitates them.
+  - "Yes, it was me" lowers the result to **Low Risk — Confirmed as Your Own Action**,
+    with a reminder to check the sender and links and never to share a code
     (`content.requested_notice`).
-  - "No" keeps the alert and explains that an unrequested code or reset can mean
-    someone is trying the account, or phishing (`content.unrequested_notice`).
+  - "No, or not sure" keeps the alert. It explains that an unexpected code, sign-in,
+    account, order or application notice can mean someone is using the account, or
+    phishing (`content.unrequested_notice`).
   - Any rule, sender, link or structure finding at Medium or above means the
     question is never asked, and an answer changes nothing.
 

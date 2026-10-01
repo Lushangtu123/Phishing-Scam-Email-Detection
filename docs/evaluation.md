@@ -1408,6 +1408,35 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Asking about the reader's own actions beyond account codes (2026-10-01)
+
+The remaining model-driven false alerts on pasted UniqueData mail included sign-ins
+written as "signed-in", Steam Guard and GitHub launch codes, new-account welcomes,
+order confirmations, job applications and support-ticket replies. In each case only
+the reader knows whether they did it.
+
+The question therefore now covers these own actions too. A first draft also covered
+deliveries, payments received, memberships and statements. Among the Nazario
+messages it newly asked about were "URGENT: Delivery Suspension Alert for Your UPS
+Shipment", "Payment Successfully Processed" and "Your Membership has expired!", and a
+reader expecting a parcel or payment could truthfully say yes to those. They were
+removed. "Not sure" counts as no.
+
+Counts with the served model, if every asked reader answers "yes":
+
+| Cohort | Alerts | Asked (account codes only → own actions) | Alerts after "yes" |
+|---|---|---|---|
+| 92 genuine downloads, `.eml`, no mailbox | 27 | 13 → 17 | 14 → 10 |
+| 92 genuine downloads, pasted as text | 45 | 24 → 29 | 21 → 16 |
+| UniqueData legitimate (text) | 42 | 4 → 16 | 38 → 26 |
+| PhishFuzzer recent legitimate seeds | 72 | 10 → 14 | 62 → 58 |
+| PhishFuzzer recent-seed LLM legitimate | 466 | 75 → 119 | 391 → 347 |
+| Nazario phishing | 3,318 | 127 → 180 | needs a wrong "yes" |
+| PhishFuzzer recent phishing seeds / LLM variants | 90 / 567 | 3 → 6 / 17 → 34 | needs a wrong "yes" |
+
+The added phishing questions are mostly fake orders ("Your Order of MacBook Air") and
+"unusual sign-in" notices, which a reader who did nothing answers no to.
+
 ### Asking the reader: mailbox source and requested notices (2026-10-01)
 
 Two problems remained:

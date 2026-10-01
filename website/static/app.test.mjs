@@ -2196,7 +2196,7 @@ test('a model-driven account notice asks whether it was requested and sends the 
     const body = JSON.parse(options.body);
     requests.push({ url, body });
     return response(body.requested
-      ? { ...contentResult('Low Risk — Requested Account Notice'), risk_level: 'low', requested_question: false }
+      ? { ...contentResult('Low Risk — Confirmed as Your Own Action'), risk_level: 'low', requested_question: false }
       : { ...contentResult('High Risk — Model Signal Needs Review'), risk_level: 'high', fusion_basis: 'model_led',
           requested_question: true });
   } });
@@ -2206,7 +2206,7 @@ test('a model-driven account notice asks whether it was requested and sends the 
   await context.runContentAnalysis();
   const question = elements.get('content-requested');
   assert.equal(question.hidden, false);
-  assert.match(elements.get('content-requested-text').textContent, /Did you request it yourself just now\?/);
+  assert.match(elements.get('content-requested-text').textContent, /Are you sure you did this yourself just now\?/);
   assert.equal(requests.at(-1).body.requested, undefined);
 
   await elements.get('content-requested-yes').listeners.click();
@@ -2214,7 +2214,7 @@ test('a model-driven account notice asks whether it was requested and sends the 
   assert.equal(requests.at(-1).url, '/api/analyze-content');
   assert.equal(requests.at(-1).body.requested, 'yes');
   assert.equal(question.hidden, true);
-  assert.equal(elements.get('crb-title').textContent, 'Low Risk — Requested Account Notice');
+  assert.equal(elements.get('crb-title').textContent, 'Low Risk — Confirmed as Your Own Action');
 
   // Editing the text drops the earlier answer.
   elements.get('content-body').listeners.input();

@@ -54,7 +54,7 @@ class RequestedNoticeTests(unittest.TestCase):
         subject, body = NOTICES[2]
         before = self.analyze(subject, body)
         yes = self.analyze(subject, body, 'yes')
-        self.assertEqual((yes['risk_level'], yes['risk_label']), ('low', 'Low Risk — Requested Account Notice'))
+        self.assertEqual((yes['risk_level'], yes['risk_label']), ('low', 'Low Risk — Confirmed as Your Own Action'))
         self.assertIn('content.requested_notice', self.codes(yes))
         self.assertFalse(yes['requested_question'])
         no = self.analyze(subject, body, 'no')
@@ -68,6 +68,21 @@ class RequestedNoticeTests(unittest.TestCase):
         self.assertIn(result['risk_level'], {'high', 'critical'})
         self.assertFalse(result['requested_question'])
         self.assertNotIn('content.requested_notice', self.codes(result))
+
+    def test_notices_of_other_own_actions_are_asked_but_deliveries_and_payments_are_not(self):
+        for text in ('Thank you for creating a Netflix account! Your account is ready.',
+                     'Order Confirmation: thank you for your order #114-2876549. View your order details.',
+                     'Your application for the position of Data Annotator has been received.',
+                     'We have received your request 238212 and our team will reply soon.',
+                     '您的账号注册成功，欢迎加入。'):
+            with self.subTest(text=text[:30]):
+                self.assertTrue(app._ACCOUNT_NOTICE.search(text))
+        for text in ('Your UPS package delivery is on hold. Confirm your address to reschedule.',
+                     'You have received a payment of $250.00. Log in to accept it.',
+                     'Your membership has expired. Renew now to keep your benefits.',
+                     'Your June statement is now available.'):
+            with self.subTest(text=text[:30]):
+                self.assertFalse(app._ACCOUNT_NOTICE.search(text))
 
     def test_other_mail_is_not_asked(self):
         result = self.analyze('Lunch on Friday', 'Are we still on for lunch on Friday at noon? Let me know.')

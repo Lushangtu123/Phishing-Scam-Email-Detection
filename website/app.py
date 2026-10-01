@@ -3108,18 +3108,32 @@ def _advertising_terms(text: str) -> list[str]:
     return found
 
 
-# Account notices the reader may have asked for a moment ago: one-time codes, password
-# resets, sign-in alerts, email confirmation. On these the text model alone raises most
-# of its false alerts, and only the reader knows whether they requested it.
-_ACCOUNT_NOTICE = re.compile(
-    r"\b(?:verification|security|login|log-in|sign[- ]in|one[- ]time|confirmation|authentication|access|passcode)"
-    r"\s+code\b|\byour code is\b|\breset (?:your )?password\b|\bpassword (?:reset|changed?)\b"
-    r"|\b(?:confirm|verify) (?:your )?(?:email|e-mail)(?: address)?\b|\bnew (?:sign[- ]in|login|device)\b|\bsigned in\b"
-    r"|验证码|重置密码|修改密码|登录提醒|新设备登录|确认(?:您的|你的)?邮箱", re.IGNORECASE)
+# Notices about something the reader did themselves: a one-time code, a sign-in, a new
+# account, an order or purchase, a job application, a support request. On these the
+# text model alone raises most of its false alerts, and only the reader knows whether
+# they did it. Deliveries, payments received, renewals, memberships and statements are
+# left out: a reader expecting a parcel or a payment would say yes to the phishing that
+# imitates them.
+_ACCOUNT_NOTICE = re.compile("|".join((
+    r"\b(?:verification|security|login|log-in|sign[- ]in|one[- ]time|confirmation|authentication|access|passcode)\s+code\b",
+    r"\byour code is\b", r"\b(?:guard|launch) code\b", r"\bcode (?:you need|to (?:log ?in|sign in|verify))\b",
+    r"\breset (?:your )?password\b", r"\bpassword (?:reset|changed?)\b",
+    r"\b(?:confirm|verify) (?:your )?(?:email|e-mail)(?: address)?\b",
+    r"\bnew (?:sign[- ]in|login|device)\b", r"\bsigned[- ]in\b", r"\bsign[- ]in (?:attempt|alert|activity)\b",
+    r"\b(?:access|login|sign-in) from (?:a )?new\b", r"\bwelcome to\b",
+    r"\b(?:thank you|thanks) for (?:creating|joining|signing up|registering|your (?:order|purchase|application))\b",
+    r"\byour (?:new )?account (?:is (?:ready|active|created)|has been (?:created|linked|activated))\b", r"\baccount linked\b",
+    r"\border (?:confirmation|confirmed|#|number)\b", r"\byour (?:order|purchase) (?:of|has been placed|is confirmed|was placed)\b",
+    r"\byour application (?:for|to|at|has|was)\b", r"\bthank you for (?:applying|your interest)\b",
+    r"\bjob (?:alert|recommendations?)\b", r"\b(?:ticket|request) (?:#|number|id)?\s*\w*\d",
+    r"\bwe(?:'ve| have) received your (?:request|application|order|message)\b",
+    r"验证码|重置密码|修改密码|登录提醒|新设备登录|确认(?:您的|你的)?邮箱",
+    r"下单成功|订单(?:已确认|确认|号)|注册成功|欢迎(?:加入|注册)|申请(?:已提交|已收到|进度)|工单",
+)), re.IGNORECASE)
 
 
 def _apply_requested_answer(result: dict, requested: str) -> None:
-    """Ask, or apply the answer, for a model-driven alert on an account notice.
+    """Ask, or apply the answer, for a model-driven alert on a notice of the reader's own action.
 
     Only an alert resting on the text model qualifies: no rule, sender, link or structure
     finding set a Medium floor. "yes" lowers it to Low with a reminder to check the
@@ -3134,7 +3148,7 @@ def _apply_requested_answer(result: dict, requested: str) -> None:
         return
     if requested == 'yes':
         result['risk_level'] = 'low'
-        result['risk_label'] = 'Low Risk — Requested Account Notice'
+        result['risk_label'] = 'Low Risk — Confirmed as Your Own Action'
         result['extra_indicators'].append(indicator('info', 'content.requested_notice'))
     elif requested == 'no':
         result['extra_indicators'].append(indicator('medium', 'content.unrequested_notice'))
@@ -3616,7 +3630,7 @@ class ContentRequest(BaseModel):
     subject: str = Field(default="", max_length=500)
     body: str = Field(default="", max_length=50_000)
     raw_email: str = Field(default="", max_length=60_000)
-    # The reader's answer to "Did you just request this?" for a model-driven account notice.
+    # The reader's answer to "Did you do this yourself?" for a model-driven notice of their own action.
     requested: Literal['', 'yes', 'no'] = ''
 
 

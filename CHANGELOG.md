@@ -20,6 +20,28 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 17:00 PT] — Ask about the reader's own actions, not only account codes
+
+### Why
+- Many remaining model-driven false alerts on pasted genuine mail were notices of the reader's own actions that the account-code pattern missed: "signed-in", Steam Guard codes, new accounts, order confirmations, job applications and support tickets.
+
+### Files changed
+- `website/app.py`:
+  - `_ACCOUNT_NOTICE` covers sign-ins, guard and launch codes, new or linked accounts, orders and purchases, job applications and support requests, in English and Chinese;
+  - deliveries, payments received, memberships and statements are excluded;
+  - the "yes" label is "Low Risk — Confirmed as Your Own Action".
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the question ("Are you sure you did this yourself just now?", "No, or not sure"), the label and both notes. Asset versions bumped.
+- Tests:
+  - `website/tests/test_requested_notice.py`: own actions asked; deliveries, received payments, memberships and statements not;
+  - `website/static/app.test.mjs`: the new wording.
+- `README.md`, `docs/evaluation.md`: the scope and its measurement.
+
+### Effect
+- If every asked reader answers "yes":
+  - genuine `.eml` alerts 27 → 10, pasted 45 → 16;
+  - UniqueData 42 → 26.
+- Nazario messages asked rise from 127 to 180, mostly fake orders and unusual sign-ins. A truthful "no" keeps them alerting.
+
 ## [2026-10-01 16:00 PT] — Ask where an .eml came from, and whether an account notice was requested
 
 ### Why
