@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Mail-type note: tracked-link sales mail (2026-10-01)
+
+48 DataCon 2023 sales messages had been called phishing on a disguised link alone.
+They were predatory conference and journal calls, editing services and lead-generation
+tools, sent through click trackers such as `count.submission03.xyz` or bare IP
+addresses. Two changes:
+- academic solicitation terms were added (征稿, 投稿, 期刊, 润色, "call for papers",
+  "manuscript", "Scopus" and similar);
+- a message whose only scam finding is `deceptive_link` is called advertising when it
+  has two distinct sales terms and no scam wording. One term with an unsubscribe footer
+  is not enough: a Nazario credential phish ("Mail Notification Alert") has exactly
+  that.
+
+| Ground truth (labelled cohorts, excluding DataCon) | Messages | Called phishing | Called advertising |
+|---|---|---|---|
+| Legitimate | 1,164 | 1 | 10 → 12 |
+| Phishing | 4,187 | 1,171 | 16 → 16 |
+| Spam | 965 | 3 | 69 → 91 |
+
+DataCon 2023 day 1 now has 75 messages called phishing and 165 called advertising. The
+31 that moved from phishing to advertising, and the 12 newly typed, are all academic,
+editing or product solicitations. Nazario labels and every verdict are unchanged. The
+2 legitimate messages newly called advertising are journal and conference mail.
+
 ### Mail-type note: phishing vs advertising (2026-10-01)
 
 The result now carries a mail-type note (`mail_type`) beside the verdict. Measured on

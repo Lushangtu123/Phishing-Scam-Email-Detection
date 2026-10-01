@@ -20,6 +20,27 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 13:00 PT] — Call tracked-link sales mail advertising, not phishing
+
+### Why
+- 48 DataCon 2023 sales messages were called phishing on a disguised link alone: predatory conferences, journals, editing services and lead-generation tools sent through click trackers or bare IPs.
+
+### Files changed
+- `website/app.py`:
+  - academic solicitation terms join `_ADVERTISING_TERMS`;
+  - `_advertising` is split out, with a `strict` mode;
+  - `_mail_type` calls a message advertising when `deceptive_link` is its only tactic and it has two distinct sales terms and no scam wording.
+- `website/tests/test_mail_type.py`: that rule, with one term plus an unsubscribe footer still phishing, and other findings still phishing.
+- `README.md`, `docs/evaluation.md`: the rule and its measurement.
+
+### Effect
+- Labelled cohorts:
+  - spam called advertising 69 → 91;
+  - phishing called advertising unchanged at 16;
+  - legitimate called advertising 10 → 12 (journal and conference mail).
+- DataCon 2023 day 1: 31 solicitations moved from phishing to advertising.
+- Nazario labels and every verdict unchanged.
+
 ## [2026-10-01 12:00 PT] — Add a mail-type note: phishing or scam, or advertising
 
 ### Why

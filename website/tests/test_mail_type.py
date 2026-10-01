@@ -59,5 +59,18 @@ class MailTypeTests(unittest.TestCase):
         self.assertEqual(app._mail_type(result, False), {'type': 'phishing', 'tactics': ['deceptive_link']})
 
 
+    def test_bulk_sales_mail_whose_only_finding_is_a_tracked_link_is_advertising(self):
+        link = {'code': 'link.display_mismatch', 'level': 'high'}
+        result = {'risk_level': 'high', 'extra_indicators': [link], 'category_results': [],
+                  'advertising_terms': ['征稿', '期刊']}
+        self.assertEqual(app._mail_type(result, False), {'type': 'advertising'})
+        # One sales phrase with an unsubscribe footer is not enough to set the link aside.
+        result['advertising_terms'] = ['special offer', 'unsubscribe']
+        self.assertEqual(app._mail_type(result, True), {'type': 'phishing', 'tactics': ['deceptive_link']})
+        # Any other scam finding keeps it phishing.
+        result['advertising_terms'] = ['征稿', '期刊']
+        result['extra_indicators'] = [link, {'code': 'content.callback_request', 'level': 'high'}]
+        self.assertEqual(app._mail_type(result, False)['type'], 'phishing')
+
 if __name__ == '__main__':
     unittest.main()

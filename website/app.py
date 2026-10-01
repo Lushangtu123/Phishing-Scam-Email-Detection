@@ -2990,6 +2990,9 @@ _ADVERTISING_TERMS = (
     "% off", "discount", "promo code", "coupon", "limited-time offer", "limited time offer",
     "special offer", "shop now", "buy now", "free shipping", "new arrivals", "flash sale", "webinar",
     "early bird", "exclusive offer", "best price", "free trial",
+    # Academic and publishing solicitations: predatory conferences, journals, editing.
+    "征稿", "投稿", "约稿", "截稿", "润色", "期刊", "检索", "call for papers", "call for speakers",
+    "submit your paper", "manuscript", "scopus", "proceedings",
 )
 _UNSUBSCRIBE_TERMS = ("unsubscribe", "退订", "取消订阅")
 _SCAM_CATEGORIES = {"credential", "threats", "impersonation", "tech_scam", "financial", "urgency"}
@@ -3004,18 +3007,31 @@ def _advertising_terms(text: str) -> list[str]:
     return found
 
 
+def _advertising(result: dict, bulk_mail: bool, *, strict: bool = False) -> bool:
+    # Scams dressed as deals ("90% OFF", "limited-time offer") carry scam wording too;
+    # such mail is never called advertising, whatever its sales terms.
+    if {item.get("key") for item in result.get("category_results", [])} & _SCAM_CATEGORIES:
+        return False
+    terms = result.get("advertising_terms") or []
+    sales = [term for term in terms if term != "unsubscribe"]
+    return len(sales) >= 2 or bool(not strict and sales and (bulk_mail or "unsubscribe" in terms))
+
+
 def _mail_type(result: dict, bulk_mail: bool) -> dict | None:
     """{"type": "phishing", "tactics": [...]} or {"type": "advertising"}, or None."""
+    advertising = _advertising(result, bulk_mail)
     if result.get("risk_level") in {"medium", "high", "critical"}:
         codes = {item.get("code") for item in result.get("extra_indicators", [])
                  if item.get("level") in {"medium", "high", "critical"}}
         tactics = [tactic for tactic, members in _PHISHING_TACTICS.items() if codes & members]
-        if tactics:
+        # Bulk sales mail routed through click trackers or bare IPs (predatory
+        # conferences, editing and lead-generation offers) shows only the link finding.
+        # With no scam wording it is advertising; the alert and its note stay.
+        # Two distinct sales terms are needed here: one phrase plus an unsubscribe footer
+        # also appears in phishing ("Mail Notification Alert" with a "special offer").
+        if tactics and not (tactics == ["deceptive_link"] and _advertising(result, bulk_mail, strict=True)):
             return {"type": "phishing", "tactics": tactics}
-    # Scams dressed as deals ("90% OFF", "limited-time offer") carry scam wording too;
-    # such mail is never called advertising, whatever its sales terms.
-    if {item.get("key") for item in result.get("category_results", [])} & _SCAM_CATEGORIES:
-        return None
+    return {"type": "advertising"} if advertising else None
     terms = result.get("advertising_terms") or []
     sales = [term for term in terms if term != "unsubscribe"]
     if len(sales) >= 2 or (sales and (bulk_mail or "unsubscribe" in terms)):

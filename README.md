@@ -661,10 +661,14 @@ changes the verdict, score or label.
   text model alone is not called phishing, because on genuine account mail the model
   alone raises many false alerts.
 - `{"type": "advertising"}` needs two distinct sales terms (优惠, 报价, 礼品, 公开课,
-  "% off", "promo code" and similar), or one together with an opt-out: an unsubscribe
+  征稿, 期刊, "% off", "promo code", "call for papers" and similar), or one together with an opt-out: an unsubscribe
   link, a `List-Unsubscribe` header or a bulk `Precedence`. Mail with urgency, credential,
   threat, impersonation, tech-support or money-lure wording is never called
   advertising, since scams dress up as deals.
+- Bulk sales mail whose only scam finding is a disguised link (click trackers or bare
+  IPs, common in predatory-conference, journal and editing offers) is called
+  advertising when it has two distinct sales terms and no scam wording. Its alert
+  stays.
 - Otherwise the field is `null`.
 
 The result view shows the note under the banner. Advertising with an alert says that
