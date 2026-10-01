@@ -891,6 +891,7 @@
   'server.warning.hidden_html_text': '隐藏的 HTML 文字已排除在文本评分之外；视觉渲染未经完全验证，因此分析未完成。',
   'server.warning.stylesheet_visibility': '样式表可能隐藏或显示文字；CSS 渲染未经验证，因此受影响的文本模型视图未评分。',
   'server.warning.inline_css_visibility': '内联 CSS 可能隐藏文字；其渲染未经验证，因此受影响的文本模型视图未评分。',
+  'server.warning.possibly_invisible_text': '部分文字可能过小或过淡而无法阅读，或被裁剪、移出屏幕、在 Outlook 中隐藏；其渲染未经验证，因此受影响的文本模型视图未评分。',
   'server.warning.image_alt_fallback': '图片无法显示时可能会显示其替代文字；该渲染未经验证，因此受影响的文本模型视图未评分。',
   'server.warning.mime_alternative_limit': '已达到 MIME 备选视图数量上限；并非所有渲染版本都经过模型评分。分析未完成。',
   'server.warning.mime_alternative_model': '至少有一个 MIME 备选版本无法由模型评分；分析未完成。',

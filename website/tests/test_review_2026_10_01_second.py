@@ -86,6 +86,12 @@ class ExactMatchingTests(CallbackTestCase):
         self.assertEqual(found['conditions'], ['outlook-dark', 'gmail'])
         self.assertEqual(len(found['views']), 3)
 
+    def test_a_client_rule_sharing_a_selector_with_a_plain_rule_stays_a_client(self):
+        html = '<style>.x{display:none} [data-ogsc] .x{display:block}</style><p class="x">x</p>'
+        found = app._stylesheet_cascade(html[7:html.index('</style>')], html)
+        self.assertEqual(found['conditions'], ['outlook-dark'])
+        self.assertEqual(len(found['views']), 2)
+
 
 class ImageFallbackTests(CallbackTestCase):
     """R3: the text rules read fallback text in place; it sets floors, not keyword scores."""

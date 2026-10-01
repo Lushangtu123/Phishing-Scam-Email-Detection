@@ -579,14 +579,31 @@ Some rules cannot be matched exactly:
 These may or may not apply. Text whose rendering they could change leaves the views
 unresolved, and the text rules read it as well.
 
+Some text may be invisible without being hidden:
+- a font size below 3px;
+- an opacity below 0.1;
+- a box that clips it: a zero height or width with `overflow:hidden`, unless padding
+  keeps it open;
+- an absolute, fixed or relative position at least 1000px or 100% off screen;
+- a `text-indent` of -1000px or less;
+- a zero `clip` rectangle, `clip-path: inset(50%)`, or `transform: scale(0)`.
+
+Phishing uses these to bury benign padding beside the scam ("hidden-text salting"),
+and marketing mail uses them for preheaders. They are cascaded like the properties
+above (`max-height` from one rule and `overflow` from another still clip), and the
+views leave such text out. `mso-hide:all` leaves it out of the Outlook view.
+`warning.possibly_invisible_text` says so. Unlike CSS-uncertain text, the text rules
+still read the message with this text as well as each view without it, so a payload
+put off screen stays visible to them.
+
 Some stylesheets are not modelled at all:
 - CSS nesting;
 - `@layer` and `@scope`;
 - an @-rule that hides;
 - an unreadable selector in a hiding rule.
 
-Text rules read every view as well as the certainly visible text, and the riskiest
-reading counts. Image fallback text counts when it holds a finding that sets a
+Text rules read every view (the Outlook view included) as well as the certainly
+visible text, and the riskiest reading counts. Image fallback text counts when it holds a finding that sets a
 floor, such as a callback or credential request. It does not add to the keyword
 score, because genuine mail labels its button images "Verify your email". CSS
 comments are stripped only outside strings, so `content:"/*"` opens no comment.

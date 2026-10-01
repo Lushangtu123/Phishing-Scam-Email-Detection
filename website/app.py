@@ -34,7 +34,7 @@ from email.utils import getaddresses
 from html.parser import HTMLParser
 from html import escape as escape_html, unescape as unescape_html
 from itertools import product
-from functools import partial
+from functools import lru_cache, partial
 from urllib.parse import parse_qs, unquote, urlparse, urljoin
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
@@ -1385,18 +1385,24 @@ def _detect_obfuscation(text: str) -> list[str]:
 _HAN = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
 
 
-def _keyword_matches(text: str, keyword: str) -> bool:
-    """Match phrases while preventing short tokens from firing inside words."""
+@lru_cache(maxsize=None)
+def _keyword_pattern(keyword: str) -> re.Pattern:
+    """The compiled pattern of one rule keyword: more keywords exist than re's own cache holds."""
     if _HAN.match(keyword):
         # Chinese has no spaces between words, so there is no word boundary to keep;
         # senders split phrases with spaces or line breaks ("确 认"), which are skipped.
-        return bool(re.search(r"\s*".join(map(re.escape, keyword)), text))
+        return re.compile(r"\s*".join(map(re.escape, keyword)))
     escaped = re.escape(keyword)
     prefix = r"(?<!\w)" if keyword and keyword[0].isalnum() else ""
     # Python's word characters exclude apostrophes. Keep a negative contraction
     # together (won't is not won), while retaining possessives and quoted words.
     suffix = r"(?!\w|['’]t(?!\w))" if keyword and keyword[-1].isalnum() else ""
-    return bool(re.search(prefix + escaped + suffix, text, re.IGNORECASE))
+    return re.compile(prefix + escaped + suffix, re.IGNORECASE)
+
+
+def _keyword_matches(text: str, keyword: str) -> bool:
+    """Match phrases while preventing short tokens from firing inside words."""
+    return bool(_keyword_pattern(keyword).search(text))
 
 
 def _strip_invisible_format_controls(text: str) -> str:
@@ -2024,6 +2030,10 @@ def _has_mismatched_link_text(text: str) -> bool:
 _HIDDEN_HTML_TEXT_WARNING = message_text('warning.hidden_html_text')
 _STYLESHEET_VISIBILITY_WARNING = message_text('warning.stylesheet_visibility')
 _INLINE_CSS_VISIBILITY_WARNING = message_text('warning.inline_css_visibility')
+# Text that may be invisible (a tiny font, near-zero opacity, clipped by its box, off
+# screen, mso-hide): text rules read the message both with and without it, unlike
+# CSS-uncertain text, whose prose they do not score.
+_POSSIBLY_INVISIBLE_WARNING = message_text('warning.possibly_invisible_text')
 _IMAGE_ALT_FALLBACK_WARNING = message_text('warning.image_alt_fallback')
 _MIME_ALTERNATIVE_LIMIT_WARNING = message_text('warning.mime_alternative_limit')
 _MIME_ALTERNATIVE_MODEL_WARNING = message_text('warning.mime_alternative_model')
@@ -2121,7 +2131,7 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
     for declaration in declarations:
         name, separator, value = declaration.partition(':')
         name = _unescape_css(name).strip().lower()
-        if not separator or name not in {'display', 'visibility', 'opacity', 'font-size', 'color'}:
+        if not separator or name not in {'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES}:
             continue
         value = _unescape_css(value).strip().lower()
         important = bool(re.search(r'!\s*important\s*$', value))
@@ -2301,7 +2311,9 @@ def _font_size_class(value: str) -> str:
     parent. Every argument must be a length: a bare number (max(16px, 1), even 0) or
     max(16px, garbage) makes the declaration invalid CSS, so it is dropped and the
     inherited size stays. Anything else the parser cannot compute (calc(), var(),
-    nested functions, sums, line-height or container units) is unresolved.
+    nested functions, sums, line-height or container units) is unresolved. A positive
+    size below 3px, absolute or computed from absolute lengths, is 'tiny': no reader
+    reads it, though some clients enforce a minimum.
     """
     if not value or value in {'inherit', 'unset', 'revert', 'revert-layer', 'larger', 'smaller', 'math'}:
         return 'inherit'
@@ -2314,6 +2326,11 @@ def _font_size_class(value: str) -> str:
             return 'invalid'
         if 'unresolved' in signs:
             return 'unresolved'
+        pixels = [_absolute_pixels(argument.strip()) for argument in match.group(2).split(',')]
+        if None not in pixels:
+            result = (max(pixels) if function == 'max' else min(pixels) if function == 'min'
+                      else max(pixels[0], min(pixels[1:])))
+            return 'visible' if result >= _MIN_VISIBLE_FONT_PX else 'tiny' if result > 0 else 'zero'
 
         def largest(values):
             return '+' if '+' in values else '?' if '?' in values else '0' if '0' in values else '-'
@@ -2330,14 +2347,136 @@ def _font_size_class(value: str) -> str:
                 ('zero', 'visible'): 'inherit'}.get(tuple(sizes), 'unresolved')
     if _UNCOMPUTED.search(value):
         return 'unresolved'
+    kind = _length_class(value)
+    pixels = _absolute_pixels(value)
+    if kind == 'absolute' and pixels is not None and pixels < _MIN_VISIBLE_FONT_PX:
+        return 'tiny'
     return {'zero': 'zero', 'absolute': 'visible', 'relative': 'inherit',
-            'unknown': 'unresolved', 'bad': 'invalid'}[_length_class(value)]
+            'unknown': 'unresolved', 'bad': 'invalid'}[kind]
 
 
 def _font_size_state(value: str) -> tuple[bool | None, bool]:
-    """(zero size, unresolved) of one font-size value; None inherits the parent's size."""
+    """(zero size, unresolved) of one font-size value; None inherits the parent's size.
+    A tiny size is not zero here: the view pass treats it as possibly invisible."""
     kind = _font_size_class(value)
-    return {'zero': True, 'visible': False}.get(kind), kind == 'unresolved'
+    return {'zero': True, 'visible': False, 'tiny': False}.get(kind), kind == 'unresolved'
+
+
+# Box geometry that can hide an element's content (hidden-text "salting" in phishing, and
+# preheaders in marketing mail).
+_GEOMETRY_PROPERTIES = ('max-height', 'height', 'max-width', 'width', 'overflow', 'overflow-x', 'overflow-y',
+                        'padding', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right',
+                        'position', 'left', 'top', 'right', 'bottom', 'text-indent', 'clip', 'clip-path',
+                        'transform', 'mso-hide')
+_PIXELS = {'px': 1, 'pt': 4 / 3, 'pc': 16, 'in': 96, 'cm': 96 / 2.54, 'mm': 96 / 25.4, 'q': 96 / 101.6,
+           'em': 16, 'rem': 16}
+# Below these, text is invisible to a reader: the opacity of 0.05 or a 1px font.
+_NEAR_ZERO_OPACITY = 0.1
+_MIN_VISIBLE_FONT_PX = 3
+
+
+def _css_pixels(value: str):
+    """A length in CSS pixels (em and rem at 16px), ('%', n) for percentages and viewport
+    units, or None when it is not a plain length."""
+    match = _CSS_DIMENSION.fullmatch(value.strip())
+    if not match:
+        return None
+    number, unit = float(match.group(1)), match.group(2)
+    if unit in {'%', 'vw', 'vh', 'vmin', 'vmax'}:
+        return ('%', number)
+    if unit is None:
+        return 0.0 if number == 0 else None
+    return number * _PIXELS[unit] if unit in _PIXELS else None
+
+
+def _absolute_pixels(value: str):
+    """A length in CSS pixels when its unit does not depend on the parent or the viewport
+    (rem at 16px), else None."""
+    match = _CSS_DIMENSION.fullmatch(value.strip())
+    if not match or match.group(2) not in set(_PIXELS) - {'em'}:
+        return None
+    return float(match.group(1)) * _PIXELS[match.group(2)]
+
+
+def _opacity_number(value: str):
+    """An opacity between 0 and 1, or None when it is not a plain number or percentage."""
+    match = re.fullmatch(rf'({_CSS_NUMBER})(%?)', value.strip())
+    if not match:
+        return None
+    return min(1.0, max(0.0, float(match.group(1)) / (100 if match.group(2) else 1)))
+
+
+def _geometry_hidden(get) -> bool | str:
+    """Whether box geometry hides an element's content, from get(property) -> value:
+    a zero height or width that clips (overflow hidden or clip, without padding), an
+    absolute or fixed position far off screen, a large negative text-indent, a clip
+    rectangle or clip path of no area, or a zero scale. 'unresolved' where a value that
+    decides it cannot be computed."""
+    unresolved = False
+    overflow = set(' '.join(get(name) for name in ('overflow', 'overflow-x', 'overflow-y')).split())
+    if overflow & {'hidden', 'clip'}:
+        for size, paddings in (('height', ('padding-top', 'padding-bottom')), ('width', ('padding-left', 'padding-right'))):
+            for name in (f'max-{size}', size):
+                value = get(name)
+                if not value:
+                    continue
+                pixels = _css_pixels(value)
+                if pixels is None and _UNCOMPUTED.search(value):
+                    unresolved = True
+                elif pixels == 0 or pixels == ('%', 0.0):
+                    padded = [get(item) for item in (*paddings, 'padding') if get(item)]
+                    if any(_css_pixels(item.split()[0]) not in (0.0, ('%', 0.0)) for item in padded):
+                        unresolved = True
+                    else:
+                        return True
+    if get('position') in {'absolute', 'fixed', 'relative'}:
+        for name in ('left', 'top', 'right', 'bottom'):
+            pixels = _css_pixels(get(name)) if get(name) else None
+            if (isinstance(pixels, tuple) and pixels[1] <= -100) or (
+                    isinstance(pixels, float) and pixels <= -1000):
+                return True
+        clip = re.fullmatch(r'rect\((.*)\)', get('clip'))
+        if clip:
+            edges = [_css_pixels(edge) for edge in re.split(r'[\s,]+', clip.group(1).strip())]
+            if len(edges) == 4 and all(isinstance(edge, float) for edge in edges) and (
+                    edges[1] - edges[3] <= 1 and edges[2] - edges[0] <= 1):
+                return True
+    indent = _css_pixels(get('text-indent').split()[0]) if get('text-indent') else None
+    if (isinstance(indent, tuple) and indent[1] <= -100) or (isinstance(indent, float) and indent <= -1000):
+        return True
+    if re.search(r'inset\(\s*(?:50|100)%|circle\(\s*0(?:px|%)?\s*[)a]', get('clip-path')):
+        return True
+    if re.search(r'scale[xy]?\(\s*-?0(?:\.0+)?\s*[,)]', get('transform')):
+        return True
+    return 'unresolved' if unresolved else False
+
+
+def _hiding_value(name: str, value) -> bool:
+    """Whether one declaration can hide content on its own or with another: every display,
+    visibility, opacity, font size, colour or unknown value, and the box values that clip
+    (a zero size, overflow hidden or clip), move off screen, clip, scale to nothing, or
+    hide in Outlook. A width of 100% or a padding cannot."""
+    if name not in _GEOMETRY_PROPERTIES:
+        return True
+    value = value if isinstance(value, str) else ''
+    if name in {'max-height', 'height', 'max-width', 'width'}:
+        return _css_pixels(value) in (0.0, ('%', 0.0))
+    if name in {'overflow', 'overflow-x', 'overflow-y'}:
+        return bool({'hidden', 'clip'} & set(value.split()))
+    if name in {'left', 'top', 'right', 'bottom', 'text-indent'}:
+        pixels = _css_pixels(value.split()[0]) if value else None
+        return (isinstance(pixels, tuple) and pixels[1] <= -100) or (isinstance(pixels, float) and pixels <= -1000)
+    if name == 'transform':
+        return bool(re.search(r'scale[xy]?\(\s*-?0(?:\.0+)?\s*[,)]', value))
+    if name == 'mso-hide':
+        return value == 'all'
+    return name in {'clip', 'clip-path'}
+
+
+def _zero_box(get) -> bool:
+    """A zero height or width: content stays visible unless something clips it."""
+    return any(_css_pixels(get(name)) in (0.0, ('%', 0.0)) for name in ('max-height', 'height', 'max-width', 'width')
+               if get(name))
 
 
 def _inline_text_state(style: str) -> tuple[bool | None, bool | None, bool]:
@@ -2708,7 +2847,8 @@ def _with_variables(value: str, classify, variables: dict | None) -> str:
     return classes.pop() if len(classes) == 1 else 'unresolved' if classes else 'inherit'
 
 
-def _declared_values(block: str, *, typography: bool = True, variables: dict | None = None) -> list:
+def _declared_values(block: str, *, typography: bool = True, variables: dict | None = None,
+                     geometry: bool = False) -> list:
     """The declarations of one rule or style attribute that decide whether text renders,
     as (property, value, !important). display, visibility and opacity take True (hidden)
     or False; visibility also 'inherit'; font-size and color take 'zero' or 'transparent',
@@ -2724,17 +2864,33 @@ def _declared_values(block: str, *, typography: bool = True, variables: dict | N
                          False if value in {'visible', 'initial'} else 'inherit', values['visibility'][1]))
     if 'opacity' in values:
         value = values['opacity'][0]
-        number = value.removesuffix('%')
-        declared.append(('opacity', float(number) <= 0 if re.fullmatch(_CSS_NUMBER, number) else
-                         'unresolved' if value.startswith('calc(') else False, values['opacity'][1]))
+        opacity = _opacity_number(value)
+        declared.append(('opacity', (True if opacity <= 0 else 'faint' if opacity < _NEAR_ZERO_OPACITY else False)
+                         if opacity is not None else 'unresolved' if value.startswith('calc(') else False,
+                         values['opacity'][1]))
     if typography and 'font-size' in values:
         declared.append(('font-size', _with_variables(values['font-size'][0], _font_size_class, variables),
                          values['font-size'][1]))
     if typography and 'color' in values:
         declared.append(('color', _with_variables(values['color'][0], _color_class, variables), values['color'][1]))
+    if geometry:
+        declared.extend((name, values[name][0], values[name][1]) for name in _GEOMETRY_PROPERTIES if name in values)
     if '#unrecognised' in values:
         declared.append(('unknown', 'unresolved', False))
     return declared
+
+
+def _stylesheet_hides_geometry(css: str) -> bool:
+    """Whether any rule sets a zero box, off-screen offsets, a clip or zero scale, or mso-hide."""
+    cleaned, _complete = _strip_css_comments(css)
+    for block in re.findall(r'\{([^{}]*)\}', cleaned):
+        values = _style_values(block)
+
+        def get(name):
+            return values.get(name, ('', False))[0]
+        if _geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide'):
+            return True
+    return False
 
 
 def _stylesheet_hides_typography(css: str) -> bool:
@@ -2746,10 +2902,15 @@ def _stylesheet_hides_typography(css: str) -> bool:
 
 def _cascade_state(parent: tuple, winners: dict) -> tuple:
     """An element's rendering state in one view, from its parent's and the winning
-    declarations: ((display none, visibility hidden, opacity zero, zero font size,
-    transparent colour), unresolved)."""
-    display_none, visibility_hidden, opacity_zero, font_zero, transparent = parent
+    declarations: ((display none, visibility hidden, opacity zero, zero font size
+    (or 'tiny'), transparent colour, clipped by box geometry or faint, hidden in
+    Outlook), unresolved)."""
+    display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden = parent
     unresolved = bool(winners.get('unknown'))
+    geometry = _geometry_hidden(lambda name: winners[name][3] if name in winners else '')
+    unresolved |= geometry == 'unresolved'
+    clipped = clipped or geometry is True
+    outlook_hidden = outlook_hidden or bool(winners.get('mso-hide') and winners['mso-hide'][3] == 'all')
     ranked = winners.get('display')
     display_none = display_none or bool(ranked and ranked[3] is True)
     ranked = winners.get('visibility')
@@ -2759,20 +2920,21 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
     if ranked:
         unresolved |= ranked[3] == 'unresolved'
         opacity_zero = opacity_zero or ranked[3] is True
+        clipped = clipped or ranked[3] == 'faint'
     ranked = winners.get('font-size')
     if ranked:
         unresolved |= ranked[3] == 'unresolved'
-        if ranked[3] in {'zero', 'visible'}:
-            font_zero = ranked[3] == 'zero'
+        if ranked[3] in {'zero', 'tiny', 'visible'}:
+            # A child restores a zero or tiny size with a readable one of its own.
+            font_zero = {'zero': True, 'tiny': 'tiny', 'visible': False}[ranked[3]]
     ranked = winners.get('color')
     if ranked:
         unresolved |= ranked[3] == 'unresolved'
         if ranked[3] in {'transparent', 'visible'}:
             transparent = ranked[3] == 'transparent'
-    return (display_none, visibility_hidden, opacity_zero, font_zero, transparent), unresolved
+    return (display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden), unresolved
 
 
-_CASCADE_PROPERTIES = ('display', 'visibility', 'opacity', 'font-size', 'color', 'unknown')
 # Children a table part keeps; browsers move anything else out of the table.
 _TABLE_CONTENT_MODEL = {
     'table': frozenset({'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
@@ -2786,15 +2948,15 @@ _MAX_MEDIA_CONTEXTS = 5
 _MAX_RENDERING_VIEWS = 64
 
 
-def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True):
+def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, geometry: bool = True):
     """The stylesheet rules that decide which text of an HTML document renders.
 
     Returns None if unmodelled (CSS nesting, a hiding @-rule, an unreadable selector in a
     hiding rule, more than five conditions). Otherwise {"patterns", "index", "conditions",
     "views", "contexts"}. Conditions are @media contexts, mail-client wrappers and
-    interaction states; every combination of them is a view. A view holds, per pattern
-    and property, the winning declaration as (!important, specificity, source position,
-    value), and the "maybe" rules that apply in it. The reader matches patterns element
+    interaction states; every combination of them is a view. A view holds, per pattern,
+    the winning declaration of each property as (!important, specificity, source
+    position, value), and the "maybe" rules that apply in it. The reader matches patterns element
     by element and takes the highest declaration, with the inline style, as CSS does.
     """
     cleaned, complete = _strip_css_comments(css)
@@ -2802,7 +2964,7 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True):
         return None
     features = _document_features(html)
     variables = _custom_properties(css)
-    patterns, pattern_ids, maybe, events, position = [], {}, [], [], 0
+    patterns, pattern_ids, maybe, events, position, clients = [], {}, [], [], 0, {}
     shared_states = {}
 
     def shared(condition, compound):
@@ -2835,9 +2997,14 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True):
             prelude = preludes.pop()
             block = cleaned[start:index]
             start = index + 1
-            declared = _declared_values(block, typography=typography, variables=variables)
+            declared = _declared_values(block, typography=typography, variables=variables, geometry=geometry)
+            values = _style_values(block)
+
+            def get(name):
+                return values.get(name, ('', False))[0]
             hides = any(value is True or value in {'zero', 'transparent', 'unresolved'}
-                        for _name, value, _important in declared)
+                        for _name, value, _important in declared) or (
+                geometry and (_geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide') == 'all'))
             if declared and prelude.startswith('@'):
                 if hides:
                     return None
@@ -2873,12 +3040,15 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True):
                     pattern_id = pattern_ids.setdefault(pattern['key'], len(patterns))
                     if pattern_id == len(patterns):
                         patterns.append(pattern)
+                    if pattern['client']:
+                        # Patterns are shared by structure: the client belongs to this rule.
+                        clients.setdefault(pattern['client'])
                     conditions = frozenset(filter(None, (media, pattern['client'], *pattern['states'])))
                     for name, value, important in declared:
                         events.append((conditions, pattern_id, name,
                                        (important, pattern['specificity'], position, value)))
         index += 1
-    clients = list(dict.fromkeys(pattern['client'] for pattern in patterns if pattern['client']))
+    clients = list(clients)
     conditions = [condition for condition in dict.fromkeys(condition for event in events for condition in event[0])
                   if condition not in clients]
     conditions += list(dict.fromkeys(media for media, *_rest in maybe if media and media not in conditions))
@@ -2889,9 +3059,9 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True):
         active = {condition for bit, condition in enumerate(conditions) if mask >> bit & 1} | {client}
         winners = {}
         for required, pattern_id, name, ranked in events:
-            if required <= active and ((pattern_id, name) not in winners
-                                       or ranked[:3] > winners[pattern_id, name][:3]):
-                winners[pattern_id, name] = ranked
+            declared = winners.setdefault(pattern_id, {})
+            if required <= active and (name not in declared or ranked[:3] > declared[name][:3]):
+                declared[name] = ranked
         views.append({'winners': winners, 'maybe': [
             (subject, {name: (important, specificity, position, value) for name, value, important in declared})
             for media, subject, specificity, declared, position in maybe if not media or media in active]})
@@ -2907,8 +3077,12 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True):
         else:
             index_by['any'].append(pattern_id)
     return {'patterns': patterns, 'index': index_by, 'conditions': conditions + clients, 'views': views,
-            'contexts': bool(conditions or clients), 'variables': variables,
-            'structural': [pattern for pattern in patterns if len(pattern['compounds']) > 1]}
+            'contexts': bool(conditions or clients), 'variables': variables, 'geometry': geometry,
+            # Patterns with combinators whose rules can change what renders, for content a
+            # browser moves out of a table.
+            'structural': [patterns[pattern_id] for pattern_id in sorted(
+                {pattern_id for _required, pattern_id, name, ranked in events if _hiding_value(name, ranked[3])})
+                if len(patterns[pattern_id]['compounds']) > 1]}
 
 
 def _compound_matches(compound: dict | None, node: tuple, fold: bool) -> bool:
@@ -2959,8 +3133,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.certain_parts = []
             views = targets['views'] if targets else []
             # Per view, an element's state: display none, visibility hidden, opacity zero,
-            # zero font size, transparent colour. The document root is visible everywhere.
-            self.root_states = tuple((False,) * 5 for _view in views)
+            # zero font size, transparent colour, clipped by its box, hidden in Outlook
+            # (mso-hide). The document root is visible everywhere.
+            self.root_states = tuple((False,) * 7 for _view in views)
             self.view_parts = [[] for _view in views] if targets and targets['contexts'] else []
             # The same readings with images off: linked images show their alt text in place.
             self.parts_off, self.certain_parts_off = [], []
@@ -2976,6 +3151,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             # Text whose rendering this reader cannot decide (a selector it cannot match
             # exactly, a value it cannot compute, names matched only regardless of case).
             self.cascade_conflict = False
+            # Text box geometry or mso-hide conceals in some view.
+            self.box_hidden_text = False
             self.hidden_parts = []
             self.outlook_only = 0
             self.hidden_from_outlook = 0
@@ -2987,6 +3164,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.linked_visible_images = 0
             self.stylesheet_parts = []
             self.style_mode = ''
+            # Inline box geometry that may hide content (or mso-hide): the view pass then
+            # cascades box properties too.
+            self.geometry_hint = False
             self.conditional_image_alt = False
             # A fallback instruction ("Enter password") stays unresolved for the model.
             self.alt_instruction = False
@@ -3014,17 +3194,20 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 states = self.elements[-1][7] if self.elements else self.root_states
             if '#ambiguous' in tokens and text.strip():
                 self.cascade_conflict = True
-            shown = [not any(state) for state in states]
+            shown = [not any(state[:6]) for state in states]
+            in_outlook = not any(state[6] for state in states)
+            if text.strip() and any(state[5] or state[6] or state[3] == 'tiny' for state in states):
+                self.box_hidden_text = True
             if not images_off and (all(shown) or '#ambiguous' in tokens):
                 self.loose_parts.append(text)
             # Certain text renders in every view; each @media context shows its own.
             if all(shown):
                 for parts, wanted in ((self.certain_parts, True), (self.strict_parts, not self.outlook_only),
-                                      (self.outlook_parts, not self.hidden_from_outlook)):
+                                      (self.outlook_parts, not self.hidden_from_outlook and in_outlook)):
                     if wanted and not images_off:
                         parts.append(text)
                 for parts, wanted in ((self.certain_parts_off, True), (self.strict_parts_off, not self.outlook_only),
-                                      (self.outlook_parts_off, not self.hidden_from_outlook)):
+                                      (self.outlook_parts_off, not self.hidden_from_outlook and in_outlook)):
                     if wanted:
                         parts.append(text)
             if not self.outlook_only:
@@ -3078,7 +3261,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     matched.append(pattern_id)
                 elif self._matches(pattern, final, level, last, True):
                     ambiguous = True  # matches only if names ignore case, as in quirks mode
-            inline = _declared_values(style, variables=cascade['variables'])
+            inline = _declared_values(style, variables=cascade['variables'], geometry=cascade['geometry'])
             hidden_attribute = 'hidden' in values
             parents = self.elements[-1][7] if self.elements else self.root_states
             outside = self._outside_table() if fostered else None
@@ -3093,10 +3276,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             states = []
             for view, parent in zip(cascade['views'], parents):
                 winners = {}
-                for name in _CASCADE_PROPERTIES:
-                    for pattern_id in matched:
-                        ranked = view['winners'].get((pattern_id, name))
-                        if ranked and (name not in winners or ranked[:3] > winners[name][:3]):
+                for pattern_id in matched:
+                    for name, ranked in view['winners'].get(pattern_id, {}).items():
+                        if name not in winners or ranked[:3] > winners[name][:3]:
                             winners[name] = ranked
                 for name, value, important in inline:
                     # An inline style outranks every selector; !important still decides first.
@@ -3195,6 +3377,16 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             # Zero size, transparent colour and uncertain opacity as inherited here. A child
             # can restore the first two (font-size:14px inside a font-size:0 layout wrapper).
             zero_size, transparent, opacity_uncertain = _inline_text_state(style or '')
+            if self.targets is None and style and re.search(
+                    r'height|width|position|indent|clip|transform|mso-hide|font-size|opacity', style, re.IGNORECASE):
+                values = _style_values(style)
+
+                def get(name):
+                    return values.get(name, ('', False))[0]
+                opacity = _opacity_number(get('opacity'))
+                self.geometry_hint |= bool(_geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide')
+                                           or _font_size_class(get('font-size')) == 'tiny'
+                                           or (opacity is not None and 0 < opacity < _NEAR_ZERO_OPACITY))
             parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
             inline_state = (parent_inline[0] if zero_size is None else zero_size,
                             parent_inline[1] if transparent is None else transparent,
@@ -3338,8 +3530,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         # fallback instruction such as "Enter password" stays unresolved: it is beyond
         # the model's judgement.
         stylesheet = ''.join(collector.stylesheet_parts)
+        geometry = collector.geometry_hint or _stylesheet_hides_geometry(stylesheet)
         uncertain = (collector.uncertain_inline_style or collector.conditional_image_alt
-                     or collector.excluded_hidden_text or _stylesheet_may_hide_text(stylesheet)
+                     or collector.excluded_hidden_text or _stylesheet_may_hide_text(stylesheet) or geometry
                      or (parse_warnings is not None and _MSO_CONDITIONAL_WARNING in parse_warnings))
         def joined(parts):
             return re.sub(r'\s+', ' ', ''.join(parts)).strip()
@@ -3348,12 +3541,14 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             readings['images_off'] = joined(collector.parts_off)
         if uncertain:
             targets = _stylesheet_cascade(stylesheet, text, typography=collector.uncertain_inline_style
-                                          or _stylesheet_hides_typography(stylesheet))
+                                          or _stylesheet_hides_typography(stylesheet), geometry=geometry)
             unresolved = []
             if targets is not None:
                 views = _collect_html(lambda: TextCollector(targets), text, [], mark=True, unresolved=unresolved)
                 if views.cascade_conflict:
                     unresolved.append('cascade')
+                if views.box_hidden_text and parse_warnings is not None and _POSSIBLY_INVISIBLE_WARNING not in parse_warnings:
+                    parse_warnings.append(_POSSIBLY_INVISIBLE_WARNING)
             readings['resolved'] = targets is not None and not unresolved and not collector.alt_instruction
             if targets is not None and 'malformed' not in unresolved:
                 # Text rules may read what no style can hide, and what each context
@@ -3361,11 +3556,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 # instructions, odd conditional comments, undecidable rules).
                 readings['certain'] = joined(views.certain_parts)
                 readings['media'] = [joined(parts) for parts in views.view_parts]
-                if views.cascade_conflict:
-                    readings['media'].append(joined(views.loose_parts))
+                # Text rules read each view, the Outlook view, and undecidable text too.
+                readings['rules_media'] = [*readings['media'], joined(views.outlook_parts)] + (
+                    [joined(views.loose_parts)] if views.cascade_conflict else [])
                 if collector.images_off:
                     readings['certain_off'] = joined(views.certain_parts_off)
                     readings['media_off'] = [joined(parts) for parts in views.view_parts_off]
+                    readings['rules_media_off'] = [*readings['media_off'], joined(views.outlook_parts_off)]
             if readings['resolved']:
                 readings.update(strict=joined(views.strict_parts), outlook=joined(views.outlook_parts),
                                 hidden=joined([visible, ' ', *collector.hidden_parts]))
@@ -4026,7 +4223,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
             and stats['linked_visible_images'] > 0
             and not any(warning in part_warnings for warning in (
                 _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
-                _MSO_CONDITIONAL_WARNING))
+                _MSO_CONDITIONAL_WARNING, _POSSIBLY_INVISIBLE_WARNING))
             and not any('malformed' in warning.lower() or 'recovery' in warning.lower()
                         for warning in part_warnings))
         analysis_warnings.extend(part_warnings)
@@ -4035,15 +4232,17 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         ))
         # With every uncertain element located, the model can score each plausible
         # rendering instead of abstaining (see _agreeing_model_views).
-        model_uncertain = stylesheet_uncertain or any(warning in part_warnings for warning in (
+        earlier_uncertain = stylesheet_uncertain or any(warning in part_warnings for warning in (
             _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
         ))
+        model_uncertain = earlier_uncertain or _POSSIBLY_INVISIBLE_WARNING in part_warnings
         resolved = bool(readings.get('resolved'))
         return (visible, stylesheet_uncertain, model_uncertain and not resolved,
                 {key: value for key, value in readings.items()
                  if isinstance(value, str) and key not in {'certain', 'certain_off'}} if resolved else {},
-                model_uncertain and resolved, readings.get('certain'), readings.get('media') or [],
-                readings.get('images_off'), readings.get('certain_off'), readings.get('media_off') or [])
+                # Text that only box geometry may hide was scored before views existed.
+                earlier_uncertain and resolved, readings.get('certain'), readings.get('rules_media') or [],
+                readings.get('images_off'), readings.get('certain_off'), readings.get('rules_media_off') or [])
 
     if content_parts is None:
         raw_parts = [subject, body]
@@ -4196,9 +4395,10 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     # and so is the text each @media context shows; the riskiest reading counts.
     scored_parts = [visible if not uncertain else (certain or '') for visible, uncertain, certain
                     in zip(visible_parts, stylesheet_uncertain_parts, certain_parts)]
+    # Each rendering view of a part (its contexts, Outlook, undecidable text) is read too,
+    # wherever views were computed: the riskiest plausible rendering counts.
     readings_for_rules = [scored_parts] + [
-        [media[index] if uncertain and index < len(media) else scored
-         for scored, uncertain, media in zip(scored_parts, stylesheet_uncertain_parts, media_parts)]
+        [media[index] if index < len(media) else scored for scored, media in zip(scored_parts, media_parts)]
         for index in range(max((len(media) for media in media_parts), default=0))]
     readings_off = []
     if any(images_off is not None for images_off, _certain, _media in off_parts):
@@ -4209,15 +4409,16 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                       for scored, uncertain, (images_off, certain_off, _media)
                       in zip(scored_parts, stylesheet_uncertain_parts, off_parts)]
         readings_off = [scored_off] + [
-            [media[index] if uncertain and index < len(media) else scored
-             for scored, uncertain, (_images, _certain, media) in zip(scored_off, stylesheet_uncertain_parts, off_parts)]
+            [media[index] if index < len(media) else scored for scored, (_images, _certain, media) in zip(scored_off, off_parts)]
             for index in range(max((len(media) for _images, _certain, media in off_parts), default=0))]
     base_text = _strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(scored_parts)).strip())
     if _has_substantial_han_text(base_text):
         analysis_warnings.append(_HAN_TEXT_WARNING)
     floor_rank = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
     def riskiest(readings):
-        return max((_text_rule_findings(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()) for parts in readings),
+        # Views often share their text; each distinct text is read once.
+        texts = dict.fromkeys(re.sub(r'\s+', ' ', '\n'.join(parts)).strip() for parts in readings)
+        return max((_text_rule_findings(text) for text in texts),
                    key=lambda found: (floor_rank[found['floor']], found['score']))
     rules = riskiest(readings_for_rules)
     if readings_off:
@@ -4679,7 +4880,7 @@ async def _analyze_content(
     # 2. Optional ML text classifier (TF-IDF + selected linear model)
     rendering_uncertain = any(warning in result['analysis_warnings'] for warning in (
         _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
-        _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
+        _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING, _POSSIBLY_INVISIBLE_WARNING,
     ))
     # Warnings about text that may be hidden or shown only in some clients stop
     # blocking a verdict once every plausible rendering was scored and they agree.
@@ -4719,7 +4920,7 @@ async def _analyze_content(
         if rendering_resolved and len(kept) == len(views):
             rendering_uncertain = False
             resolved_warnings = {_STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
-                                 _MSO_CONDITIONAL_WARNING, _IMAGE_ALT_FALLBACK_WARNING}
+                                 _MSO_CONDITIONAL_WARNING, _IMAGE_ALT_FALLBACK_WARNING, _POSSIBLY_INVISIBLE_WARNING}
             if hidden_agrees:
                 resolved_warnings.add(_HIDDEN_HTML_TEXT_WARNING)
             if resolved_warnings & set(result['analysis_warnings']):

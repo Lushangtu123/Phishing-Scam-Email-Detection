@@ -1408,6 +1408,76 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Hidden-text salting: tiny, faint, clipped and off-screen text (2026-10-01)
+
+Phishing hides benign padding beside the scam, so a text model reads the message as
+normal mail. Ten ways to hide the padding of a callback scam, all Low on `57f7f35`:
+
+| Technique | Before | After |
+|---|---|---|
+| `max-height:0; overflow:hidden`: inline, in a stylesheet, or split across both | Low | High (callback) |
+| `font-size:1px` | Low | High (callback) |
+| `opacity:0.05` | Low | High (callback) |
+| `position:absolute; left:-9999px` | Low | High (callback) |
+| `text-indent:-9999px` | Low | High (callback) |
+| `position:absolute; clip:rect(0 0 0 0)` | Low | High (callback) |
+| `transform:scale(0)` | Low | High (callback) |
+| `mso-hide:all` (Outlook) | Low | High (callback) |
+
+These techniques are common in genuine mail too, for preheaders:
+
+| Technique | Genuine downloads (92) | Nazario (3,466) |
+|---|---|---|
+| zero height with `overflow:hidden` | 38 | 119 |
+| 1–2px font | 35 | 156 |
+| `mso-hide:all` | 33 | 106 |
+| opacity 0.0x | 2 | 15 |
+| text in white | 60 | 1,729 |
+
+White text appears on coloured buttons in most of these messages. Same-colour text
+therefore needs a comparison with the background, which this change does not make.
+
+The views now leave out tiny (<3px), faint (opacity <0.1), clipped and off-screen
+text, and `mso-hide:all` text from the Outlook view.
+
+Three first versions changed results and were corrected:
+- **CSS-uncertain treatment.** Counting this text as CSS-uncertain (text rules
+  skip it) lost two DataCon alerts. Their Chinese payload sits in elements at
+  `left:-10000px`. Such text is now possibly invisible: the text rules read the
+  message both with and without it.
+- **Newly scored views.** 1–2px fonts made four Nazario messages "uncertain". Until
+  then they were scored directly and alerted. The newly-scored-view rule then kept
+  an abstention they never had. Possibly invisible text no longer counts as that
+  earlier uncertainty.
+- **Box properties.** Cascading box properties exposed two faults that left two
+  Microsoft account mails and an Amazon order undetermined:
+  - a mail-client rule sharing a selector with a plain rule lost its client;
+  - the check for content a browser moves out of a table counted width and padding
+    rules.
+
+  Both are fixed.
+
+| Cohort | `57f7f35`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+| Nazario 2015–25 phishing (3,466) | 3,320 / 137 / 9 | 3,320 / 137 / 9 |
+
+No verdict or mail type changed in these cohorts:
+- the 92 genuine downloads, with and without a mailbox;
+- their pasted text;
+- PhishFuzzer recent, UniqueData and Postmark;
+- DataCon 2023 day 1;
+- the 87 templates.
+
+In Nazario, two messages traded High and Critical.
+
+Text rules had spent most of the analysis time recompiling keyword patterns, since
+there are more keywords than Python's regex cache holds. They are now compiled once,
+and identical readings are scored once. Single-threaded on an Apple M2 Max:
+- the 92 genuine downloads (two analyses each) took 9.3 s instead of 14.9 s;
+- Nazario took 111 s instead of 180 s.
+
 ### Review at 1d9206d: exact selector matching and the CSS cascade (2026-10-01)
 
 A read-only review supplied synthetic fixtures for four findings. All four reproduced on
@@ -1481,10 +1551,10 @@ Apple M2 Max.
 
 Still not modelled:
 - external stylesheets;
-- hiding by geometry (`max-height:0` with `overflow:hidden`, off-screen positioning, `clip`);
-- near-zero opacity or font size;
 - text coloured like its background;
 - HTML that a browser's tree builder restructures in ways other than tables.
+
+Geometry, near-zero opacity and tiny fonts are handled since; see the section above.
 
 ### Mail-template CSS that left genuine HTML undetermined (2026-10-01)
 

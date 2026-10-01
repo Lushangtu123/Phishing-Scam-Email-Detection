@@ -20,6 +20,48 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 21:00 PT] — Treat tiny, faint, clipped, off-screen and Outlook-hidden text as possibly invisible
+
+### Why
+- Hidden-text salting: phishing hides benign padding beside the scam, so a text model reads it as normal mail. On `57f7f35`, a callback scam came out Low with its padding hidden by any of ten techniques:
+  - a zero-height box that clips: inline, in a stylesheet, or split across both;
+  - a 1px font, or opacity 0.05;
+  - an absolute position at -9999px, or `text-indent:-9999px`;
+  - `clip: rect(0 0 0 0)`, or `transform: scale(0)`;
+  - `mso-hide:all` (Outlook).
+- Found while measuring this: a rule whose selector matched an earlier rule's, apart from a mail-client prefix, lost its client. The hook became an independent condition, doubling the views and leaving some stylesheets unmodelled.
+- Text rules spent most of the analysis time recompiling keyword patterns: there are more keywords than Python's regex cache holds.
+
+### Files changed
+- `website/app.py`:
+  - Box geometry, `mso-hide`, near-zero opacity and tiny fonts:
+    - `_geometry_hidden`, `_zero_box`, `_css_pixels`, `_absolute_pixels`, `_opacity_number` and `_hiding_value` read box geometry;
+    - `_font_size_class` returns `'tiny'` below 3px, and opacity below 0.1 is `'faint'`;
+    - the view pass cascades these properties when the document or stylesheet uses them, and leaves such text out of each view (and `mso-hide:all` text out of the Outlook view).
+  - `warning.possibly_invisible_text`:
+    - the text rules read the message both with such text and without it, in each view;
+    - the model views must agree;
+    - it does not make a view "newly scored".
+  - Text rules read every computed view, the Outlook view included, for every HTML part.
+  - Mail clients are collected from the rules, not from shared patterns.
+  - `_keyword_pattern` caches compiled keyword patterns, and identical rule readings are scored once.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the new warning.
+- Tests:
+  - `website/tests/test_hidden_text_salting.py`: 5 tests;
+  - `website/tests/test_review_2026_10_01_second.py`: the shared-selector client.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- All ten salting techniques: Low → High (callback). Padding left visible is still read as written.
+- Same served model, `57f7f35` against this change:
+  - no verdict or mail-type change on: the 92 genuine downloads (with and without a mailbox), their pasted text, PhishFuzzer recent, UniqueData, Postmark, DataCon 2023 day 1 (611) and the 87 public HTML templates;
+  - Nazario 3,466: alerts 3,320 → 3,320, with two messages trading High and Critical.
+- Analysis time, single-threaded on an Apple M2 Max:
+  - the 92 genuine downloads 14.9 → 9.3 s;
+  - Nazario 180 → 111 s;
+  - backend tests 44 → 35 s.
+- Tests: 915 passed, 10 skipped; frontend 116 passed.
+
 ## [2026-10-01 20:00 PT] — Render HTML views with exact selector matching and the CSS cascade
 
 ### Why
