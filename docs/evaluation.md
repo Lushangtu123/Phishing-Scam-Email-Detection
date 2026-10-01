@@ -1408,6 +1408,61 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### English text model: more data and a sentence-embedding model (2026-10-01)
+
+In pasted-text mode, English false alerts come almost entirely from the text model.
+Rules alone would alert on 1 of the 42 false alerts on UniqueData. On recent
+consumer mail, the full pipeline flags 72% of the 58 UniqueData legitimate messages
+and 71% of the 102 recent PhishFuzzer legitimate seeds. Two evaluation-only
+experiments tried to fix the model; the served artifact is unchanged.
+
+**More training data, same recipe.** The served recipe (30,000 sampled rows, same
+threshold selection) was rebuilt with extra training-only rows: DiFraud and the
+PhishFuzzer LLM variants of legacy seeds (26,761 rows after deduplication), with and
+without 30 account-mail hard negatives.
+- ROC AUC rose by 0.01–0.04, e.g. recent LLM variants 0.751 → 0.774 and Nazario
+  2023–25 against UniqueData 0.850 → 0.889.
+- At the served model's recall, false alarms barely moved. Recent seeds went
+  72% → 61–63%, recent LLM variants 70% → 69%, UniqueData 71% → 67%.
+- At its own threshold the full pipeline flagged less (UniqueData 72% → 64%) but
+  missed more:
+  - recent LLM phishing variants 92% → 84%;
+  - Nazario messages judged safe 9 → 15;
+  - Postmark templates flagged 4 → 7 of 10.
+
+It was not adopted.
+
+**Sentence embeddings.** `BAAI/bge-small-en-v1.5` (int8 ONNX, CLS pooling, 512 tokens)
+with logistic regression was trained on the same 26,052 rows. Four pass criteria were
+fixed before the run:
+
+| Criterion | Served TF-IDF | Embeddings | Result |
+|---|---|---|---|
+| UniqueData false alarms at served recall, must drop ≥15 points | 67% | 84–91% | Fail |
+| Recent PhishFuzzer legitimate false alarms, must drop ≥15 points | 63% | 79–87% | Fail |
+| Nazario 2023–25 recall, must not drop | 1,231 / 1,275 | 1,213 / 1,275 | Fail |
+| Postmark false alarms, must not rise | 3 / 10 | 10 / 10 | Fail |
+
+ROC AUC was lower on every set:
+- recent seeds 0.694 → 0.549;
+- recent LLM variants 0.751 → 0.590;
+- Nazario 2023–25 against UniqueData 0.850 → 0.670.
+
+The model alone flagged 68 of the 92 genuine downloads, against 35 for the served
+model. In-distribution it fit well (out-of-fold PR AUC 0.983), but on external mail it
+flags templated and transactional messages: all Postmark templates, 35 of 499 Apache
+GitHub notifications and 24 of 386 announcements. The result held across
+regularization settings, with and without class weighting. Per message it took
+94 ms on average and 171 ms at the 95th percentile, single-threaded on an Apple M2
+Max (not Vercel).
+
+**Conclusion.** The limit is the training data, not the model class. The legitimate
+side of the public corpora is older workplace mail, and a better encoder trained on
+it generalizes no better to modern account and notification mail. Without modern
+legitimate training data, pasted English text stays unreliable. The result view now
+says so when an alert rests mainly on the model. An uploaded `.eml` with its mailbox
+chosen remains the accurate path: 3 of the 92 genuine downloads alert that way.
+
 ### Chinese content-rule phrases (2026-10-01)
 
 The keyword categories had no Chinese phrases, and the model does not cover Chinese

@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 10:00 PT] — Record the English text-model experiments
+
+### Why
+- English false alerts in pasted-text mode come almost entirely from the text model.
+- Two evaluation-only fixes were measured, and neither met its bar.
+
+### Files changed
+- `docs/evaluation.md`: two experiments.
+  - Retraining with DiFraud, PhishFuzzer legacy-seed LLM variants and account hard negatives raised ROC AUC by 0.01–0.04 but only shifted the threshold.
+  - A `bge-small-en-v1.5` embedding model with logistic regression, trained on the same 26,052 rows, failed all four pre-registered criteria and ranked phishing worse on every set.
+
+### Effect
+- No code or model change; the served artifact is unchanged.
+- The evaluation record states the limit: modern legitimate training data is missing, and the `.eml` with its mailbox chosen is the accurate path.
+
 ## [2026-10-01 09:00 PT] — Say when an alert rests mainly on the text model
 
 ### Why
