@@ -25,6 +25,12 @@ def analyze(body, subject='Invoice problem - call support'):
         return json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(subject=subject, body=body))).body)
 
 
+def readings(html):
+    found = {}
+    app._visible_content_text(html, [], readings=found)
+    return found
+
+
 def deployment_pipeline(test):
     from content_inference import load_content_pipeline_artifact
     root = WEBSITE_DIR.parent
@@ -92,8 +98,9 @@ class MediaSourceOrderTests(unittest.TestCase):
            '@media(min-width:400px){.attack{display:block}}')
 
     def test_the_view_where_both_conditions_hold_shows_the_last_rule(self):
-        views = app._stylesheet_hidden_targets(self.CSS)['views']
-        self.assertIn(frozenset({('class', 'padding1'), ('class', 'padding2')}), views)
+        views = readings(f'<style>{self.CSS}</style><div class="attack">attack <span class="padding1">one</span>'
+                         '<span class="padding2">two</span></div>')
+        self.assertIn('attack', views['media'])
 
     def test_the_callback_in_that_view_alerts(self):
         html = (f'<style>{self.CSS}</style><p>Our meeting is moved to Thursday.</p>'
@@ -104,29 +111,31 @@ class MediaSourceOrderTests(unittest.TestCase):
         self.assertEqual(result['mail_type']['tactics'], ['callback'])
 
     def test_important_beats_a_later_normal_rule_and_a_later_base_rule_wins(self):
-        targets = app._stylesheet_hidden_targets(
-            '.m{display:none!important} @media(max-width:600px){.m{display:block}} .d{display:block}'
-            ' @media(max-width:600px){.d{display:none}} .d{display:block}')
-        self.assertEqual(targets['views'], [frozenset({('class', 'm')})])
+        views = readings('<style>.m{display:none!important} @media(max-width:600px){.m{display:block}} .d{display:block}'
+                         ' @media(max-width:600px){.d{display:none}} .d{display:block}</style>'
+                         '<p class="m">m</p><p class="d">d</p>')
+        self.assertEqual(views['media'], ['d', 'd'])
 
-    def test_text_whose_visibility_depends_on_specificity_is_unresolved(self):
-        def resolved(html):
-            readings = {}
-            app._visible_content_text(html, [], readings=readings)
-            return readings['resolved']
-        css = '.wrap .pad{display:none} .other .pad{display:block}'
-        self.assertEqual(app._stylesheet_hidden_targets(css)['ambiguous'], {('class', 'pad')})
-        self.assertFalse(resolved(f'<style>{css}</style><p>{FIRST} <span class="pad">{PADDING}</span> {SECOND}</p>'))
-        self.assertFalse(resolved('<style>.attack{display:none} .show{display:block}</style>'
-                                  f'<div class="attack show">{FIRST} {SECOND}</div><p>{PADDING}</p>'))
-        # A dark-mode logo swap holds no text, and one selector repeated keeps its order.
+    def test_specificity_inline_styles_and_order_decide_as_css_does(self):
+        for html, shown in (
+                ('<style>.wrap .pad{display:none} .pad{display:block}</style>'
+                 '<div class="wrap"><span class="pad">hidden</span></div><span class="pad">shown</span>', 'shown'),
+                ('<style>.attack{display:none} .show{display:block}</style><div class="attack show">shown</div>', 'shown'),
+                ('<style>.show{display:block} .attack{display:none}</style><div class="attack show">gone</div>', ''),
+                ('<style>.pad{display:none}</style><span class="pad" style="display:inline">shown</span>', 'shown'),
+                ('<style>.pad{display:none!important}</style><span class="pad" style="display:inline">gone</span>', ''),
+                ('<style>.pad{display:block}</style><div class="pad" hidden>shown</div>', 'shown')):
+            with self.subTest(html=html):
+                views = readings(html)
+                self.assertTrue(views['resolved'])
+                self.assertEqual(views['strict'], shown)
+
+    def test_a_dark_mode_logo_swap_and_a_client_wrapper_resolve(self):
         swap = ('.logo .light{display:block} @media (prefers-color-scheme:dark){.logo .light{display:none}}'
                 ' [data-ogsc] .logo .light{display:none}')
-        self.assertTrue(resolved(f'<style>{swap}</style><p>Your order shipped.</p>'
-                                 '<div class="logo"><img class="light" src="https://example.com/l.png"></div>'))
-        self.assertEqual(app._stylesheet_hidden_targets(
-            '.logo .light{display:block} @media (prefers-color-scheme:dark){.logo .light{display:none}}')['ambiguous'],
-            frozenset())
+        views = readings(f'<style>{swap}</style><p>Your order shipped.</p>'
+                         '<div class="logo"><img class="light" src="https://example.com/l.png" alt="Logo"></div>')
+        self.assertTrue(views['resolved'])
 
 
 class RequestedAnswerTests(unittest.TestCase):
@@ -157,7 +166,7 @@ class RequestedAnswerTests(unittest.TestCase):
         message = EmailMessage()
         message['Subject'] = 'Reset your password'
         message.set_content(RESET)
-        message.add_alternative(f'<html><head><style>div{{display:none}}</style></head><body><p>{RESET}</p>'
+        message.add_alternative(f'<html><head><style>div{{display:none; .x{{color:red}}}}</style></head><body><p>{RESET}</p>'
                                 '<div>Your document is ready. Open the attachment for details.</div></body></html>',
                                 subtype='html')
         structure = es.analyze_raw_email(message.as_bytes())

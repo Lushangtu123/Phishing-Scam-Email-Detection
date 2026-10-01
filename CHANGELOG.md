@@ -20,6 +20,59 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 20:00 PT] — Render HTML views with exact selector matching and the CSS cascade
+
+### Why
+- A read-only review at 1d9206d reproduced four ways to bring a callback scam to Low or Safe:
+  - S1 (P1): font-size math functions.
+    - A number was mixed with lengths: `max(16px,1)` was read as visible, where browsers drop it.
+    - A valid negative argument was rejected: `max(-1px,0px)` computes to a zero size.
+  - R1 (P1): `.wrap span{display:none}` was approximated as hiding all of `.wrap`. That removed the scam text beside the span from every view.
+  - R2 (P1): all interaction states shared one switch. Two checkboxes, or a hover and a focus, need four combinations.
+  - R3 (P1): image fallback text reached the model views but not the text rules.
+- The earlier fixes approximated CSS with class tokens, and each approximation could be turned against the reader. This change renders the views with the cascade instead.
+- While checking the change, five more cases where a browser and the reader disagree on whether CSS applies turned up:
+  - a selector list with one selector the reader cannot read (browsers drop the whole rule);
+  - `@layer`;
+  - `<style media="print">`;
+  - `<style type="text/plain">`;
+  - content a browser moves out of a table.
+
+### Files changed
+- `website/app.py`:
+  - `_stylesheet_cascade` replaces `_stylesheet_hidden_targets`:
+    - `_parse_selector` splits each selector into compounds and combinators;
+    - mail-client hooks and interaction states are conditions;
+    - rules the reader cannot match exactly are "maybe";
+    - views are combinations of up to five conditions, each in at most one client (64 views at most);
+    - each view holds the winning declaration per pattern and property.
+  - The view pass of `_visible_content_text` matches selectors element by element, siblings included:
+    - it computes display, visibility, opacity, font size and colour per view, from the stylesheet and inline cascade;
+    - content a browser moves out of a table inherits from outside it;
+    - text a "maybe" rule could change is unresolved, and the text rules read it too.
+  - `_font_size_class` type-checks `min()`/`max()`/`clamp()` arguments and computes their signs.
+  - `_with_variables` resolves `var(--x)` from the custom properties the stylesheet defines.
+  - `<style>` media and type attributes are applied.
+  - Images-off readings put the alt text in place. They feed the model views and, for floor findings only, the text rules.
+- Tests:
+  - `website/tests/test_review_2026_10_01_second.py`: 13 new tests;
+  - `test_rendering_views.py`, `test_rendering_template_patterns.py`, `test_review_2026_09_30.py`, `test_review_2026_09_30_second.py` and `test_review_2026_10_01.py`: assertions on removed internals now check the rendered text;
+  - `website/tests/vercel_runtime_smoke.py`: the unmodelled-stylesheet control now uses CSS nesting, since `div{display:none}` is modelled exactly.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- All review inputs are High (callback):
+  - S1 with a unitless, zero or negative argument;
+  - R1;
+  - R2, with checkboxes and with hover and focus;
+  - R3, with and without hidden padding.
+- The five additional cases are High, except `@layer`, which is undetermined.
+- Same served model, `1d9206d` against this change:
+  - no verdict or mail-type change on: the 92 genuine downloads (with and without a mailbox), their pasted text, PhishFuzzer recent, UniqueData, Postmark, DataCon 2023 day 1 (611) and the 87 public HTML templates;
+  - Nazario 2015–25: alerts 3,319 → 3,320, undetermined 138 → 137, Safe or Low 9 → 9.
+- Analysis time, single-threaded on an Apple M2 Max: the 92 genuine downloads (two analyses each) 10.5 → 14.7 s; Nazario 163 → 175 s.
+- Tests: 909 passed, 10 skipped; frontend 116 passed.
+
 ## [2026-10-01 19:00 PT] — Read common mail-template CSS instead of leaving genuine HTML undetermined
 
 ### Why

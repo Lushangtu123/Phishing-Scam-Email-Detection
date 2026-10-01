@@ -129,8 +129,8 @@ async def main() -> None:
             'team completed the scheduled maintenance.'
         )
         mime_uncertain.add_alternative(
-            # A tag-wide hide rule could hide any element, so the HTML view stays unscored.
-            '<style>div{display:none}</style><p>Routine meeting agenda.</p>',
+            # CSS nesting is not modelled, so the HTML view stays unscored.
+            '<style>div{display:none; .x{color:red}}</style><p>Routine meeting agenda.</p>',
             subtype='html',
         )
         mime_uncertain_analysis = await upload_eml(mime_uncertain)

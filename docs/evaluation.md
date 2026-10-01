@@ -1408,6 +1408,84 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review at 1d9206d: exact selector matching and the CSS cascade (2026-10-01)
+
+A read-only review supplied synthetic fixtures for four findings. All four reproduced on
+the served model, in HTML and `.eml`:
+
+| Finding | Input | Before | After |
+|---|---|---|---|
+| S1 font-size math (P1) | padding in `font-size:0` > `font-size:max(16px,1)`, or in `font-size:max(-1px,0px)` | Low | High (callback) |
+| R1 ancestor scope (P1) | `.wrap span{display:none}`, scam text beside the span in `.wrap` | Low | High (callback) |
+| R2 interaction states (P1) | `.a:checked` and `.b:checked` checkboxes, or `:hover` and `:focus` | Low | High (callback) |
+| R3 image fallback (P1) | callback instruction in the alt text of a linked image | Safe | High (callback) |
+
+The earlier fixes approximated CSS with class tokens:
+- "a class may be hidden";
+- "over-hiding is safe";
+- "one switch for all states".
+
+The review turned each approximation into a bypass. Over-hiding is not safe: hiding the
+scam text along with the padding leaves two benign readings, and the real rendering
+(scam without padding) is in neither. The views are now rendered element by element:
+- selectors are matched exactly, with siblings;
+- the cascade decides display, visibility, opacity, font size and colour by
+  importance, specificity and order, with inline styles;
+- conditions are @media contexts, per-compound interaction states and mail-client
+  hooks;
+- rules the reader cannot match exactly leave the text they could change unresolved.
+
+Checking the change turned up five more cases where a browser and the reader
+disagreed on whether CSS applies. Each could hide a visible scam from the reader:
+
+| Case | Rendering | Now |
+|---|---|---|
+| `.scam, p:nonsense{display:none}` | browsers drop the whole rule | High (callback) |
+| `@layer x { .scam{display:none} }` after `.scam{display:block}` | unlayered rules win | unmodelled, undetermined |
+| `<style media="print">` | not applied on screen | a condition; High (callback) |
+| `<style type="text/plain">` | not applied | ignored; High (callback) |
+| `<p>` directly in a `display:none` table | moved out of the table | inherits from outside; High (callback) |
+
+Several first versions changed genuine mail and were refined:
+- **Alt text.** Reading image alt text into every rule score made a genuine Cloudflare
+  "verify your email" message High, because its button labels raised the keyword
+  score. Alt text now counts only for findings that set a floor.
+- **Client hooks.** Treating every class the document lacks as a mail-client wrapper
+  turned template classes for other emails (`.card`, `.simple-text`) into conditions.
+  Amazon had ten and Coursera eleven, which left both undetermined. Only known
+  client hooks count now. A class the document does not use selects nothing.
+- **Foster parenting.** Marking all content a browser moves out of a table as
+  undecidable left Amazon (a table directly in a table) and Coursera (a `div` in a
+  `tr`) undetermined. That content now inherits from outside the table. It is
+  undecidable only where a selector with combinators could reach it through the
+  table's elements.
+- **CSS variables.** Amazon's `body{color:var(--body-color)}` was uncomputable. A
+  variable now takes every value the stylesheet gives it.
+
+| Cohort | `1d9206d`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+| Nazario 2015–25 phishing (3,466) | 3,319 / 138 / 9 | 3,320 / 137 / 9 |
+
+No verdict or mail type changed for any message in these cohorts:
+- the 92 genuine downloads, with and without a mailbox;
+- their pasted text;
+- PhishFuzzer recent, UniqueData and Postmark;
+- DataCon 2023 day 1 (611);
+- the 87 public HTML templates.
+
+Analysis took 40% longer on the genuine downloads (10.5 → 14.7 s for 92 messages,
+analysed twice each) and 7% longer on Nazario (163 → 175 s), single-threaded on an
+Apple M2 Max.
+
+Still not modelled:
+- external stylesheets;
+- hiding by geometry (`max-height:0` with `overflow:hidden`, off-screen positioning, `clip`);
+- near-zero opacity or font size;
+- text coloured like its background;
+- HTML that a browser's tree builder restructures in ways other than tables.
+
 ### Mail-template CSS that left genuine HTML undetermined (2026-10-01)
 
 With a mailbox chosen, 10 of the 92 genuine downloads were undetermined, and without

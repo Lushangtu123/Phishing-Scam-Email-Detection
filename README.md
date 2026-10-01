@@ -509,10 +509,15 @@ visible color (a named, hex or functional color with nonzero alpha), as in the
 (`1em`, `100%`) stay zero, and a wrapper with no text of its own marks nothing.
 An invalid color or size is dropped, as CSS drops it, so the inherited value or an
 earlier declaration in the same style stays: every argument of a color function is
-checked (`rgb(nope)`, `hsl(bogus)` and `color(nope)` are invalid), and `min()`,
-`max()` and `clamp()` are computed only when every argument is a length
-(`max(16px, 1rem)` is visible; `max(16px, garbage)` is dropped). A missing or
-negative alpha is zero. A `display`, `visibility` or `opacity` value the reader does
+checked (`rgb(nope)`, `hsl(bogus)` and `color(nope)` are invalid). `min()`, `max()` and
+`clamp()` font sizes need a length in every argument: a bare number, even `0`
+(`max(16px, 1)`), or `max(16px, garbage)` drops the declaration. Their result is
+computed by sign, for a zero and for a positive parent size, and a negative result
+is a zero size: `max(16px, 1rem)` is visible, `max(-1px, 0px)` and `min(-1px, 16px)`
+are zero, and `max(1em, 0px)` follows the parent. A missing or negative alpha is
+zero. A color or size that is one `var(--name)` takes every value the stylesheet
+gives `--name`: visible if all are visible, transparent if all are transparent,
+inherited if there is none, unresolved otherwise. A `display`, `visibility` or `opacity` value the reader does
 not know replaces nothing and leaves the text unresolved, because a browser drops it
 only if it is invalid. Values the parser cannot compute (`calc()`, `var()`,
 `color-mix()`, relative arguments that decide the result) leave the text unresolved,
@@ -524,42 +529,67 @@ view is uncertain. A separate trustworthy text/plain alternative may still be
 model-scored, but the whole-message analysis remains incomplete and cannot
 produce a complete Low or Safe verdict.
 
-**Rendering views.** When every uncertain element can be located, the model
-scores the HTML view three ways:
+**Rendering views.** When the stylesheet can be modelled, the model scores the
+HTML view several ways:
 
 - the visible text;
 - the strictest non-Outlook view, without text a stylesheet or zero-size or
   transparent style may hide, and without Outlook-only (`[if mso]`) branches;
 - the strictest Outlook view, without content hidden from Outlook
   (`<!--[if !mso]><!-->`);
-- with images off, the visible text plus the fallback descriptions of linked
-  images (alt text of at least three words).
+- each rendering condition's view (below);
+- each of these with images off, where a linked image shows its alt text in place.
 
-Uncertain elements are located when every hiding rule's target selector carries
-a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
-`*[class="x"]` qualify, while `div`, `*` and `:not(...)` do not. A bare tag inside
-such an element (`.inline-button table`, `.image_block img+div`) is reached through
-it, so that element's whole content counts as possibly hidden: more than the rule
-hides, never less. A rule that shows counts only its subject's own class or id:
-showing `.menu > a` does not show a hidden `.menu`. A conditional comment whose
-closing `<![endif]` a formatter wrapped across lines still closes.
+Each view is rendered element by element, as CSS does:
+- Selectors are matched exactly against the document: tags, classes, ids,
+  attribute tests, and descendant, child and sibling combinators.
+- The stylesheet and inline cascade decides `display`, `visibility`, `opacity`,
+  font size and colour, by `!important`, then specificity (an inline style above
+  any selector), then source order. A `hidden` attribute yields to any author rule.
+- `.wrap span{display:none}` hides the spans, not the text beside them, and showing
+  `.menu > a` does not show a hidden `.menu`.
+- Content a browser moves out of a table (a `<div>` directly in a `<tr>`) inherits
+  from outside the table, as there.
+- A `<style>` of another type than CSS does not apply. A `media` attribute makes the
+  style a condition.
+- A conditional comment whose closing `<![endif]` a formatter wrapped across lines
+  still closes.
 
-- Every combination of `@media` (or other at-rule) contexts is its own view,
-  because conditions can hold together (`max-width:600px` and `min-width:400px`
-  at 500px). Interaction states (`:checked`, `:hover`, `:focus`, `:active`,
-  `:target`) are one more context, so a ticked mobile menu is a view of its own.
-  Each view replays the rules in source order, a repeated context at
-  each of its positions; `!important` beats a later normal declaration, and
-  `display` and `visibility` are separate properties. A class or id hidden by one
-  selector and shown by another (unless both are a lone `.name` or `#name`, or the
-  very same selector), and an element whose classes are hidden and shown in the
-  same view, depend on specificity and ancestors not modelled here. Text inside
-  them leaves the views unresolved; dark-mode logo swaps and spacer cells without
-  text do not.
-  Text rules read every view as well as the certainly visible text, and the
-  riskiest reading counts. More than five contexts (32 combinations) are not
-  modelled. CSS comments are
-  stripped only outside strings, so `content:"/*"` opens no comment.
+Rendering conditions:
+- `@media`, `@supports` and `@container` contexts. Every combination is a view,
+  because conditions can hold together (`max-width:600px` and `min-width:400px` at
+  500px), and a repeated context keeps each of its positions in source order.
+- Interaction states, one condition per compound and state: two checkboxes, or a
+  hover and a focus, are four combinations.
+- Mail-client hooks the document itself lacks: `u + .body` (Gmail),
+  `#MessageViewBody` (Outlook on the web), `[data-ogsc]` (Outlook dark mode),
+  `.appleBody` (Apple Mail). Each client is one condition, and a view is in at most
+  one client. A class the document does not use selects nothing.
+
+More than five conditions, or more than 64 views, are not modelled.
+
+Some rules cannot be matched exactly:
+- `:not()` and structural pseudo-classes such as `:first-child`;
+- implied table sections (`table > tr`);
+- a state that several elements share;
+- class names that match only regardless of case;
+- every selector of a list that contains one of these, because a browser drops a
+  whole rule for one selector it cannot read.
+
+These may or may not apply. Text whose rendering they could change leaves the views
+unresolved, and the text rules read it as well.
+
+Some stylesheets are not modelled at all:
+- CSS nesting;
+- `@layer` and `@scope`;
+- an @-rule that hides;
+- an unreadable selector in a hiding rule.
+
+Text rules read every view as well as the certainly visible text, and the riskiest
+reading counts. Image fallback text counts when it holds a finding that sets a
+floor, such as a callback or credential request. It does not add to the keyword
+score, because genuine mail labels its button images "Verify your email". CSS
+comments are stripped only outside strings, so `content:"/*"` opens no comment.
 - If all views lead to the same alert decision, the view is scored at its
   highest-risk reading. Its rendering warnings stay listed but stop blocking a
   Safe or Low verdict, and `content.rendering_views_agree` explains this.
@@ -574,8 +604,8 @@ closing `<![endif]` a formatter wrapped across lines still closes.
 - An image fallback instruction stays unresolved: a short text such as "Enter
   password" is beyond the model's judgement.
 
-Where every hiding rule's targets can be located, text rules read the text no
-style can hide in a CSS-uncertain HTML part, so a visible scam still triggers
+Where the stylesheet can be modelled, text rules read the text no style can hide
+in a CSS-uncertain HTML part, and each view, so a visible scam still triggers
 them. Otherwise, prose from only the CSS-uncertain HTML
 part is withheld from text rules, including bare URLs and displayed link labels;
 unambiguous MIME parts still contribute text rules. Explicit link destinations,

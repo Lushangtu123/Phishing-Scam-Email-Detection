@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import sys
 import unittest
 from email.message import EmailMessage
@@ -18,6 +19,11 @@ def readings(html):
     return views
 
 
+def cascade(html):
+    """The stylesheet cascade of an HTML document."""
+    return app._stylesheet_cascade(''.join(re.findall(r'<style>(.*?)</style>', html, re.S)), html)
+
+
 def stand_in_model(flagged):
     """A model that flags any text containing one of the given words."""
     def predict(_pipeline, _subject, body, **_kwargs):
@@ -32,29 +38,45 @@ def analyze(subject, body):
     return json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(subject=subject, body=body))).body)
 
 
-class StylesheetTargetTests(unittest.TestCase):
-    def test_hiding_rules_are_reduced_to_the_classes_and_ids_they_can_reach(self):
-        css = ('.preheader{display:none!important;max-height:0} .mobile{display:none}'
-               ' @media (max-width:600px){.mobile{display:block}} u + .body .gmail-hide{display:none} #promo{visibility:hidden}'
-               ' *[class="gmail-fix"]{display:none} table[class~="a,b"]{display:none} a::before{display:none}'
-               ' span.tiny:hover{font-size:0} .pad{content:"}"; display:none} p{color:red}')
-        targets = app._stylesheet_hidden_targets(css)
-        self.assertEqual(targets['union'], (
-            frozenset({'preheader', 'mobile', 'gmail-hide', 'tiny', 'pad'}), frozenset({'promo'}),
-            frozenset({'gmail-fix', 'a,b'})))
-        # The base view hides .mobile; the (max-width:600px) view shows it again, and
-        # hovering .tiny is an interaction context of its own.
-        base, *others = targets['views']
-        self.assertIn(('class', 'mobile'), base)
-        self.assertNotIn(('class', 'tiny'), base)
-        self.assertTrue(any(('class', 'mobile') not in view and ('class', 'preheader') in view for view in others))
-        self.assertTrue(any(('class', 'tiny') in view for view in others))
+class StylesheetCascadeTests(unittest.TestCase):
+    HTML = ('<style>.preheader{display:none!important;max-height:0} .mobile{display:none}'
+            ' @media (max-width:600px){.mobile{display:block}} u + .body .gmail-hide{display:none} #promo{visibility:hidden}'
+            ' *[class="gmail-fix"]{display:none} a::before{display:none}'
+            ' span.tiny:hover{font-size:0} .pad{content:"}"; display:none} p{color:red}</style>'
+            '<div class="body"><span class="preheader">pre</span><p class="mobile">mob</p><p class="gmail-hide">gm</p>'
+            '<p id="promo">promo</p><p class="gmail-fix">fix</p><a href="https://example.com">link</a>'
+            '<span class="tiny">tiny</span><p class="pad">pad</p></div>')
 
-    def test_rules_that_could_hide_any_element_are_not_modelled(self):
-        for css in ('div{display:none}', '*{opacity:0}', 'div:not(.show){display:none}',
-                    '.a { display:none; .b { color:red } }', '@page{display:none}', '.\\31 x{display:none}'):
+    def test_rules_become_patterns_and_conditions(self):
+        found = cascade(self.HTML)
+        keys = {pattern['key'] for pattern in found['patterns']}
+        self.assertTrue({'*.preheader', '*.mobile', '*.body *.gmail-hide', '*#promo', '*[class=gmail-fix]',
+                         'span.tiny', '*.pad', 'p'} <= keys)
+        # The (max-width:600px) context, the Gmail wrapper (u + .body) and hovering .tiny.
+        self.assertEqual(len(found['conditions']), 3)
+        self.assertEqual(len(found['views']), 8)
+
+    def test_only_text_every_view_shows_is_certain(self):
+        views = readings(self.HTML)
+        self.assertTrue(views['resolved'])
+        self.assertEqual(views['certain'], 'link')
+        self.assertTrue(any('mob' in text for text in views['media']))
+        self.assertTrue(any('mob' not in text for text in views['media']))
+
+    def test_tag_and_universal_rules_are_matched_exactly(self):
+        views = readings('<style>div{display:none}</style><p>Text</p><div>More</div>')
+        self.assertTrue(views['resolved'])
+        self.assertEqual(views['strict'], 'Text')
+        self.assertEqual(readings('<style>*{opacity:0}</style><p>Text</p>')['strict'], '')
+
+    def test_unmodelled_stylesheets(self):
+        for css in ('.a { display:none; .b { color:red } }', '@page{display:none}', '.\\31 x{display:none}'):
             with self.subTest(css=css):
-                self.assertIsNone(app._stylesheet_hidden_targets(css))
+                self.assertIsNone(app._stylesheet_cascade(css, '<p class="a">x</p>'))
+
+    def test_selectors_matched_only_approximately_leave_the_text_they_reach_unresolved(self):
+        self.assertFalse(readings('<style>div:not(.show){display:none}</style><div>More</div>')['resolved'])
+        self.assertTrue(readings('<style>div:not(.show){display:none}</style><p>Text</p>')['resolved'])
 
 
 class RenderingReadingTests(unittest.TestCase):
@@ -72,7 +94,7 @@ class RenderingReadingTests(unittest.TestCase):
 
     def test_plain_html_needs_no_views_and_unmodelled_markup_stays_unresolved(self):
         self.assertEqual(readings('<p>Ordinary visible text.</p>'), {})
-        for html in ('<style>div{display:none}</style><p>Text</p><div>More</div>',
+        for html in ('<style>div{display:none; .x{color:red}}</style><p>Text</p><div>More</div>',
                      '<p>Text</p><!--[if mso]><p>Branch without its closing condition</p>-->',
                      '<p>Text</p><img src="https://img.example/x.png" alt="Enter your password to continue here">'):
             with self.subTest(html=html[:30]):

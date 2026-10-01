@@ -52,7 +52,7 @@ class InlineStyleInheritanceTests(unittest.TestCase):
                 self.assertTrue(app._color_state(transparent))
         # Values the parser cannot compute leave the text unresolved, whatever the parent.
         for style in ('color:color-mix(in srgb, red, blue)', 'color:rgb(var(--x))', 'font-size:calc(1em + 10px)',
-                      'font-size:min(1em, 16px)'):
+                      'font-size:max(1lh, 0px)'):
             with self.subTest(style=style):
                 self.assertTrue(app._inline_text_state(style)[2])
         # min(), max() and clamp() over plain lengths are computed.
@@ -67,13 +67,15 @@ class MediaCombinationTests(unittest.TestCase):
                ' @media(min-width:601px){.attack{display:none}}')
         html = (f'<style>{css}</style><p>{FIRST}</p><div class="padding1">{PADDING}</div>'
                 f'<div class="padding2">{PADDING}</div><p class="attack">{SECOND}</p>')
-        targets = app._stylesheet_hidden_targets(css)
-        self.assertIn(frozenset({('class', 'padding1'), ('class', 'padding2')}), targets['views'])
+        views = {}
+        app._visible_content_text(html, [], readings=views)
+        self.assertTrue(any(SECOND in text and 'project notes' not in text for text in views['media']))
         self.assertIn(analyze(html)['risk_level'], {'high', 'critical'})
 
     def test_too_many_media_contexts_are_not_modelled(self):
-        css = ' '.join(f'@media (min-width:{w}px){{.c{w}{{display:none}}}}' for w in range(100, 100 * (app._MAX_MEDIA_CONTEXTS + 2), 100))
-        self.assertIsNone(app._stylesheet_hidden_targets(css))
+        widths = range(100, 100 * (app._MAX_MEDIA_CONTEXTS + 2), 100)
+        css = ' '.join(f'@media (min-width:{w}px){{.c{w}{{display:none}}}}' for w in widths)
+        self.assertIsNone(app._stylesheet_cascade(css, ''.join(f'<p class="c{w}">x</p>' for w in widths)))
 
 
 class AuthenticationPropertyTests(unittest.TestCase):
