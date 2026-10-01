@@ -506,10 +506,15 @@ conservatively, including inside media-rule blocks. Text that an inline zero
 restores it with a positive absolute size (`14px`, `1rem`, `small`, `initial`) or a
 visible color (a named, hex or functional color with nonzero alpha), as in the
 `font-size:0` layout wrappers of HTML mail. Sizes relative to the zero parent
-(`1em`, `100%`) stay zero; an invalid color is ignored, as CSS ignores it, so the
-inherited transparent color stays; and a wrapper with no text of its own marks
-nothing. `min()`, `max()` and `clamp()` over plain lengths are computed
-(`max(16px, 1rem)` is visible). Values the parser cannot compute (`calc()`, `var()`,
+(`1em`, `100%`) stay zero, and a wrapper with no text of its own marks nothing.
+An invalid color or size is dropped, as CSS drops it, so the inherited value or an
+earlier declaration in the same style stays: every argument of a color function is
+checked (`rgb(nope)`, `hsl(bogus)` and `color(nope)` are invalid), and `min()`,
+`max()` and `clamp()` are computed only when every argument is a length
+(`max(16px, 1rem)` is visible; `max(16px, garbage)` is dropped). A missing or
+negative alpha is zero. A `display`, `visibility` or `opacity` value the reader does
+not know replaces nothing and leaves the text unresolved, because a browser drops it
+only if it is invalid. Values the parser cannot compute (`calc()`, `var()`,
 `color-mix()`, relative arguments that decide the result) leave the text unresolved,
 whatever a descendant declares. Other `calc(...)` opacity
 expressions are left unscored when their visible result cannot be established.
@@ -534,8 +539,14 @@ a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
 
 - Every combination of `@media` (or other at-rule) contexts is its own view,
   because conditions can hold together (`max-width:600px` and `min-width:400px`
-  at 500px). A view starts from the base rules' hidden targets and applies its
-  contexts in source order, each removing what it shows and adding what it hides.
+  at 500px). Each view replays the rules in source order, a repeated context at
+  each of its positions; `!important` beats a later normal declaration, and
+  `display` and `visibility` are separate properties. A class or id hidden by one
+  selector and shown by another (unless both are a lone `.name` or `#name`, or the
+  very same selector), and an element whose classes are hidden and shown in the
+  same view, depend on specificity and ancestors not modelled here. Text inside
+  them leaves the views unresolved; dark-mode logo swaps and spacer cells without
+  text do not.
   Text rules read every view as well as the certainly visible text, and the
   riskiest reading counts. More than five contexts (32 combinations) are not
   modelled. CSS comments are
@@ -693,17 +704,25 @@ both, and nothing changes until the reader answers:
   "Are you sure you did this yourself just now?", and the answer is sent with a fresh
   analysis: `requested` in `/api/analyze-content` and `/api/analyze-visual`, or
   `?requested=` on `/api/analyze-eml`.
-  - Deliveries, payments received, renewals, memberships and statements are left out.
-    A reader expecting a parcel or a payment would say yes to the phishing that
-    imitates them.
+  - Deliveries, payments, refunds, invoices, statements, renewals and memberships
+    are left out wherever the text mentions them. A reader expecting a parcel or a
+    payment would say yes to the phishing that imitates them, and an order number
+    in a delivery notice does not make it the reader's own action.
   - "Yes, it was me" lowers the result to **Low Risk — Confirmed as Your Own Action**,
     with a reminder to check the sender and links and never to share a code
     (`content.requested_notice`).
   - "No, or not sure" keeps the alert. It explains that an unexpected code, sign-in,
     account, order or application notice can mean someone is using the account, or
     phishing (`content.unrequested_notice`).
-  - Any rule, sender, link or structure finding at Medium or above means the
-    question is never asked, and an answer changes nothing.
+  - Any rule, sender, link or structure indicator at Medium or above (a shortened
+    link adds to the score without setting a floor) means the question is never
+    asked, and an answer changes nothing. Keyword categories only add to the score,
+    and presentation cues do not block it either (more than six links, exclamation
+    marks, capitals, two generic "click here" phrases, a doubled question mark in
+    the subject): genuine notices share them.
+  - The answer is applied before the completeness check. When part of the message
+    could not be read (hidden styles, an unscored MIME alternative), "yes" withdraws
+    the model's alert but the result is **Analysis Incomplete**, not Low.
 
 ### Mail-type note
 

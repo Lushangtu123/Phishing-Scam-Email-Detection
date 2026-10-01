@@ -20,6 +20,52 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 18:00 PT] — Fix five findings from the review at b84c605
+
+### Why
+- A read-only review at b84c605 reproduced five ways to bring a phishing message down to Low, or to let a reader's answer do so, on the served model:
+  - S1 (P1): CSS functions with bad arguments (`rgb(nope)`, `max(16px,garbage)`) were read as valid. Hidden padding inside a transparent or zero-size wrapper then counted as visible text and diluted a callback scam to Low.
+  - S2 (P1): a repeated `@media` condition was merged into one context, losing source order. No view showed the callback with both padding blocks hidden.
+  - R1 (P2): "yes" lowered an alert carrying a High shortened-link indicator, which adds to the score without setting a floor.
+  - R2 (P2): an order number made a delivery notice count as the reader's own action.
+  - R3 (P2): the answer was applied after the completeness check, so an unreadable MIME branch could still end Low.
+- While fixing S1, the same root cause turned up in one more form: an unknown `display`, `visibility` or `opacity` value replaced an earlier hiding one (`display:none;display:garbage`), with the same Low result.
+
+### Files changed
+- `website/app.py`:
+  - Colours (`_color_class`): every argument of each colour function is checked. An invalid colour is dropped, a missing or negative alpha is transparent, and CSS system colours are known.
+  - Font sizes (`_font_size_class`): every `min()`, `max()` and `clamp()` argument must be a length, and unknown units are invalid.
+  - `_style_values` drops invalid colour and size declarations, so an earlier one stays. An unknown display, visibility or opacity value replaces nothing and marks the text unresolved.
+  - `_stylesheet_hidden_targets` replays the rules of each view in source order. A repeated context keeps each of its positions, `!important` beats a later normal rule, and display and visibility are separate properties. Text is unresolved inside a class that different compound selectors hide and show, or inside an element whose classes are hidden and shown in one view.
+  - The own-action question:
+    - `_rests_on_text_model` blocks it on any Medium or higher indicator, presentation cues aside;
+    - `_NOT_OWN_ACTION_NOTICE` excludes deliveries, payments, refunds, invoices, statements, renewals and memberships wherever the text mentions them;
+    - the answer is applied before the completeness check.
+- Tests:
+  - `website/tests/test_review_2026_10_01.py`: 13 tests built from the review fixtures, plus the display, visibility and opacity variant.
+  - `website/tests/test_rendering_views.py`: the fixture's base `.mobile` rule now comes before its `@media` rule. In the old order, the later base rule wins under CSS, which leaves a single view.
+- `README.md`, `docs/evaluation.md`: the rules and their measurement.
+
+### Effect
+- All five review inputs:
+  - S1 colour and size, and S2: High (callback);
+  - R1 and R2: not asked, and "yes" keeps High;
+  - R3: "yes" gives unknown.
+- No verdict changed on the 92 genuine downloads (with and without a mailbox), their pasted text, Nazario 3,466, PhishFuzzer recent, UniqueData or Postmark.
+- The own-action question, if every asked reader answers "yes":
+
+| Cohort | Asked (before → after) | Alerts after "yes" (before → after) |
+|---|---|---|
+| Nazario .eml (phishing) | 180 → 8 | 3,138 → 3,310 |
+| PhishFuzzer recent phishing, pasted | 6 → 4 | 84 → 86 |
+| Genuine .eml, no mailbox | 17 → 16 | 10 → 11 (unknown 15 → 20) |
+| Genuine .eml, mailbox chosen | 3 → 2 | 0 → 1 (unknown 10 → 12) |
+| Genuine pasted | 29 → 29 | 16 → 16 |
+| PhishFuzzer recent legit, pasted | 14 → 10 | 58 → 62 |
+| UniqueData legit, pasted | 16 → 12 | 26 → 30 |
+
+- Tests: 881 passed, 10 skipped.
+
 ## [2026-10-01 17:00 PT] — Ask about the reader's own actions, not only account codes
 
 ### Why

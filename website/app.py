@@ -2042,8 +2042,38 @@ _P_IMPLIED_END_START_TAGS = {
 }
 
 
+_CSS_NUMBER = r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?'
+_CSS_WIDE_KEYWORDS = frozenset({'inherit', 'initial', 'unset', 'revert', 'revert-layer'})
+_DISPLAY_KEYWORDS = frozenset('''
+    none contents block inline run-in flow flow-root table flex grid ruby list-item math grid-lanes
+    inline-block inline-table inline-flex inline-grid inline-list-item inline-grid-lanes
+    table-row-group table-header-group table-footer-group table-row table-cell table-column-group table-column
+    table-caption ruby-base ruby-text ruby-base-container ruby-text-container
+    -webkit-box -webkit-inline-box -webkit-flex -webkit-inline-flex -moz-box -moz-inline-box -moz-inline-stack
+    -ms-flexbox -ms-inline-flexbox -ms-grid -ms-inline-grid'''.split()) | _CSS_WIDE_KEYWORDS
+_DISPLAY_MULTI_KEYWORDS = frozenset('block inline run-in flow flow-root table flex grid ruby list-item'.split())
+
+
+def _recognised_visibility_value(name: str, value: str) -> bool:
+    """Whether a display, visibility or opacity value is one this reader knows."""
+    if name == 'display':
+        words = value.split()
+        return value in _DISPLAY_KEYWORDS or (1 < len(words) <= 3 and set(words) <= _DISPLAY_MULTI_KEYWORDS)
+    if name == 'visibility':
+        return value in {'visible', 'hidden', 'collapse'} | _CSS_WIDE_KEYWORDS
+    if name == 'opacity':
+        return (value in _CSS_WIDE_KEYWORDS or value.startswith('calc(')
+                or bool(re.fullmatch(_CSS_NUMBER + '%?', value)))
+    return True
+
+
 def _style_values(style: str) -> dict[str, tuple[str, bool]]:
-    """Visibility-related declarations of one style: name -> (value, !important)."""
+    """Visibility-related declarations of one style: name -> (value, !important).
+
+    An unknown display, visibility or opacity value does not replace an earlier one, and
+    is recorded under '#unrecognised': a browser drops it if it is invalid but applies it
+    if it is a value this reader does not know, so the text it reaches stays unresolved.
+    """
     # A semicolon inside quoted content, url(), or a CSS escape is not a
     # declaration boundary. Splitting it blindly can hide genuinely visible
     # text when an unrelated property contains the string "; display:none".
@@ -2095,19 +2125,19 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
         value = _unescape_css(value).strip().lower()
         important = bool(re.search(r'!\s*important\s*$', value))
         value = re.sub(r'!\s*important\s*$', '', value).strip()
+        # CSS drops an invalid declaration, so an earlier valid one still applies:
+        # color:transparent; color:rgb(nope) stays transparent.
+        if (name == 'color' and _color_class(value) == 'invalid') or (
+                name == 'font-size' and _font_size_class(value) == 'invalid'):
+            continue
+        if not _recognised_visibility_value(name, value):
+            values['#unrecognised'] = (name, False)
+            continue
         if name not in values or important or not values[name][1]:
             values[name] = (value, important)
     return values
 
 
-_ZERO_LENGTH = re.compile(r'[+]?0+(?:\.0+)?(?:[a-z]+|%)?')
-_TRANSPARENT_COLOR = re.compile(r'transparent|(?:rgba|hsla)\([^)]*,\s*0+(?:\.0+)?\s*\)')
-# Sizes that do not scale with the parent's font size, so they restore text inside
-# a zero-size wrapper (the inline-block spacing technique in HTML mail layouts).
-# "initial" resets font-size to its initial value, medium.
-_ABSOLUTE_FONT_SIZE = re.compile(
-    r'[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:px|pt|pc|in|cm|mm|q|rem|vw|vh|vmin|vmax)'
-    r'|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|initial')
 _NAMED_COLORS = frozenset("""
     aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown
     burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan
@@ -2123,14 +2153,86 @@ _NAMED_COLORS = frozenset("""
     palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue
     saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow
     springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen
-    canvastext linktext visitedtext activetext buttontext fieldtext graytext highlighttext marktext windowtext
+    accentcolor accentcolortext activetext buttonborder buttonface buttontext canvas canvastext field fieldtext
+    graytext highlight highlighttext linktext mark marktext selecteditem selecteditemtext visitedtext
+    activeborder activecaption appworkspace background buttonhighlight buttonshadow captiontext
+    inactiveborder inactivecaption inactivecaptiontext infobackground infotext menu menutext scrollbar
+    threeddarkshadow threedface threedhighlight threedlightshadow threedshadow window windowframe windowtext
     initial
 """.split())
 _HEX_COLOR = re.compile(r'#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})')
 _COLOR_FUNCTION = re.compile(r'(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\((.*)\)')
-_ALPHA = re.compile(r'[+]?(?:\d+(?:\.\d*)?|\.\d+)%?')
+_COLOR_CHANNEL = rf'(?:{_CSS_NUMBER}%?|none)'
+_COLOR_HUE = rf'(?:{_CSS_NUMBER}(?:deg|grad|rad|turn)?|none)'
+_COLOR_SPACES = frozenset({'srgb', 'srgb-linear', 'display-p3', 'a98-rgb', 'prophoto-rgb', 'rec2020',
+                           'xyz', 'xyz-d50', 'xyz-d65'})
 # Values the parser cannot compute: the text they reach stays unresolved.
 _UNCOMPUTED = re.compile(r'(?:calc|clamp|min|max|var|env|attr|color-mix|light-dark|if)\(')
+
+
+def _color_function_alpha(function: str, arguments: str) -> str | None:
+    """The alpha of a well-formed colour function ("1" when omitted), or None when malformed.
+
+    Every argument is checked, not only the alpha: rgb(nope) is invalid CSS, so the
+    declaration is dropped and the inherited colour stays.
+    """
+    if ',' in arguments:
+        # Legacy comma syntax: rgb()/rgba() with all numbers or all percentages,
+        # hsl()/hsla() with a hue and two percentages, then an optional alpha.
+        values = [value.strip() for value in arguments.split(',')]
+        if len(values) not in (3, 4):
+            return None
+        if function in {'rgb', 'rgba'}:
+            valid = (all(re.fullmatch(_CSS_NUMBER, value) for value in values[:3])
+                     or all(re.fullmatch(_CSS_NUMBER + '%', value) for value in values[:3]))
+        elif function in {'hsl', 'hsla'}:
+            valid = (bool(re.fullmatch(rf'{_CSS_NUMBER}(?:deg|grad|rad|turn)?', values[0]))
+                     and all(re.fullmatch(_CSS_NUMBER + '%', value) for value in values[1:3]))
+        else:
+            valid = False
+        if not valid or (len(values) == 4 and not re.fullmatch(_CSS_NUMBER + '%?', values[3])):
+            return None
+        return values[3] if len(values) == 4 else '1'
+    channels, slash, alpha = arguments.partition('/')
+    values = channels.split()
+    alpha = alpha.strip() if slash else '1'
+    if not re.fullmatch(_COLOR_CHANNEL, alpha):
+        return None
+    if function == 'color':
+        if not values or values[0] not in _COLOR_SPACES:
+            return None
+        values, patterns = values[1:], [_COLOR_CHANNEL] * 3
+    elif function in {'hsl', 'hsla', 'hwb'}:
+        patterns = [_COLOR_HUE, _COLOR_CHANNEL, _COLOR_CHANNEL]
+    elif function in {'lch', 'oklch'}:
+        patterns = [_COLOR_CHANNEL, _COLOR_CHANNEL, _COLOR_HUE]
+    else:
+        patterns = [_COLOR_CHANNEL] * 3
+    if len(values) != 3 or not all(re.fullmatch(pattern, value) for value, pattern in zip(values, patterns)):
+        return None
+    return alpha
+
+
+def _color_class(color: str) -> str:
+    """'transparent', 'visible', 'inherit', 'unresolved' or 'invalid' for one colour value."""
+    if not color or color in {'inherit', 'unset', 'revert', 'revert-layer', 'currentcolor'}:
+        return 'inherit'
+    if _UNCOMPUTED.search(color) or re.match(r'[a-z-]+\(\s*from\s', color):
+        return 'unresolved'
+    if color == 'transparent':
+        return 'transparent'
+    if color in _NAMED_COLORS:
+        return 'visible'
+    if _HEX_COLOR.fullmatch(color):
+        digits = color[1:]
+        alpha = digits[3] if len(digits) == 4 else digits[6:] if len(digits) == 8 else 'f'
+        return 'transparent' if int(alpha, 16) == 0 else 'visible'
+    match = _COLOR_FUNCTION.fullmatch(color)
+    alpha = match and _color_function_alpha(match.group(1), match.group(2).strip())
+    if not alpha:
+        return 'invalid'
+    # A missing ("none") or negative alpha computes to zero.
+    return 'transparent' if alpha == 'none' or float(alpha.rstrip('%')) <= 0 else 'visible'
 
 
 def _color_state(color: str) -> bool | None:
@@ -2139,60 +2241,74 @@ def _color_state(color: str) -> bool | None:
     An invalid value is ignored by CSS, so the parent's colour still applies; it must
     not clear an inherited transparent colour.
     """
-    if not color or color in {'inherit', 'unset', 'revert', 'revert-layer', 'currentcolor'} or _UNCOMPUTED.search(color):
-        return None
-    if _TRANSPARENT_COLOR.fullmatch(color):
-        return True
-    if color in _NAMED_COLORS:
-        return False
-    if _HEX_COLOR.fullmatch(color):
-        digits = color[1:]
-        alpha = digits[3] if len(digits) == 4 else digits[6:] if len(digits) == 8 else 'f'
-        return int(alpha, 16) == 0
-    match = _COLOR_FUNCTION.fullmatch(color)
+    return {'transparent': True, 'visible': False}.get(_color_class(color))
+
+
+# Font sizes: absolute units restore text inside a zero-size wrapper (the inline-block
+# spacing technique in HTML mail layouts); units of the parent's size keep it zero.
+# Line-height and container units depend on layout the parser does not model.
+_ABSOLUTE_UNITS = frozenset('px cm mm q in pt pc rem rex rch rcap ric vw vh vi vb vmin vmax '
+                            'svw svh svi svb svmin svmax lvw lvh lvi lvb lvmin lvmax '
+                            'dvw dvh dvi dvb dvmin dvmax'.split())
+_PARENT_UNITS = frozenset('em ex ch cap ic %'.split())
+_LAYOUT_UNITS = frozenset('lh rlh cqw cqh cqi cqb cqmin cqmax'.split())
+_ABSOLUTE_SIZE_KEYWORDS = frozenset('xx-small x-small small medium large x-large xx-large xxx-large initial'.split())
+_CSS_DIMENSION = re.compile(rf'({_CSS_NUMBER})([a-z]+|%)?')
+
+
+def _length_class(value: str) -> str:
+    """'zero', 'absolute', 'relative' (to the parent), 'unknown' or 'bad' for one length."""
+    match = _CSS_DIMENSION.fullmatch(value)
+    if not match:
+        return 'bad'
+    number, unit = float(match.group(1)), match.group(2)
+    if unit is None:
+        return 'zero' if number == 0 else 'unknown'  # only 0 may omit its unit
+    if unit not in _ABSOLUTE_UNITS | _PARENT_UNITS | _LAYOUT_UNITS:
+        return 'bad'
+    if number == 0:
+        return 'zero'
+    if number < 0:
+        return 'bad'
+    return 'absolute' if unit in _ABSOLUTE_UNITS else 'relative' if unit in _PARENT_UNITS else 'unknown'
+
+
+def _font_size_class(value: str) -> str:
+    """'zero', 'visible', 'inherit', 'unresolved' or 'invalid' for one font-size value.
+
+    min(), max() and clamp() over plain lengths are computed: max(16px, 1rem), the
+    progressive-enhancement form common in HTML mail, is visible. Every argument must
+    be a length; max(16px, garbage) is invalid CSS and is dropped, so the inherited
+    zero size stays. Anything else the parser cannot compute (calc(), var(), nested
+    functions, relative arguments that decide the result) is unresolved.
+    """
+    if not value or value in {'inherit', 'unset', 'revert', 'revert-layer', 'larger', 'smaller', 'math'}:
+        return 'inherit'
+    if value in _ABSOLUTE_SIZE_KEYWORDS:
+        return 'visible'
+    match = re.fullmatch(r'(min|max|clamp)\(([^()]*)\)', value)
     if match:
-        arguments = match.group(2)
-        alpha = (arguments.split('/', 1)[1] if '/' in arguments
-                 else arguments.split(',')[3] if arguments.count(',') == 3 else '1')
-        alpha = alpha.strip()
-        if _ALPHA.fullmatch(alpha):
-            return float(alpha.rstrip('%')) == 0
-    return None
-
-
-_POSITIVE_ABSOLUTE_LENGTH = re.compile(
-    r'[+]?(?:\d*[1-9]\d*(?:\.\d*)?|0*\.\d*[1-9]\d*)(?:px|pt|pc|in|cm|mm|q|rem|vw|vh|vmin|vmax)')
+        kinds = [_length_class(argument.strip()) for argument in match.group(2).split(',')]
+        function = match.group(1)
+        if 'bad' in kinds or (function == 'clamp' and len(kinds) != 3):
+            return 'invalid'
+        if ((function == 'max' and 'absolute' in kinds) or (function == 'min' and set(kinds) == {'absolute'})
+                or (function == 'clamp' and kinds[0] == 'absolute')):
+            return 'visible'
+        if ((function == 'max' and set(kinds) == {'zero'}) or (function == 'min' and 'zero' in kinds)
+                or (function == 'clamp' and kinds[0] == 'zero' and kinds[2] == 'zero')):
+            return 'zero'
+        return 'unresolved'
+    if _UNCOMPUTED.search(value):
+        return 'unresolved'
+    return {'zero': 'zero', 'absolute': 'visible', 'relative': 'inherit',
+            'unknown': 'unresolved', 'bad': 'invalid'}[_length_class(value)]
 
 
 def _font_size_state(value: str) -> tuple[bool | None, bool]:
-    """(zero size, unresolved) of one font-size value.
-
-    min(), max() and clamp() over plain lengths are computed: max(16px, 1rem), the
-    progressive-enhancement form common in HTML mail, is visible. Anything else the
-    parser cannot compute (calc(), var(), nested functions, relative arguments that
-    decide the result) is unresolved.
-    """
-    if _ZERO_LENGTH.fullmatch(value):
-        return True, False
-    if _ABSOLUTE_FONT_SIZE.fullmatch(value):
-        return False, False
-    match = re.fullmatch(r'(min|max|clamp)\(([^()]*)\)', value)
-    if match:
-        arguments = [argument.strip() for argument in match.group(2).split(',')]
-        positive = [bool(_POSITIVE_ABSOLUTE_LENGTH.fullmatch(argument)) for argument in arguments]
-        zero = [bool(_ZERO_LENGTH.fullmatch(argument)) for argument in arguments]
-        function = match.group(1)
-        if function == 'max' and any(positive):
-            return False, False
-        if function == 'min' and all(positive):
-            return False, False
-        if function == 'clamp' and len(arguments) == 3 and positive[0]:
-            return False, False
-        if (function == 'max' and all(zero)) or (function == 'min' and any(zero)) or (
-                function == 'clamp' and len(arguments) == 3 and zero[2]):
-            return True, False
-        return None, True
-    return None, bool(_UNCOMPUTED.search(value))
+    """(zero size, unresolved) of one font-size value; None inherits the parent's size."""
+    kind = _font_size_class(value)
+    return {'zero': True, 'visible': False}.get(kind), kind == 'unresolved'
 
 
 def _inline_text_state(style: str) -> tuple[bool | None, bool | None, bool]:
@@ -2209,7 +2325,7 @@ def _inline_text_state(style: str) -> tuple[bool | None, bool | None, bool]:
     color = values.get('color', ('', False))[0]
     zero_size, size_unresolved = _font_size_state(font_size)
     opacity = values.get('opacity', ('', False))[0]
-    unresolved = (size_unresolved or bool(_UNCOMPUTED.search(color))
+    unresolved = (size_unresolved or _color_class(color) == 'unresolved' or '#unrecognised' in values
                   or (opacity.startswith('calc(') and not _inline_visibility(style)[2]))
     return zero_size, _color_state(color), unresolved
 
@@ -2236,12 +2352,8 @@ def _inline_visibility(style: str) -> tuple[bool, bool | None, bool, bool]:
     ) or bool(re.fullmatch(r'calc\(\s*[+-]?0+(?:\.0+)?%?\s*\)', opacity))
     font_size = values.get('font-size', ('', False))[0]
     color = values.get('color', ('', False))[0]
-    uncertain = bool(
-        re.fullmatch(r'[+]?0+(?:\.0+)?(?:[a-z]+|%)?', font_size)
-        or color == 'transparent'
-        or re.fullmatch(r'(?:rgba|hsla)\([^)]*,\s*0+(?:\.0+)?\s*\)', color)
-        or (opacity.startswith('calc(') and not opacity_hidden)
-    )
+    uncertain = (_font_size_class(font_size) == 'zero' or _color_class(color) == 'transparent'
+                 or '#unrecognised' in values or (opacity.startswith('calc(') and not opacity_hidden))
     return display_hidden, visibility_hidden, opacity_hidden, uncertain
 
 
@@ -2379,18 +2491,25 @@ def _declares_shown(block: str) -> bool:
 def _stylesheet_hidden_targets(css: str):
     """Which elements hiding rules can reach, and the views of the rendering contexts.
 
-    Returns {"union": (classes, ids, class fragments), "views": [hidden tokens, ...]}
-    or None if unmodelled. Marketing mail hides preheaders and mobile/desktop variants
-    with class rules such as ".hide-mobile { display:none }", switched in @media blocks,
-    so each @media context is its own view: the base rules' hidden targets, minus those
-    it shows, plus those it hides. Views are empty when no context changes anything.
-    Tag-only rules that show elements (td{display:block}) are not modelled: without
-    !important they cannot override a class or id rule.
+    Returns {"union": (classes, ids, class fragments), "views": [hidden tokens, ...],
+    "cascades": [(hidden by property, shown by property), ...]} or None if unmodelled.
+    Marketing mail hides preheaders and mobile/desktop variants with class rules such
+    as ".hide-mobile { display:none }", switched in @media blocks. Conditions can hold
+    together (max-width:600px and min-width:400px at 500px), so every combination of
+    contexts is a view. Each view replays the rules in source order, a repeated context
+    at each of its positions; !important beats a later normal declaration, and display
+    and visibility are separate properties. Views are empty when there is no context.
+    A class or id hidden by one selector and shown by another, unless both are a lone
+    ".name" or "#name" or the very same selector, depends on specificity and ancestors
+    not modelled here: it is listed in "ambiguous", and so is an element whose classes
+    are hidden and shown within one view ("cascades"). Text they reach leaves the views
+    unresolved; image swaps and spacer cells without text do not. Tag-only rules that show elements (td{display:block})
+    are not modelled: without !important they cannot override a class or id rule.
     """
     cleaned, complete = _strip_css_comments(css)
     if not complete:
         return None
-    hidden, shown = {}, {}
+    events = []  # (context, property, hides, important, targets, selector when not a lone .name/#name)
     preludes, start, index = [], 0, 0
     quote = None
     while index < len(cleaned):
@@ -2421,6 +2540,12 @@ def _stylesheet_hidden_targets(css: str):
                         return None
                     index += 1
                     continue
+                values = _style_values(block)
+                declared = [(name, state, values[name][1]) for name, state in (
+                    ('display', display), ('visibility', visibility)) if name in values and state is not None]
+                if opacity or uncertain:
+                    declared.append(('other', True, any(values.get(name, ('', False))[1]
+                                                        for name in ('opacity', 'font-size', 'color'))))
                 context = ' '.join(re.sub(r'\s+', ' ', item) for item in preludes if item.startswith('@'))
                 for selector in _split_selectors(prelude) or [None]:
                     targets = None if selector is None else _hidden_selector_targets(selector)
@@ -2428,26 +2553,44 @@ def _stylesheet_hidden_targets(css: str):
                         if hides:
                             return None
                         continue
-                    (hidden if hides else shown).setdefault(context, set()).update(targets)
+                    selector = re.sub(r'\s+', ' ', selector.strip())
+                    compound = None if re.fullmatch(r'[.#]-?[_a-zA-Z][\w-]*', selector) else selector
+                    events.extend((context, name, state, important, frozenset(targets), compound)
+                                  for name, state, important in declared)
         index += 1
-    union = set().union(*hidden.values()) if hidden else set()
-    # Conditions can hold together (max-width:600px and min-width:400px at 500px), so
-    # every combination is a view, each applying its contexts in source order.
-    contexts = [context for context in dict.fromkeys([*hidden, *shown]) if context]
+    rules_for = {}
+    for _context, name, state, _important, targets, compound in events:
+        for token in targets:
+            rules_for.setdefault((token, name), []).append((state, compound))
+    ambiguous = frozenset(token for (token, _name), rules in rules_for.items()
+                          if len({state for state, _compound in rules}) > 1
+                          and len({compound for _state, compound in rules}) > 1)
+    union = {token for _context, _name, state, _important, targets, _compound in events if state for token in targets}
+    contexts = list(dict.fromkeys(context for context, *_rest in events if context))
     if len(contexts) > _MAX_MEDIA_CONTEXTS:
         return None
-    base = frozenset(hidden.get('', ()))
-    views = []
-    for mask in range(1 << len(contexts)) if contexts else ():
-        view = set(base)
-        for position, context in enumerate(contexts):
-            if mask >> position & 1:
-                view = (view - shown.get(context, set())) | hidden.get(context, set())
-        views.append(frozenset(view))
+    views, cascades = [], []
+    for mask in range(1 << len(contexts)):
+        active = {context for position, context in enumerate(contexts) if mask >> position & 1}
+        winners = {}
+        for context, name, state, important, targets, _compound in events:
+            if context and context not in active:
+                continue
+            for token in targets:
+                if (token, name) not in winners or important or not winners[token, name][0]:
+                    winners[token, name] = (important, state)
+        if contexts:
+            views.append(frozenset(token for (token, _name), (_important, state) in winners.items() if state))
+        cascades.append(tuple(
+            {name: frozenset(token for (token, other), (_important, state) in winners.items()
+                             if other == name and state is wanted) for name in ('display', 'visibility')}
+            for wanted in (True, False)))
     return {
         "union": tuple(frozenset(name for kind, name in union if kind == wanted)
                        for wanted in ('class', 'id', 'fragment')),
         "views": list(dict.fromkeys(views)),
+        "cascades": cascades,
+        "ambiguous": ambiguous,
     }
 
 
@@ -2466,6 +2609,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.certain_parts = []
             self.view_hidden = targets["views"] if targets else []
             self.view_parts = [[] for _view in self.view_hidden]
+            self.cascades = targets["cascades"] if targets else []
+            self.cascade_fragments = {name for view in self.cascades for by_property in view
+                                      for tokens in by_property.values() for kind, name in tokens if kind == 'fragment'}
+            self.ambiguous = targets["ambiguous"] if targets else frozenset()
+            # An element whose classes are hidden by one rule and shown by another in the
+            # same view: which wins depends on specificity, so the views are unresolved.
+            self.cascade_conflict = False
             self.hidden_parts = []
             self.outlook_only = 0
             self.hidden_from_outlook = 0
@@ -2494,6 +2644,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 return
             if tokens is None:
                 tokens = self.elements[-1][5] if self.elements else frozenset()
+            if '#ambiguous' in tokens and text.strip():
+                self.cascade_conflict = True
             if not tokens:
                 self.certain_parts.append(text)
                 if not self.outlook_only:
@@ -2593,6 +2745,15 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             element_tokens = frozenset() if self.targets is None else (
                 ((self.elements[-1][5] if self.elements else frozenset()) - {'#inline'})
                 | self._targeted(attrs) | ({'#inline'} if inline_uncertain else frozenset()))
+            if self.targets is not None and '#ambiguous' not in element_tokens:
+                values = dict(attrs)
+                class_value = (values.get('class') or '').casefold()
+                element_id = (values.get('id') or '').strip().casefold()
+                own = ({('class', name) for name in class_value.split()} | {('id', element_id)}
+                       | {('fragment', name) for name in self.cascade_fragments if name in class_value})
+                if own & self.ambiguous or any(own & hidden[name] and own & shown[name]
+                                               for hidden, shown in self.cascades for name in hidden):
+                    element_tokens |= {'#ambiguous'}
             if tag == 'source' and any(name == 'srcset' and value and value.strip()
                                        for name, value in attrs):
                 for index in range(len(self.elements) - 1, -1, -1):
@@ -2715,6 +2876,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             unresolved = []
             if targets is not None:
                 views = _collect_html(lambda: TextCollector(targets), text, [], mark=True, unresolved=unresolved)
+                if views.cascade_conflict:
+                    unresolved.append('cascade')
             readings['resolved'] = targets is not None and not unresolved and not collector.conditional_image_alt
 
             def joined(parts):
@@ -3130,19 +3293,52 @@ _ACCOUNT_NOTICE = re.compile("|".join((
     r"验证码|重置密码|修改密码|登录提醒|新设备登录|确认(?:您的|你的)?邮箱",
     r"下单成功|订单(?:已确认|确认|号)|注册成功|欢迎(?:加入|注册)|申请(?:已提交|已收到|进度)|工单",
 )), re.IGNORECASE)
+# The left-out kinds, wherever they appear: an order number or a code inside a delivery,
+# payment or renewal notice does not make it the reader's own action.
+_NOT_OWN_ACTION_NOTICE = re.compile("|".join((
+    r"\b(?:deliver(?:y|ies|ed)|parcels?|packages?|shipments?|shipping|shipped|couriers?|consignments?)\b",
+    r"\btrack(?:ing)? (?:number|id|code|link|your (?:order|parcel|package|shipment))\b",
+    r"\b(?:ups|fedex|dhl|usps|royal mail|canada post|australia post|evri|dpd|gls|aramex)\b",
+    r"\b(?:payments?|refunds?|invoices?|statements?|bills?|billing|renew(?:al|als|ed|s)?|auto-?renew\w*|memberships?)\b",
+    r"\b(?:you(?:'ve| have)? received|sent you) (?:a |\$|money|funds)",
+    r"快递|包裹|物流|派送|配送|签收|运单|收款|到账|退款|转账|付款|扣款|账单|发票|续费|续订|自动续|会员",
+)), re.IGNORECASE)
+
+
+# Presentation cues that genuine notices share (many links, exclamation marks, capitals,
+# "click here" twice, a doubled question mark): they add a point to the score but say
+# nothing about the sender, the links or the request. Counting them would stop the
+# question on 10 of the 16 genuine downloads it reaches, and on 2 Nazario messages.
+_PRESENTATION_CUES = frozenset({
+    'content.url_count', 'content.exclamation_marks', 'content.capitalization',
+    'content.generic_cta', 'content.subject_question_marks',
+})
+
+
+def _rests_on_text_model(result: dict) -> bool:
+    """Whether an alert rests on the text model alone, so the reader's answer may settle it.
+
+    No rule, sender, link or structure finding may stand behind it: neither a Medium
+    floor nor any Medium or higher indicator (a shortened link adds to the score
+    without setting a floor), presentation cues aside. Keyword categories only add to
+    the score and fusion basis.
+    """
+    return (result.get('risk_level') in {'medium', 'high'}
+            and result.get('fusion_basis') in {'model_only', 'model_led'}
+            and result.get('risk_floor') in {'safe', 'low'}
+            and not any(item.get('level') in {'medium', 'high', 'critical'} and item.get('code') not in _PRESENTATION_CUES
+                        for item in result.get('extra_indicators', [])))
 
 
 def _apply_requested_answer(result: dict, requested: str) -> None:
     """Ask, or apply the answer, for a model-driven alert on a notice of the reader's own action.
 
-    Only an alert resting on the text model qualifies: no rule, sender, link or structure
-    finding set a Medium floor. "yes" lowers it to Low with a reminder to check the
-    sender and links; "no" keeps it and says why an unrequested notice matters.
+    "yes" lowers it to Low with a reminder to check the sender and links; "no" keeps it
+    and says why an unrequested notice matters. It runs before the completeness check,
+    so a confirmed notice whose text could not all be read still becomes unknown.
     """
     notice = result.pop('account_notice', False)
-    model_driven = (result.get('risk_level') in {'medium', 'high'}
-                    and result.get('fusion_basis') in {'model_only', 'model_led'}
-                    and result.get('risk_floor') in {'safe', 'low'})
+    model_driven = _rests_on_text_model(result)
     result['requested_question'] = bool(notice and model_driven and not requested)
     if not (notice and model_driven):
         return
@@ -3619,7 +3815,8 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         "safety_signals":    safety_found,
         "url_count":         url_count,
         "advertising_terms": _advertising_terms(analysis_text),
-        "account_notice": bool(_ACCOUNT_NOTICE.search(analysis_text)),
+        "account_notice": bool(_ACCOUNT_NOTICE.search(analysis_text)
+                               and not _NOT_OWN_ACTION_NOTICE.search(analysis_text)),
         "has_ip_url":        _has_ip_url(raw_text, links=links),
         "has_shortener":     _has_shortener_url(raw_text, links=links),
         "risk_floor":        risk_floor,
@@ -4073,6 +4270,7 @@ async def _analyze_content(
     result['analysis_warnings'] = list(dict.fromkeys(result['analysis_warnings']
         + (structure['parse_warnings'] if structure else [])))
     result['analysis_complete'] = not bool(result['analysis_warnings'])
+    _apply_requested_answer(result, request.requested)
     # Weak routing/text evidence cannot establish low risk when the main visible
     # content is an uninspected image, or when the model could not score the text
     # (e.g. Han script); a clean result already becomes unknown in that case.
@@ -4100,7 +4298,6 @@ async def _analyze_content(
             result['risk_level'] = 'unknown'
             result['risk_label'] = 'Analysis Incomplete — Risk Undetermined'
             result['combined_phishing_score'] = None
-    _apply_requested_answer(result, request.requested)
     result['mail_type'] = _mail_type(result, bool(structure and structure.get('bulk_mail')))
     result.pop('advertising_terms', None)
     return JSONResponse(annotate_content(result))

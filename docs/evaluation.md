@@ -1408,6 +1408,67 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review at b84c605 (2026-10-01)
+
+A read-only review supplied synthetic fixtures for five findings. All five reproduced
+on the served model:
+
+| Finding | Input | Before | After |
+|---|---|---|---|
+| S1 CSS arguments (P1) | callback split by padding in `color:transparent` > `color:rgb(nope)`, or `font-size:0` > `font-size:max(16px,garbage)` | Low | High (callback) |
+| S2 media source order (P1) | `.attack` shown, hidden, then shown again by a repeated `@media(min-width:400px)` | Low | High (callback) |
+| R1 indicator guard (P2) | password reset with a `bit.ly` link, answered "yes" | Low | not asked, High |
+| R2 excluded kinds (P2) | UPS delivery on hold with an order number, answered "yes" | Low | not asked, High |
+| R3 completeness (P2) | password reset with an unscored HTML alternative, answered "yes" | Low | unknown |
+
+The same root cause as S1 also covered `display`, `visibility` and `opacity`:
+`display:none;display:garbage` around the padding gave Low. Now an unknown value
+replaces nothing and leaves the text unresolved, giving High.
+
+The fixes:
+- S1: every argument of a colour function, and of `min()`, `max()` and `clamp()`
+  font sizes, is checked. An invalid declaration is dropped, so the inherited
+  value, or an earlier declaration in the same style, stays.
+- S2: each view replays the rules in source order. A repeated context keeps each
+  of its positions, `!important` beats a later normal rule, and `display` and
+  `visibility` are separate properties.
+- R1: no Medium or higher indicator may stand behind an alert the reader settles,
+  presentation cues aside.
+- R2: deliveries, payments, refunds, invoices, statements, renewals and
+  memberships are excluded wherever the text mentions them.
+- R3: the answer is applied before the completeness check.
+
+Two first versions were too broad:
+- Counting every Medium indicator also counted presentation cues: more than six
+  links, exclamation marks, capitals, two "click here" phrases, and a doubled
+  question mark. These stopped the question on 10 of the 16 genuine downloads it
+  now reaches, and on 2 Nazario messages, so they no longer block it.
+- Treating any class hidden and shown by different compound selectors as
+  unmodelled turned two genuine Gmail downloads' HTML views undetermined, and one
+  of them (Amazon) from Low to unknown. Their rules were a dark-mode logo swap and
+  stacked spacer cells, none holding text. Only text inside such elements is now
+  unresolved.
+
+On the 92 genuine downloads (with and without a mailbox), their pasted text,
+Nazario 3,466, PhishFuzzer recent, UniqueData and Postmark, no verdict changed.
+If every asked reader answers "yes":
+
+| Cohort | Asked (before → after) | Alerts after "yes" (before → after) |
+|---|---|---|
+| Nazario .eml (phishing) | 180 → 8 | 3,138 → 3,310 |
+| PhishFuzzer recent phishing, pasted | 6 → 4 | 84 → 86 |
+| Genuine .eml, no mailbox | 17 → 16 | 10 → 11 (unknown 15 → 20) |
+| Genuine .eml, mailbox chosen | 3 → 2 | 0 → 1 (unknown 10 → 12) |
+| Genuine pasted | 29 → 29 | 16 → 16 |
+| PhishFuzzer recent legit, pasted | 14 → 10 | 58 → 62 |
+| UniqueData legit, pasted | 16 → 12 | 26 → 30 |
+
+Most of the Nazario drop came from sender findings, such as an unrecognized
+provider or a random username. These now keep the question away: a reader who
+says "yes" to phishing can no longer clear it. Five genuine downloads that "yes"
+used to settle at Low now end undetermined. They have HTML the reader could not
+fully check, and the answer cannot make up for that.
+
 ### Asking about the reader's own actions beyond account codes (2026-10-01)
 
 The remaining model-driven false alerts on pasted UniqueData mail included sign-ins

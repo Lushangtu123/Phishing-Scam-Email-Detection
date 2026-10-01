@@ -34,8 +34,8 @@ def analyze(subject, body):
 
 class StylesheetTargetTests(unittest.TestCase):
     def test_hiding_rules_are_reduced_to_the_classes_and_ids_they_can_reach(self):
-        css = ('.preheader{display:none!important;max-height:0} @media (max-width:600px){.mobile{display:block}}'
-               ' .mobile{display:none} u + .body .gmail-hide{display:none} #promo{visibility:hidden}'
+        css = ('.preheader{display:none!important;max-height:0} .mobile{display:none}'
+               ' @media (max-width:600px){.mobile{display:block}} u + .body .gmail-hide{display:none} #promo{visibility:hidden}'
                ' *[class="gmail-fix"]{display:none} table[class~="a,b"]{display:none} a::before{display:none}'
                ' span.tiny:hover{font-size:0} .pad{content:"}"; display:none} p{color:red}')
         targets = app._stylesheet_hidden_targets(css)
