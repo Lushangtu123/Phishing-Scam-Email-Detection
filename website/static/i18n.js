@@ -827,6 +827,7 @@ window.PhishGuardI18n = (() => {
     'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
     'server.content.callback_request': "Asks you to call {number} to cancel, dispute or refund a charge; callback scams use fake support numbers. Call only the number on the organization's official website, app or card.",
+    'server.content.subsidy_lure': 'A subsidy, allowance or tax-refund notice pressures you to claim it at once or by scanning a code. Government bodies and employers do not pay out this way by email.',
     'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
     'server.content.sensitive_request.one_time_code': "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
     'server.content.sensitive_request.password_pin': "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
@@ -874,6 +875,8 @@ window.PhishGuardI18n = (() => {
 
     'server.prefix.sender': 'Sender: {text}',
     'server.prefix.pdf_attachment': 'PDF attachment link: {text}',
+    'server.prefix.docx_attachment': 'Word attachment link: {text}',
+    'server.prefix.docx_text': 'Word attachment: {text}',
     'server.prefix.attached_message': 'Attached message: {text}',
     'server.prefix.image': 'Image ({name}): {text}',
     'server.prefix.image_recognition': 'Image recognition: {text}',
@@ -1283,7 +1286,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=19'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=20'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

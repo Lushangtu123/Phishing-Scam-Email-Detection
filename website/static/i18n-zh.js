@@ -809,6 +809,7 @@
   'server.content.hidden_text_padding': '一大段隐藏文字伴随以图片为主、带链接的邮件；可见内容与隐藏文字差异很大。请人工核查图片和链接目标。',
   'server.content.password_form': '内嵌 HTML 表单包含密码输入框；输入凭据前，请先检查表单的提交目标。',
   'server.content.callback_request': "要求你拨打 {number} 来取消、申诉或退款；回拨诈骗会留假的客服电话。请只拨打机构官网、官方 App 或银行卡背面的号码。",
+  'server.content.subsidy_lure': '邮件以补贴、津贴或退税为名，催你立即申领或扫码办理。政府部门和单位不会通过邮件这样发放款项。',
   'server.content.pressured_credential_request': '直接索要凭据，并伴随催促和威胁；请通过独立渠道核实。',
   'server.content.sensitive_request.one_time_code': "要求你发送、回复或念出一次性验证码；正规服务只会让你在其官网或 App 内输入验证码。",
   'server.content.sensitive_request.password_pin': "要求你发送或告知密码或 PIN；正规机构绝不会通过邮件索要这些信息。",
@@ -856,6 +857,8 @@
 
   'server.prefix.sender': '发件人：{text}',
   'server.prefix.pdf_attachment': 'PDF 附件中的链接：{text}',
+  'server.prefix.docx_attachment': 'Word 附件中的链接：{text}',
+  'server.prefix.docx_text': 'Word 附件：{text}',
   'server.prefix.attached_message': '附件中的邮件：{text}',
   'server.prefix.image': '图片（{name}）：{text}',
   'server.prefix.image_recognition': '图片识别：{text}',

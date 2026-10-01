@@ -38,7 +38,7 @@ from functools import partial
 from urllib.parse import parse_qs, unquote, urlparse, urljoin
 
 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
-from pathlib import Path
+from pathlib import Path, PurePath
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.exception_handlers import http_exception_handler
@@ -2931,6 +2931,38 @@ def _callback_request(text: str, official_numbers=frozenset()) -> str | None:
     return None
 
 
+# Subsidy and tax-refund lures ("2023年个人劳动补贴，当天未完成视为放弃申领",
+# "高温补助-请今日立即申请"): a payment the reader must claim at once or by scanning a
+# code. A genuine notice about a high-temperature allowance alone does not match; the
+# pressure must be there too.
+_SUBSIDY_TERM = re.compile(r"劳动补贴|补贴申领|申领补贴|补贴领取|领取补贴|个税退税|退税申请|退税申领|纳税人退税"
+                           r"|社保补贴|医保补贴|高温补[贴助]|工资补贴|财政补贴|劳动津贴")
+_SUBSIDY_PRESSURE = re.compile(r"视为放弃|逾期(?:将)?(?:不予|作废|视为)|当[天日]内?未完成|今日内?(?:立即)?申请|立即申领"
+                               r"|扫码|二维码|扫描.{0,6}(?:申领|领取|办理)")
+
+
+def _subsidy_lure(text: str) -> bool:
+    compact = re.sub(r"\s+", "", text)
+    return bool(_SUBSIDY_TERM.search(compact) and _SUBSIDY_PRESSURE.search(compact))
+
+
+def _attachment_text_findings(text: str) -> list[dict]:
+    """Strong requests in attachment text: callback numbers, secrets, subsidy lures."""
+    findings = []
+    number = _callback_request(text, _OFFICIAL_SERVICE_NUMBERS)
+    if number:
+        findings.append(indicator('high', 'content.callback_request', number=number))
+    findings.extend(indicator('high', code) for code in _sensitive_requests(text))
+    if _subsidy_lure(text):
+        findings.append(indicator('high', 'content.subsidy_lure'))
+    return findings
+
+
+def _is_docx(attachment: dict) -> bool:
+    return (attachment.get('content_type') == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            or PurePath(attachment.get('filename') or '').suffix.lower() == '.docx')
+
+
 def _sensitive_requests(text: str) -> list[str]:
     """Message codes for requests to hand over codes, secrets, gift cards, crypto or remote access.
 
@@ -2988,6 +3020,11 @@ def _text_rule_findings(full_orig: str) -> dict:
         score += 4
         floor = 'high'
         requests.append(indicator('high', 'content.callback_request', number=callback_number))
+
+    if _subsidy_lure(analysis_text):
+        score += 4
+        floor = 'high'
+        requests.append(indicator('high', 'content.subsidy_lure'))
 
     sensitive_requests = _sensitive_requests(analysis_text)
     if sensitive_requests:
@@ -3527,23 +3564,38 @@ async def _analyze_content(
         if floor_rank[structure["risk_floor"]] > floor_rank[result["risk_floor"]]:
             result["risk_floor"] = structure["risk_floor"]
 
-        # Link annotations read from PDF attachments go through the same destination
-        # checks as message links; the PDF text itself stays uninspected.
-        pdf_links = [('', target) for attachment in structure['attachments']
-                     for target in attachment.get('extracted_links', ())]
-        if pdf_links:
-            pdf_score, pdf_findings, pdf_floor = _analyze_link_destinations('', links=pdf_links)
-            if _has_shortener_url('', links=pdf_links):
-                pdf_score += 2
-                pdf_findings.append(indicator('high', 'content.shortened_urls'))
-            result["total_score"] += pdf_score
+        # Link annotations read from PDF attachments and hyperlinks read from Word
+        # attachments go through the same destination checks as message links.
+        for is_docx, prefix in ((False, 'prefix.pdf_attachment'), (True, 'prefix.docx_attachment')):
+            attachment_links = [('', target) for attachment in structure['attachments']
+                                if _is_docx(attachment) == is_docx
+                                for target in attachment.get('extracted_links', ())]
+            if not attachment_links:
+                continue
+            link_score, link_findings, link_floor = _analyze_link_destinations('', links=attachment_links)
+            if _has_shortener_url('', links=attachment_links):
+                link_score += 2
+                link_findings.append(indicator('high', 'content.shortened_urls'))
+            result["total_score"] += link_score
             result["extra_indicators"].extend(
                 wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes') if key in item},
-                             'prefix.pdf_attachment')
-                for item in pdf_findings)
-            if floor_rank[pdf_floor] > floor_rank[result["risk_floor"]]:
-                result["risk_floor"] = pdf_floor
-            result["pdf_link_count"] = len(pdf_links)
+                             prefix)
+                for item in link_findings)
+            if floor_rank[link_floor] > floor_rank[result["risk_floor"]]:
+                result["risk_floor"] = link_floor
+            result["docx_link_count" if is_docx else "pdf_link_count"] = len(attachment_links)
+
+        # Word attachment text: lures often sit in the attachment while the body has a
+        # line or none. Only strong requests are scored here, never keyword categories:
+        # genuine contracts and quotes are full of "payment", "invoice" and "urgent".
+        attachment_text = '\n'.join(attachment['extracted_text'] for attachment in structure['attachments']
+                                     if attachment.get('extracted_text'))
+        if attachment_text:
+            text_findings = _attachment_text_findings(attachment_text)
+            if text_findings:
+                result["total_score"] += 4
+                result["risk_floor"] = max(result["risk_floor"], 'high', key=floor_rank.__getitem__)
+                result["extra_indicators"].extend(wrap_message(item, 'prefix.docx_text') for item in text_findings)
 
         selected_sender = await _run_analysis(
             _select_message_sender, structure['header_candidates']['From'])

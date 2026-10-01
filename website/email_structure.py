@@ -9,9 +9,12 @@ from email.utils import parseaddr, getaddresses
 from email.errors import HeaderParseError
 from email.header import decode_header, make_header
 import fnmatch
+import html
+import io
 import json
 from pathlib import Path, PurePath
 import re
+import zipfile
 import zlib
 import unicodedata
 import codecs
@@ -541,6 +544,56 @@ def pdf_link_targets(data: bytes) -> list[str]:
     return targets
 
 
+_MAX_DOCX_BYTES = 10 * 1024 * 1024
+_MAX_DOCX_ENTRIES = 2000
+_MAX_DOCX_PART_BYTES = 2 * 1024 * 1024
+_MAX_DOCX_TEXT_CHARS = 20_000
+_DOCX_TEXT_RUN = re.compile(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>")
+_DOCX_RELATIONSHIP = re.compile(r"<Relationship\b[^>]*>")
+
+
+def docx_text_and_links(data: bytes) -> tuple[str, list[str]]:
+    """Paragraph text and external http(s) hyperlinks of a .docx, bounded.
+
+    Only word/document.xml and its relationship list are read, each capped before and
+    while decompressing. Macros, embedded objects and images are never opened.
+    """
+    if len(data) > _MAX_DOCX_BYTES or not data.startswith(b"PK"):
+        return "", []
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+        if len(archive.infolist()) > _MAX_DOCX_ENTRIES:
+            return "", []
+    except (zipfile.BadZipFile, ValueError, OSError):
+        return "", []
+
+    def read(name: str) -> str:
+        try:
+            info = archive.getinfo(name)
+            if info.flag_bits & 0x1 or info.file_size > _MAX_DOCX_PART_BYTES:
+                return ""
+            with archive.open(info) as handle:
+                raw = handle.read(_MAX_DOCX_PART_BYTES + 1)
+        except (KeyError, zipfile.BadZipFile, ValueError, OSError, RuntimeError, EOFError, zlib.error):
+            return ""
+        return "" if len(raw) > _MAX_DOCX_PART_BYTES else raw.decode("utf-8", "replace")
+
+    paragraphs = (html.unescape("".join(_DOCX_TEXT_RUN.findall(paragraph)))
+                  for paragraph in read("word/document.xml").split("</w:p>"))
+    text = "\n".join(paragraph for paragraph in paragraphs if paragraph.strip())[:_MAX_DOCX_TEXT_CHARS]
+    links: list[str] = []
+    for relationship in _DOCX_RELATIONSHIP.findall(read("word/_rels/document.xml.rels")):
+        target = re.search(r'\bTarget="([^"]*)"', relationship)
+        if (target and 'TargetMode="External"' in relationship
+                and "relationships/hyperlink" in relationship):
+            url = html.unescape(target.group(1)).strip()
+            if re.match(r"(?:https?|hxxps?)://", url, re.IGNORECASE) and url not in links:
+                links.append(url)
+                if len(links) >= _MAX_PDF_LINKS:
+                    break
+    return text, links
+
+
 def _walk_message_parts(message):
     """Walk one message, leaving encapsulated messages to bounded analysis."""
     pending = [message]
@@ -637,6 +690,18 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                     payload = b""
                 links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
                 # Only links are read; the PDF text stays uninspected (metadata_only).
+                if links:
+                    attachments[-1]["extracted_links"] = links
+            if (content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    or PurePath(filename or "").suffix.lower() == ".docx"):
+                try:
+                    payload = part.get_payload(decode=True) or b""
+                except Exception:  # malformed transfer encoding: keep metadata only
+                    payload = b""
+                # Text and hyperlinks are read; images (often QR codes) stay uninspected.
+                docx_text, links = docx_text_and_links(payload)
+                if docx_text:
+                    attachments[-1]["extracted_text"] = docx_text
                 if links:
                     attachments[-1]["extracted_links"] = links
             if PurePath(filename or '').suffix.lower() == '.eml':

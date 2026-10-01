@@ -1408,6 +1408,48 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Word attachments and subsidy lures: DataCon 2023 (2026-10-01)
+
+The first of seven public batches of the DataCon 2023 email-security challenge
+(`yaoyue123/datacon2023-spoof-email`, `day1.zip`, SHA-256 matching its Git LFS pointer)
+holds 611 desensitized `.eml` messages from 2023: 468 Han-dominant, 329 unique. The
+batch is unlabelled spam and phishing. It has no license, so it was used for local,
+non-commercial evaluation only and is not in the repository.
+
+The most common Chinese phishing in it is the "personal labour subsidy" notice. The
+body has one line ("2023年个人劳动补贴，当天未完成视为放弃申领！") or none. The lure
+is in a Word attachment: 47 attachments carried the full "Ministry of Finance" text,
+41 of them with embedded images (QR codes), none with external links or macros. Nothing
+read the attachment, so these messages stayed undetermined.
+
+Two changes:
+1. The text and hyperlinks of `.docx` attachments are read, bounded, and only strong
+   requests are scored on that text.
+2. A subsidy-lure rule (`content.subsidy_lure`) needs a subsidy or refund term together
+   with claim pressure. It applies to the body and the attachment text.
+
+Same served model, `f5736e2` against this change:
+
+| Cohort | Before: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| DataCon 2023 day 1 (611) | 86 / 503 / 22 | 136 / 453 / 22 |
+| Unique Han-dominant messages a keyword screen marks as phishing (53) | 3 / 50 / 0 | 17 / 36 / 0 |
+| Unique Han-dominant sales and invitation mail (142) | 30 / 112 / 0 | unchanged |
+| 92 genuine downloads, with and without a mailbox | — | unchanged |
+| 87 public HTML templates | — | unchanged |
+| Nazario 2015–25 phishing (3,466), and top header trusted | — | unchanged |
+
+All 50 newly alerting messages belong to subsidy campaigns: "2023财政通知",
+"高温补助-请今日立即申请" and "个人劳动补贴". Messages whose lure is only an image
+stay undetermined.
+
+**Limits.**
+- No genuine modern Chinese mail was available. The rule was kept narrow: a plain
+  high-temperature allowance notice, an individual income tax refund reminder and a
+  payslip notice do not match. False alarms on genuine Chinese HR mail have not been
+  measured.
+- The keyword screen used to group the batch is rough.
+
 ### English text model: more data and a sentence-embedding model (2026-10-01)
 
 In pasted-text mode, English false alerts come almost entirely from the text model.

@@ -46,6 +46,7 @@
   "content.hidden_text_padding": "Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.",
   "content.password_form": "Embedded HTML form contains a password field; inspect the submission destination before entering credentials.",
   "content.callback_request": "Asks you to call {number} to cancel, dispute or refund a charge; callback scams use fake support numbers. Call only the number on the organization's official website, app or card.",
+  "content.subsidy_lure": "A subsidy, allowance or tax-refund notice pressures you to claim it at once or by scanning a code. Government bodies and employers do not pay out this way by email.",
   "content.pressured_credential_request": "Direct credential request combined with urgency and threats; verify through an independent channel.",
   "content.sensitive_request.one_time_code": "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
   "content.sensitive_request.password_pin": "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
@@ -93,6 +94,8 @@
 
   "prefix.sender": "Sender: {text}",
   "prefix.pdf_attachment": "PDF attachment link: {text}",
+  "prefix.docx_attachment": "Word attachment link: {text}",
+  "prefix.docx_text": "Word attachment: {text}",
   "prefix.attached_message": "Attached message: {text}",
   "prefix.image": "Image ({name}): {text}",
   "prefix.image_recognition": "Image recognition: {text}",

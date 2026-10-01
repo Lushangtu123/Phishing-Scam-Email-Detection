@@ -20,6 +20,32 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 11:00 PT] — Read Word attachments; flag subsidy and tax-refund lures
+
+### Why
+- In 2023 Chinese phishing (DataCon 2023, day 1) the lure often sits in a Word attachment, with a one-line body or none ("个人劳动补贴" notices). Nothing read the attachment, so these messages stayed undetermined.
+
+### Files changed
+- `website/email_structure.py`:
+  - `docx_text_and_links` reads `word/document.xml` text and external hyperlinks. It is bounded in archive size, entry count and decompressed bytes, and never opens macros, embedded objects or images.
+  - .docx attachments get `extracted_text` and `extracted_links`.
+- `website/app.py`:
+  - Word attachment links get the destination checks, prefixed `prefix.docx_attachment`.
+  - Attachment text is checked only for callback numbers, sensitive requests and subsidy lures (`_attachment_text_findings`, prefixed `prefix.docx_text`).
+  - `_subsidy_lure` needs a subsidy or refund term together with claim pressure, in the body or an attachment.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: `content.subsidy_lure`, `prefix.docx_attachment`, `prefix.docx_text`. Asset versions bumped.
+- `website/tests/test_docx_attachments.py`:
+  - extraction, macros and other parts ignored, malformed input, decompression bombs, entry and text bounds;
+  - subsidy lures against genuine allowance notices;
+  - attachment lures, callbacks and links;
+  - ordinary business wording scoring nothing;
+  - .docx-named generic types.
+- `README.md`, `docs/evaluation.md`: the rule and the measurement.
+
+### Effect
+- DataCon 2023 day 1: alerts 86 → 136. The 50 new alerts are all subsidy campaigns, and sales mail is unchanged.
+- Genuine downloads, public templates and Nazario: unchanged.
+
 ## [2026-10-01 10:00 PT] — Record the English text-model experiments
 
 ### Why

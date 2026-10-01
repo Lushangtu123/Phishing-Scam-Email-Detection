@@ -414,6 +414,19 @@ Raw input enables these checks:
   count, and never renders or executes anything. The targets go through the same
   destination checks as message links, prefixed "PDF attachment link". The PDF
   text is still not inspected, so the attachment stays `metadata_only`;
+- the text and external hyperlinks of Word (.docx) attachments. Only
+  `word/document.xml` and its relationship list are read, bounded in archive
+  size, entry count and decompressed bytes. Macros, embedded objects and images
+  (often QR codes) are never opened, so the attachment stays `metadata_only`.
+  Hyperlinks go through the destination checks, prefixed "Word attachment link".
+  The text is checked only for strong requests: callback numbers, requests for
+  codes or secrets, and subsidy lures. Keyword categories are not run on it,
+  because genuine contracts and quotes are full of "payment", "invoice" and
+  "urgent";
+- subsidy and tax-refund lures, in the body or a Word attachment: a labour
+  subsidy, high-temperature allowance or tax refund (劳动补贴, 高温补助, 退税申请)
+  together with pressure to claim it at once or by scanning a code (视为放弃,
+  当天未完成, 扫码). An allowance notice without that pressure does not match;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
