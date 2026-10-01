@@ -14,6 +14,7 @@ import io
 import json
 from pathlib import Path, PurePath
 import re
+import time
 import zipfile
 import zlib
 import unicodedata
@@ -27,6 +28,8 @@ from server_messages import indicator, text as message_text, warning_indicator
 
 _AUTH_FAILURES = {"fail", "softfail", "permerror", "temperror"}
 MAX_MIME_PARTS = 200
+# Larger messages are not ARC-verified (hashing and canonicalizing them is not worth it).
+MAX_ARC_MESSAGE_BYTES = 10 * 1024 * 1024
 
 
 class _MimeResourceLimit(Exception):
@@ -796,6 +799,70 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
     return "\n".join(plain_parts), "\n".join(html_parts), attachments, parse_warnings, content_parts
 
 
+# ARC (RFC 8617). When no mailbox is named, a valid ARC chain whose newest set a mailbox
+# service sealed shows that service received this exact message and recorded its own
+# checks in the sealed ARC-Authentication-Results. The seal is verified against the
+# service's public key in DNS, so it cannot be forged into a forwarded attachment, and
+# any change to the signed headers or body breaks it. Seal domain -> its authserv-id.
+# Outlook.com's "Download as EML" rewrites the message, so its seals do not verify.
+ARC_SEALERS = {"google.com": "mx.google.com"}
+_ARC_DNS_TIMEOUT = 2.0
+_ARC_KEY_TTL = 3600.0
+_ARC_KEY_CACHE: dict[bytes, tuple[float, bytes | None]] = {}
+_ARC_KEY_CACHE_LIMIT = 256
+
+
+def _arc_dns_txt(name, timeout=5):
+    """DNS TXT lookup for ARC keys: short timeout, cached in process."""
+    now = time.monotonic()
+    cached = _ARC_KEY_CACHE.get(name)
+    if cached and cached[0] > now:
+        return cached[1]
+    try:
+        import dkim.dnsplug
+        value = dkim.dnsplug.get_txt(name, timeout=min(timeout, _ARC_DNS_TIMEOUT))
+    except Exception:  # resolver failure: no key, so no trust; not cached
+        return None
+    if len(_ARC_KEY_CACHE) >= _ARC_KEY_CACHE_LIMIT:
+        _ARC_KEY_CACHE.clear()
+    _ARC_KEY_CACHE[name] = (now + _ARC_KEY_TTL, value)
+    return value
+
+
+def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] | None:
+    """(sealing domain, sealed Authentication-Results value) when the ARC chain is valid and
+    its newest set was sealed by a known mailbox service; otherwise None."""
+    data = raw_email if isinstance(raw_email, bytes) else raw_email.encode("utf-8", "surrogateescape")
+    head = data.split(b"\r\n\r\n", 1)[0].split(b"\n\n", 1)[0]
+    if b"arc-seal" not in head.lower() or len(data) > MAX_ARC_MESSAGE_BYTES:
+        return None
+    # Look up keys only for known services: verifying a seal from any other domain would
+    # send a DNS query to whoever wrote the message, telling them it was analyzed.
+    unfolded = re.sub(rb"\r?\n[ \t]+", b" ", head)
+    sealers = {match.group(1).strip().lower().decode("ascii", "replace")
+               for match in re.finditer(rb"(?im)^arc-(?:seal|message-signature)\s*:[^\n]*?\bd\s*=\s*([^;\s]+)", unfolded)}
+    if not sealers or not sealers <= set(ARC_SEALERS):
+        return None
+    try:
+        import dkim
+        cv, results, _reason = dkim.arc_verify(data, dnsfunc=dnsfunc or _arc_dns_txt, timeout=_ARC_DNS_TIMEOUT)
+    except Exception:  # missing library, malformed headers or keys: no trust
+        return None
+    if cv != dkim.CV_Pass or not results:
+        return None
+    newest = results[0]
+    domain = (newest.get("as-domain") or b"").decode("ascii", "replace").lower()
+    if newest.get("ams-domain", b"").decode("ascii", "replace").lower() != domain:
+        return None
+    sealed = (newest.get("aar-value") or b"").decode("utf-8", "replace")
+    # Drop the instance tag ("i=1;") so the value reads like an Authentication-Results header.
+    value = re.sub(r"^\s*i\s*=\s*\d+\s*;\s*", "", sealed).strip()
+    authserv_id = _authentication_results(value)[0]
+    if ARC_SEALERS.get(domain) != authserv_id:
+        return None
+    return domain, value
+
+
 def analyze_raw_email(
     raw_email: str | bytes,
     *,
@@ -832,7 +899,7 @@ def analyze_raw_email(
         limited = True
     result = _analyze_message(message, unicode_source=isinstance(raw_email, str),
                               trusted_authserv_ids=trusted_authserv_ids, depth=0, budget=[20],
-                              mailbox_provider=mailbox_provider)
+                              mailbox_provider=mailbox_provider, raw_email=raw_email)
     if limited:
         item = indicator('info', 'warning.mime_resource_limit')
         result['parse_warnings'].append(item['msg'])
@@ -889,9 +956,11 @@ def _authentication_results(value: str) -> tuple[str, dict[str, str], bool]:
     return authserv_id, results, bool(identity) and complete
 
 
-def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, budget, mailbox_provider=None):
-    # Attached (nested) messages are analyzed without a mailbox: their headers were
-    # never stamped by the user's receiving service.
+def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, budget, mailbox_provider=None,
+                     raw_email=None):
+    # Attached (nested) messages are analyzed without a mailbox or their raw bytes: their
+    # headers were never stamped by the user's receiving service, and an ARC seal on an
+    # attached message says nothing about how the user received the outer one.
     plain, html, attachments, parse_warnings, content_parts = _message_text(message, unicode_source=unicode_source)
     header_candidates = {
         name: []
@@ -1056,6 +1125,21 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 "authserv_id": authserv_id,
                 "results": claimed_results,
             })
+    authentication_source = ("mailbox" if mailbox_authserv_id else "server") if auth_results else None
+    if not auth_results and not mailbox_authserv_id and raw_email is not None:
+        arc = arc_sealed_results(raw_email)
+        if arc:
+            sealed_by, sealed_value = arc
+            authserv_id, claimed_results, auth_complete = _authentication_results(sealed_value)
+            if claimed_results and auth_complete:
+                auth_results = claimed_results
+                dmarc_header_from = _dmarc_header_from(sealed_value)
+                dkim_pass_domains = _dkim_pass_domains(sealed_value)
+                authentication_source = "arc"
+                # The service's own header now counts through its seal, not as a claim.
+                untrusted_authentication_claims = [claim for claim in untrusted_authentication_claims
+                                                   if claim["authserv_id"] != authserv_id]
+                indicators.append(indicator('info', 'structure.arc_sealed_results', domain=sealed_by))
     failures = {
         mechanism for mechanism, result in auth_results.items()
         if result in _AUTH_FAILURES
@@ -1163,6 +1247,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "service_domain_sender": service_domain_sender,
         "bulk_mail": _bulk_mail(message),
         "authentication_results_trusted": bool(auth_results),
+        "authentication_source": authentication_source,
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,
         "parse_warnings": parse_warnings,

@@ -314,7 +314,19 @@ Raw input enables these checks:
   An uploaded `.eml` can also name the mailbox it was downloaded from: Gmail
   (`mx.google.com`) or Outlook.com (`mx.microsoft.com`). Only the topmost `Authentication-Results` header is then trusted, and
   only if that service wrote it; headers below it, which a sender can add, are
-  ignored. A trusted DMARC pass for the single From domain, when that domain is
+  ignored. Without a mailbox choice, an ARC chain (RFC 8617) can stand in for it:
+  when every ARC seal and message signature in the message comes from Google
+  (`d=google.com`) and the chain verifies against Google's published DNS keys, the
+  sealed `ARC-Authentication-Results` from `mx.google.com` are trusted, and the result
+  says so (`structure.arc_sealed_results`, `authentication_source: "arc"`). The seal
+  covers the message as Gmail received it, so it cannot be forged into a forwarded
+  attachment, and any change to the signed headers or body breaks it. Keys are
+  looked up with a 2-second timeout and cached for an hour. Seals from any other
+  domain are never looked up, since that DNS query would tell the message's author
+  it was analyzed. Messages attached inside another message are never trusted this
+  way. Outlook.com's "Download as EML" rewrites the message, so its seals do not
+  verify and choosing the mailbox remains necessary there. Verification uses
+  `dkimpy` and `authres`. A trusted DMARC pass for the single From domain, when that domain is
   an organization's own sending domain in the official-brand registries, marks a
   **verified official sender**. Consumer mailbox domains such as qq.com, icloud.com
   or gmail.com never qualify. A `header.from` equal to the From domain's

@@ -20,6 +20,34 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 15:00 PT] — Trust Gmail's ARC-sealed checks without a mailbox choice
+
+### Why
+- Without a mailbox choice, 43 of 92 genuine downloads alerted; with it, 3.
+- All 52 Gmail downloads carry an ARC chain sealed by Google, and all of them verify. That proves Gmail received the message and recorded its own checks, which a forwarded attachment cannot fake.
+- Benign-notice wording was measured first and rejected: it appears in few genuine alerts and in more phishing.
+
+### Files changed
+- `website/email_structure.py`:
+  - `arc_sealed_results` verifies the chain with `dkimpy`, only when every seal and message signature comes from `ARC_SEALERS` (`google.com`). Any other sealer is never looked up.
+  - `_arc_dns_txt` looks up keys with a 2-second timeout and caches them for an hour.
+  - With no mailbox, the sealed `ARC-Authentication-Results` are trusted for the outer message only.
+  - `authentication_source` and `structure.arc_sealed_results` say so.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: `structure.arc_sealed_results`. Asset versions bumped.
+- `requirements.txt`, `requirements-dev-py312-macos-arm64.lock.txt`: `dkimpy==1.1.8`, `authres==1.2.0`.
+- `website/tests/test_arc_sealed_results.py`, `website/tests/arc_test_keys.py`: run-time signed messages with a throwaway key and mocked DNS, covering:
+  - a valid seal;
+  - tampering and lookup failure;
+  - foreign sealers never looked up;
+  - mismatched results;
+  - a chosen mailbox;
+  - attached messages.
+- `README.md`, `docs/evaluation.md`: the rule and the measurement.
+
+### Effect
+- 92 genuine downloads without a mailbox: 43 / 34 / 15 → 27 / 15 / 50 (alerts / undetermined / Safe or Low). The Gmail downloads now match the mailbox choice: 0 / 7 / 45.
+- Outlook.com downloads, Nazario, PhishFuzzer, UniqueData, Postmark, Apache and the HTML templates are unchanged.
+
 ## [2026-10-01 14:00 PT] — Fix five findings from the second review at 06f4522
 
 ### Why

@@ -881,6 +881,7 @@ window.PhishGuardI18n = (() => {
     'server.structure.no_visible_recipient': 'No visible To or Cc recipient is present; the message may have used Bcc.',
     'server.structure.self_addressed': 'Self-addressed message: a From mailbox also appears in To or Cc.',
     'server.structure.routing_mismatch': '{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.',
+    'server.structure.arc_sealed_results': 'No mailbox was chosen, but the sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.',
     'server.structure.auth_failed': 'Message authentication failed: {mechanisms}.',
     'server.structure.auth_partial_failure': 'One authentication mechanism failed: {mechanisms}.',
     'server.structure.dangerous_attachment': 'Potentially dangerous attachment: {filename}.',
@@ -1299,7 +1300,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=21'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=22'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

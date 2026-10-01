@@ -1408,6 +1408,55 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Benign-notice wording, and Gmail's ARC seal (2026-10-01)
+
+Without a mailbox choice, 43 of the 92 genuine downloads alerted, most of them on the
+text model alone.
+
+**Benign-notice wording does not separate them.** The candidates were phrases that
+tell the reader nothing is needed: "if you didn't request this, you can ignore this
+email", "no action is needed", "we will never ask for your password", "do not share
+this code", and the Chinese equivalents. Among model-driven alerts they appear in:
+- 5 of 26 genuine downloads;
+- 1 of 39 UniqueData messages;
+- 39 Nazario phishing messages;
+- 177 PhishFuzzer legacy-seed phishing messages.
+
+Downgrading on them would free few genuine messages and more phishing, so this was
+not used.
+
+**The mailbox choice is what separates them.** With it, the same 92 messages alert 3
+times. Of the 43 alerts without it, 16 were Gmail downloads and 27 Outlook.com
+downloads. All 52 Gmail downloads carry an ARC chain sealed by `google.com`, and all
+52 verified (selectors `arc-20260327` and `arc-20240605`; 0.9 s in total). Of the 40
+Outlook.com downloads, 2 carry a Microsoft seal, and neither verifies after "Download
+as EML". When no mailbox is chosen, a verified Google-only chain now stands in for
+the choice. The sealed `ARC-Authentication-Results` are used, and nothing is looked up
+for other sealers.
+
+| Cohort (same model) | Before: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, no mailbox | 43 / 34 / 15 | 27 / 15 / 50 |
+| of which Gmail (52) | 16 / 26 / 10 | 0 / 7 / 45 |
+| of which Outlook.com (40) | 27 / 8 / 5 | unchanged |
+| 92 genuine downloads, mailbox chosen | 3 / 10 / 79 | unchanged |
+| Nazario 2015–25 phishing (3,466) | 3,318 / 139 / 9 | unchanged |
+
+PhishFuzzer (all sets), UniqueData, Postmark, Apache and the 87 HTML templates are
+unchanged: they are text, or messages without a Google seal.
+
+Tests sign messages at run time with a throwaway RSA key, and DNS is mocked. They
+check the following:
+- a valid seal is trusted;
+- a changed body or a failed lookup is not;
+- another sealer is never looked up;
+- a Google seal over another service's results is not trusted;
+- a chosen mailbox keeps its own path;
+- a sealed message inside an attachment is not trusted.
+
+**Pasted text is unchanged.** Without headers there is no seal, and the remaining
+pasted-text false alarms come from the text model's training data.
+
 ### Second independent review at 06f4522 (2026-10-01)
 
 A second read-only review supplied synthetic fixtures for five findings. All five

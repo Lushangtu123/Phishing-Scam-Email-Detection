@@ -87,6 +87,7 @@
   "structure.no_visible_recipient": "No visible To or Cc recipient is present; the message may have used Bcc.",
   "structure.self_addressed": "Self-addressed message: a From mailbox also appears in To or Cc.",
   "structure.routing_mismatch": "{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.",
+  "structure.arc_sealed_results": "No mailbox was chosen, but the sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.",
   "structure.auth_failed": "Message authentication failed: {mechanisms}.",
   "structure.auth_partial_failure": "One authentication mechanism failed: {mechanisms}.",
   "structure.dangerous_attachment": "Potentially dangerous attachment: {filename}.",

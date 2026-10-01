@@ -863,6 +863,7 @@
   'server.structure.no_visible_recipient': '邮件没有可见的 To 或 Cc 收件人；可能使用了密送（Bcc）。',
   'server.structure.self_addressed': '自发自收邮件：某个 From 邮箱同时出现在 To 或 Cc 中。',
   'server.structure.routing_mismatch': '{header} 域名（{domain}）与 From 域名候选（{from_domains}）不一致。路由信息不同；仅凭这一点不能认定为冒充。',
+  'server.structure.arc_sealed_results': '没有选择邮件来源，但已用公开密钥核实了 {domain} 封存的验证记录（ARC 签名），因此采用了它对这封邮件的检查结果。',
   'server.structure.auth_failed': '邮件身份验证失败：{mechanisms}。',
   'server.structure.auth_partial_failure': '有一项身份验证机制失败：{mechanisms}。',
   'server.structure.dangerous_attachment': '潜在危险附件：{filename}。',
