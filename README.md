@@ -326,8 +326,10 @@ Raw input enables these checks:
   - Lookalike links, dangerous attachments, requests for codes, and other evidence
     that sets a Medium or higher floor still alert.
   - The DMARC result and its `header.from` are read from the same clause, after
-    comments and quoted strings are removed. Conflicting DMARC clauses give no
-    identity.
+    comments are removed, as ordered `key=value` properties: a value is consumed
+    whole, so `reason=header.from=x` is a reason, never an identity. Conflicting
+    DMARC clauses, or one clause naming two different identities, give no identity.
+    DKIM `header.d` and `header.i` are read the same way.
   - **Platform relays are not official.** Drive shares, Docusign envelopes, Canva
     designs, GitHub issue notifications and similar mail are signed by the
     platform but carry another user's document, message and links. A verified
@@ -367,7 +369,9 @@ Raw input enables these checks:
   organization: "Dropbox" from `txn.dropbox.com` qualifies. Generic names such as
   "IT Support", and names or local parts that carry another organization's domain
   (for example "monkey.org Portal"), do not. Nor does a name that claims another
-  registered organization, such as "GitHub" from `githubdocuments.com`.
+  registered organization, such as "GitHub" from `githubdocuments.com`. Display
+  names are decoded, NFKC-normalized and stripped of invisible format characters
+  before either check, so "Git\u200bHub" is still GitHub.
   - Address-shape findings are then shown at info level and not scored. These are
     role or keyword usernames, random-looking or long usernames, keyword
     subdomains, deep subdomains, and "unrecognized provider".
@@ -487,10 +491,15 @@ Stylesheet rules containing `display:none`, `visibility:hidden`/`collapse`, or
 `opacity:0`, zero `font-size`, or transparent text color are detected
 conservatively, including inside media-rule blocks. Text that an inline zero
 `font-size` or transparent text color reaches also marks rendering uncertain. A child
-restores it with a positive absolute size (`14px`, `1rem`, `small`) or a visible
-color, as in the `font-size:0` layout wrappers of HTML mail; sizes relative to the
-zero parent (`1em`, `100%`) stay zero, and a wrapper with no text of its own marks
-nothing. Other `calc(...)` opacity
+restores it with a positive absolute size (`14px`, `1rem`, `small`, `initial`) or a
+visible color (a named, hex or functional color with nonzero alpha), as in the
+`font-size:0` layout wrappers of HTML mail. Sizes relative to the zero parent
+(`1em`, `100%`) stay zero; an invalid color is ignored, as CSS ignores it, so the
+inherited transparent color stays; and a wrapper with no text of its own marks
+nothing. `min()`, `max()` and `clamp()` over plain lengths are computed
+(`max(16px, 1rem)` is visible). Values the parser cannot compute (`calc()`, `var()`,
+`color-mix()`, relative arguments that decide the result) leave the text unresolved,
+whatever a descendant declares. Other `calc(...)` opacity
 expressions are left unscored when their visible result cannot be established.
 Because selector matching and CSS cascade are not fully rendered, the API sets
 `ml_status=unverified_rendering` and leaves model scores null when every MIME
@@ -511,10 +520,13 @@ Uncertain elements are located when every hiding rule's target selector carries
 a class, an id, or a class attribute; `.hide-mobile`, `u + .body .x` and
 `*[class="x"]` qualify, while `div`, `*` and `:not(...)` do not.
 
-- Each `@media` (or other at-rule) context is its own view: the base rules'
-  hidden targets, minus those it shows, plus those it hides. Text rules read
-  each context's view as well as the certainly visible text, and the riskiest
-  reading counts. More than eight contexts are not modelled. CSS comments are
+- Every combination of `@media` (or other at-rule) contexts is its own view,
+  because conditions can hold together (`max-width:600px` and `min-width:400px`
+  at 500px). A view starts from the base rules' hidden targets and applies its
+  contexts in source order, each removing what it shows and adding what it hides.
+  Text rules read every view as well as the certainly visible text, and the
+  riskiest reading counts. More than five contexts (32 combinations) are not
+  modelled. CSS comments are
   stripped only outside strings, so `content:"/*"` opens no comment.
 - If all views lead to the same alert decision, the view is scored at its
   highest-risk reading. Its rendering warnings stay listed but stop blocking a

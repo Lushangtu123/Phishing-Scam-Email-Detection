@@ -20,6 +20,33 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 14:00 PT] — Fix five findings from the second review at 06f4522
+
+### Why
+- An independent review reproduced five issues with synthetic fixtures:
+  - S1: an invalid inline colour cleared an inherited transparent colour, so hidden padding diluted a visible callback scam to Low. This was a regression from the inline-style change. A `font-size:initial` variant was also Low.
+  - S2: media conditions were viewed one at a time, never together.
+  - R1: a zero-width character in "GitHub" passed the other-organization check.
+  - R2: two sales words turned a link disguised as `accounts.google.com` into advertising. This was a regression from the tracked-link rule.
+  - R3: `reason=header.from=…` or a repeated `header.from` could name the DMARC identity.
+
+### Files changed
+- `website/app.py`:
+  - `_color_state`, `_font_size_state`, `_UNCOMPUTED` and `_NAMED_COLORS` follow CSS: invalid colours inherit; `initial` restores; `min()`/`max()`/`clamp()` over plain lengths are computed; other uncomputable values are unresolved.
+  - `_stylesheet_hidden_targets` makes a view for every combination of up to five media contexts (`_MAX_MEDIA_CONTEXTS`), applied in source order.
+  - `_tracked_sales_links` lets only neutral shown hosts yield to advertising.
+- `website/email_structure.py`:
+  - `_clause_properties` and `_single_property` parse DMARC and DKIM clauses as ordered properties, and conflicting identities name none;
+  - `_folded_display_name` is shared by both display-name checks.
+- Tests:
+  - `website/tests/test_review_2026_09_30_second.py` covers all five findings and the computed size functions;
+  - updated media and mail-type tests.
+- `README.md`, `docs/evaluation.md`: the rules and the results.
+
+### Effect
+- All five fixtures now give the expected results (High, Medium or phishing, as listed in the evaluation).
+- Genuine downloads, templates, Nazario, DataCon, PhishFuzzer and trec06c: no verdict or mail-type change.
+
 ## [2026-10-01 13:00 PT] — Call tracked-link sales mail advertising, not phishing
 
 ### Why

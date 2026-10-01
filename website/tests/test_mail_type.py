@@ -60,7 +60,7 @@ class MailTypeTests(unittest.TestCase):
 
 
     def test_bulk_sales_mail_whose_only_finding_is_a_tracked_link_is_advertising(self):
-        link = {'code': 'link.display_mismatch', 'level': 'high'}
+        link = {'code': 'link.display_mismatch', 'level': 'high', 'params': {'display_host': 'www.icamms2023.org'}}
         result = {'risk_level': 'high', 'extra_indicators': [link], 'category_results': [],
                   'advertising_terms': ['征稿', '期刊']}
         self.assertEqual(app._mail_type(result, False), {'type': 'advertising'})

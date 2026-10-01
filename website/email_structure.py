@@ -231,15 +231,18 @@ def official_channels(texts, *, first: str | None = None, limit: int = 2) -> lis
 
 
 def _dkim_pass_domains(value: str) -> set[str]:
-    """Signing domains (header.d, or the domain of header.i) of every passing DKIM clause."""
+    """Signing domains (header.d, or the domain of header.i) of every passing DKIM clause.
+    A clause naming two different domains for the same property names none."""
     domains = set()
     for segment in _authentication_segments(value)[0][1:]:
-        if not re.match(r'dkim\s*=\s*pass(?=\s|$)', segment, re.IGNORECASE):
+        properties = _clause_properties(segment)
+        if not properties or properties[0][0] != "dkim" or properties[0][1].lower() != "pass":
             continue
-        match = (re.search(r'\bheader\.d\s*=\s*"?([^\s;"]+)', segment, re.IGNORECASE)
-                 or re.search(r'\bheader\.i\s*=\s*"?[^\s;"@]*@([^\s;"]+)', segment, re.IGNORECASE))
-        if match:
-            domains.add(normalize_domain(match.group(1)))
+        domain = _single_property(properties[1:], "header.d")
+        if domain is None and not any(name == "header.d" for name, _value in properties[1:]):
+            domain = _single_property(properties[1:], "header.i")
+        if domain:
+            domains.add(domain)
     return domains - {''}
 
 
@@ -288,7 +291,7 @@ def display_name_matches_domain(display_name: str, domain: str, local_part: str 
             name = str(make_header(decode_header(name)))
         except (ValueError, LookupError, HeaderParseError):
             pass
-    folded = unicodedata.normalize("NFKC", name).casefold()
+    folded = _folded_display_name(name)
     organization = organizational_domain(domain)
     if _names_other_domain(folded, organization) or _names_other_domain(local_part.casefold(), organization):
         return False
@@ -355,23 +358,44 @@ def _dmarc_aligned(from_domain: str, header_from: str) -> bool:
     return bool(header_from) and header_from in {from_domain, organizational_domain(from_domain)}
 
 
+_CLAUSE_PROPERTY = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*=\s*("(?:[^"\\]|\\.)*"|[^\s"]+)')
+
+
+def _clause_properties(segment: str) -> list[tuple[str, str]]:
+    """key=value pairs of one comment-free clause, in order. A value is consumed whole,
+    so "reason=header.from=x" is a reason, never a header.from property."""
+    return [(key.lower(), value[1:-1] if value.startswith('"') else value)
+            for key, value in _CLAUSE_PROPERTY.findall(segment)]
+
+
+def _single_property(properties: list[tuple[str, str]], key: str) -> str | None:
+    """The one value of a property; None when it is absent or repeated with different values."""
+    values = {normalize_domain(value.rpartition("@")[2] if key == "header.i" else value)
+              for name, value in properties if name == key}
+    return values.pop() if len(values) == 1 else None
+
+
 def _dmarc_header_from(value: str) -> str:
-    """header.from of the single passing DMARC clause, read after comments and quoted
-    strings are removed. Several DMARC clauses that disagree give no identity."""
+    """header.from of the single passing DMARC clause. Several DMARC clauses that
+    disagree, or one clause naming two identities, give no identity."""
     clauses = []
     for segment in _authentication_segments(value)[0][1:]:
-        match = re.match(r"dmarc\s*=\s*([a-z]+)(?=\s|$)", segment, re.IGNORECASE)
-        if match:
-            unquoted = re.sub(r'"(?:[^"\\]|\\.)*"', '""', segment)
-            identity = re.search(r"\bheader\.from\s*=\s*([^\s;\"()]+)", unquoted, re.IGNORECASE)
-            clauses.append((match.group(1).lower(), normalize_domain(identity.group(1)) if identity else ""))
+        properties = _clause_properties(segment)
+        if properties and properties[0][0] == "dmarc" and re.fullmatch(r"[a-z]+", properties[0][1], re.IGNORECASE):
+            clauses.append((properties[0][1].lower(), _single_property(properties[1:], "header.from") or ""))
     if len(set(clauses)) != 1 or clauses[0][0] != "pass":
         return ""
     return clauses[0][1]
 
 
-def _display_name_claims(display_name: str, name: str) -> bool:
+def _folded_display_name(display_name: str) -> str:
+    """NFKC, casefolded, without invisible format characters ("Git\u200bHub" is "github")."""
     folded = unicodedata.normalize("NFKC", display_name).casefold()
+    return "".join(ch for ch in folded if unicodedata.category(ch) != "Cf")
+
+
+def _display_name_claims(display_name: str, name: str) -> bool:
+    folded = _folded_display_name(display_name)
     if name.isascii():
         # Word boundaries keep ICBCX or 123067 from claiming ICBC or 12306.
         pattern = r"(?<![a-z0-9])" + r"\s*".join(map(re.escape, name.casefold().split())) + r"(?![a-z0-9])"

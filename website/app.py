@@ -88,6 +88,7 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 
 from email_structure import (
+    _official_sender,
     MAILBOX_AUTHSERV_IDS,
     SENDER_ONLY_SERVICES,
     OFFICIAL_SERVICE_NUMBERS as _OFFICIAL_SERVICE_NUMBERS,
@@ -1862,17 +1863,20 @@ def _is_ipfs_gateway(host: str, path: str) -> bool:
     return bool(_IPFS_SUBDOMAIN.match(host) or _IPFS_PATH.match(path or ""))
 
 
+_SENSITIVE_HOST_TERMS = frozenset({
+    "account", "credential", "login", "password", "reactivate",
+    "secure", "security", "signin", "unlock", "verification", "verify",
+    "wallet",
+})
+
+
 def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) -> tuple[int, list[dict], str]:
     """Inspect actual link targets, including links with generic button text."""
     score = 0
     findings: list[dict] = []
     risk_floor = "safe"
     finding_types: set[str] = set()
-    sensitive_host_terms = {
-        "account", "credential", "login", "password", "reactivate",
-        "secure", "security", "signin", "unlock", "verification", "verify",
-        "wallet",
-    }
+    sensitive_host_terms = _SENSITIVE_HOST_TERMS
 
     for link_text, url in (_extract_links(text) if links is None else links):
         lowered_url = url.lower()
@@ -2098,27 +2102,114 @@ _ZERO_LENGTH = re.compile(r'[+]?0+(?:\.0+)?(?:[a-z]+|%)?')
 _TRANSPARENT_COLOR = re.compile(r'transparent|(?:rgba|hsla)\([^)]*,\s*0+(?:\.0+)?\s*\)')
 # Sizes that do not scale with the parent's font size, so they restore text inside
 # a zero-size wrapper (the inline-block spacing technique in HTML mail layouts).
+# "initial" resets font-size to its initial value, medium.
 _ABSOLUTE_FONT_SIZE = re.compile(
     r'[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:px|pt|pc|in|cm|mm|q|rem|vw|vh|vmin|vmax)'
-    r'|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large')
+    r'|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|initial')
+_NAMED_COLORS = frozenset("""
+    aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown
+    burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan
+    darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred
+    darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink
+    deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold
+    goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush
+    lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey
+    lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime
+    limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen
+    mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin
+    navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise
+    palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue
+    saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow
+    springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen
+    canvastext linktext visitedtext activetext buttontext fieldtext graytext highlighttext marktext windowtext
+    initial
+""".split())
+_HEX_COLOR = re.compile(r'#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})')
+_COLOR_FUNCTION = re.compile(r'(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\((.*)\)')
+_ALPHA = re.compile(r'[+]?(?:\d+(?:\.\d*)?|\.\d+)%?')
+# Values the parser cannot compute: the text they reach stays unresolved.
+_UNCOMPUTED = re.compile(r'(?:calc|clamp|min|max|var|env|attr|color-mix|light-dark|if)\(')
+
+
+def _color_state(color: str) -> bool | None:
+    """True for a transparent colour, False for a visible one, None to inherit.
+
+    An invalid value is ignored by CSS, so the parent's colour still applies; it must
+    not clear an inherited transparent colour.
+    """
+    if not color or color in {'inherit', 'unset', 'revert', 'revert-layer', 'currentcolor'} or _UNCOMPUTED.search(color):
+        return None
+    if _TRANSPARENT_COLOR.fullmatch(color):
+        return True
+    if color in _NAMED_COLORS:
+        return False
+    if _HEX_COLOR.fullmatch(color):
+        digits = color[1:]
+        alpha = digits[3] if len(digits) == 4 else digits[6:] if len(digits) == 8 else 'f'
+        return int(alpha, 16) == 0
+    match = _COLOR_FUNCTION.fullmatch(color)
+    if match:
+        arguments = match.group(2)
+        alpha = (arguments.split('/', 1)[1] if '/' in arguments
+                 else arguments.split(',')[3] if arguments.count(',') == 3 else '1')
+        alpha = alpha.strip()
+        if _ALPHA.fullmatch(alpha):
+            return float(alpha.rstrip('%')) == 0
+    return None
+
+
+_POSITIVE_ABSOLUTE_LENGTH = re.compile(
+    r'[+]?(?:\d*[1-9]\d*(?:\.\d*)?|0*\.\d*[1-9]\d*)(?:px|pt|pc|in|cm|mm|q|rem|vw|vh|vmin|vmax)')
+
+
+def _font_size_state(value: str) -> tuple[bool | None, bool]:
+    """(zero size, unresolved) of one font-size value.
+
+    min(), max() and clamp() over plain lengths are computed: max(16px, 1rem), the
+    progressive-enhancement form common in HTML mail, is visible. Anything else the
+    parser cannot compute (calc(), var(), nested functions, relative arguments that
+    decide the result) is unresolved.
+    """
+    if _ZERO_LENGTH.fullmatch(value):
+        return True, False
+    if _ABSOLUTE_FONT_SIZE.fullmatch(value):
+        return False, False
+    match = re.fullmatch(r'(min|max|clamp)\(([^()]*)\)', value)
+    if match:
+        arguments = [argument.strip() for argument in match.group(2).split(',')]
+        positive = [bool(_POSITIVE_ABSOLUTE_LENGTH.fullmatch(argument)) for argument in arguments]
+        zero = [bool(_ZERO_LENGTH.fullmatch(argument)) for argument in arguments]
+        function = match.group(1)
+        if function == 'max' and any(positive):
+            return False, False
+        if function == 'min' and all(positive):
+            return False, False
+        if function == 'clamp' and len(arguments) == 3 and positive[0]:
+            return False, False
+        if (function == 'max' and all(zero)) or (function == 'min' and any(zero)) or (
+                function == 'clamp' and len(arguments) == 3 and zero[2]):
+            return True, False
+        return None, True
+    return None, bool(_UNCOMPUTED.search(value))
 
 
 def _inline_text_state(style: str) -> tuple[bool | None, bool | None, bool]:
-    """(zero font size, transparent colour, uncertain opacity) declared by one inline style.
+    """(zero font size, transparent colour, unresolved) declared by one inline style.
 
-    None means not declared or inherited, so the parent's state applies. A positive
-    absolute size or a visible colour restores text inside a zero-size or transparent
-    parent; relative sizes (em, %) of a zero size stay zero.
+    None means not declared, invalid or inherited, so the parent's state applies. A
+    positive absolute size, "initial" or a visible colour restores text inside a
+    zero-size or transparent parent; relative sizes (em, %) of a zero size stay zero.
+    Values the parser cannot compute (calc(), clamp(), var(), color-mix() and opacity
+    calc()) leave the text unresolved, which a descendant cannot undo.
     """
     values = _style_values(style)
     font_size = values.get('font-size', ('', False))[0]
     color = values.get('color', ('', False))[0]
-    zero_size = (True if _ZERO_LENGTH.fullmatch(font_size)
-                 else False if _ABSOLUTE_FONT_SIZE.fullmatch(font_size) else None)
-    transparent = (None if color in {'', 'inherit', 'unset', 'currentcolor'}
-                   else bool(_TRANSPARENT_COLOR.fullmatch(color)))
+    zero_size, size_unresolved = _font_size_state(font_size)
     opacity = values.get('opacity', ('', False))[0]
-    return zero_size, transparent, opacity.startswith('calc(') and not _inline_visibility(style)[2]
+    unresolved = (size_unresolved or bool(_UNCOMPUTED.search(color))
+                  or (opacity.startswith('calc(') and not _inline_visibility(style)[2]))
+    return zero_size, _color_state(color), unresolved
 
 
 def _inline_visibility(style: str) -> tuple[bool, bool | None, bool, bool]:
@@ -2273,7 +2364,8 @@ def _hidden_selector_targets(selector: str):
             + [('fragment', fragment.strip('"\'').casefold()) for fragment in fragments])
 
 
-_MAX_RENDERING_CONTEXTS = 8
+# Media contexts whose every combination is scored (2**5 = 32 views); more is unmodelled.
+_MAX_MEDIA_CONTEXTS = 5
 
 
 def _declares_shown(block: str) -> bool:
@@ -2337,12 +2429,19 @@ def _stylesheet_hidden_targets(css: str):
                     (hidden if hides else shown).setdefault(context, set()).update(targets)
         index += 1
     union = set().union(*hidden.values()) if hidden else set()
-    contexts = sorted((set(hidden) | set(shown)) - {''})
-    if len(contexts) + 1 > _MAX_RENDERING_CONTEXTS:
+    # Conditions can hold together (max-width:600px and min-width:400px at 500px), so
+    # every combination is a view, each applying its contexts in source order.
+    contexts = [context for context in dict.fromkeys([*hidden, *shown]) if context]
+    if len(contexts) > _MAX_MEDIA_CONTEXTS:
         return None
     base = frozenset(hidden.get('', ()))
-    views = ([base] + [frozenset((base - shown.get(context, set())) | hidden.get(context, set()))
-                       for context in contexts]) if contexts else []
+    views = []
+    for mask in range(1 << len(contexts)) if contexts else ():
+        view = set(base)
+        for position, context in enumerate(contexts):
+            if mask >> position & 1:
+                view = (view - shown.get(context, set())) | hidden.get(context, set())
+        views.append(frozenset(view))
     return {
         "union": tuple(frozenset(name for kind, name in union if kind == wanted)
                        for wanted in ('class', 'id', 'fragment')),
@@ -3017,6 +3116,27 @@ def _advertising(result: dict, bulk_mail: bool, *, strict: bool = False) -> bool
     return len(sales) >= 2 or bool(not strict and sales and (bulk_mail or "unsubscribe" in terms))
 
 
+def _tracked_sales_links(result: dict) -> bool:
+    """Every disguised link shows a host that names no registered brand and no account page.
+
+    A click tracker behind "www.conference-2023.org" fits; a link shown as
+    "https://accounts.google.com" or a bare IP never does, whatever the sales wording.
+    """
+    links = [item for item in result.get("extra_indicators", [])
+             if item.get("code") in _PHISHING_TACTICS["deceptive_link"]
+             and item.get("level") in {"medium", "high", "critical"}]
+    for item in links:
+        if item.get("code") != "link.display_mismatch":
+            return False
+        host = _decode_idna_domain(str((item.get("params") or {}).get("display_host", "")).lower().strip("."))
+        if (not host or _official_sender(host)
+                or any(_domains_align(host, domain) for domains in _PROTECTED_BRAND_DOMAINS.values()
+                       for domain in domains)
+                or set(re.split(r"[^a-z0-9]+", host)) & (_SENSITIVE_HOST_TERMS | {"accounts", "auth", "sso"})):
+            return False
+    return bool(links)
+
+
 def _mail_type(result: dict, bulk_mail: bool) -> dict | None:
     """{"type": "phishing", "tactics": [...]} or {"type": "advertising"}, or None."""
     advertising = _advertising(result, bulk_mail)
@@ -3029,7 +3149,8 @@ def _mail_type(result: dict, bulk_mail: bool) -> dict | None:
         # With no scam wording it is advertising; the alert and its note stay.
         # Two distinct sales terms are needed here: one phrase plus an unsubscribe footer
         # also appears in phishing ("Mail Notification Alert" with a "special offer").
-        if tactics and not (tactics == ["deceptive_link"] and _advertising(result, bulk_mail, strict=True)):
+        if tactics and not (tactics == ["deceptive_link"] and _tracked_sales_links(result)
+                            and _advertising(result, bulk_mail, strict=True)):
             return {"type": "phishing", "tactics": tactics}
     return {"type": "advertising"} if advertising else None
     terms = result.get("advertising_terms") or []

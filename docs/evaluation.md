@@ -1408,6 +1408,42 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Second independent review at 06f4522 (2026-10-01)
+
+A second read-only review supplied synthetic fixtures for five findings. All five
+reproduced on the served model:
+
+| Finding | Input | Before | After |
+|---|---|---|---|
+| S1 inline style inheritance (P1, regression) | callback split by padding in `color:transparent` > `color:not-a-color` | Low | High (callback) |
+| S1 residual | scam restored with `font-size:initial` beside zero-size padding | Low | High |
+| S2 media combinations (P1) | three `@media` rules, two holding together at 500px | Low | High |
+| R1 invisible characters (P2) | "Git\u200bHub" from authenticated `githubdocuments.com` | Safe, sender risk 0 | Medium, sender risk 38 (as plain "GitHub") |
+| R2 mail type (P2, regression) | "Special offer. Discount." with a link shown as `https://accounts.google.com` | Critical, advertising | Critical, phishing (deceptive link) |
+| R3 DMARC properties (P2) | `reason=header.from=github.com`, or two `header.from` values | verified GitHub, Low | not verified, High |
+
+The fixes:
+- S1: only valid visible colours restore a transparent parent, and invalid
+  colours inherit. `initial` restores the size, and `min()`, `max()` and `clamp()`
+  over plain lengths are computed. Other uncomputable values leave the text
+  unresolved.
+- S2: every combination of up to five media contexts is a view, applied in
+  source order.
+- R1: both display-name checks share one normalization (decode, NFKC, no format
+  characters).
+- R2: a disguised link only yields to advertising when its shown host names no
+  registered brand and no account page. A bare IP never does.
+- R3: authentication clauses are parsed as ordered `key=value` properties, and
+  repeated, conflicting identities name none.
+
+A first version treated every `max()` font size as unresolved. That turned one
+public HTML template (`max(16px, 1rem)`, a common progressive-enhancement form)
+from Safe to undetermined, so these functions are now computed.
+
+With the final change, the 92 genuine downloads (with and without a mailbox), the
+87 public templates, Nazario (also with the top header trusted), DataCon 2023
+day 1, PhishFuzzer and the trec06c sample have no verdict or mail-type change.
+
 ### Mail-type note: tracked-link sales mail (2026-10-01)
 
 48 DataCon 2023 sales messages had been called phishing on a disguised link alone.

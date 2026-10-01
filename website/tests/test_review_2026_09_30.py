@@ -47,7 +47,8 @@ class RenderingReviewTests(unittest.TestCase):
                 f'</style><p>Please review the project notes.</p><p class="attack">{SCAM}</p>'
                 f'<div class="padding">{PADDING}</div>')
         targets = app._stylesheet_hidden_targets(html[7:html.index('</style>')])
-        self.assertEqual(len(targets['views']), 3)
+        # Neither, each, and both conditions.
+        self.assertEqual(len(targets['views']), 4)
         # The narrow-screen view shows the scam without the padding.
         self.assertIn(analyze('Invoice problem - call support', html)['risk_level'], {'high', 'critical'})
 
