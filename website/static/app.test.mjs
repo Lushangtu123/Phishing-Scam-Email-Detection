@@ -2076,6 +2076,44 @@ test('an alerting result suggests the original .eml, or rerunning with the detec
   assert.equal(elements.get('content-accuracy-tip').hidden, true);
 });
 
+test('a model-driven alert says the text model raised it, without changing the verdict', async () => {
+  let result = { ...contentResult('Medium Risk — Model Signal Needs Review'), risk_level: 'medium',
+    combined_phishing_score: 72, fusion_basis: 'model_only' };
+  const { context, elements } = loadFrontend({ fetch: async () => response(result) });
+  context.setupInputEvents();
+  elements.get('content-body').value = 'Your security code is 123456.';
+  await context.runContentAnalysis();
+  assert.equal(elements.get('content-accuracy-tip').hidden, false);
+  const pasted = elements.get('content-accuracy-tip-text').textContent;
+  assert.match(pasted, /^This alert comes mainly from the text model/);
+  assert.match(pasted, /original email \(\.eml\)/);
+  assert.equal(elements.get('content-accuracy-guide').hidden, false);
+  assert.equal(elements.get('crb-title').textContent, 'Medium Risk — Model Signal Needs Review');
+
+  // An .eml topped by Outlook.com's check: the rerun offer, with the model reason.
+  result = { ...result, risk_level: 'high', risk_label: 'High Risk — Model Signal Needs Review', fusion_basis: 'model_led' };
+  const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
+    + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
+  await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'mail.eml', arrayBuffer: async () => raw }] } });
+  await context.runContentAnalysis();
+  assert.match(elements.get('content-accuracy-tip-text').textContent, /^This alert comes mainly from the text model.*Outlook\.com/);
+  assert.equal(elements.get('content-accuracy-rerun').hidden, false);
+
+  // With the mailbox chosen there is nothing more to choose; the reason stays.
+  await elements.get('content-accuracy-rerun').listeners.click();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(elements.get('content-accuracy-tip').hidden, false);
+  assert.match(elements.get('content-accuracy-tip-text').textContent,
+    /^This alert comes mainly from the text model.*Check the sender address and links yourself/);
+  assert.equal(elements.get('content-accuracy-rerun').hidden, true);
+  assert.equal(elements.get('content-accuracy-guide').hidden, true);
+
+  // Corroborated alerts on a chosen mailbox keep no tip, as before.
+  result = { ...result, risk_label: 'High Risk — Likely Phishing', fusion_basis: 'corroborated' };
+  await context.runContentAnalysis();
+  assert.equal(elements.get('content-accuracy-tip').hidden, true);
+});
+
 test('a clean result shows no accuracy tip', async () => {
   const { context, elements } = loadFrontend({ fetch: async () => response(contentResult('Clean')) });
   context.setupInputEvents();

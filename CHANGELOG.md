@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 09:00 PT] — Say when an alert rests mainly on the text model
+
+### Why
+- In pasted-text mode, English false alarms come almost entirely from the TF-IDF + logistic-regression text model: 42 of 58 real legitimate UniqueData messages and 72 of 102 recent legitimate PhishFuzzer seeds alert, while the rules alone would alert on about one. With a raw `.eml` and the mailbox chosen, 3 of 92 genuine emails alert.
+- The result already showed "Model Signal Needs Review" and a tip to upload the `.eml`, but did not tell the reader that the judgement came mainly from the model, and the tip was hidden for a model-driven alert on an `.eml` whose mailbox had been chosen or was not recognized.
+
+### Files changed
+- `website/static/app-content-render.js` — `renderAccuracyTip` picks `content.tip.uploadModel` or `content.tip.chooseModel` when `fusion_basis` is `model_only` or `model_led` on a Medium/High/Critical result, and shows `content.tip.modelEml` for such a result on an `.eml` with nothing left to choose.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — the three strings in English and Chinese.
+- `website/static/app.test.mjs` — pasted text, the Outlook.com rerun offer and the chosen-mailbox case for model-driven alerts; a corroborated alert on a chosen mailbox still shows no tip.
+- `website/static/index.html`, `404.html`, `cases.html`, `lang-init.js`, `website/tools/asset-versions/manifest.json` — asset versions bumped by `website/tools/asset-versions/update.mjs`.
+- `README.md` — the tip description.
+
+### Effect
+- Display only: verdicts, scores, labels and the API response are unchanged.
+- Model-driven alerts now state that the text model raised them and that the original `.eml` with its mailbox is much more accurate; corroborated or rule-driven alerts keep the earlier tip text.
+
 ## [2026-10-01 08:00 PT] — Add Chinese phrasing to the content keyword rules
 
 ### Why

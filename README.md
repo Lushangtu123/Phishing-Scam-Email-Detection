@@ -306,7 +306,11 @@ Raw input enables these checks:
   forged top header. An alerting or undetermined result shows "A more reliable
   result": for pasted text or screenshots, a pointer to the original `.eml` and
   the download guide; for an `.eml` with a recognized service but no choice, a
-  "Choose … and analyze again" button.
+  "Choose … and analyze again" button. When the alert rests mainly on the text
+  model (`fusion_basis` `model_only` or `model_led`), the tip says so first: the
+  model often misjudges genuine modern account and notification mail. On an
+  `.eml` with nothing left to choose it still shows, asking the reader to check
+  the sender and links. The tip never changes the verdict or score.
   An uploaded `.eml` can also name the mailbox it was downloaded from: Gmail
   (`mx.google.com`) or Outlook.com (`mx.microsoft.com`). Only the topmost `Authentication-Results` header is then trusted, and
   only if that service wrote it; headers below it, which a sender can add, are

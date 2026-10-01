@@ -256,6 +256,9 @@ window.PhishGuardI18n = (() => {
     'content.tip.title': "A more reliable result",
     'content.tip.upload': "Upload the original email (.eml) and choose where you downloaded it (Gmail or Outlook.com). The check can then use your mail service’s own sender verification, which pasted text and screenshots lose. Genuine account and service emails are then far less often flagged.",
     'content.tip.choose': "This file carries {service}’s own sender check. If you downloaded it from {service} yourself, analyze it again with “Downloaded from: {service}”.",
+    'content.tip.uploadModel': "This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails. Upload the original email (.eml) and choose where you downloaded it (Gmail or Outlook.com): the check can then use your mail service’s own sender verification, which pasted text and screenshots lose, and is much more accurate.",
+    'content.tip.chooseModel': "This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails. This file carries {service}’s own sender check. If you downloaded it from {service} yourself, analyze it again with “Downloaded from: {service}” for a much more accurate result.",
+    'content.tip.modelEml': "This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails; no strong independent rule, sender or link evidence supports it. Check the sender address and links yourself before acting.",
     'content.tip.rerun': "Choose {service} and analyze again",
     'content.tip.guide': "How to get the original .eml",
     'content.remedy.title': "If you already clicked, replied or entered something",
@@ -1280,7 +1283,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=18'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=19'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

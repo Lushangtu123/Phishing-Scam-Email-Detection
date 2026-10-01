@@ -59,17 +59,25 @@ const MAILBOX_SERVICE_NAMES = { gmail: 'Gmail', outlook: 'Outlook.com' };
 // A more reliable result is often one step away: the original .eml instead of text or
 // a screenshot, or the mailbox choice for an .eml whose receiving service is known.
 // Shown only for alerting or undetermined results, where it matters most.
+// An alert raised mainly by the text model (fusion_basis model_only / model_led) says
+// so: the model misjudges many genuine account and notification emails, and on an
+// .eml with nothing more to choose the tip still explains that. Verdicts are unchanged.
 function renderAccuracyTip(data) {
   const tip = document.getElementById('content-accuracy-tip');
   const { mode, mailbox, detected } = contentInputContext;
   const unsettled = ['medium', 'high', 'critical', 'unknown'].includes(data.risk_level);
+  const modelDriven = ['medium', 'high', 'critical'].includes(data.risk_level) &&
+    ['model_only', 'model_led'].includes(data.fusion_basis);
   const upload = unsettled && (mode === 'content' || mode === 'image');
   const choose = unsettled && mode === 'eml' && !mailbox && !!MAILBOX_SERVICE_NAMES[detected];
-  tip.hidden = !(upload || choose);
+  tip.hidden = !(upload || choose || modelDriven);
   if (tip.hidden) return;
   const service = MAILBOX_SERVICE_NAMES[detected] || '';
-  document.getElementById('content-accuracy-tip-text').textContent = upload
-    ? t('content.tip.upload') : t('content.tip.choose', { service });
+  let text;
+  if (upload) text = t(modelDriven ? 'content.tip.uploadModel' : 'content.tip.upload');
+  else if (choose) text = t(modelDriven ? 'content.tip.chooseModel' : 'content.tip.choose', { service });
+  else text = t('content.tip.modelEml');
+  document.getElementById('content-accuracy-tip-text').textContent = text;
   const rerun = document.getElementById('content-accuracy-rerun');
   rerun.hidden = !choose;
   rerun.textContent = choose ? t('content.tip.rerun', { service }) : '';
