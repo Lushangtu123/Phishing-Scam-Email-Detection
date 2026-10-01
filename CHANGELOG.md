@@ -20,6 +20,30 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 12:00 PT] — Add a mail-type note: phishing or scam, or advertising
+
+### Why
+- A risk level alone does not say what kind of unwanted mail a message is. Advertising that the text model flags looked the same as phishing.
+
+### Files changed
+- `website/app.py`:
+  - `_mail_type` returns `{"type": "phishing", "tactics": [...]}` for an alert with a concrete scam finding, `{"type": "advertising"}` for sales wording with no scam wording, or `None`;
+  - `_advertising_terms` and `_SCAM_CATEGORIES` support it;
+  - the result carries `mail_type`, and the verdict is unchanged.
+- `website/email_structure.py`: `bulk_mail` (`List-Unsubscribe` or a bulk/list `Precedence`).
+- `website/static/index.html`, `app-content-render.js`, `style.css`, `i18n.js`, `i18n-zh.js`: the note under the result banner, in English and Chinese. Asset versions bumped.
+- Tests:
+  - `website/tests/test_mail_type.py`: tactics, advertising, scam wording never advertising, ordinary mail, opt-out and bulk header, model-only alerts;
+  - `website/static/app.test.mjs`: rendering.
+- `README.md`, `docs/evaluation.md`: the rule and its measurement.
+
+### Effect
+- Genuine downloads:
+  - no message called phishing; 1 called advertising;
+  - no verdict changed on 4,261 messages.
+- Nazario: 1,118 phishing messages are named with their tactics, and none is called advertising.
+- DataCon 2023 day 1: 122 called advertising and 106 phishing.
+
 ## [2026-10-01 11:00 PT] — Read Word attachments; flag subsidy and tax-refund lures
 
 ### Why

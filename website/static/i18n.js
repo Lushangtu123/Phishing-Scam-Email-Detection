@@ -349,6 +349,19 @@ window.PhishGuardI18n = (() => {
     'content.mlLabel.legit': 'Likely Legitimate',
     'content.sub.modelOnly': 'Model-only risk signal; no independent rule, sender, or link evidence was found.',
     'content.sub.modelLed': 'Model-led risk signal; no strong independent rule, sender, or link evidence was found.',
+    'content.type.phishing': 'Looks like phishing or a scam: {tactics}.',
+    'content.type.separator': ', ',
+    'content.type.ad': 'Looks like advertising or marketing mail, not phishing. If you signed up with this sender you can unsubscribe; otherwise mark it as spam without clicking its links.',
+    'content.type.adSuspicious': 'Looks like advertising, but scam signs remain: scams often pose as deals. Don\'t pay or sign in through its links.',
+    'content.tactic.credential': 'asks for passwords or codes',
+    'content.tactic.callback': 'asks you to call a number',
+    'content.tactic.subsidy': 'fake subsidy or tax refund',
+    'content.tactic.payment': 'asks for money, gift cards or crypto',
+    'content.tactic.remote_access': 'asks for remote access',
+    'content.tactic.impersonation': 'impersonates a known brand',
+    'content.tactic.deceptive_link': 'disguised or suspicious links',
+    'content.tactic.spoofed_sender': 'sender failed authentication',
+    'content.tactic.dangerous_attachment': 'dangerous attachment',
     'content.sub.categories.one': '{count} suspicious category detected.',
     'content.sub.categories.other': '{count} suspicious categories detected.',
     'content.sub.technical.one': '{count} technical risk indicator detected.',
@@ -1286,7 +1299,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=20'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=21'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

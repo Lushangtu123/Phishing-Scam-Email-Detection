@@ -1138,6 +1138,8 @@ kbd {
 .crb-icon  { font-size: 36px; line-height: 1; }
 .crb-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.02em; }
 .crb-sub   { font-size: 13.5px; color: var(--text-muted); }
+.crb-type  { margin-top: 6px; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.crb-type[hidden] { display: none; }
 .crb-right { text-align: right; flex-shrink: 0; color: var(--text); position: relative; z-index: 1; }
 .crb-score-label { font-size: 11.5px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
 .crb-score { font-size: 44px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }

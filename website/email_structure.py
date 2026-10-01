@@ -552,6 +552,19 @@ _DOCX_TEXT_RUN = re.compile(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>")
 _DOCX_RELATIONSHIP = re.compile(r"<Relationship\b[^>]*>")
 
 
+def _bulk_mail(message) -> bool:
+    """List-Unsubscribe or a bulk/list Precedence header: mailing-list or marketing mail.
+
+    Senders write these headers themselves, so they only describe the kind of mail
+    (a hint for the mail-type note); they are never evidence of safety.
+    """
+    try:
+        precedence = str(message.get("Precedence") or "").strip().lower()
+        return bool(message.get("List-Unsubscribe")) or precedence in {"bulk", "list", "junk"}
+    except Exception:  # malformed header values: no hint
+        return False
+
+
 def docx_text_and_links(data: bytes) -> tuple[str, list[str]]:
     """Paragraph text and external http(s) hyperlinks of a .docx, bounded.
 
@@ -1124,6 +1137,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "verified_official_sender": verified_official_sender,
         "authenticated_sender": authenticated_sender,
         "service_domain_sender": service_domain_sender,
+        "bulk_mail": _bulk_mail(message),
         "authentication_results_trusted": bool(auth_results),
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,

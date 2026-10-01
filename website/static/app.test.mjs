@@ -2121,3 +2121,28 @@ test('a clean result shows no accuracy tip', async () => {
   await context.runContentAnalysis();
   assert.equal(elements.get('content-accuracy-tip').hidden, true);
 });
+
+test('the mail-type note names scam tactics or advertising beside the verdict', async () => {
+  let result = { ...contentResult('High Risk — Likely Phishing'), risk_level: 'high',
+    mail_type: { type: 'phishing', tactics: ['callback', 'impersonation', 'unknown_tactic'] } };
+  const { context, elements } = loadFrontend({ fetch: async () => response(result) });
+  context.setupInputEvents();
+  elements.get('content-body').value = 'Call us to cancel the charge.';
+  await context.runContentAnalysis();
+  const note = elements.get('crb-type');
+  assert.equal(note.hidden, false);
+  assert.equal(note.textContent, 'Looks like phishing or a scam: asks you to call a number, impersonates a known brand.');
+  assert.equal(elements.get('crb-title').textContent, 'High Risk — Likely Phishing');
+
+  result = { ...contentResult('Low Risk — Minor Concerns'), risk_level: 'low', mail_type: { type: 'advertising' } };
+  await context.runContentAnalysis();
+  assert.match(note.textContent, /^Looks like advertising or marketing mail, not phishing/);
+
+  result = { ...result, risk_level: 'medium', risk_label: 'Medium Risk — Suspicious Content' };
+  await context.runContentAnalysis();
+  assert.match(note.textContent, /^Looks like advertising, but scam signs remain/);
+
+  result = { ...contentResult('No Phishing Indicators Found'), risk_level: 'safe', mail_type: null };
+  await context.runContentAnalysis();
+  assert.equal(note.hidden, true);
+});

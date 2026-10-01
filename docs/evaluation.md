@@ -1408,6 +1408,33 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Mail-type note: phishing vs advertising (2026-10-01)
+
+The result now carries a mail-type note (`mail_type`) beside the verdict. Measured on
+the served model, with every verdict unchanged:
+
+| Cohort | Messages | Called phishing | Called advertising |
+|---|---|---|---|
+| 92 genuine downloads, no mailbox / mailbox chosen | 92 | 0 / 0 | 1 / 1 |
+| UniqueData real legitimate (text) | 58 | 0 | 0 |
+| Nazario 2015–25 phishing | 3,466 | 1,118 | 0 |
+| DataCon 2023 day 1 (spam and phishing, 2023) | 611 | 106 | 122 |
+| PhishFuzzer recent seeds: phishing / legitimate / spam (text) | 103 / 102 / 95 | 3 / 0 / 0 | 2 / 1 / 5 |
+| PhishFuzzer recent-seed LLM variants: phishing / legitimate / spam | 618 / 612 / 570 | 50 / 1 / 0 | 14 / 7 / 36 |
+| trec06c sample: spam / ham (2005 Chinese) | 300 / 300 | 3 / 0 | 28 / 1 |
+
+**Phishing.** Nazario tactics: impersonation 532, deceptive link 421, dangerous
+attachment 190, callback 71, payment 28. Most alerts (2,200 of 3,318) carry no type,
+because they rest on the model or keyword categories rather than a concrete finding.
+
+**Advertising.** The first version also called 5 Nazario and 31 LLM-variant phishing
+messages advertising. These were scams dressed as deals ("90% OFF", "exclusive offer",
+"subscription expiring"). Excluding any message with urgency, credential, threat,
+impersonation, tech-support or money-lure wording brought that to 0 and 14, at the
+cost of spam recall (LLM-variant spam 60 → 36). Advertising recall on older or
+English spam stays low (trec06c 28 of 300). The note is meant to be right when it
+speaks, not to label every advertisement.
+
 ### Word attachments and subsidy lures: DataCon 2023 (2026-10-01)
 
 The first of seven public batches of the DataCon 2023 email-security challenge

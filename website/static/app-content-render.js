@@ -84,6 +84,27 @@ function renderAccuracyTip(data) {
   document.getElementById('content-accuracy-guide').hidden = !upload;
 }
 
+// What kind of mail this looks like, beside the verdict (never a change to it). Phishing
+// lists the scam tactics found; advertising says plainly when scam signs remain, because
+// scams dress up as deals too.
+const MAIL_TACTICS = ['credential', 'callback', 'subsidy', 'payment', 'remote_access', 'impersonation',
+  'deceptive_link', 'spoofed_sender', 'dangerous_attachment'];
+function renderMailType(data) {
+  const el = document.getElementById('crb-type');
+  const type = data.mail_type?.type;
+  el.hidden = !['phishing', 'advertising'].includes(type);
+  if (el.hidden) { el.textContent = ''; return; }
+  el.className = 'crb-type crb-type-' + type;
+  if (type === 'phishing') {
+    const tactics = (data.mail_type.tactics || []).filter(tactic => MAIL_TACTICS.includes(tactic))
+      .map(tactic => t('content.tactic.' + tactic));
+    el.textContent = t('content.type.phishing', { tactics: tactics.join(t('content.type.separator')) });
+  } else {
+    const alerting = ['medium', 'high', 'critical'].includes(data.risk_level);
+    el.textContent = t(alerting ? 'content.type.adSuspicious' : 'content.type.ad');
+  }
+}
+
 function renderContentResult(data, { languageOnly = false } = {}) {
   lastResults.content = data;
   const cfg = RISK_CONFIG[data.risk_level] || RISK_CONFIG.medium;
@@ -135,6 +156,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
     subParts.push(t(data.risk_level === 'safe' ? 'content.sub.safe' : 'content.sub.risk'));
   }
   document.getElementById('crb-sub').textContent = subParts.join(' • ');
+  renderMailType(data);
   const scoreEl = document.getElementById('crb-score');
   // Prefer the blended ML+heuristic score when available; fall back to raw heuristic total.
   if (languageOnly) {

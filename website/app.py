@@ -2963,6 +2963,66 @@ def _is_docx(attachment: dict) -> bool:
             or PurePath(attachment.get('filename') or '').suffix.lower() == '.docx')
 
 
+# ── Mail-type note: phishing/scam vs advertising ─────────────────────────────────
+# A note beside the verdict, never a change to it. "phishing" needs an alert and at least
+# one concrete scam finding (a model-only alert is not enough: on genuine account and
+# notification mail the model alone raises many false alerts). "advertising" needs sales
+# wording; marketing from genuine brands is advertising too.
+_PHISHING_TACTICS = {
+    "credential": {"content.pressured_credential_request", "content.password_form",
+                   "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
+                   "content.sensitive_request.recovery_secret", "link.credential_collection_host"},
+    "callback": {"content.callback_request"},
+    "subsidy": {"content.subsidy_lure"},
+    "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
+                "content.large_amounts"},
+    "remote_access": {"content.sensitive_request.remote_access"},
+    "impersonation": {"link.brand_lookalike", "link.idn_confusable", "structure.brand_display_name",
+                      "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation"},
+    "deceptive_link": {"link.display_mismatch", "link.ip_host", "link.url_userinfo", "link.ipfs_gateway",
+                       "link.obfuscated_scheme", "link.unsafe_scheme"},
+    "spoofed_sender": {"structure.auth_failed"},
+    "dangerous_attachment": {"structure.dangerous_attachment"},
+}
+_ADVERTISING_TERMS = (
+    "优惠", "促销", "折扣", "特价", "报价", "礼品", "公开课", "课程", "培训", "招商", "加盟", "推广",
+    "团购", "限时", "秒杀", "免费试用", "新品", "包邮", "营销", "招聘会", "研讨会", "会议邀请",
+    "% off", "discount", "promo code", "coupon", "limited-time offer", "limited time offer",
+    "special offer", "shop now", "buy now", "free shipping", "new arrivals", "flash sale", "webinar",
+    "early bird", "exclusive offer", "best price", "free trial",
+)
+_UNSUBSCRIBE_TERMS = ("unsubscribe", "退订", "取消订阅")
+_SCAM_CATEGORIES = {"credential", "threats", "impersonation", "tech_scam", "financial", "urgency"}
+
+
+def _advertising_terms(text: str) -> list[str]:
+    """Distinct sales terms in the text, plus "unsubscribe" when an opt-out is offered."""
+    lowered = (text or "").lower()
+    found = [term for term in _ADVERTISING_TERMS if term in lowered]
+    if any(term in lowered for term in _UNSUBSCRIBE_TERMS):
+        found.append("unsubscribe")
+    return found
+
+
+def _mail_type(result: dict, bulk_mail: bool) -> dict | None:
+    """{"type": "phishing", "tactics": [...]} or {"type": "advertising"}, or None."""
+    if result.get("risk_level") in {"medium", "high", "critical"}:
+        codes = {item.get("code") for item in result.get("extra_indicators", [])
+                 if item.get("level") in {"medium", "high", "critical"}}
+        tactics = [tactic for tactic, members in _PHISHING_TACTICS.items() if codes & members]
+        if tactics:
+            return {"type": "phishing", "tactics": tactics}
+    # Scams dressed as deals ("90% OFF", "limited-time offer") carry scam wording too;
+    # such mail is never called advertising, whatever its sales terms.
+    if {item.get("key") for item in result.get("category_results", [])} & _SCAM_CATEGORIES:
+        return None
+    terms = result.get("advertising_terms") or []
+    sales = [term for term in terms if term != "unsubscribe"]
+    if len(sales) >= 2 or (sales and (bulk_mail or "unsubscribe" in terms)):
+        return {"type": "advertising"}
+    return None
+
+
 def _sensitive_requests(text: str) -> list[str]:
     """Message codes for requests to hand over codes, secrets, gift cards, crypto or remote access.
 
@@ -3373,6 +3433,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         "extra_indicators":  extra_indicators,
         "safety_signals":    safety_found,
         "url_count":         url_count,
+        "advertising_terms": _advertising_terms(analysis_text),
         "has_ip_url":        _has_ip_url(raw_text, links=links),
         "has_shortener":     _has_shortener_url(raw_text, links=links),
         "risk_floor":        risk_floor,
@@ -3847,6 +3908,8 @@ async def _analyze_content(
             result['risk_level'] = 'unknown'
             result['risk_label'] = 'Analysis Incomplete — Risk Undetermined'
             result['combined_phishing_score'] = None
+    result['mail_type'] = _mail_type(result, bool(structure and structure.get('bulk_mail')))
+    result.pop('advertising_terms', None)
     return JSONResponse(annotate_content(result))
 
 

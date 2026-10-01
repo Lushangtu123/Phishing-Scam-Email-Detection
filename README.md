@@ -649,6 +649,27 @@ Safety-footer phrases such as “unsubscribe” and “privacy policy” are rep
 as context but never subtract risk: an attacker can copy them. Regional English
 phrasing is not scored as malicious.
 
+### Mail-type note
+
+Beside the verdict, a content result carries `mail_type`. It is a note only and never
+changes the verdict, score or label.
+
+- `{"type": "phishing", "tactics": [...]}` needs an alert (Medium or above) and at
+  least one concrete scam finding at Medium level or above. The tactics are
+  `credential`, `callback`, `subsidy`, `payment`, `remote_access`, `impersonation`,
+  `deceptive_link`, `spoofed_sender` and `dangerous_attachment`. An alert raised by the
+  text model alone is not called phishing, because on genuine account mail the model
+  alone raises many false alerts.
+- `{"type": "advertising"}` needs two distinct sales terms (优惠, 报价, 礼品, 公开课,
+  "% off", "promo code" and similar), or one together with an opt-out: an unsubscribe
+  link, a `List-Unsubscribe` header or a bulk `Precedence`. Mail with urgency, credential,
+  threat, impersonation, tech-support or money-lure wording is never called
+  advertising, since scams dress up as deals.
+- Otherwise the field is `null`.
+
+The result view shows the note under the banner. Advertising with an alert says that
+scam signs remain and warns against paying or signing in through its links.
+
 ### Optional text classifier
 
 The web service defaults to rules-only analysis. When `CONTENT_MODEL_ENABLED=true`,
