@@ -407,8 +407,8 @@ Raw input enables these checks:
   Wells Fargo, HMRC or DHL Express) sent from a domain outside that
   organization's official domains. The registries are
   `website/data/official_brands_cn.json` (39 Chinese organizations) and
-  `website/data/official_brands_intl.json` (32 US, UK, Canadian, Australian
-  and global organizations). Their domains were confirmed on each
+  `website/data/official_brands_intl.json` (39 US, UK, Canadian, Australian,
+  Japanese and global organizations). Their domains were confirmed on each
   organization's own site, and their "we will never ask…" statements are
   source-linked. Government names also accept their country's government
   domains (gov.cn, .gov, gov.uk, gc.ca, gov.au). A matching domain proves

@@ -11,7 +11,8 @@
     "A matching domain proves nothing on its own because From is not authenticated; the registry is used to detect impersonation.",
     "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded.",
     "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused.",
-    "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message."
+    "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message.",
+    "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool."
   ],
   "regulatory_statements": [
     {
@@ -1498,6 +1499,184 @@
         "https://www.linkedin.com/help/linkedin/answer/a1339266"
       ],
       "review_note": "Help center (read 2026-10-01): emails from linkedin_support@cs.linkedin.com, linkedin@e.linkedin.com and linkedin@el.linkedin.com are not phishing; LinkedIn signs its mail for DMARC. Member messages arrive from messages-noreply@linkedin.com, so that address is a relay. AliExpress was considered the same day and left out: no official page lists its sending domains, and seller messages are relayed."
+    },
+    {
+      "id": "usaa",
+      "category": "bank",
+      "name": "USAA",
+      "region": "US",
+      "display_names": [
+        "USAA"
+      ],
+      "official_domains": [
+        "usaa.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Make sure the email has “USAA Security Zone” with your name and the last 4 digits of your USAA number. If your information isn’t right, it’s probably a scam.",
+          "source": "https://www.usaa.com/support/security/identify-avoid-scams/how-to-tell-its-usaa/",
+          "source_type": "official"
+        },
+        {
+          "quote": "If it looks like it’s from us but seems suspicious, forward it to abuse@usaa.com.",
+          "source": "https://www.usaa.com/support/security/identify-avoid-scams/how-to-tell-its-usaa/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "abuse@usaa.com"
+      ],
+      "review_note": "Genuine USAA mail copied by phishing in Nazario comes from subdomains of usaa.com (mailcenter.usaa.com, customermail.usaa.com)."
+    },
+    {
+      "id": "fifth_third",
+      "category": "bank",
+      "name": "Fifth Third Bank",
+      "region": "US",
+      "display_names": [
+        "Fifth Third Bank",
+        "Fifth Third"
+      ],
+      "official_domains": [
+        "53.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "STOP – don’t respond, click links or download attachments.",
+          "source": "https://www.53.com/content/fifth-third/en/mkg/lp-phishing.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "Our authentication protocol called DMARC blocks emails sent from unauthorized sources",
+          "source": "https://www.53.com/content/fifth-third/en/mkg/lp-phishing.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@53.com"
+      ]
+    },
+    {
+      "id": "pnc",
+      "category": "bank",
+      "name": "PNC Bank",
+      "region": "US",
+      "display_names": [
+        "PNC Bank",
+        "PNC Alerts"
+      ],
+      "official_domains": [
+        "pnc.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "While PNC may occasionally ask you to reply to a text message, we will never ask you to click a link from a text.",
+          "source": "https://www.pnc.com/en/security-privacy/spot-and-report-a-phish.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "abuse@pnc.com"
+      ],
+      "review_note": "PNC Alerts is the alert service the page names; its sending address is not listed there."
+    },
+    {
+      "id": "charles_schwab",
+      "category": "bank",
+      "name": "Charles Schwab",
+      "region": "US",
+      "display_names": [
+        "Charles Schwab"
+      ],
+      "official_domains": [
+        "schwab.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Don't open or accept communications from an unfamiliar source, including phone calls, emails, or texts. Instead, reach out to the individual or company using the contact information from their official website.",
+          "source": "https://www.schwab.com/schwabsafe",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Schwab alone is left out: Schwab Charitable and others use it from their own domains."
+    },
+    {
+      "id": "metamask",
+      "category": "payment",
+      "name": "MetaMask",
+      "region": "INTL",
+      "display_names": [
+        "MetaMask"
+      ],
+      "official_domains": [
+        "metamask.io",
+        "metamask.discoursemail.com",
+        "cl-cards.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "MetaMask will never email you to ask for your Google or Apple account details, your password, or your Secret Recovery Phrase.",
+          "source": "https://support.metamask.io/stay-safe/safety-in-web3/i-received-an-email-claiming-to-be-from-metamask-is-it-legit/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "The page lists every sending address: support@ and hello@metamask.io, notifications@metamask.discoursemail.com, and the MetaMask Card partner Crypto Life's metamask@cl-cards.com, mail.cl-cards.com and info.cl-cards.com."
+    },
+    {
+      "id": "tinder",
+      "category": "platform",
+      "name": "Tinder",
+      "region": "INTL",
+      "display_names": [
+        "Tinder"
+      ],
+      "official_domains": [
+        "tinder.com",
+        "gotinder.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://policies.tinder.com/privacy/intl/en/"
+      ],
+      "review_note": "gotinder.com is confirmed by the contact address dpobrazil@gotinder.com in Tinder's privacy policy, read through a fetch tool on 2026-10-02 (the browser declined the site); no statement was quoted."
+    },
+    {
+      "id": "smbc",
+      "category": "bank",
+      "name": "三井住友銀行",
+      "region": "JP",
+      "display_names": [
+        "三井住友銀行"
+      ],
+      "official_domains": [
+        "smbc.co.jp"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "三井住友銀行は、メールや電話でログイン情報を求めることは絶対にありません。",
+          "source": "https://www.smbc.co.jp/security/attention/index36.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "The page lists its official URLs under smbc.co.jp. SMBC alone is left out: SMBC Nikko and SMBC Card use it from other domains."
     }
   ]
 }

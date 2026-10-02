@@ -20,6 +20,36 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 13:30 PT] — Add seven impersonated brands to the official registry
+
+### Why
+- 18 undetermined Nazario messages showed a brand the registry did not list, from an unrelated domain:
+  - Tinder (7);
+  - USAA (4 with readable text, and the PDF lures);
+  - Fifth Third Bank (2);
+  - PNC Alerts, Charles Schwab (written with zero-width characters), MetaMask, 三井住友銀行 (1 each).
+- A simulated registry match moved all of them to High or Critical.
+
+### Files changed
+- `website/data/official_brands_intl.json`: seven entries, 32 → 39 brands with display names. Each domain was confirmed on the organization's own page, and each quote was read there in a browser on 2026-10-02:
+  - **USAA:** `usaa.com`; how-to-tell-it's-USAA page; abuse@usaa.com.
+  - **Fifth Third Bank:** `53.com`; phishing page, DMARC statement; phishing@53.com.
+  - **PNC Bank:** `pnc.com`; "we will never ask you to click a link from a text"; abuse@pnc.com.
+  - **Charles Schwab:** `schwab.com`; SchwabSafe.
+  - **MetaMask:** `metamask.io`, `metamask.discoursemail.com`, and its card partner's `cl-cards.com`, all as its page lists them.
+  - **Tinder:** `tinder.com`, `gotinder.com`. The privacy policy names dpobrazil@gotinder.com; it was read through a fetch tool because the browser declined the site, and no quote was taken.
+  - **三井住友銀行:** `smbc.co.jp`; "メールや電話でログイン情報を求めることは絶対にありません".
+- Shared names are left out: "Schwab" alone (Schwab Charitable) and "SMBC" alone (SMBC Nikko, SMBC Card).
+- `website/tests/test_registry_additions.py`: 3 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (deaea6d) against this change:
+  - Nazario 3,466: alerts 3,402 → 3,420 (18 undetermined → 14 High, 4 Critical); 4 Medium → High; 143 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,035 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 12:30 PT] — Read brand names in display names as they look
 
 ### Why

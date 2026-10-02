@@ -1408,6 +1408,25 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Seven brands added to the official registry (2026-10-02)
+
+18 undetermined Nazario messages showed, from unrelated domains, a brand the registry did not list:
+- Tinder (7);
+- USAA (4);
+- Fifth Third Bank (2);
+- PNC Alerts, Charles Schwab, MetaMask and 三井住友銀行 (1 each).
+
+Their official domains were confirmed on each organization's own page and added.
+
+| Cohort (same model) | `deaea6d`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,402 / 57 / 7 | 3,420 / 39 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 4 Medium alerts rose to High and 143 High to Critical (mostly USAA lures); none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
 ### Brand names with lookalike letters in display names (2026-10-02)
 
 "Βank oϝ Αmerica" (Greek capitals and a digamma) and "PayPaI" (a capital I for l) were
