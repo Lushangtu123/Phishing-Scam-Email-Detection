@@ -4675,6 +4675,49 @@ _MAILBOX_ACTION_OTHER = re.compile(
     r"|atualiz\w+|verificar|actualizar", re.IGNORECASE)
 
 
+# Places on trusted platforms where anyone can publish: documents, drawings, forms, sites
+# and shared files. A lure's button often leads there, because the domain itself is
+# trusted. (host, path) patterns; for_actions marks those an account or payment button
+# never leads to in genuine mail (company SharePoint sites do).
+_USER_CONTENT_LOCATIONS = tuple((re.compile(host, re.IGNORECASE), re.compile(path, re.IGNORECASE) if path else None, actions)
+                                for host, path, actions in (
+    (r'docs\.google\.com', r'^/(?:drawings|forms|presentation|document|spreadsheets)/', True),
+    (r'forms\.gle', '', True), (r'sites\.google\.com', '', True),
+    (r'drive\.google\.com', r'^/(?:file|open|uc)\b', True), (r'script\.google\.com', r'^/macros/', True),
+    (r'(?:firebasestorage|storage)\.googleapis\.com', '', True),
+    (r'forms\.office\.com|forms\.microsoft\.com', '', True),
+    (r'onedrive\.live\.com|1drv\.ms', '', True),
+    (r'(?:www\.)?dropbox\.com', r'^/(?:s|scl|sh)/', True),
+    (r'[\w-]+\.notion\.site', '', True), (r'(?:www\.)?canva\.com', r'^/design/', True),
+    (r'docs\.qq\.com|(?:www\.)?kdocs\.cn|shimo\.im', '', True),
+    (r'[\w-]+(?:-my)?\.sharepoint\.com', r'^/(?::[a-z]:/|sites/|personal/)', False),
+))
+# Buttons that act on an account or a payment. "Confirm" or "Sign in" alone also label
+# event forms and sign-in sheets.
+_ACCOUNT_ACTION = re.compile(
+    r"\b(?:log\s?in|sign\s?in\s+to\s+(?:your\s+)?account|(?:verify|confirm|validate)\s+(?:your\s+)?"
+    r"(?:account|identity|information|details|payment|billing)|update\s+(?:your\s+)?(?:information|info|account|payment"
+    r"|billing|details|card)|unlock|restore\s+(?:your\s+)?account|re-?activate|keep\s+(?:my\s+)?(?:password|account)"
+    r"|secure\s+(?:your\s+)?account)\b", re.IGNORECASE)
+
+
+def _user_content_location(destination: str, *, actions: bool = False) -> bool:
+    """Whether a link leads to content anyone can publish on a trusted platform."""
+    try:
+        target = _parse_link_target(destination)
+    except ValueError:
+        return False
+    host, path = (target.hostname or '').lower().rstrip('.'), target.path or '/'
+    return any(pattern.fullmatch(host) and (place is None or place.search(path)) and (for_actions or not actions)
+               for pattern, place, for_actions in _USER_CONTENT_LOCATIONS)
+
+
+def _user_content_action(links) -> bool:
+    """An account or payment button that leads to a published document, form or site."""
+    return any(_ACCOUNT_ACTION.search(label or '') and _user_content_location(destination, actions=True)
+               for label, destination in links or ())
+
+
 def _mailbox_lure(text: str, links, sender_domain: str = '') -> bool:
     """A mailbox lure whose action link leads off the sender's domain to an unlisted one."""
     if not (_MAILBOX_LURE.search(_han_compact(text)) or _MAILBOX_LURE_OTHER.search(text)):
@@ -4688,8 +4731,8 @@ def _mailbox_lure(text: str, links, sender_domain: str = '') -> bool:
         except ValueError:
             continue
         domain = _organizational_domain(host) if host else ''
-        if domain and not (sender and domain == sender) and domain not in _MAIL_SIGN_IN_DOMAINS \
-                and not _official_sender(domain):
+        if domain and not (sender and domain == sender) and (_user_content_location(destination) or (
+                domain not in _MAIL_SIGN_IN_DOMAINS and not _official_sender(domain))):
             return True
     return False
 
@@ -4719,7 +4762,8 @@ def _is_docx(attachment: dict) -> bool:
 _PHISHING_TACTICS = {
     "credential": {"content.pressured_credential_request", "content.password_form", "content.mailbox_lure",
                    "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
-                   "content.sensitive_request.recovery_secret", "link.credential_collection_host"},
+                   "content.sensitive_request.recovery_secret", "link.credential_collection_host",
+                   "link.user_content_action"},
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
@@ -5278,6 +5322,10 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.mailbox_lure'))
+    elif _user_content_action(labelled_links):
+        total_score += 4
+        risk_floor = 'high'
+        extra_indicators.append(indicator('high', 'link.user_content_action'))
 
     extra_indicators.extend(rules['style'])
 

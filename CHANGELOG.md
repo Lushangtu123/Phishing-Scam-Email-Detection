@@ -20,6 +20,29 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 03:30 PT] — Flag account and payment buttons that lead to published documents and forms
+
+### Why
+- Eight undetermined Nazario messages were fake Amazon Prime renewals. Their "Update Information" button opened a Google Drawing, and the trusted domain kept every link check quiet.
+- The mailbox-lure rule had the same hole: a lure linking to Microsoft Forms or a Google Form was exempt as a provider's or an official domain.
+
+### Files changed
+- `website/app.py`:
+  - `_USER_CONTENT_LOCATIONS` lists where anyone can publish on a trusted platform: Google Docs, Drawings, Forms, Slides, Sheets, Sites and Drive files; Apps Script pages; Firebase and Cloud Storage; Microsoft Forms; OneDrive; Dropbox shares; Notion and Canva pages; Tencent Docs, Kdocs, Shimo; SharePoint sites and shares.
+  - `link.user_content_action` (High; the credential tactic) fires when an account or payment button leads to such a location (`_ACCOUNT_ACTION`: log in, verify or confirm your account, identity or payment, update your information or payment, unlock, restore or reactivate an account, keep your password). "Confirm attendance", "View document" and company SharePoint sites do not count.
+  - The mailbox-lure rule no longer exempts these locations.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_user_content_buttons.py`: 3 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (8bfe1a5) against this change:
+  - Nazario 3,466: alerts 3,342 → 3,350 (the eight Prime renewals: 6 Critical, 2 High); 11 more alerts rose to Critical, none fell;
+  - no verdict, mail-type or question change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Genuine evidence is thin: none of the 92 downloads or 87 templates links to such a location at all.
+- Tests: 974 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 02:30 PT] — Read the text of PDF attachments
 
 ### Why

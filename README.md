@@ -456,9 +456,17 @@ Raw input enables these checks:
   Emails", "Release messages") must lead to a site that is neither the
   sender's domain, nor a mail provider's sign-in (163, QQ, Aliyun, Outlook and the
   other providers in `_CONSUMER_MAILBOX_DOMAINS`, Microsoft 365), nor an official
-  brand domain. A school's or provider's own notice links to its own domain. Where a
-  stylesheet makes the rendering uncertain, a link label counts if the text no style
-  can hide shows it;
+  brand domain. A school's or provider's own notice links to its own domain. A
+  document, form or shared file that anyone can publish on a trusted platform (Google
+  Docs and Forms, Microsoft Forms, OneDrive, SharePoint, Dropbox shares) is never
+  exempt. Where a stylesheet makes the rendering uncertain, a link label counts if the
+  text no style can hide shows it;
+- account or payment buttons ("Update Information", "Verify your account", "Log in")
+  that lead to such published content: a Google Drawing, Doc, Form or Site, an Apps
+  Script page, Firebase storage, Microsoft Forms, OneDrive, a Dropbox share, a Notion
+  or Canva page, Tencent Docs. Companies do not collect account or payment details
+  there, while the trusted domain keeps other link checks quiet. "Confirm attendance"
+  or "View document" do not count, nor do company SharePoint sites;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;

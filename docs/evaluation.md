@@ -1408,6 +1408,32 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Buttons that lead to published documents and forms (2026-10-02)
+
+Eight undetermined Nazario messages were fake Amazon Prime renewals. They read "the
+payment method associated with your Prime membership is no longer valid", with an
+"Update Information" button that opened a Google Drawing. Link checks skip official
+domains, so nothing fired.
+
+Platforms such as Google Docs, Forms and Sites, Microsoft Forms, OneDrive and Dropbox
+shares host content anyone can publish. A new rule (`link.user_content_action`) fires
+when an account or payment button (log in, verify your account, update your payment)
+leads there. The mailbox-lure rule no longer exempts these places either: it had let a
+lure through when its form was on Microsoft Forms.
+
+| Cohort (same model) | `8bfe1a5`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,342 / 117 / 7 | 3,350 / 109 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 11 more alerts rose to Critical.
+- **No change** for any message of DataCon, the genuine downloads or the templates.
+
+**Limit.** None of the genuine downloads or templates links to such a place at all,
+so false alerts are bounded only by the button wording. "Confirm attendance", "View
+document" and company SharePoint sites are left out for that reason.
+
 ### PDF attachment text (2026-10-02)
 
 The earlier prototype showed that the PDFs among Nazario's misses hold readable text.
