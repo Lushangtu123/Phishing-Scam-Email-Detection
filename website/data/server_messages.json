@@ -100,6 +100,7 @@
   "prefix.pdf_attachment": "PDF attachment link: {text}",
   "prefix.docx_attachment": "Word attachment link: {text}",
   "prefix.docx_text": "Word attachment: {text}",
+  "prefix.pdf_text": "PDF attachment: {text}",
   "prefix.attached_message": "Attached message: {text}",
   "prefix.image": "Image ({name}): {text}",
   "prefix.image_recognition": "Image recognition: {text}",

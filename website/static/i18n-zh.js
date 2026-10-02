@@ -882,6 +882,7 @@
   'server.prefix.pdf_attachment': 'PDF 附件中的链接：{text}',
   'server.prefix.docx_attachment': 'Word 附件中的链接：{text}',
   'server.prefix.docx_text': 'Word 附件：{text}',
+  'server.prefix.pdf_text': 'PDF 附件：{text}',
   'server.prefix.attached_message': '附件中的邮件：{text}',
   'server.prefix.image': '图片（{name}）：{text}',
   'server.prefix.image_recognition': '图片识别：{text}',

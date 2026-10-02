@@ -5559,17 +5559,20 @@ async def _analyze_content(
                 result["risk_floor"] = link_floor
             result["docx_link_count" if is_docx else "pdf_link_count"] = len(attachment_links)
 
-        # Word attachment text: lures often sit in the attachment while the body has a
-        # line or none. Only strong requests are scored here, never keyword categories:
-        # genuine contracts and quotes are full of "payment", "invoice" and "urgent".
-        attachment_text = '\n'.join(attachment['extracted_text'] for attachment in structure['attachments']
-                                     if attachment.get('extracted_text'))
-        if attachment_text:
-            text_findings = _attachment_text_findings(attachment_text)
-            if text_findings:
-                result["total_score"] += 4
-                result["risk_floor"] = max(result["risk_floor"], 'high', key=floor_rank.__getitem__)
-                result["extra_indicators"].extend(wrap_message(item, 'prefix.docx_text') for item in text_findings)
+        # Word and PDF attachment text: lures often sit in the attachment while the body
+        # has a line or none (a callback "invoice"). Only strong requests are scored here,
+        # never keyword categories: genuine contracts, quotes and invoices are full of
+        # "payment", "invoice" and "urgent".
+        text_findings = []
+        for is_docx, prefix in ((True, 'prefix.docx_text'), (False, 'prefix.pdf_text')):
+            attachment_text = '\n'.join(attachment['extracted_text'] for attachment in structure['attachments']
+                                         if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)
+            if attachment_text:
+                text_findings.extend(wrap_message(item, prefix) for item in _attachment_text_findings(attachment_text))
+        if text_findings:
+            result["total_score"] += 4
+            result["risk_floor"] = max(result["risk_floor"], 'high', key=floor_rank.__getitem__)
+            result["extra_indicators"].extend(text_findings)
 
         selected_sender = await _run_analysis(
             _select_message_sender, structure['header_candidates']['From'])

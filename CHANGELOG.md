@@ -20,6 +20,38 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 02:30 PT] — Read the text of PDF attachments
+
+### Why
+- Callback phishing often hides in a PDF "invoice" ("If you did not authorize this charge, call 1-888-…") under a body of one line.
+- PDF attachments were read only for link annotations, while Word attachments had their text checked since 2026-10-01.
+
+### Files changed
+- `website/email_structure.py`: `pdf_text` and its helpers read the text of a PDF's content streams:
+  - text-showing operators, decoded through each font's ToUnicode map;
+  - compressed object streams are expanded;
+  - glyphs are joined by the widths the font gives (`/Widths`, or `/W` for composite fonts), so text placed glyph by glyph keeps its words;
+  - bounded in objects (5,000), tokens (300,000), CMap entries and output (20,000 characters). Images and scripts are never read.
+  - PDF attachments get `extracted_text`; the attachment stays `metadata_only`.
+- `website/app.py`: Word and PDF attachment text get the same check: callback numbers, requests for codes or secrets, and subsidy lures, never keyword categories. Findings are prefixed by their source.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: "PDF attachment: …". Asset versions bumped.
+- `website/tests/test_pdf_attachment_text.py`: 6 tests, covering:
+  - text operators, word spacing, glyph widths, a ToUnicode font in an object stream and the output bound;
+  - a callback invoice PDF (High) and a genuine invoice with a phone number (no finding).
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Nazario's 120 PDF attachments: 113 yield text, 1–20 ms each. The largest takes 0.87 s, within the bounds.
+- Nazario's Amazon "invoice" PDF with a callback number moves from High to Critical.
+- Same served model, main (6f71feb) against this change: no other verdict, mail-type or question change, per message, on:
+  - the 92 genuine downloads (with and without a mailbox), which hold no PDF;
+  - DataCon 2023 day 1 (98 PDFs, 51 with text, none matching);
+  - the 87 public HTML templates;
+  - Nazario.
+
+  Counts identical on the pasted cohorts.
+- Tests: 971 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 01:30 PT] — Catch mailbox lures in English and other languages
 
 ### Why

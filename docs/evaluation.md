@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### PDF attachment text (2026-10-02)
+
+The earlier prototype showed that the PDFs among Nazario's misses hold readable text.
+That text is now read, through each font's ToUnicode map and joined by the font's
+glyph widths. It gets the same narrow check as Word attachments: callback numbers,
+requests for codes or secrets, and subsidy lures. Keyword categories are not run on
+it, because invoices and statements are full of "payment" and "urgent".
+
+| PDF attachments | PDFs | With text | Strong request found |
+|---|---|---|---|
+| Nazario 2015–25 | 120 | 113 | 1 (an Amazon "invoice" with a callback number) |
+| DataCon 2023 day 1 | 98 | 51 | 0 |
+| 92 genuine downloads | 0 | — | — |
+
+No verdict changed in any cohort. The Amazon invoice rose from High to Critical.
+
+**Limits.**
+- No genuine PDF was available, so false alerts on genuine invoices are only bounded
+  by the narrow check, as for Word attachments.
+- Nazario's other PDF lures ("Your login access has been compromised, log in to
+  restore") stay undetermined, because the check does not read credential wording.
+- The Geek Squad invoice puts "If you did not authorize" about 220 characters before
+  its number, outside the callback rule's 200-character window.
+
 ### Mailbox lures in English and other languages (2026-10-02)
 
 After the review fixes, 139 Nazario phishing messages did not alert:
@@ -1447,7 +1471,7 @@ tracking domain.
   trec06c (2005) cannot match at all.
 - Lures whose button is hosted on an official domain (Google Drawings, Tencent Docs)
   are exempt.
-- PDF and image lures still need text from the attachment (see "PDF text" below).
+- PDF and image lures still need text from the attachment (see "PDF attachment text" above).
 
 ### Review at 0f17def: variable case, invalid backgrounds and translucency (2026-10-02)
 

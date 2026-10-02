@@ -428,8 +428,12 @@ Raw input enables these checks:
 - link annotations inside PDF attachments. The parser reads plain objects and
   FlateDecode object streams, bounded in size, inflation, stream count and link
   count, and never renders or executes anything. The targets go through the same
-  destination checks as message links, prefixed "PDF attachment link". The PDF
-  text is still not inspected, so the attachment stays `metadata_only`;
+  destination checks as message links, prefixed "PDF attachment link". The PDF's
+  text is read too: the text operators of its content streams, decoded through each
+  font's ToUnicode map and joined by the glyph widths the font gives, bounded in
+  objects, tokens and 20,000 characters of output. It is checked like a Word
+  attachment's text (below), prefixed "PDF attachment". Images (often QR codes) are
+  never read, so the attachment stays `metadata_only`;
 - the text and external hyperlinks of Word (.docx) attachments. Only
   `word/document.xml` and its relationship list are read, bounded in archive
   size, entry count and decompressed bytes. Macros, embedded objects and images
@@ -439,7 +443,7 @@ Raw input enables these checks:
   codes or secrets, and subsidy lures. Keyword categories are not run on it,
   because genuine contracts and quotes are full of "payment", "invoice" and
   "urgent";
-- subsidy and tax-refund lures, in the body or a Word attachment: a labour
+- subsidy and tax-refund lures, in the body or a Word or PDF attachment: a labour
   subsidy, high-temperature allowance or tax refund (劳动补贴, 高温补助, 退税申请)
   together with pressure to claim it at once or by scanning a code (视为放弃,
   当天未完成, 扫码). An allowance notice without that pressure does not match;

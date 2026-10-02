@@ -571,6 +571,335 @@ def pdf_link_targets(data: bytes) -> list[str]:
     return targets
 
 
+# PDF text: the text operators of content streams, decoded through each font's ToUnicode
+# map, with compressed object streams expanded. Bounded in objects, tokens and output.
+_MAX_PDF_OBJECTS = 5000
+_MAX_PDF_TOKENS = 300_000
+_MAX_PDF_CMAP_ENTRIES = 100_000
+_MAX_PDF_TEXT_CHARS = 20_000
+_PDF_OBJECT = re.compile(rb"(\d+)\s+\d+\s+obj\b")
+_PDF_WHITESPACE = frozenset(b" \t\r\n\x0c\x00")
+_PDF_DELIMITERS = frozenset(b"()<>[]{}/%")
+_PDF_NUMBER = re.compile(rb"[+-]?(?:\d+\.?\d*|\.\d+)")
+
+
+def _pdf_tokens(data: bytes, budget: list):
+    """Content-stream tokens: ('string', bytes), ('name', bytes), ('number', float),
+    ('op', bytes), ('[',) and (']',). budget[0] is what the document may still read."""
+    index, size = 0, len(data)
+    while index < size and budget[0] > 0:
+        budget[0] -= 1
+        byte = data[index]
+        if byte in _PDF_WHITESPACE:
+            index += 1
+        elif byte == 0x25:  # % comment
+            end = data.find(b"\n", index)
+            index = size if end < 0 else end + 1
+        elif byte == 0x28:  # (literal string), nested parentheses and escapes
+            depth, cursor, value = 1, index + 1, bytearray()
+            while cursor < size:
+                byte = data[cursor]
+                if byte == 0x5C:
+                    stop = cursor + 1
+                    while stop < min(cursor + 4, size) and 0x30 <= data[stop] <= 0x37:
+                        stop += 1
+                    if stop > cursor + 1:
+                        value.append(int(data[cursor + 1:stop], 8) & 0xFF)
+                        cursor = stop
+                    else:
+                        escaped = data[cursor + 1:cursor + 2]
+                        if escaped not in (b"\r", b"\n"):
+                            value += _PDF_ESCAPES.get(escaped, escaped)
+                        cursor += 2
+                    continue
+                if byte == 0x28:
+                    depth += 1
+                elif byte == 0x29:
+                    depth -= 1
+                    if not depth:
+                        break
+                value.append(byte)
+                cursor += 1
+            yield ("string", bytes(value))
+            index = cursor + 1
+        elif byte == 0x3C:  # <hex string> or <<
+            if data[index + 1:index + 2] == b"<":
+                yield ("op", b"<<")
+                index += 2
+                continue
+            end = data.find(b">", index)
+            end = size if end < 0 else end
+            digits = re.sub(rb"[^0-9A-Fa-f]", b"", data[index + 1:end])
+            yield ("string", bytes.fromhex((digits + b"0" * (len(digits) % 2)).decode("ascii")))
+            index = end + 1
+        elif byte == 0x3E:
+            double = data[index + 1:index + 2] == b">"
+            yield ("op", b">>" if double else b">")
+            index += 2 if double else 1
+        elif byte in (0x5B, 0x5D):
+            yield ("[",) if byte == 0x5B else ("]",)
+            index += 1
+        elif byte in (0x7B, 0x7D):
+            index += 1
+        elif byte == 0x2F:  # /Name
+            end = index + 1
+            while end < size and data[end] not in _PDF_WHITESPACE and data[end] not in _PDF_DELIMITERS:
+                end += 1
+            yield ("name", data[index + 1:end])
+            index = end
+        else:
+            end = index
+            while end < size and data[end] not in _PDF_WHITESPACE and data[end] not in _PDF_DELIMITERS:
+                end += 1
+            end = max(end, index + 1)
+            word = data[index:end]
+            if _PDF_NUMBER.fullmatch(word):
+                yield ("number", float(word))
+            else:
+                yield ("op", word)
+            index = end
+
+
+def _pdf_objects(data: bytes) -> dict[int, tuple[bytes, bytes | None]]:
+    """Indirect objects, number -> (dictionary, inflated stream or None), with compressed
+    object streams expanded."""
+    objects, budget = {}, _MAX_PDF_INFLATED_BYTES
+    for match in _PDF_OBJECT.finditer(data):
+        if len(objects) >= _MAX_PDF_OBJECTS:
+            break
+        end = data.find(b"endobj", match.end())
+        if end < 0:
+            continue
+        body, stream = data[match.end():end], None
+        at = body.find(b"stream")
+        if at >= 0:
+            head, raw = body[:at], body[at + 6:]
+            raw = raw[2:] if raw.startswith(b"\r\n") else raw[1:] if raw[:1] in (b"\r", b"\n") else raw
+            stop = raw.rfind(b"endstream")
+            raw = raw[:stop] if stop >= 0 else raw
+            if b"/FlateDecode" in head and budget > 0:
+                try:
+                    stream = zlib.decompressobj().decompress(raw, budget)
+                except zlib.error:
+                    stream = None
+                budget -= len(stream or b"")
+            elif b"/Filter" not in head:
+                stream = raw
+            body = head
+        objects[int(match.group(1))] = (body, stream)
+    for body, stream in list(objects.values()):
+        first, count = re.search(rb"/First\s+(\d+)", body), re.search(rb"/N\s+(\d+)", body)
+        if b"/ObjStm" not in body or not stream or not first or not count:
+            continue
+        first = int(first.group(1))
+        pairs = re.findall(rb"(\d+)\s+(\d+)", stream[:first])[:int(count.group(1))]
+        offsets = [(int(number), first + int(offset)) for number, offset in pairs]
+        for (number, offset), following in zip(offsets, [*offsets[1:], (None, len(stream))]):
+            if len(objects) >= _MAX_PDF_OBJECTS:
+                break
+            objects.setdefault(number, (stream[offset:following[1]], None))
+    return objects
+
+
+def _pdf_cmap(stream: bytes) -> tuple[dict[bytes, str], int]:
+    """A ToUnicode CMap: character code -> text, and the code length in bytes."""
+    mapping, lengths = {}, set()
+    text = stream.decode("latin-1")
+
+    def target(hexadecimal: str) -> str:
+        return bytes.fromhex(hexadecimal + "0" * (len(hexadecimal) % 2)).decode("utf-16-be", "replace")
+    for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
+        for source, value in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]*)>", block):
+            if len(mapping) < _MAX_PDF_CMAP_ENTRIES:
+                mapping[bytes.fromhex(source + "0" * (len(source) % 2))] = target(value)
+                lengths.add((len(source) + 1) // 2)
+    for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
+        for low, high, value in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(<[0-9A-Fa-f]*>|\[[^\]]*\])", block):
+            start, stop, width = int(low, 16), int(high, 16), (len(low) + 1) // 2
+            lengths.add(width)
+            if stop < start or stop - start > 0xFFFF or len(mapping) + stop - start > _MAX_PDF_CMAP_ENTRIES:
+                continue
+            if value.startswith("["):
+                for offset, item in enumerate(re.findall(r"<([0-9A-Fa-f]*)>", value)):
+                    mapping[(start + offset).to_bytes(width, "big")] = target(item)
+                continue
+            base = bytes.fromhex(value[1:-1] + "0" * (len(value[1:-1]) % 2))
+            first = int.from_bytes(base, "big") if base else 0
+            for offset in range(stop - start + 1):
+                code = (first + offset).to_bytes(max(len(base), 2), "big")
+                mapping[(start + offset).to_bytes(width, "big")] = code.decode("utf-16-be", "replace")
+    return mapping, max(lengths) if lengths else 1
+
+
+def _pdf_array(objects, body: bytes, key: bytes) -> bytes:
+    """The text of an array entry of a dictionary, following an indirect reference."""
+    match = re.search(rb"/" + key + rb"\s*(\[|(\d+)\s+\d+\s+R)", body)
+    if not match:
+        return b""
+    if match.group(2):
+        source = objects.get(int(match.group(2)), (b"", None))[0]
+        start = source.find(b"[")
+    else:
+        source, start = body, match.start(1)
+    depth = 0
+    for index in range(max(start, 0), len(source)):
+        depth += (source[index:index + 1] == b"[") - (source[index:index + 1] == b"]")
+        if depth == 0:
+            return source[start + 1:index]
+    return b""
+
+
+def _pdf_widths(objects, body: bytes) -> tuple[dict[int, float], float]:
+    """Glyph widths in thousandths of the font size: /FirstChar and /Widths of a simple
+    font, or /W and /DW of a composite font's descendant."""
+    descendant = re.search(rb"/DescendantFonts\s*(?:\[\s*)?(\d+)\s+\d+\s+R", body)
+    if descendant:
+        cid_font = objects.get(int(descendant.group(1)), (b"", None))[0]
+        default = re.search(rb"/DW\s+([\d.]+)", cid_font)
+        widths = {}
+        numbers = re.findall(rb"\[[^\]]*\]|[\d.]+", _pdf_array(objects, cid_font, b"W"))
+        index = 0
+        while index + 1 < len(numbers) and len(widths) < _MAX_PDF_CMAP_ENTRIES:
+            first, following = numbers[index], numbers[index + 1]
+            if following.startswith(b"["):
+                for offset, width in enumerate(re.findall(rb"[\d.]+", following)):
+                    widths[int(float(first)) + offset] = float(width)
+                index += 2
+            elif index + 2 < len(numbers):
+                low, high, width = int(float(first)), int(float(following)), float(numbers[index + 2])
+                for code in range(low, min(high, low + 0xFFFF) + 1):
+                    widths[code] = width
+                index += 3
+            else:
+                break
+        return widths, float(default.group(1)) if default else 1000.0
+    first = re.search(rb"/FirstChar\s+(\d+)", body)
+    values = [float(value) for value in re.findall(rb"[\d.]+", _pdf_array(objects, body, b"Widths"))]
+    if not first or not values:
+        return {}, 500.0
+    return {int(first.group(1)) + offset: width for offset, width in enumerate(values)}, 500.0
+
+
+def _pdf_fonts(objects) -> dict[bytes, tuple]:
+    """Font resource names (/F1) -> (ToUnicode CMap or None, code length, glyph widths,
+    default width)."""
+    described = {}
+    for number, (body, _stream) in objects.items():
+        if b"/Font" not in body and b"/ToUnicode" not in body:
+            continue
+        reference = re.search(rb"/ToUnicode\s+(\d+)\s+\d+\s+R", body)
+        target = objects.get(int(reference.group(1))) if reference else None
+        mapping, length = _pdf_cmap(target[1]) if target and target[1] else (None, 2 if b"/Type0" in body else 1)
+        widths, default = _pdf_widths(objects, body)
+        described[number] = (mapping, length, widths, default)
+    fonts = {}
+    for body, _stream in objects.values():
+        blocks = re.findall(rb"/Font\s*<<(.*?)>>", body, re.S)
+        indirect = re.search(rb"/Font\s+(\d+)\s+\d+\s+R", body)
+        if indirect and int(indirect.group(1)) in objects:
+            blocks.append(objects[int(indirect.group(1))][0])
+        for block in blocks:
+            for name, number in re.findall(rb"/([^\s/<>\[\]()]+)\s+(\d+)\s+\d+\s+R", block):
+                if int(number) in described:
+                    fonts.setdefault(name, described[int(number)])
+    return fonts
+
+
+def pdf_text(data: bytes) -> str:
+    """The text of a PDF's content streams, bounded. Glyphs are joined by where the page
+    puts them: a gap wider than a third of the font size is a space, a new line a line
+    break. Images, scripts and embedded files are never read."""
+    data = data[:_MAX_PDF_BYTES]
+    if not data.startswith(b"%PDF"):
+        return ""
+    objects = _pdf_objects(data)
+    fonts = _pdf_fonts(objects)
+    pieces, budget, written = [], [_MAX_PDF_TOKENS], [0]
+    for _number, (body, stream) in sorted(objects.items()):
+        if not stream or b"BT" not in stream or re.search(rb"/(?:Subtype\s*/Image|FontFile|Length1|ObjStm)\b", body):
+            continue
+        font, size, scale = None, 12.0, 1.0
+        x = y = line_x = line_y = 0.0
+        end_x, last_y, leading = None, None, 0.0
+        operands, array = [], None
+
+        def show(string):
+            nonlocal x, end_x, last_y
+            unit = max(size * scale, 1.0)
+            mapping, length, widths, default = font or (None, 1, {}, 500.0)
+            codes = [string[index:index + length] for index in range(0, len(string) - length + 1, length)]
+            text = ("".join(mapping.get(code, "") for code in codes) if mapping
+                    else string.decode("cp1252", "replace"))
+            if end_x is not None:
+                if last_y is not None and abs(y - last_y) > unit * 0.5:
+                    pieces.append("\n")
+                elif x - end_x > unit * 0.15 or x < end_x - unit * 4:
+                    pieces.append(" ")
+            pieces.append(text)
+            written[0] += len(text)
+            x += unit * sum(widths.get(int.from_bytes(code, "big"), default) for code in codes) / 1000
+            end_x, last_y = x, y
+        for token in _pdf_tokens(stream, budget):
+            kind = token[0]
+            if kind == "[":
+                array = []
+            elif kind == "]":
+                operands.append(("array", array or []))
+                array = None
+            elif array is not None:
+                array.append(token)
+            elif kind != "op":
+                operands.append(token)
+            else:
+                op = token[1]
+                numbers = [value for kind_, value in operands if kind_ == "number"]
+                if op == b"BT":
+                    x = y = line_x = line_y = 0.0
+                    scale = 1.0
+                elif op == b"Tf":
+                    names = [value for kind_, value in operands if kind_ == "name"]
+                    font = fonts.get(names[-1]) if names else None
+                    size = abs(numbers[-1]) if numbers and numbers[-1] else size
+                elif op in (b"Td", b"TD") and len(numbers) >= 2:
+                    line_x += numbers[-2] * scale
+                    line_y += numbers[-1] * scale
+                    x, y = line_x, line_y
+                    if op == b"TD":
+                        leading = -numbers[-1]
+                elif op == b"Tm" and len(numbers) >= 6:
+                    scale = (numbers[-6] ** 2 + numbers[-5] ** 2) ** 0.5 or 1.0
+                    x = line_x = numbers[-2]
+                    y = line_y = numbers[-1]
+                elif op == b"TL" and numbers:
+                    leading = numbers[-1]
+                elif op in (b"T*", b"'", b'"'):
+                    line_y -= leading * scale
+                    x, y = line_x, line_y
+                if op in (b"Tj", b"'", b'"'):
+                    strings = [value for kind_, value in operands if kind_ == "string"]
+                    if strings:
+                        show(strings[-1])
+                elif op == b"TJ":
+                    items = next((value for kind_, value in reversed(operands) if kind_ == "array"), [])
+                    for item in items:
+                        if item[0] == "string":
+                            show(item[1])
+                        elif item[0] == "number":
+                            x -= item[1] / 1000 * size * scale
+                            if item[1] <= -250 and end_x is not None:
+                                # A shift of a quarter em or more is a word space.
+                                pieces.append(" ")
+                                end_x = x
+                operands = []
+                if written[0] > _MAX_PDF_TEXT_CHARS:
+                    break
+        pieces.append("\n")
+        if budget[0] <= 0 or written[0] > _MAX_PDF_TEXT_CHARS:
+            break
+    text = re.sub(r"[ \t]+", " ", "".join(pieces))
+    return re.sub(r" ?\n[\n ]*", "\n", text).strip()[:_MAX_PDF_TEXT_CHARS]
+
+
 _MAX_DOCX_BYTES = 10 * 1024 * 1024
 _MAX_DOCX_ENTRIES = 2000
 _MAX_DOCX_PART_BYTES = 2 * 1024 * 1024
@@ -729,9 +1058,12 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 except Exception:  # malformed transfer encoding: keep metadata only
                     payload = b""
                 links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
-                # Only links are read; the PDF text stays uninspected (metadata_only).
+                pdf_body = pdf_text(payload)
+                # Links and text are read; images (often QR codes) stay uninspected.
                 if links:
                     attachments[-1]["extracted_links"] = links
+                if pdf_body:
+                    attachments[-1]["extracted_text"] = pdf_body
             if (content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     or PurePath(filename or "").suffix.lower() == ".docx"):
                 try:

@@ -900,6 +900,7 @@ window.PhishGuardI18n = (() => {
     'server.prefix.pdf_attachment': 'PDF attachment link: {text}',
     'server.prefix.docx_attachment': 'Word attachment link: {text}',
     'server.prefix.docx_text': 'Word attachment: {text}',
+    'server.prefix.pdf_text': 'PDF attachment: {text}',
     'server.prefix.attached_message': 'Attached message: {text}',
     'server.prefix.image': 'Image ({name}): {text}',
     'server.prefix.image_recognition': 'Image recognition: {text}',
@@ -1310,7 +1311,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=28'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=29'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
