@@ -20,6 +20,36 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 01:30 PT] — Catch mailbox lures in English and other languages
+
+### Why
+- Of 139 Nazario phishing messages that did not alert, about 20 were English mailbox lures, all undetermined. Examples:
+  - "Your 14 important incoming emails are stuck on the email server… Retrieve 14 Emails", linking to `recoverphrase131.web.app`;
+  - "username authentication will expire";
+  - "Incoming Messages On Hold".
+- About ten more were the same lure in Korean, Russian, Ukrainian, Japanese, Arabic or French.
+- The model scored them only in renderings it could not score before, so it kept abstaining, and no rule fired.
+- The Chinese rule's structure applies to them: the lure wording plus an action link leaving the sender's domain for an unlisted one.
+
+### Files changed
+- `website/app.py`: `_MAILBOX_LURE_OTHER` and `_MAILBOX_ACTION_OTHER` extend `content.mailbox_lure`:
+  - English: a mailbox, inbox, mail server or incoming mail that is full, over quota, blocked, held, stuck, undelivered, expiring, suspended or closing, in one sentence. "Verify your email address" does not count: genuine sign-ups begin that way, often through a mailing service's tracking domain;
+  - Korean, Russian, Ukrainian, Japanese, Arabic, French, Portuguese and Spanish equivalents;
+  - action labels in those languages.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding names full, blocked, expiring and held mail too. Asset versions bumped.
+- `website/tests/test_chinese_lures.py`: lures in six languages, and genuine notices (sign-up confirmation through SendGrid, provider storage notices, newsletter boilerplate).
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (1c49f5a) against this change:
+  - Nazario 3,466: alerts 3,327 → 3,342, undetermined 132 → 117. Of the 15 newly caught, 12 are Critical and 3 High. 432 alerts rose to Critical, and none fell;
+  - DataCon 2023 day 1: one undetermined lure → High;
+  - no verdict, mail-type or question change, per message, on the 92 genuine downloads (with and without a mailbox) and the 87 public HTML templates;
+  - counts identical on the pasted genuine text, PhishFuzzer recent, UniqueData and Postmark.
+- Genuine evidence is thin: the rule needs a labelled link, so only HTML mail can match. That means 179 messages (the 92 downloads and the 87 templates), none of which match. The plain-text corpora (Apache lists, Marketing-Emails, DiFraud) and 2005-era trec06c have almost no labelled links.
+- Analysis time: Nazario 128.4 → 129.2 s.
+- Tests: 965 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 00:30 PT] — Fix three findings from the review at 0f17def, and the colour bypasses it probed
 
 ### Why

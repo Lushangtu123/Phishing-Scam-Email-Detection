@@ -1408,6 +1408,47 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Mailbox lures in English and other languages (2026-10-02)
+
+After the review fixes, 139 Nazario phishing messages did not alert:
+
+| Kind | Messages |
+|---|---|
+| PDF or image lure with no body text (USAA PDFs, Netflix images) | ~25 |
+| English mailbox lures: stuck, pending or blocked mail, quota, expiring passwords | ~20 |
+| The same lures in Korean, Russian, Ukrainian, Japanese, Arabic, French, Portuguese | ~10 |
+| "Your Prime membership is renewing", button hosted on Google Drawings | 8 |
+| Tinder "It's a Match", "You received Bitcoin", parcel delivery | ~17 |
+| Shared-file, invoice and other lures | the rest |
+
+Most stayed undetermined because the model alerted only in renderings it could not
+score before, and no rule fired.
+
+The Chinese mailbox-lure rule carried over: the lure wording in one sentence, plus a
+link labelled with the action that leaves the sender's domain for one no registry
+lists. In English only threats to the mailbox count: full, over quota, blocked, held,
+stuck, undelivered, expiring, suspended or closing. "Verify your email address" does
+not, because genuine sign-ups begin that way, often through a mailing service's
+tracking domain.
+
+| Cohort (same model) | `1c49f5a`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,327 / 132 / 7 | 3,342 / 117 / 7 |
+| DataCon 2023 day 1 (611) | 237 / 351 / 23 | 238 / 350 / 23 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 432 alerts rose to Critical, and none fell.
+- **Genuine mail.** No verdict changed for any genuine download or public template.
+
+**Limits.**
+- Only HTML mail has labelled links, so the genuine evidence is 179 messages (the
+  downloads and the templates), none of which match. The plain-text corpora and
+  trec06c (2005) cannot match at all.
+- Lures whose button is hosted on an official domain (Google Drawings, Tencent Docs)
+  are exempt.
+- PDF and image lures still need text from the attachment (see "PDF text" below).
+
 ### Review at 0f17def: variable case, invalid backgrounds and translucency (2026-10-02)
 
 A read-only review supplied synthetic fixtures for three findings. All three reproduced

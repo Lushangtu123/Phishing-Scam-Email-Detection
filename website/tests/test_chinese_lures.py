@@ -80,5 +80,34 @@ class MailboxLureTests(unittest.TestCase):
         self.assertFalse(app._mailbox_lure('邮箱很好用。系统将在周末升级。', [('点此登录', 'https://example.org/')]))
 
 
+class OtherLanguageMailboxLureTests(unittest.TestCase):
+    """The same lures in English and other languages: only threats to the mailbox count."""
+
+    def test_lures(self):
+        off = 'https://recover-mail.web.app/x'
+        for text, label in (
+                ('Your 14 incoming emails are stuck on the mail server and will be deleted.', 'Retrieve 14 Emails'),
+                ('Your mailbox storage is full. Messages are on hold.', 'Release messages'),
+                ('jose@example.org username authentication will expire on 19 Apr; your email will be blocked.', 'Keep my password'),
+                ('귀하의 우편함 할당량이 적습니다.', '업그레이드'),
+                ('Ваш почтовый ящик истекает сегодня.', 'Обновить'),
+                ('Vous avez 4 messages bloqués.', 'Lire les messages')):
+            with self.subTest(text=text):
+                self.assertTrue(app._mailbox_lure(text, [(label, off)]))
+
+    def test_genuine_notices(self):
+        # Sign-up confirmations through a mailing service's tracking domain.
+        self.assertFalse(app._mailbox_lure('Please verify your email address to finish signing up.',
+                                           [('Verify email', 'https://u123.ct.sendgrid.net/ls/click?x')]))
+        # A provider's own storage notice, or a link to a known provider's sign-in.
+        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Upgrade', 'https://one.google.com/storage')]))
+        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Sign in', 'https://outlook.live.com/')]))
+        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Upgrade', 'https://mail.example.org/plans')],
+                                           'it@example.org'))
+        # Newsletter boilerplate.
+        self.assertFalse(app._mailbox_lure('If this email is not displayed correctly, view it in your browser.',
+                                           [('View in browser', 'https://news.example.org/view')]))
+
+
 if __name__ == '__main__':
     unittest.main()

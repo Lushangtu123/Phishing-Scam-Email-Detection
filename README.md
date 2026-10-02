@@ -443,9 +443,13 @@ Raw input enables these checks:
   subsidy, high-temperature allowance or tax refund (劳动补贴, 高温补助, 退税申请)
   together with pressure to claim it at once or by scanning a code (视为放弃,
   当天未完成, 扫码). An allowance notice without that pressure does not match;
-- Chinese mailbox-credential lures: the mail system is upgrading, moving, full or
-  closing (邮件系统 … 升级, 邮箱 … 容量上限, 停止服务, in one sentence), and a link labelled
-  with the fix ("点此登录完成本次升级", "点击升级") leads to a site that is neither the
+- mailbox-credential lures: the mail system is upgrading, moving, full or closing
+  (邮件系统 … 升级, 邮箱 … 容量上限, 停止服务), or in English the mailbox or its incoming
+  mail is full, blocked, held, stuck, expiring or closing, in one sentence; Korean,
+  Russian, Ukrainian, Japanese, Arabic, French, Portuguese and Spanish wordings too.
+  English counts only these threats: "verify your email address" is how genuine
+  sign-ups begin. A link labelled with the fix ("点此登录完成本次升级", "Retrieve 14
+  Emails", "Release messages") must lead to a site that is neither the
   sender's domain, nor a mail provider's sign-in (163, QQ, Aliyun, Outlook and the
   other providers in `_CONSUMER_MAILBOX_DOMAINS`, Microsoft 365), nor an official
   brand domain. A school's or provider's own notice links to its own domain. Where a
