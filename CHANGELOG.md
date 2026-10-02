@@ -45,7 +45,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - Text rules read every computed view, the Outlook view included, for every HTML part.
   - Mail clients are collected from the rules, not from shared patterns.
   - `_keyword_pattern` caches compiled keyword patterns, and identical rule readings are scored once.
-- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the new warning.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the new warning. Asset versions bumped (`website/tools/asset-versions/manifest.json`, the HTML pages, `lang-init.js`).
 - Tests:
   - `website/tests/test_hidden_text_salting.py`: 5 tests;
   - `website/tests/test_review_2026_10_01_second.py`: the shared-selector client.
@@ -60,7 +60,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - the 92 genuine downloads 14.9 → 9.3 s;
   - Nazario 180 → 111 s;
   - backend tests 44 → 35 s.
-- Tests: 915 passed, 10 skipped; frontend 116 passed.
+- Tests: 915 passed, 10 skipped; all frontend test files 514 passed.
 
 ## [2026-10-01 20:00 PT] — Render HTML views with exact selector matching and the CSS cascade
 
