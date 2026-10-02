@@ -443,6 +443,12 @@ Raw input enables these checks:
   subsidy, high-temperature allowance or tax refund (劳动补贴, 高温补助, 退税申请)
   together with pressure to claim it at once or by scanning a code (视为放弃,
   当天未完成, 扫码). An allowance notice without that pressure does not match;
+- Chinese mailbox-credential lures: the mail system is upgrading, moving, full or
+  closing (邮件系统 … 升级, 邮箱 … 容量上限, 停止服务, in one sentence), and a link labelled
+  with the fix ("点此登录完成本次升级", "点击升级") leads to a site that is neither the
+  sender's domain, nor a mail provider's sign-in (163, QQ, Aliyun, Outlook and the
+  other providers in `_CONSUMER_MAILBOX_DOMAINS`, Microsoft 365), nor an official
+  brand domain. A school's or provider's own notice links to its own domain;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
@@ -459,9 +465,10 @@ Raw input enables these checks:
 - Chinese phrasing of the mailbox-credential lures common in Chinese phishing
   (simplified and traditional): quota full, account expiring or being deactivated,
   "upgrade" or "re-verify" the mailbox, "keep the same password". Only phrases tying
-  the threat or request to the account or mailbox are listed, and spaces inserted
-  inside a phrase are skipped. They have not yet been measured against genuine
-  Chinese mail, so each adds one point and no combination rule raises a verdict.
+  the threat or request to the account or mailbox are listed. Spaces, brackets, quotes
+  and symbols senders insert inside a phrase are skipped ("将 被〈关闭", "《财 政》补〉贴");
+  sentence punctuation is not. Each phrase adds one point; the mailbox-lure rule above
+  is what raises a verdict.
 
 Link checks parse destinations before inspecting hosts. HTML entity escapes,
 protocol-relative targets, IPv6, and integer/hex/octal IPv4 forms retain their
@@ -629,6 +636,9 @@ Some stylesheets are not modelled at all:
 - `@layer` and `@scope`;
 - an @-rule that hides;
 - an unreadable selector in a hiding rule.
+
+An `@import`, `@charset` or `@namespace` statement ends at its semicolon and is no
+part of the next rule. Imported CSS, like a linked stylesheet, is external and not read.
 
 Text rules read every view (the Outlook view included) as well as the certainly
 visible text, and the riskiest reading counts. Image fallback text counts when it holds a finding that sets a

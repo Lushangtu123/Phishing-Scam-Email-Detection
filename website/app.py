@@ -31,7 +31,7 @@ import time
 import unicodedata
 import warnings
 from collections import deque
-from email.utils import getaddresses
+from email.utils import getaddresses, parseaddr
 from html.parser import HTMLParser
 from html import escape as escape_html, unescape as unescape_html
 from itertools import product
@@ -92,6 +92,8 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 from email_structure import (
     _official_sender,
+    _CONSUMER_MAILBOX_DOMAINS,
+    organizational_domain as _organizational_domain,
     MAILBOX_AUTHSERV_IDS,
     SENDER_ONLY_SERVICES,
     OFFICIAL_SERVICE_NUMBERS as _OFFICIAL_SERVICE_NUMBERS,
@@ -1384,6 +1386,16 @@ def _detect_obfuscation(text: str) -> list[str]:
 
 
 _HAN = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
+# What senders put inside Chinese words to break keyword matches: spaces and line breaks,
+# brackets, quotes and symbols ("补〉贴", "《财 政》"). Sentence punctuation is not in it.
+_HAN_FILLER = (r"[\s\u00b7\u2022\u30fb*#~^_|/\\=+.<>()\[\]{}《》〈〉【】〔〕（）［］｛｝「」『』“”‘’\"'"
+               r"＊＃～＿｜／＝＋．＜＞]")
+
+
+def _han_compact(text: str) -> str:
+    """Text without whitespace, and without the fillers between Chinese characters."""
+    text = re.sub(rf"(?<={_HAN.pattern}){_HAN_FILLER}+(?={_HAN.pattern})", "", text)
+    return re.sub(r"\s+", "", text)
 
 
 @lru_cache(maxsize=None)
@@ -1391,8 +1403,9 @@ def _keyword_pattern(keyword: str) -> re.Pattern:
     """The compiled pattern of one rule keyword: more keywords exist than re's own cache holds."""
     if _HAN.match(keyword):
         # Chinese has no spaces between words, so there is no word boundary to keep;
-        # senders split phrases with spaces or line breaks ("确 认"), which are skipped.
-        return re.compile(r"\s*".join(map(re.escape, keyword)))
+        # senders split phrases with spaces, line breaks or symbols ("确 认", "补〉贴"),
+        # which are skipped.
+        return re.compile(f"{_HAN_FILLER}*".join(map(re.escape, keyword)))
     escaped = re.escape(keyword)
     prefix = r"(?<!\w)" if keyword and keyword[0].isalnum() else ""
     # Python's word characters exclude apostrophes. Keep a negative contraction
@@ -3393,6 +3406,10 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
                 quote = None
         elif character in {'"', "'"}:
             quote = character
+        elif character == ';' and not preludes:
+            # A statement at-rule (@import, @charset, @namespace) ends here, not at a
+            # block: it is no part of the next rule's selector. Imported CSS is external.
+            start = index + 1
         elif character == '{':
             prelude = cleaned[start:index].strip()
             if preludes and not preludes[-1].startswith('@') and ':' in prelude.split(';')[0]:
@@ -4418,8 +4435,41 @@ _SUBSIDY_PRESSURE = re.compile(r"视为放弃|逾期(?:将)?(?:不予|作废|视
 
 
 def _subsidy_lure(text: str) -> bool:
-    compact = re.sub(r"\s+", "", text)
+    compact = _han_compact(text)
     return bool(_SUBSIDY_TERM.search(compact) and _SUBSIDY_PRESSURE.search(compact))
+
+
+# Mailbox credential lures: the mail system is upgrading, full, moving or closing (in one
+# sentence), and a link labelled with the fix ("点此登录完成本次升级") leaves the sender's
+# domain for one no registry lists. Providers' and schools' own notices link to their own
+# domains, or to a mail provider's sign-in.
+_MAILBOX_TERM = r"邮箱|郵箱|邮件系统|郵件系統|电子邮件|電子郵件|帐户|账户|帳戶|账号|帳號"
+_MAILBOX_STATE = (r"升级|升級|迁移|遷移|切换|切換|备案|備案|容量|上限|已满|已滿|过期|過期|停用|暂停|暫停"
+                  r"|停止服务|停止服務|关闭|關閉|冻结|凍結|注销|註銷|受限|限制|禁用|失效")
+_MAILBOX_LURE = re.compile(rf"(?:{_MAILBOX_TERM})[^。！？!?]{{0,30}}(?:{_MAILBOX_STATE})"
+                           rf"|(?:{_MAILBOX_STATE})[^。！？!?]{{0,30}}(?:{_MAILBOX_TERM})")
+_MAILBOX_ACTION = re.compile(r"登录|登陆|登入|登錄|升级|升級|验证|驗證|激活|啟用|启用|扩容|擴容|清理|恢复|恢復"
+                             r"|解除|保留|保持|迁移|遷移|备案|備案|点此|點此|点击|點擊")
+_MAIL_SIGN_IN_DOMAINS = _CONSUMER_MAILBOX_DOMAINS | {'office.com', 'office365.com', 'microsoftonline.com'}
+
+
+def _mailbox_lure(text: str, links, sender_domain: str = '') -> bool:
+    """A mailbox lure whose action link leads off the sender's domain to an unlisted one."""
+    if not _MAILBOX_LURE.search(_han_compact(text)):
+        return False
+    sender = _organizational_domain(sender_domain) if '.' in sender_domain else ''
+    for label, destination in links or ():
+        if not _MAILBOX_ACTION.search(_han_compact(label or '')):
+            continue
+        try:
+            host = (_parse_link_target(destination).hostname or '').lower().rstrip('.')
+        except ValueError:
+            continue
+        domain = _organizational_domain(host) if host else ''
+        if domain and not (sender and domain == sender) and domain not in _MAIL_SIGN_IN_DOMAINS \
+                and not _official_sender(domain):
+            return True
+    return False
 
 
 def _attachment_text_findings(text: str) -> list[dict]:
@@ -4445,7 +4495,7 @@ def _is_docx(attachment: dict) -> bool:
 # notification mail the model alone raises many false alerts). "advertising" needs sales
 # wording; marketing from genuine brands is advertising too.
 _PHISHING_TACTICS = {
-    "credential": {"content.pressured_credential_request", "content.password_form",
+    "credential": {"content.pressured_credential_request", "content.password_form", "content.mailbox_lure",
                    "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
                    "content.sensitive_request.recovery_secret", "link.credential_collection_host"},
     "callback": {"content.callback_request"},
@@ -4736,7 +4786,7 @@ def _text_rule_findings(full_orig: str) -> dict:
 
 
 def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
-                          _model_view: dict | None = None) -> dict:
+                          _model_view: dict | None = None, sender: str = '') -> dict:
     """Rule-based heuristic phishing analysis of email subject + body text."""
     analysis_warnings = []
 
@@ -4996,6 +5046,12 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     extra_indicators.extend(link_findings)
     risk_floor = max((risk_floor, link_floor), key=floor_rank.get)
 
+    sender_domain = parseaddr(sender)[1].rpartition('@')[2].lower()
+    if _mailbox_lure(analysis_text, links, sender_domain):
+        total_score += 4
+        risk_floor = 'high'
+        extra_indicators.append(indicator('high', 'content.mailbox_lure'))
+
     extra_indicators.extend(rules['style'])
 
     # 6. Excessive question marks in subject
@@ -5234,7 +5290,7 @@ async def _analyze_content(
     model_view = {}
     result = await _run_analysis(analyze_email_content, subject, body, content_parts=(structure['content_parts'] if structure else
                                        [{'content_type': 'text/plain', 'content': body}] if plain_text else None),
-                                   _model_view=model_view)
+                                   _model_view=model_view, sender=structure['from'] if structure else '')
     if model_view.get('mime_alternatives_truncated'):
         result['analysis_warnings'].append(_MIME_ALTERNATIVE_LIMIT_WARNING)
     remote_image_dominant = model_view['remote_image_dominant']

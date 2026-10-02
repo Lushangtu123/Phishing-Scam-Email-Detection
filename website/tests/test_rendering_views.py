@@ -74,6 +74,15 @@ class StylesheetCascadeTests(unittest.TestCase):
             with self.subTest(css=css):
                 self.assertIsNone(app._stylesheet_cascade(css, '<p class="a">x</p>'))
 
+    def test_statement_at_rules_end_at_their_semicolon(self):
+        # @import (a web font, usually) and @charset are no part of the next rule's selector.
+        for statement in ('@import url("https://fonts.example.com/css?family=Roboto");', '@charset "utf-8";',
+                          '@import url(a.css) screen; @namespace svg url(http://www.w3.org/2000/svg);'):
+            with self.subTest(statement=statement):
+                views = readings(f'<style>{statement} .hide{{display:none}}</style><p>Text</p><p class="hide">More</p>')
+                self.assertTrue(views['resolved'])
+                self.assertEqual(views['strict'], 'Text')
+
     def test_selectors_matched_only_approximately_leave_the_text_they_reach_unresolved(self):
         self.assertFalse(readings('<style>div:not(.show){display:none}</style><div>More</div>')['resolved'])
         self.assertTrue(readings('<style>div:not(.show){display:none}</style><p>Text</p>')['resolved'])

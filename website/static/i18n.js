@@ -846,6 +846,7 @@ window.PhishGuardI18n = (() => {
     'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
     'server.content.callback_request': "Asks you to call {number} to cancel, dispute or refund a charge; callback scams use fake support numbers. Call only the number on the organization's official website, app or card.",
+    'server.content.mailbox_lure': 'A notice says your mailbox is being upgraded, moved, full or closed, and its link to fix it leads to a site that is neither the sender\'s nor a known provider\'s. Sign in only through the address you normally use for your mail.',
     'server.content.subsidy_lure': 'A subsidy, allowance or tax-refund notice pressures you to claim it at once or by scanning a code. Government bodies and employers do not pay out this way by email.',
     'server.content.requested_notice': 'You confirmed this notice is about something you did yourself, so a text-model alert alone is not treated as phishing. Still check that the sender and any link belong to the service, and never share a code with anyone.',
     'server.content.unrequested_notice': 'You did not do what this notice describes, or are not sure. An unexpected code, sign-in, new account, order or application notice can mean someone is using your account, or that the message is phishing: don\'t use its links; open the service\'s own site or app instead.',
@@ -1309,7 +1310,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=26'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=27'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

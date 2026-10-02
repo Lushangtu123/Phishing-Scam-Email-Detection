@@ -20,6 +20,42 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 23:30 PT] — Catch Chinese mailbox-upgrade lures and words split by symbols; read stylesheets after @import
+
+### Why
+- Of DataCon 2023 day 1 (611 Chinese messages), 452 were undetermined. About 103 were mailbox-credential phishing:
+  - "邮箱系统在线升级 … 点此登录完成本次升级", whose sign-in link went to a lookalike domain (`qiyeyouxiangbazx.com`), stitched onto a recycled genuine Aliyun notice;
+  - quota and suspension notices linking to `.top`, `.ink` or IP hosts.
+- The rules scored them 0, and the model cannot read Chinese.
+- Subsidy lures split their key words with brackets ("《财 政》补〉贴", "个人劳动（补贴））"). The keyword matcher skipped only spaces inside a Chinese phrase.
+- A stylesheet starting with `@import url(…);` was unmodelled: the import was read as part of the next rule's selector, which then looked like an @-rule that hides (AliExpress notices).
+
+### Files changed
+- `website/app.py`:
+  - `_HAN_FILLER` and `_han_compact`: spaces, brackets, quotes and symbols between Chinese characters are skipped by the keyword matcher and the subsidy rule. Sentence punctuation is kept.
+  - `content.mailbox_lure` (High; the credential tactic) fires on three conditions together:
+    - the text puts a mailbox or account term next to upgrade, migration, quota, suspension or closure in one sentence;
+    - a link is labelled with the action (登录, 升级, 点此…);
+    - that link's registered domain is not the sender's, not a mail provider's sign-in (`_CONSUMER_MAILBOX_DOMAINS`, Microsoft 365) and not an official brand domain.
+  - `analyze_email_content` takes the message's sender for this check.
+  - The stylesheet compiler ends a top-level statement at its semicolon (`@import`, `@charset`, `@namespace`).
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the new finding. Asset versions bumped.
+- Tests:
+  - `website/tests/test_chinese_lures.py`: 7 tests, all failing on a2605bc;
+  - `website/tests/test_rendering_views.py`: statement at-rules.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (a2605bc) against this change:
+  - DataCon 2023 day 1 (611): alerts 136 → 237. The 101 new alerts are all mailbox-upgrade lures moving from undetermined to High.
+  - Nazario 3,466: alerts 3,320 → 3,327 and undetermined 139 → 132 (seven Chinese mailbox lures). Nine Chinese mailbox lures that already alerted rose a level; none fell.
+  - No verdict, mail-type or question change, per message, on the 92 genuine downloads (with and without a mailbox) and the 87 public HTML templates.
+  - Counts identical on the pasted genuine text, PhishFuzzer recent, UniqueData and Postmark.
+- trec06c (local, 2005 Chinese mail): the mailbox-lure and subsidy rules fire on none of 21,766 genuine messages or 42,854 spam, and the matcher adds no keyword match.
+- The `@import` fix changed no verdict; the AliExpress stylesheets are modelled again.
+- Analysis time: the 92 genuine downloads 10.3 → 10.6 s; Nazario 127.5 → 128.3 s.
+- Tests: 954 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-01 23:00 PT] — Treat text the colour of its background as possibly invisible
 
 ### Why

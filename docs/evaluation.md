@@ -1408,6 +1408,87 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Remaining misses, and Chinese mailbox lures (2026-10-01)
+
+With a mailbox chosen, 9 of the 92 genuine downloads are not Safe or Low:
+- **Undetermined (6).**
+  - LinkedIn, Adobe and Cloudflare: the model scores their HTML renderings at 36–46%,
+    around its 37.4% threshold, and the renderings disagree. Their plain-text parts
+    score 11–17%, but trusting a plain-text alternative would let a phisher put a
+    harmless text there.
+  - AliExpress ×2: their stylesheet was unmodelled (fixed below). Modelled, every
+    rendering scores about 68%, and the model keeps abstaining because only a newly
+    scored rendering would alert.
+- **False alerts (3).** Two AliExpress promotions on the model alone (60%), and an
+  Atlassian notice (model 50% with weak rule findings).
+
+Nazario has 146 phishing messages that do not alert:
+
+| Cause | Messages |
+|---|---|
+| Rendering resolved, but only a newly scored rendering would alert | 76 |
+| Rendering not resolved (Outlook conditional content) | 2 |
+| Too little text for the model, 28 of them with attachments (PDF, images) | 33 |
+| Text the model does not cover: Chinese, Korean, Russian, Arabic, Japanese | 23 |
+| Model below its threshold, or renderings disagree | 12 |
+
+**The newly-scored-rendering rule, measured again.** Accepting those model-only
+alerts on today's code:
+
+| Cohort | Shipped rule | Without it |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen: alerts | 3 | 9 |
+| 92 genuine downloads, no mailbox: alerts | 27 | 35 |
+| 87 public HTML templates: alerts | 4 | 64 |
+| Nazario 3,466: alerts | 3,320 | 3,399 |
+
+That is 79 more catches for 66 more false alerts on 179 genuine messages, so the rule
+stays.
+
+**PDF text.** The 24 PDF attachments among the misses hold readable text, sometimes
+only through their fonts' ToUnicode maps. A bounded prototype recovered it ("Dear USAA
+Member, Your login access has been compromised…"). The strong-request check that Word
+attachments get found nothing in any of them, though: they are "log in to restore
+access" lures. Catching them would need the keyword rules on attachment text, and with
+no genuine PDF set to measure false alerts on (invoices and statements), it was not
+shipped.
+
+**Chinese mailbox lures.** DataCon 2023 day 1 held about 103 mailbox-credential lures
+that every rule scored 0. Example: "邮箱系统在线升级 … 点此登录完成本次升级", linking to
+`qiyeyouxiangbazx.com` and stitched onto a recycled genuine Aliyun notice. A new rule
+(`content.mailbox_lure`) needs three things:
+- the lure wording in one sentence;
+- a link labelled with the action;
+- a destination that is neither the sender's domain, a mail provider's sign-in, nor an
+  official brand domain.
+
+Subsidy lures also split their key words with brackets ("《财 政》补〉贴"). The keyword
+matcher and the subsidy rule now skip spaces, brackets, quotes and symbols inside a
+Chinese phrase, but not sentence punctuation.
+
+| Cohort (same model) | `a2605bc`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| DataCon 2023 day 1 (611) | 136 / 452 / 23 | 237 / 351 / 23 |
+| Nazario 2015–25 phishing (3,466) | 3,320 / 139 / 7 | 3,327 / 132 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** Nine more Chinese mailbox lures that already alerted rose a level.
+- **Genuine mail.** No verdict changed for any genuine download or public template.
+- **trec06c (local, 2005).** The new rules fire on none of 21,766 genuine Chinese
+  messages or 42,854 spam.
+
+**Stylesheets after `@import`.** A stylesheet starting with `@import url(…);` was read
+as one rule whose selector began with the import, which looked like an @-rule that
+hides. So the whole stylesheet was unmodelled. Statements now end at their semicolon.
+No verdict changed.
+
+**Limits.**
+- trec06c is from 2005. It holds no modern provider notices such as 163's or QQ's
+  storage warnings, which link to the provider's own domain and are exempt by design.
+- A lure linking to a provider-hosted form (Tencent Docs on `qq.com`) is exempt too.
+- Messages whose lure is only an image (QR codes) stay undetermined.
+
 ### Text the colour of its background (2026-10-01)
 
 Padding in the colour of its background is the most common way to hide text, after
