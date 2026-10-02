@@ -884,6 +884,7 @@
   'server.structure.sending_server_drop': '发信服务器 {ip} 所在网段被 Spamhaus 列为由垃圾邮件发送者或犯罪团伙控制（{listing}，{date} 的 DROP 列表）。',
   'server.structure.originating_ip_tor': 'X-Originating-IP 头（发件人可以自己写）给出的是 Tor 出口节点：{ip}（Tor Project {date} 的列表）。',
   'server.structure.originating_ip_drop': 'X-Originating-IP 头（发件人可以自己写）给出的 {ip} 所在网段被 Spamhaus 列为由垃圾邮件发送者或犯罪团伙控制（{listing}，{date} 的 DROP 列表）。',
+  'server.structure.recipient_domain_display': '发件人显示名写的是你自己的域名（{domain}），但邮件来自另一个域名。攻击者常这样冒充你所在单位的邮箱管理员或 IT 部门。',
   'server.structure.routing_mismatch': '{header} 域名（{domain}）与 From 域名候选（{from_domains}）不一致。路由信息不同；仅凭这一点不能认定为冒充。',
   'server.structure.arc_sealed_results': '没有选择邮件来源，但已用公开密钥核实了 {domain} 封存的验证记录（ARC 签名），因此采用了它对这封邮件的检查结果。',
   'server.structure.auth_failed': '邮件身份验证失败：{mechanisms}。',

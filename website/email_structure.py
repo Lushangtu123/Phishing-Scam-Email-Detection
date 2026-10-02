@@ -507,6 +507,25 @@ def _canonical_brand_domain(domain: str, canonical_domains: set[str]) -> bool:
     return any(_domains_align(domain, canonical) for canonical in canonical_domains)
 
 
+def _recipient_domain_claim(display_name: str, from_domain: str, recipients) -> str | None:
+    """The recipient's own domain when the From display name shows it ("monkey.org",
+    "monkey.org Delivery System") but the message comes from another domain: phishing
+    poses as the recipient's mail or IT team this way. In Nazario, 485 of 3,466 messages
+    do; none of 5,055 Apache list messages or DataCon's 611 does. Mail providers' domains
+    (gmail.com) are no organization's, relays name the person they carry ("Jane
+    <jane@company.com> via Dropbox"), and registered services' own mail is left out."""
+    sender = organizational_domain(from_domain) if from_domain else ""
+    if not display_name or re.search(r"\bvia\b", display_name, re.IGNORECASE) or (sender and _official_sender(sender)):
+        return None
+    folded = _folded_display_name(display_name)
+    for recipient in recipients:
+        domain = organizational_domain(recipient.rpartition("@")[2].rstrip(".")) if "@" in recipient else ""
+        if (domain and "." in domain and domain != sender and domain not in _CONSUMER_MAILBOX_DOMAINS
+                and re.search(r"(?<![a-z0-9.-])" + re.escape(domain) + r"(?![a-z0-9-])", folded)):
+            return domain
+    return None
+
+
 def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, list[dict]]:
     # Mailing lists append the reserved .invalid TLD to DMARC-protected senders.
     # From is unauthenticated here, so this gives nothing over writing the domain.
@@ -1580,6 +1599,13 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     indicators.extend(brand_indicators)
     if brand_score:
         risk_floor = "high"
+    claimed_domain = next(filter(None, (_recipient_domain_claim(name, _domain(address), recipient_addresses)
+                                        for name, address in from_mailboxes)), None)
+    if claimed_domain:
+        score += 3
+        if risk_floor == "safe":
+            risk_floor = "medium"
+        indicators.append(indicator('medium', 'structure.recipient_domain_display', domain=claimed_domain))
 
     # Reply and bounce routing may legitimately differ from the visible author
     # (for example with discussion lists and delivery services). They are one

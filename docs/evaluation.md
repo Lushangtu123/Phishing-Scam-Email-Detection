@@ -1408,6 +1408,28 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Display names showing the recipient's own domain (2026-10-02)
+
+485 of 3,466 Nazario messages put the recipient's domain ("monkey.org") in the From display
+name while sending from another domain. A new check (`structure.recipient_domain_display`,
+Medium) flags it. It leaves out:
+- mail providers' domains;
+- relays ("via");
+- registered services.
+
+| Cohort (same model) | `1c9fe4b`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,424 / 35 / 7 | 3,428 / 31 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** Apache list mail (5,055, addressed to an organization's lists) and DataCon (611)
+never fire. The genuine downloads were received at consumer mailboxes, which the check
+leaves out, so mail received at a company domain is untested. A service that writes a
+colleague's address into its display name without "via" would be flagged there.
+
 ### Alibaba.com added to the official registry (2026-10-02)
 
 Two undetermined Nazario messages were fake Alibaba.com inquiries ("Alibaba Trade

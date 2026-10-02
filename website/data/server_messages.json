@@ -102,6 +102,7 @@
   "structure.sending_server_drop": "The sending server {ip} is in a network that Spamhaus lists as run by spammers or criminals ({listing}, DROP list of {date}).",
   "structure.originating_ip_tor": "The X-Originating-IP header, which the sender can write, names a Tor exit node: {ip} (Tor Project list of {date}).",
   "structure.originating_ip_drop": "The X-Originating-IP header, which the sender can write, names {ip}, in a network that Spamhaus lists as run by spammers or criminals ({listing}, DROP list of {date}).",
+  "structure.recipient_domain_display": "The sender's display name shows your own domain ({domain}), but the message comes from another domain. Attackers pose as your organization's mail or IT team this way.",
   "structure.routing_mismatch": "{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.",
   "structure.arc_sealed_results": "No mailbox was chosen, but the sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.",
   "structure.auth_failed": "Message authentication failed: {mechanisms}.",

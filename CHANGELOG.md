@@ -20,6 +20,30 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 16:30 PT] — Flag display names that show the recipient's own domain
+
+### Why
+- 485 of 3,466 Nazario messages put the recipient's own domain in the From display name ("monkey.org", "monkey.org Delivery System", "警报|讯息传递。monkey.org") while sending from an unrelated domain, posing as the recipient's mail or IT team. Four were still undetermined.
+- No check compared the display name with the recipients.
+
+### Files changed
+- `website/email_structure.py`: `structure.recipient_domain_display` (Medium; score 3; Medium floor; the impersonation tactic) fires when a From display name shows the organizational domain of a To or Cc recipient and the From address is on another domain. Left out:
+  - mail providers' domains (gmail.com, outlook.com);
+  - display names with "via" (relays naming the person they carry);
+  - mail from registered services' own domains.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped. `website/app.py`: the impersonation tactic lists it.
+- `website/tests/test_recipient_domain_display.py`: 2 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (1c9fe4b) against this change:
+  - Nazario 3,466: alerts 3,424 → 3,428 (4 undetermined → 3 Medium, 1 High); 2 Medium → High; 5 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- None of the 5,055 Apache list messages (sent to an organization's lists) or DataCon's 611 messages fires.
+- The 92 genuine downloads were all received at consumer mailboxes, which the rule leaves out, so they test nothing here. Mail received at company domains is untested.
+- Tests: 1,041 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 15:30 PT] — Add Alibaba.com to the official registry
 
 ### Why

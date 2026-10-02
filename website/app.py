@@ -5137,7 +5137,7 @@ _PHISHING_TACTICS = {
     "remote_access": {"content.sensitive_request.remote_access"},
     "impersonation": {"link.brand_lookalike", "link.idn_confusable", "structure.brand_display_name",
                       "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
-                      "link.file_share_elsewhere"},
+                      "link.file_share_elsewhere", "structure.recipient_domain_display"},
     "deceptive_link": {"link.display_mismatch", "link.ip_host", "link.url_userinfo", "link.ipfs_gateway",
                        "link.obfuscated_scheme", "link.unsafe_scheme"},
     "spoofed_sender": {"structure.auth_failed"},

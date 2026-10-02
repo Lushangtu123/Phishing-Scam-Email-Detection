@@ -418,6 +418,12 @@ Raw input enables these checks:
   `Сhase Bank`), and a capital I after a lowercase letter is also read as an l
   (`PayPaI`, `WeIIs Fargo`); the name as written is always checked too, so
   `LinkedIn` keeps its I;
+- the recipient's own domain in the From display name ("monkey.org", "monkey.org
+  Delivery System" to jose@monkey.org) when the message comes from another domain:
+  phishing poses as the recipient's mail or IT team this way. Mail providers'
+  domains (gmail.com) are no organization's, a display name with "via" names the
+  person a relay carries, and registered services' own mail is left out. Medium,
+  with a Medium floor;
 - guidance only, never scored: when the verified sender, the From display name
   or the subject names a registry organization, the result lists up to two
   organizations under "How to verify it yourself". For each it shows the official
