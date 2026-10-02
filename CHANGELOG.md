@@ -20,6 +20,35 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 05:30 PT] — Catch brand names written with a capital I for l
+
+### Why
+- Eight undetermined Nazario messages wrote a brand or lure word with a capital I for a lowercase l: "Trust WaIIet" (five crypto scams), "PayPaI", "AppIe ltunes", "WeIIs Fargo". Many fonts draw I and l alike.
+- The obfuscation check knew digit and symbol swaps (`P@yP@l`, `Amaz0n`) but not this one, and never read the sender's display name, where three of the eight carried it.
+
+### Files changed
+- `website/app.py`:
+  - `_letter_swaps` finds words written with I for l after the first letter ("WaIIet", "PayPaI"), or l for an initial i ("ltunes", "lnvoice").
+  - Only words that become one of `_LETTER_SWAP_WORDS` count: imitated brands (PayPal, Apple, iCloud, iTunes, Netflix, Wells, Wallet, Outlook) and lure words (mail, login, billing, delivery, invoice, failed). So "LinkedIn", "McIntyre" and all-capital words never match.
+  - `_detect_obfuscation` reports these through the existing `content.obfuscation` finding (High, +3, the impersonation tactic).
+  - The From display name is now checked too, once per message.
+- `website/tests/test_letter_swaps.py`: 6 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (c221517) against this change:
+  - Nazario 3,466: alerts 3,368 → 3,375 (7 undetermined → High); 13 High → Critical; none fell. "PayPaI" with no readable body stays undetermined;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Such a word appears in sender, subject or text of 58 Nazario messages and 22 DIFraud fraud messages. It appears in none of:
+  - the 92 genuine downloads;
+  - 9,198 genuine DIFraud messages;
+  - 16,440 marketing emails;
+  - 5,055 Apache list messages;
+  - the UniqueData legitimate messages;
+  - the templates.
+- Tests: 985 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 04:30 PT] — Flag account-hold lures in PDF and Word attachments
 
 ### Why

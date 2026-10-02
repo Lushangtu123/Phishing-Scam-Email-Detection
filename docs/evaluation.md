@@ -1408,6 +1408,38 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Brand names with a capital I for l (2026-10-02)
+
+Eight undetermined Nazario messages spelled a brand or lure word with a capital I for
+a lowercase l, which many fonts draw alike:
+- "Trust WaIIet" (five "Bitcoin was sent to your email" scams);
+- "PayPaI";
+- "AppIe ltunes";
+- "WeIIs Fargo".
+
+The obfuscation check knew only digit and symbol swaps, and it never read the From
+display name, where three of the eight carried the swap.
+
+The check now also finds I for l (and l for an initial i). It counts a word only when
+the swap turns it into a listed brand or lure word, so "LinkedIn" and "McIntyre" never
+match. The display name is read too.
+
+| Cohort (same model) | `c221517`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,368 / 91 / 7 | 3,375 / 84 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 13 High alerts rose to Critical. "PayPaI" with an image-only body stays undetermined.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+Such a word appears in 58 Nazario and 22 DIFraud fraud messages. It appears in no
+message of these genuine sets:
+- the 92 genuine downloads;
+- 9,198 genuine DIFraud messages;
+- 16,440 marketing emails;
+- 5,055 Apache list messages.
+
 ### Account-hold lures in attachments (2026-10-02)
 
 18 undetermined Nazario messages had an empty body and a PDF holding the whole lure.

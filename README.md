@@ -487,7 +487,11 @@ Raw input enables these checks:
   mismatch, Unicode/IDN and ASCII digit-substitution lookalikes, URL userinfo,
   deceptive brand subdomains, and credential-themed domains;
 - IP-based and shortened URLs, urgency, credential requests, threats, and
-  character obfuscation;
+  character obfuscation: digits and symbols for letters (`P@yP@l`, `Amaz0n`), and a
+  capital I for a lowercase l (`PayPaI`, `Trust WaIIet`, `AppIe`) or a lowercase l for
+  an initial i (`ltunes`), which many fonts draw alike. Only words that become a listed
+  brand or lure word count, so `LinkedIn` and `McIntyre` never do. The sender's display
+  name is checked too;
 - Chinese phrasing of the mailbox-credential lures common in Chinese phishing
   (simplified and traditional): quota full, account expiring or being deactivated,
   "upgrade" or "re-verify" the mailbox, "keep the same password". Only phrases tying
