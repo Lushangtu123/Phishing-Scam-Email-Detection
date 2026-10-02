@@ -401,19 +401,29 @@ def _dmarc_header_from(value: str) -> str:
 
 
 def _folded_display_name(display_name: str) -> str:
-    """NFKC, casefolded, without invisible format characters ("Git\u200bHub" is "github")."""
-    folded = unicodedata.normalize("NFKC", display_name).casefold()
-    return "".join(ch for ch in folded if unicodedata.category(ch) != "Cf")
+    """NFKC, casefolded, without invisible format characters ("Git\u200bHub" is "github"),
+    with Greek and Cyrillic letters drawn like Latin ones read as those ("Βank oϝ Αmerica")."""
+    folded = unicodedata.normalize("NFKC", display_name).translate(_CONFUSABLE_CAPITALS).casefold()
+    return "".join(ch for ch in folded if unicodedata.category(ch) != "Cf").translate(_CONFUSABLE_TRANSLATION)
+
+
+def _capital_i_as_l(display_name: str) -> str:
+    """A capital I after a lowercase letter read as the l it imitates ("PayPaI", "WeIIs")."""
+    return re.sub(r"(?<=[a-z])I+", lambda match: "l" * len(match.group()), display_name)
 
 
 def _display_name_claims(display_name: str, name: str) -> bool:
-    folded = _folded_display_name(display_name)
-    if name.isascii():
-        # Word boundaries keep ICBCX or 123067 from claiming ICBC or 12306.
-        pattern = r"(?<![a-z0-9])" + r"\s*".join(map(re.escape, name.casefold().split())) + r"(?![a-z0-9])"
-        return re.search(pattern, folded) is not None
-    compact = "".join(ch for ch in folded if not ch.isspace() and unicodedata.category(ch) != "Cf")
-    return name.casefold() in compact
+    """Whether the display name shows name, as written or with a capital I for l."""
+    for spelling in dict.fromkeys((display_name, _capital_i_as_l(display_name))):
+        folded = _folded_display_name(spelling)
+        if name.isascii():
+            # Word boundaries keep ICBCX or 123067 from claiming ICBC or 12306.
+            pattern = r"(?<![a-z0-9])" + r"\s*".join(map(re.escape, name.casefold().split())) + r"(?![a-z0-9])"
+            if re.search(pattern, folded):
+                return True
+        elif name.casefold() in "".join(ch for ch in folded if not ch.isspace()):
+            return True
+    return False
 
 
 def _registry_brand_claim(display_name: str, from_domain: str) -> str | None:
@@ -432,9 +442,18 @@ _CONFUSABLE_TRANSLATION = str.maketrans({
     # Cyrillic characters commonly used in Latin-brand lookalikes.
     "а": "a", "е": "e", "і": "i", "ј": "j", "о": "o",
     "р": "p", "с": "c", "х": "x", "у": "y", "ӏ": "l",
+    "ѕ": "s", "һ": "h", "ԁ": "d", "ԛ": "q", "ԝ": "w",
     # Greek characters with a close Latin appearance.
     "α": "a", "ε": "e", "ι": "i", "κ": "k", "ο": "o",
-    "ρ": "p", "τ": "t", "υ": "y", "χ": "x",
+    "ρ": "p", "τ": "t", "υ": "y", "χ": "x", "ϝ": "f",
+})
+# Greek and Cyrillic capitals drawn like Latin ones, read before casefolding turns them
+# into lowercase letters that look different (Β becomes β, Н becomes н).
+_CONFUSABLE_CAPITALS = str.maketrans({
+    "Α": "A", "Β": "B", "Ε": "E", "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M", "Ν": "N", "Ο": "O",
+    "Ρ": "P", "Τ": "T", "Υ": "Y", "Χ": "X", "Ϝ": "F",
+    "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C", "Т": "T",
+    "У": "Y", "Х": "X", "Ѕ": "S", "І": "I", "Ј": "J", "Ԛ": "Q", "Ԝ": "W",
 })
 
 
@@ -479,7 +498,7 @@ def _decode_idna_domain(domain: str) -> str:
 
 
 def _confusable_skeleton(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value.casefold())
+    normalized = unicodedata.normalize("NFKD", value.translate(_CONFUSABLE_CAPITALS).casefold())
     without_marks = "".join(ch for ch in normalized if not unicodedata.combining(ch))
     return without_marks.translate(_CONFUSABLE_TRANSLATION)
 
@@ -496,10 +515,8 @@ def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, l
     decoded_domain = _decode_idna_domain(from_domain)
     # Preserve word boundaries so Appleton/Pineapple are not brand identities.
     # Ignore format controls and allow separators inside an obfuscated brand.
-    display_skeleton = "".join(
-        ch for ch in _confusable_skeleton(display_name)
-        if unicodedata.category(ch) != "Cf"
-    )
+    display_skeletons = ["".join(ch for ch in _confusable_skeleton(spelling) if unicodedata.category(ch) != "Cf")
+                         for spelling in dict.fromkeys((display_name, _capital_i_as_l(display_name)))]
     domain_skeleton = _confusable_skeleton(decoded_domain)
     domain_label_skeleton = domain_skeleton.split(".", 1)[0]
     indicators: list[dict] = []
@@ -508,7 +525,7 @@ def _brand_identity_signals(display_name: str, from_domain: str) -> tuple[int, l
     for brand, canonical_domains in _PROTECTED_BRAND_DOMAINS.items():
         canonical = _canonical_brand_domain(from_domain, canonical_domains)
         brand_pattern = r"(?<!\w)" + r"[\W_]*".join(brand) + r"(?!\w)"
-        if re.search(brand_pattern, display_skeleton) and not canonical:
+        if any(re.search(brand_pattern, skeleton) for skeleton in display_skeletons) and not canonical:
             score += 4
             indicators.append(indicator('high', 'structure.brand_display_name', brand=brand, domain=from_domain))
         if (
