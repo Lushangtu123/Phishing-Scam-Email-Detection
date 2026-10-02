@@ -1408,6 +1408,22 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Brand names with lookalike letters in display names (2026-10-02)
+
+"Βank oϝ Αmerica" (Greek capitals and a digamma) and "PayPaI" (a capital I for l) were
+undetermined. Display names are now read as they look: Greek and Cyrillic capitals
+drawn like Latin letters count as those letters, and a capital I after a lowercase
+letter is also read as l. The name as written is always checked too.
+
+| Cohort (same model) | `13c6da8`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,400 / 59 / 7 | 3,402 / 57 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 20 High alerts rose to Critical; none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
 ### Domain registration dates through RDAP (2026-10-02)
 
 Registration dates were looked up for a random sample of distinct domains:

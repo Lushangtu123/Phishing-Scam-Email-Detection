@@ -413,7 +413,11 @@ Raw input enables these checks:
   source-linked. Government names also accept their country's government
   domains (gov.cn, .gov, gov.uk, gc.ca, gov.au). A matching domain proves
   nothing on its own, because From is not authenticated, so a match only
-  avoids this signal;
+  avoids this signal. Display names are read as they look: Greek and Cyrillic
+  letters drawn like Latin ones count as those letters (`Βank oϝ Αmerica`,
+  `Сhase Bank`), and a capital I after a lowercase letter is also read as an l
+  (`PayPaI`, `WeIIs Fargo`); the name as written is always checked too, so
+  `LinkedIn` keeps its I;
 - guidance only, never scored: when the verified sender, the From display name
   or the subject names a registry organization, the result lists up to two
   organizations under "How to verify it yourself". For each it shows the official

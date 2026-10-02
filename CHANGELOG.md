@@ -20,6 +20,29 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 12:30 PT] — Read brand names in display names as they look
+
+### Why
+- Two undetermined Nazario messages named a registered brand with lookalike letters:
+  - "Βank oϝ Αmerica", with a Greek capital beta and alpha and a digamma;
+  - "PayPaI", with a capital I for l and an image-only body.
+- The registry match read display names without the confusable table, and the table had only lowercase Greek and Cyrillic letters. Casefolding turns Β into β, which looks nothing like b.
+
+### Files changed
+- `website/email_structure.py`:
+  - **Capitals.** `_CONFUSABLE_CAPITALS` maps Greek and Cyrillic capitals drawn like Latin ones (Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Υ Χ Ϝ; А В Е К М Н О Р С Т У Х Ѕ І Ј Ԛ Ԝ) before casefolding. `_CONFUSABLE_TRANSLATION` gains ѕ, һ, ԁ, ԛ, ԝ and ϝ.
+  - **Registry matching.** `_folded_display_name` applies both tables, so registry names match lookalike spellings.
+  - **Capital I for l.** `_display_name_claims` and the protected-brand check also read a capital I after a lowercase letter as l (`_capital_i_as_l`). The name as written is always checked too, so "LinkedIn" keeps its I.
+- `website/tests/test_display_name_lookalikes.py`: 4 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (13c6da8) against this change:
+  - Nazario 3,466: alerts 3,400 → 3,402 (the two above → High); 20 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,032 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 11:30 PT] — Look up domain registration dates through RDAP
 
 ### Why
