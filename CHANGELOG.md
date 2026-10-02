@@ -20,6 +20,42 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 21:30 PT] — Fix the review of 9abbad5: CSS math types, gradient coverage, RDAP queue, link budget, subscription links
+
+### Why
+The read-only review of main at 9abbad5 (2026-10-02) found two P1 and two P2 issues, all reproduced here:
+- **S1 (P1).** Any `calc()`, `min()`, `max()` or `clamp()` counted as a valid value anywhere in a gradient. `linear-gradient(calc(1px), black, black)` (a length as the direction), `black calc(1deg)` in a linear stop, `calc(banana)` and `conic-gradient(from calc(1px), …)` are rejected by Chromium, yet were read as solid black. A visible callback scam was then hidden: Safe, while the white control is High.
+- **S2 (P2).** Cancelling an RDAP lookup released its admission slot at once, but its work item stayed in the pool's queue until a worker reached it. Twenty messages of five domains, with the workers blocked, left 92 queued items; only 8 fetches ran.
+- **R1 (P1).** At exactly 200 links the per-view labels were dropped for the whole message (`len(anchors) < 200` was false although nothing overflowed). This brought back the old whole-label match: "Releasedecoy messages", and the mailbox lure fell from High to Low.
+- **R2 (P2).** The recipient-prefilled rule skipped any link whose URL contained "preferences", "unsubscribe" and the like anywhere: `?email=…&preferences=0` turned Medium into Low.
+- **Also found.** The same S1 class holds for gradients that do not cover the box. `linear-gradient(black, black) no-repeat 0 0 / 1px 1px`, a zero size, `repeat-x`, `space`, or the same through `background-size` and `background-repeat` paint a tile or nothing, yet were read as a solid black backdrop. Chromium screenshots show the text on white.
+
+### Files changed
+- `website/app.py`:
+  - **Math types (S1).** `_css_math_type` parses math functions as CSS Values 4 types them:
+    - sums need matching types (lengths with percentages, angles alone), with whitespace around `+` and `-`;
+    - products need a number on one side, and a quotient of like types is a number (`10px / 2px`);
+    - `min()`, `max()`, `clamp()`, `round()`, `mod()`, `rem()`, `abs()`, `sign()`, `hypot()`, trigonometric and exponential functions each take their own argument types and counts.
+
+    `_css_quantity` returns the result type, and each place takes its own: a linear direction or conic `from` an angle; linear and radial stops a length or percentage; conic stops an angle or percentage (Chromium rejects them mixed); a circle's radius a length. A function this reader cannot type (`env()`, `var()` inside) is accepted but leaves the gradient's colours unknown. `_css_words` ends a word at a function's closing bracket, as CSS tokenizes (`url(a.png)no-repeat`).
+  - **Coverage.** A one-colour gradient is a solid backdrop only where its tiles cover the box: repeated on both axes at a size above zero (`_background_covers`). `background-size` and `background-repeat` are cascaded with the colours, validated layer by layer, and reset by the shorthand.
+  - **Link budget (R1).** Per-view labels are kept up to 5,000 links (`_MAX_VIEW_ANCHORS`), more than a 60,000-byte upload can hold. If a message does go past it, the labels already read stay. The rest are matched by their plain label, and the rendering counts as unresolved, so the result is never Safe or Low on that alone.
+  - **Subscription links (R2).** `_subscription_link` exempts a link by its label, its path, or Mailchimp's `list-manage.com`. A word in the query, fragment or host no longer counts.
+- `website/domain_age.py` (S2): each admitted lookup keeps its slot until its work item leaves the queue and ends (`_admitted`). A lookup no message waits for is skipped without a request when the pool reaches it, or taken up again if another message asks for the domain first. Futures are no longer cancelled.
+- `website/tests/test_review_2026_10_02_third.py`: 15 tests. `test_review_2026_10_02_second.py`: the RDAP test checks the admitted count.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Review samples.** `math1`–`math4`, `anchors199` and `anchors200` are High in HTML and EML. `prefill_exempt` is Medium as an EML, like `prefill_normal`; pasted HTML has no recipients to compare. The RDAP probe ends with 8 queued items instead of 92, 16 admitted, and 8 fetches.
+- **Chromium `CSS.supports`.** All 709 crafted values agree: the 305 earlier ones, 378 math values in seven positions, and 26 `background-size` and `background-repeat` values. 551 of 553 public values agree, as before.
+- **Coverage, by screenshot.** The four partial gradients show their text on white, and a 10-px repeated tile hides it, as read.
+- **Same served model, main (9abbad5) against this change:**
+  - Nazario 3,466: no per-message change (3,445 alerts, 16 undetermined, 5 Safe or Low);
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- A 50,000-character body of 2,000 links takes 0.4 s with either budget.
+- Tests: 1,085 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 20:30 PT] — Flag hidden-text salting, mailbox lures in attachments, and attachment names ending in a dot
 
 ### Why

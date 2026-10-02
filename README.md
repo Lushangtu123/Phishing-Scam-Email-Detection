@@ -500,7 +500,10 @@ Raw input enables these checks:
   exempt, even when the unauthenticated From claims the platform's own domain. This
   rule and the button rules below read every rendering view, each with the link
   labels it shows (the text that view shows inside each link, so a word a stylesheet
-  hides inside a button is left out), and the riskiest view counts;
+  hides inside a button is left out), and the riskiest view counts. Up to 5,000 links
+  are followed this way, more than a message within the 60,000-byte upload limit can
+  hold; past that, the rest are matched by their plain label as well and the rendering
+  counts as unresolved, so the result is never Safe or Low on that alone;
 - account or payment buttons ("Update Information", "Verify your account", "Log in")
   that lead to such published content: a Google Drawing, Doc, Form or Site, an Apps
   Script page, Firebase storage, Microsoft Forms, OneDrive, a Dropbox share, a Notion
@@ -522,8 +525,10 @@ Raw input enables these checks:
 - links that carry the recipient's own address (`?email=jose@example.org`, URL-encoded,
   or in base64) to a site that is neither the sender's nor listed: phishing kits
   pre-fill their sign-in page so it looks like the reader's account. Unsubscribe and
-  preference links, which carry the address in genuine mail, are left out. Medium,
-  with a Medium floor;
+  preference links, which carry the address in genuine mail, are left out: by their
+  label ("Unsubscribe", "Manage preferences"), their path (`/unsubscribe`,
+  `/email/preferences`) or Mailchimp's `list-manage.com`. A word elsewhere in the URL
+  (`?preferences=0`) does not count. Medium, with a Medium floor;
 - unpaid fine and toll lures: "unpaid toll balance", "your parking ticket is
   overdue", "multa no pagada", "amende impayée", 交通违法, "ETC 已失效", with a link
   that leaves the sender's domain for one that is neither listed nor a
@@ -564,8 +569,9 @@ Raw input enables these checks:
   the message 3 seconds in all, answers are cached for a day (failures for an
   hour), and an unanswered lookup leaves the date unknown. At most 16 lookups are
   admitted at once across all messages, one per domain however many messages ask;
-  beyond that a date is unknown, and a lookup no message waits for any more is
-  cancelled before it starts. Many country domains
+  beyond that a date is unknown. A lookup no message waits for any more is skipped,
+  with no request, when the pool reaches it, and keeps its slot until then, so the
+  pool's queue never holds more than 16 either. Many country domains
   (`.cn`, `.de`, `.io`, `.ru`) publish no RDAP service, so their dates are unknown.
   A domain registered less than 90 days before the analysis is named
   (`sender.recently_registered`, `link.recently_registered`); the dates are in
@@ -754,14 +760,22 @@ position, a conic one's `from` angle; stops give the colour first, then lengths 
 percentages (angles for conic ones), and a colour hint stands between two stops. So
 `linear-gradient(to circle, …)`, `linear-gradient(black 1deg, black)`,
 `conic-gradient(black 10px, black)` and `linear-gradient(black, 10px)` are dropped.
-The checks were compared with Chromium's `CSS.supports` on 305 crafted values and 553
+Math functions (`calc()`, `min()`, `clamp()`, `round()`, trigonometry and the rest) are
+typed as CSS Values 4 types them, so `linear-gradient(calc(1px), …)` (a length where an
+angle belongs) and `calc(banana)` are dropped too. One this reader cannot type
+(`env()`, `var()` inside it) leaves the gradient's colours unknown. A word ends at a
+function's closing bracket, as CSS reads it (`url(a.png)no-repeat`).
+The checks were compared with Chromium's `CSS.supports` on 709 crafted values and 553
 values from public templates and Nazario. They disagree only on two `-moz-` and `-o-`
 gradients, which other engines accept and which are read as images of unknown colour.
 A background clipped to the text (`background-clip: text`, its `-webkit-` form, or
 `text` in the shorthand) paints only inside the glyphs: it is no backdrop for them,
 and transparent text over it shows it (gradient text). A
 translucent background blends with what is behind it, and a gradient whose stops are
-all one opaque colour paints that colour. A stop this reader cannot compute
+all one opaque colour paints that colour where it covers the box: tiled on both axes
+(`repeat` or `round`) at a size above zero. `no-repeat`, `repeat-x`, `repeat-y`,
+`space`, or a zero or computed size, in the shorthand or in `background-size` and
+`background-repeat`, leaves the background unknown. A stop this reader cannot compute
 (`color-mix()`, a system colour) leaves the gradient unknown. The
 canvas is white and text black. Any other background image, an Outlook VML shape, or
 a client's dark mode (`prefers-color-scheme: dark`, Outlook's dark mode) leaves the

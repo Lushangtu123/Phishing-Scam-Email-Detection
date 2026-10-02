@@ -26,8 +26,9 @@ DEFAULT_BOOTSTRAP_PATH = Path(__file__).parent / "data" / "rdap_bootstrap.json"
 LOOKUP_TIMEOUT = 2.0
 LOOKUP_DEADLINE = 3.0
 MAX_LOOKUPS_PER_MESSAGE = 5
-# Lookups admitted at once, running or waiting, across all messages: beyond it a domain's
-# date is unknown rather than queued behind lookups nobody waits for.
+# Lookup work items admitted at once across all messages, running or queued (including
+# those nobody waits for any more, until the pool reaches and skips them): beyond it a
+# domain's date is unknown rather than queued without bound.
 MAX_PENDING_LOOKUPS = 16
 MAX_RESPONSE_BYTES = 256 * 1024
 CACHE_TTL = 24 * 3600
@@ -146,10 +147,22 @@ def lookup(domain: str, *, fetch=_fetch, servers: dict[str, str] | None = None,
 
 
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="rdap")
-# Admitted lookups: domain -> [future, messages waiting for it]. One lookup serves every
-# message that asks for the same domain while it is pending.
-_pending: dict[str, list] = {}
-_pending_lock = threading.RLock()
+
+
+class _Lookup:
+    """One admitted lookup: its future and the messages waiting for it. Its work item holds
+    an admission slot from submission until it leaves the pool's queue and ends, so a
+    lookup nobody waits for any more still counts while it sits in the queue."""
+    __slots__ = ("future", "waiters")
+
+    def __init__(self):
+        self.future, self.waiters = None, 0
+
+
+# Lookups not yet ended, by domain: one serves every message that asks for the domain.
+_pending: dict[str, _Lookup] = {}
+_admitted = 0  # work items submitted and not yet ended: running, queued or abandoned
+_pending_lock = threading.Lock()
 
 
 def _cached(domain: str):
@@ -158,14 +171,24 @@ def _cached(domain: str):
     return cached if cached and cached[0] > time.monotonic() else None
 
 
-def _release(domain: str, future) -> None:
-    with _pending_lock:
-        if _pending.get(domain, (None,))[0] is future:
-            del _pending[domain]
+def _work(domain: str, entry: _Lookup, fetch, servers) -> datetime | None:
+    """Look the domain up, unless no message waits for it any more; free the slot after."""
+    global _admitted
+    try:
+        with _pending_lock:
+            if entry.waiters <= 0:
+                return None
+        return lookup(domain, fetch=fetch, servers=servers)
+    finally:
+        with _pending_lock:
+            _admitted -= 1
+            if _pending.get(domain) is entry:
+                del _pending[domain]
 
 
 def _submit(domains, fetch, servers):
     """Futures (or cached dates) for up to MAX_LOOKUPS_PER_MESSAGE domains."""
+    global _admitted
     domains = list(dict.fromkeys(domain.lower().rstrip(".") for domain in domains))[:MAX_LOOKUPS_PER_MESSAGE]
     futures = {}
     with _pending_lock:
@@ -176,19 +199,21 @@ def _submit(domains, fetch, servers):
                 continue
             entry = _pending.get(domain)
             if entry is None:
-                if len(_pending) >= MAX_PENDING_LOOKUPS:
+                if _admitted >= MAX_PENDING_LOOKUPS:
                     futures[domain] = None
                     continue
-                entry = _pending[domain] = [_pool.submit(lookup, domain, fetch=fetch, servers=servers), 0]
-                entry[0].add_done_callback(lambda future, domain=domain: _release(domain, future))
-            entry[1] += 1
-            futures[domain] = entry[0]
+                entry = _pending[domain] = _Lookup()
+                _admitted += 1
+                entry.future = _pool.submit(_work, domain, entry, fetch, servers)
+            # A queued lookup another message gave up on is taken up again.
+            entry.waiters += 1
+            futures[domain] = entry.future
     return futures
 
 
 def _collect(futures) -> dict[str, datetime | None]:
-    """The dates answered so far. A lookup no message waits for any more is cancelled if
-    it has not started; one that has keeps its place until it ends, and fills the cache."""
+    """The dates answered so far. A lookup no message waits for any more is skipped when
+    the pool reaches it; one already running finishes and fills the cache."""
     dates = {}
     with _pending_lock:
         for domain, future in futures.items():
@@ -196,14 +221,12 @@ def _collect(futures) -> dict[str, datetime | None]:
                 dates[domain] = future
                 continue
             if future.done():
-                dates[domain] = None if future.cancelled() or future.exception() else future.result()
+                dates[domain] = None if future.exception() else future.result()
                 continue
             dates[domain] = None
             entry = _pending.get(domain)
-            if entry and entry[0] is future:
-                entry[1] -= 1
-                if entry[1] <= 0:
-                    future.cancel()
+            if entry is not None and entry.future is future:
+                entry.waiters -= 1
     return dates
 
 

@@ -1408,6 +1408,32 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of 9abbad5 (2026-10-02)
+
+A read-only review found four issues, all reproduced and fixed:
+- **S1, CSS math.** `calc()` and its kin counted as valid anywhere in a gradient. `linear-gradient(calc(1px), black, black)`, which Chromium rejects, hid a visible callback scam: Safe.
+- **S2, RDAP queue.** Cancelled lookups freed their slot but stayed in the pool's queue: 92 queued items after 100 lookups.
+- **R1, link budget.** At exactly 200 links the per-view labels were dropped, and a mailbox lure fell from High to Low.
+- **R2, subscription links.** `&preferences=0` anywhere in a URL exempted a link carrying the recipient's address.
+
+The same class as S1 also held for one-colour gradients that do not cover the box
+(`no-repeat`, a zero size, `repeat-x`, `space`, or the longhands): they were read as solid.
+Math functions are now typed, and coverage is checked. Checked against Chromium's
+`CSS.supports`: all 709 crafted values agree, and 551 of 553 public values. Screenshots
+confirm the coverage cases.
+
+| Cohort (same model) | `9abbad5`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,445 / 16 / 5 | 3,445 / 16 / 5 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of Nazario, DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** An unsubscribe link is still recognised by its path, which the link's owner
+writes: `/unsubscribe?email=…` on an attacker's host stays exempt. Its label and path are
+what genuine newsletters have; the query is not.
+
 ### Hidden-text salting and attachment lures (2026-10-02)
 
 Six of the 27 Nazario messages left undetermined, Safe or Low carried a lure no rule read:

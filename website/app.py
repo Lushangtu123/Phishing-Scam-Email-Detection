@@ -2187,7 +2187,8 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
         name = name if name.startswith('--') else name.lower()
         if not separator or not (name.startswith('--') or name in {
                 'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES,
-                'background', 'background-color', 'background-image', 'background-clip', '-webkit-background-clip'}):
+                'background', 'background-color', 'background-image', 'background-clip', '-webkit-background-clip',
+                'background-size', 'background-repeat'}):
             continue
         # Browsers read the prefixed name as the same property.
         name = 'background-clip' if name == '-webkit-background-clip' else name
@@ -2203,13 +2204,15 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
         if (name in {'color', 'background-color'} and _color_class(value) == 'invalid') or (
                 name == 'font-size' and _font_size_class(value) == 'invalid') or (
                 name in {'background', 'background-image'} and not _background_valid(value, name)) or (
-                name == 'background-clip' and not _background_clip_valid(value)):
+                name == 'background-clip' and not _background_clip_valid(value)) or (
+                name in {'background-size', 'background-repeat'} and not _background_tiling_valid(name, value)):
             continue
         if not _recognised_visibility_value(name, value):
             values['#unrecognised'] = (name, False)
             continue
         # The background shorthand sets the longhands; each reads its own part of it.
-        for target in ('background-color', 'background-image', 'background-clip') if name == 'background' else (name,):
+        for target in (('background-color', 'background-image', 'background-clip', 'background-size', 'background-repeat')
+                       if name == 'background' else (name,)):
             if target not in values or important or not values[target][1]:
                 values[target] = (value, important)
     return values
@@ -2569,7 +2572,14 @@ _BACKGROUND_REPEATS = frozenset({'repeat', 'space', 'round', 'no-repeat'})
 _BACKGROUND_ATTACHMENTS = frozenset({'scroll', 'fixed', 'local'})
 _BACKGROUND_BOXES = frozenset({'border-box', 'padding-box', 'content-box', 'text'})
 _BACKGROUND_POSITION_AXES = {'left': 'h', 'right': 'h', 'top': 'v', 'bottom': 'v', 'center': 'c'}
-_CSS_MATH = re.compile(r'(?:calc|min|max|clamp)\(.*\)\Z', re.S)
+# A math function (CSS Values 4): its result's type decides where it is valid.
+_CSS_MATH_FUNCTIONS = frozenset('''calc min max clamp round mod rem abs sign sin cos tan asin acos atan atan2 pow sqrt
+    hypot log exp'''.split())
+_CSS_MATH = re.compile(rf"(?:-webkit-calc|{'|'.join(sorted(_CSS_MATH_FUNCTIONS, key=len, reverse=True))})\(.*\)\Z", re.S)
+_CSS_MATH_TOKEN = re.compile(rf'(\s+)|({_CSS_NUMBER})(%|[a-z]+)?|(-?[a-z][a-z0-9-]*)(\()?|([-+*/(),])')
+_CSS_MATH_CONSTANTS = frozenset({'e', 'pi', 'infinity', '-infinity', 'nan'})
+_CSS_OTHER_UNITS = {'s': 'time', 'ms': 'time', 'hz': 'frequency', 'khz': 'frequency', 'dpi': 'resolution',
+                    'dpcm': 'resolution', 'dppx': 'resolution', 'x': 'resolution'}
 # CSS units by what they measure.
 _CSS_LENGTH_UNITS = frozenset("""px em rem ex rex ch rch ic ric cap rcap lh rlh vw vh vi vb vmin vmax svw svh svi svb
     svmin svmax lvw lvh lvi lvb lvmin lvmax dvw dvh dvi dvb dvmin dvmax cqw cqh cqi cqb cqmin cqmax cm mm q in pt pc""".split())
@@ -2607,14 +2617,180 @@ def _css_top_level(value: str, separators: str) -> list[str]:
 
 
 def _css_words(value: str) -> list[str]:
-    return [word for word in _css_top_level(value, ' \t\n\r\f') if word]
+    """Space-separated words; a function's closing bracket also ends a word, as CSS
+    tokenizes it ("calc(1px)calc(2px)" is two values, "url(a.png)no-repeat" two)."""
+    words = []
+    for word in _css_top_level(value, ' \t\n\r\f'):
+        depth, start = 0, 0
+        for index, character in enumerate(word):
+            depth += {'(': 1, ')': -1}.get(character, 0)
+            if character == ')' and depth == 0 and index + 1 < len(word):
+                words.append(word[start:index + 1])
+                start = index + 1
+        words.append(word[start:])
+    return [word for word in words if word]
+
+
+def _css_math_sum(types):
+    """The type of a sum (or of min(), max() and the like) of these types, or None."""
+    result = types[0]
+    for other in types[1:]:
+        if 'unknown' in (result, other):
+            result = 'unknown'
+        elif result != other:
+            pair = {result, other}
+            result = ('length-percentage' if pair <= {'length', 'percentage', 'length-percentage'}
+                      else 'angle-percentage' if pair <= {'angle', 'percentage', 'angle-percentage'} else None)
+            if result is None:
+                return None
+    return result
+
+
+def _css_math_type(word: str) -> str | None:
+    """The type of a math function's result: 'number', 'percentage', 'length', 'angle',
+    'length-percentage', 'angle-percentage' or another dimension; 'unknown' where this
+    reader cannot tell (var(), functions it does not model); None where browsers reject
+    it (calc(banana), calc(1px + 1deg), calc(1px+1px))."""
+    tokens, index = [], 0
+    while index < len(word):
+        match = _CSS_MATH_TOKEN.match(word, index)
+        if not match:
+            return None
+        index = match.end()
+        if match.group(1):
+            if tokens:
+                tokens[-1] = (*tokens[-1][:2], True, tokens[-1][3])
+            continue
+        spaced = not tokens or tokens[-1][2]
+        if match.group(2) is not None:
+            unit = match.group(3)
+            kind = ('number' if unit is None else 'percentage' if unit == '%' else 'length' if unit in _CSS_LENGTH_UNITS
+                    else 'angle' if unit in _CSS_ANGLE_UNITS else _CSS_OTHER_UNITS.get(unit))
+            if kind is None:
+                return None
+            tokens.append(('value', kind, False, spaced))
+        elif match.group(4) is not None:
+            tokens.append(('function' if match.group(5) else 'name', match.group(4), False, spaced))
+        else:
+            tokens.append(('operator', match.group(6), False, spaced))
+    position = [0]
+
+    def peek():
+        return tokens[position[0]] if position[0] < len(tokens) else (None, None, False, False)
+
+    def take():
+        token = peek()
+        position[0] += 1
+        return token
+
+    def arguments():
+        values = [total()]
+        while peek()[:2] == ('operator', ','):
+            take()
+            values.append(total())
+        if take()[:2] != ('operator', ')'):
+            raise ValueError
+        return values
+
+    def atom():
+        kind, value, _after, _before = take()
+        if kind == 'value':
+            return value
+        if kind == 'name':
+            if value in _CSS_MATH_CONSTANTS:
+                return 'number'
+            raise ValueError
+        if (kind, value) == ('operator', '('):
+            result = total()
+            if take()[:2] != ('operator', ')'):
+                raise ValueError
+            return result
+        if kind != 'function':
+            raise ValueError
+        if value not in _CSS_MATH_FUNCTIONS:
+            # var(), env() or a function this reader does not model: skip to its end.
+            depth = 1
+            while depth:
+                token = take()
+                if token[0] is None:
+                    raise ValueError
+                depth += {'(': 1, ')': -1}.get(token[1], 0) if token[0] == 'operator' else token[0] == 'function'
+            return 'unknown'
+        if value == 'round' and peek()[0] == 'name' and peek()[1] in {'nearest', 'up', 'down', 'to-zero'}:
+            take()
+            if take()[:2] != ('operator', ','):
+                raise ValueError
+        values = arguments()
+        counts = {'calc': (1, 1), 'clamp': (3, 3), 'round': (1, 2), 'mod': (2, 2), 'rem': (2, 2), 'abs': (1, 1),
+                  'sign': (1, 1), 'atan2': (2, 2), 'pow': (2, 2), 'log': (1, 2)}.get(value, (1, 1) if value in {
+                      'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'exp'} else (1, 32))
+        if not counts[0] <= len(values) <= counts[1] or None in values:
+            raise ValueError
+        if 'unknown' in values:
+            return 'unknown'
+        if value in {'sin', 'cos', 'tan'}:
+            return 'number' if values[0] in {'number', 'angle'} else None
+        if value in {'asin', 'acos', 'atan'}:
+            return 'angle' if values[0] == 'number' else None
+        if value in {'pow', 'sqrt', 'exp', 'log'}:
+            return 'number' if set(values) == {'number'} else None
+        if value == 'round' and len(values) == 1 and values[0] != 'number':
+            return None  # round(1px) needs its interval; round(1.5) does not
+        result = _css_math_sum(values)
+        if value == 'atan2':
+            return 'angle' if result else None
+        return 'number' if value == 'sign' and result else result
+
+    def product():
+        result = atom()
+        while peek()[:2] in {('operator', '*'), ('operator', '/')}:
+            operator = take()[1]
+            other = atom()
+            if None in (result, other):
+                return None
+            if 'unknown' in (result, other):
+                result = 'unknown'
+            elif other == 'number':
+                pass
+            elif operator == '*' and result == 'number':
+                result = other
+            elif operator == '/' and result == other and result not in {'percentage', 'length-percentage'}:
+                result = 'number'  # 10px / 2px is a number (typed arithmetic)
+            elif operator == '/' and _css_math_sum([result, other]):
+                result = 'unknown'  # a percentage's share of a length depends on the box
+            else:
+                return None
+        return result
+
+    def total():
+        result = product()
+        while peek()[:2] in {('operator', '+'), ('operator', '-')}:
+            operator = take()
+            # "+" and "-" need whitespace on both sides: calc(1px+1px) is invalid.
+            if not operator[3] or not operator[2]:
+                raise ValueError
+            other = product()
+            if None in (result, other):
+                return None
+            result = _css_math_sum([result, other])
+            if result is None:
+                return None
+        return result
+
+    try:
+        result = atom()
+    except (ValueError, IndexError):
+        return None
+    return result if position[0] == len(tokens) else None
 
 
 def _css_quantity(word: str) -> str | None:
     """What a value measures: 'length', 'angle', 'percentage', 'zero' (a unitless 0),
-    'number' (another unitless number), 'math' (calc() and the like), or None."""
+    'number' (another unitless number), 'length-percentage' or 'angle-percentage' (from a
+    math function), 'math-unknown' (a math function whose type is unknown), or None."""
     if _CSS_MATH.match(word):
-        return 'math'
+        kind = _css_math_type(word)
+        return 'math-unknown' if kind == 'unknown' else kind
     match = _CSS_DIMENSION.fullmatch(word)
     if not match:
         return None
@@ -2628,7 +2804,15 @@ def _css_quantity(word: str) -> str | None:
 def _css_length(word: str) -> bool:
     """A length or percentage, as a background position or size takes it: a unitless
     number other than 0 is none, even in a quirks-mode document."""
-    return _css_quantity(word) in {'length', 'percentage', 'zero', 'math'}
+    return _css_quantity(word) in _CSS_LENGTH_PERCENTAGE
+
+
+# The types each place takes; a math function of unknown type is accepted, and leaves a
+# gradient's colours unknown.
+_CSS_LENGTH_PERCENTAGE = frozenset({'length', 'percentage', 'zero', 'length-percentage', 'math-unknown'})
+# Chromium rejects angles and percentages mixed in one conic stop (calc(10% + 1deg)).
+_CSS_ANGLE_PERCENTAGE = frozenset({'angle', 'percentage', 'zero', 'math-unknown'})
+_CSS_ANGLE = frozenset({'angle', 'zero', 'math-unknown'})
 
 
 def _gradient_setup_valid(kind: str, words: list[str]) -> bool:
@@ -2648,7 +2832,7 @@ def _gradient_setup_valid(kind: str, words: list[str]) -> bool:
         words = words[:at] + words[at + clause:]
     if kind == 'linear':
         if len(words) == 1:
-            return _css_quantity(words[0]) in {'angle', 'zero', 'math'}
+            return _css_quantity(words[0]) in _CSS_ANGLE
         if words[:1] == ['to'] and 2 <= len(words) <= 3:
             axes = [_GRADIENT_SIDES.get(word) for word in words[1:]]
             return None not in axes and len(set(axes)) == len(axes)
@@ -2663,16 +2847,16 @@ def _gradient_setup_valid(kind: str, words: list[str]) -> bool:
     if kind == 'conic':
         if not words:
             return True
-        return len(words) == 2 and words[0] == 'from' and _css_quantity(words[1]) in {'angle', 'zero', 'math'}
+        return len(words) == 2 and words[0] == 'from' and _css_quantity(words[1]) in _CSS_ANGLE
     shapes = [word for word in words if word in {'circle', 'ellipse'}]
     extents = [word for word in words if word in _GRADIENT_EXTENTS]
     sizes = [word for word in words if word not in {'circle', 'ellipse'} and word not in _GRADIENT_EXTENTS]
     if len(shapes) > 1 or len(extents) > 1 or (extents and sizes) or len(sizes) > 2:
         return False
-    if any(_css_quantity(word) not in {'length', 'percentage', 'zero', 'math'} or word.startswith('-') for word in sizes):
+    if any(_css_quantity(word) not in _CSS_LENGTH_PERCENTAGE or word.startswith('-') for word in sizes):
         return False
     # One size is a circle's radius (no percentage); two are an ellipse's.
-    if len(sizes) == 1 and ('ellipse' in shapes or _css_quantity(sizes[0]) == 'percentage'):
+    if len(sizes) == 1 and ('ellipse' in shapes or _css_quantity(sizes[0]) in {'percentage', 'length-percentage'}):
         return False
     return not (len(sizes) == 2 and 'circle' in shapes)
 
@@ -2687,11 +2871,11 @@ def _gradient_stops(image: str):
     if not match:
         return None
     kind = match.group(1)
-    positions = {'angle', 'percentage', 'zero', 'math'} if kind == 'conic' else {'length', 'percentage', 'zero', 'math'}
+    positions = _CSS_ANGLE_PERCENTAGE if kind == 'conic' else _CSS_LENGTH_PERCENTAGE
     arguments = [_css_words(argument) for argument in _css_top_level(match.group(2), ',')]
     items = []
     for index, words in enumerate(arguments):
-        colours = [word for word in words if word not in _CSS_WIDE_KEYWORDS and _css_quantity(word) is None and (
+        colours = [word for word in words if word not in _CSS_WIDE_KEYWORDS and not _CSS_MATH.match(word) and (
             word == 'currentcolor' or _color_class(word) in {'visible', 'transparent', 'unresolved'})]
         rest = [word for word in words if word not in colours]
         # A stop's colour comes first, its positions after it.
@@ -2710,7 +2894,11 @@ def _gradient_stops(image: str):
     for at, item in enumerate(items):
         if item == '#hint' and (at == 0 or at == len(items) - 1 or '#hint' in (items[at - 1], items[at + 1])):
             return []
-    return [item for item in items if item != '#hint']
+    stops = [item for item in items if item != '#hint']
+    # A math function this reader cannot type may still be invalid: the colours are unknown.
+    if any(_css_quantity(word) == 'math-unknown' for words in arguments for word in words):
+        stops.append(None)
+    return stops
 
 
 def _background_position_valid(words: list[str]) -> bool:
@@ -2806,6 +2994,64 @@ def _background_clip_valid(value: str) -> bool:
     return 'var(' in value or value in _CSS_WIDE_KEYWORDS or all(
         len(words) == 1 and words[0] in _BACKGROUND_BOXES
         for words in map(_css_words, _css_top_level(value, ',')))
+
+
+# Background properties cascaded with the colours, besides the colour and image: the
+# clip, and the size and repeat that decide whether a gradient covers the box.
+_BACKGROUND_LAYOUT_PROPERTIES = ('background-clip', 'background-size', 'background-repeat')
+_BACKGROUND_PARTIAL_REPEATS = frozenset({'no-repeat', 'repeat-x', 'repeat-y', 'space'})
+
+
+def _background_tiling_valid(name: str, value: str) -> bool:
+    """Whether a background-size or background-repeat value is valid, layer by layer."""
+    if 'var(' in value or value in _CSS_WIDE_KEYWORDS:
+        return True
+    for words in map(_css_words, _css_top_level(value, ',')):
+        if name == 'background-repeat':
+            if not (words in (['repeat-x'], ['repeat-y'])
+                    or 1 <= len(words) <= 2 and all(word in _BACKGROUND_REPEATS for word in words)):
+                return False
+        elif not (words in (['cover'], ['contain']) or 1 <= len(words) <= 2 and all(
+                word == 'auto' or (_css_length(word) and not word.startswith('-')) for word in words)):
+            return False
+    return True
+
+
+def _background_tile_covers(repeat: list[str], size: list[str]) -> bool:
+    """Whether a layer's image, repeated as given, covers the whole box: tiled on both axes
+    (round scales the tiles to fit), at a size that is certainly above zero."""
+    if _BACKGROUND_PARTIAL_REPEATS.intersection(repeat):
+        return False
+    for word in size:
+        if word in {'auto', 'cover', 'contain'}:
+            continue
+        number = re.match(_CSS_NUMBER, word)
+        if not (_css_quantity(word) in {'length', 'percentage'} and number and float(number.group(0)) > 0):
+            return False
+    return True
+
+
+@lru_cache(maxsize=4096)
+def _background_covers(image: str, size: str | None = None, repeat: str | None = None) -> bool:
+    """Whether every layer of a background covers the box. The size and repeat come from
+    the shorthand (image) unless longhands that outrank it set them."""
+    if 'var(' in image or any(value is not None and ('var(' in value or value in _CSS_WIDE_KEYWORDS - {'initial'})
+                              for value in (size, repeat)):
+        return False
+    shorthand = []
+    for layer in _css_top_level(image, ','):
+        pieces = _css_top_level(layer, '/')
+        words = _css_words(pieces[0])
+        after = _css_words(pieces[1]) if len(pieces) > 1 else []
+        layer_size = after[:1] if after[:1] in (['cover'], ['contain']) else list(
+            takewhile(lambda word: word == 'auto' or _css_length(word), after[:2]))
+        shorthand.append(([word for word in words + after[len(layer_size):]
+                           if word in _BACKGROUND_REPEATS or word in {'repeat-x', 'repeat-y'}], layer_size))
+    sizes = ([size_words for _repeat, size_words in shorthand] if size in (None, image) else
+             [[] if size == 'initial' else _css_words(layer) for layer in _css_top_level(size, ',')])
+    repeats = ([repeat_words for repeat_words, _size in shorthand] if repeat in (None, image) else
+               [[] if repeat == 'initial' else _css_words(layer) for layer in _css_top_level(repeat, ',')])
+    return all(_background_tile_covers(repeat_words, size_words) for repeat_words in repeats for size_words in sizes)
 
 
 @lru_cache(maxsize=4096)
@@ -3611,7 +3857,7 @@ def _with_custom_properties(winners: dict, custom: dict) -> tuple:
         value = ranked[3]
         if isinstance(value, tuple) and value[0] == 'var':
             value = _variable_class(name, _substitute_variables(value[1], custom))
-        elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES or name == 'background-clip') \
+        elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES or name in _BACKGROUND_LAYOUT_PROPERTIES) \
                 and isinstance(value, str) and 'var(' in value:
             value = _substitute_variables(value, custom)
         else:
@@ -3658,8 +3904,7 @@ def _declared_values(block: str, *, typography: bool = True, geometry: bool = Fa
         declared.append(('color', ('var', value) if 'var(' in value else _color_class(value), values['color'][1]))
     declared.extend((name, value, important) for name, (value, important) in values.items() if name.startswith('--'))
     if colours:
-        if 'background-clip' in values:
-            declared.append(('background-clip', *values['background-clip']))
+        declared.extend((name, *values[name]) for name in _BACKGROUND_LAYOUT_PROPERTIES if name in values)
         if 'color' in values:
             declared.append(('text-color', values['color'][0], values['color'][1]))
         declared.extend((name, values[name][0], values[name][1]) for name in ('background-color', 'background-image')
@@ -3737,6 +3982,10 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
         colour = _DEFAULT_TEXT if ranked[3] == 'initial' else _colour_rgba(ranked[3])
     image, fill = winners.get('background-image'), winners.get('background-color')
     painted, solid = _background_parts(image[3])[1:] if image else (False, None)
+    if solid and not _background_covers(image[3], *(winners[name][3] if name in winners else None
+                                                    for name in ('background-size', 'background-repeat'))):
+        # A one-colour gradient that does not tile the whole box paints only part of it.
+        painted, solid = True, None
     ranked = winners.get('background-clip')
     clip = _background_clip(ranked[3]) if ranked and isinstance(ranked[3], str) else 'none'
     if clip != 'none' and transparent:
@@ -4062,6 +4311,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             # In the view pass, each link's label as every view shows it: the text inside
             # an <a href> that the view renders, children a rule hides left out.
             self.anchors = []
+            self.anchors_overflow = False
             self.open_anchors = []
 
         def _anchor_record(self, href):
@@ -4455,9 +4705,12 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
                                       element_tokens, inline_state, element_states, element_custom))
                 self.children.append([])
-                if actionable_anchor and self.targets is not None and len(self.anchors) < _MAX_VIEW_ANCHORS:
-                    self.anchors.append(self._anchor_record(href))
-                    self.open_anchors.append((len(self.elements) - 1, len(self.anchors) - 1))
+                if actionable_anchor and self.targets is not None:
+                    if len(self.anchors) < _MAX_VIEW_ANCHORS:
+                        self.anchors.append(self._anchor_record(href))
+                        self.open_anchors.append((len(self.elements) - 1, len(self.anchors) - 1))
+                    else:
+                        self.anchors_overflow = True
                 if tag == 'p':
                     self.open_paragraph = True
             if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
@@ -4556,6 +4809,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                                                     unresolved=unresolved)
                 if views.cascade_conflict:
                     unresolved.append('cascade')
+                if views.anchors_overflow:
+                    # Labels past the budget are not followed through the views.
+                    unresolved.append('links')
                 readings['same_colour_letters'] = views.same_colour_letters
                 if 0 < views.same_colour_letters < _SAME_COLOUR_MODEL_LETTERS:
                     # Too little to dilute the model (a preheader): its views keep this
@@ -4586,7 +4842,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     return [(joined(anchor[key] if index is None else anchor[key][index]), anchor['href'])
                             for anchor in views.anchors]
                 readings['certain_links'] = labels('certain')
-                readings['links_complete'] = len(views.anchors) < _MAX_VIEW_ANCHORS
+                readings['links_complete'] = not views.anchors_overflow
                 readings['rules_media_links'] = [*(labels('views', index) for index in range(len(views.view_parts))),
                                                  labels('outlook')] + ([labels('loose')] if views.cascade_conflict else [])
                 if collector.images_off:
@@ -4615,8 +4871,10 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
 
 
 _INLINE_IMAGE_WARNING = message_text('warning.inline_images')
-# Links whose label is followed through each rendering view (the rest keep their plain label).
-_MAX_VIEW_ANCHORS = 200
+# Links whose label is followed through each rendering view: more than a message within the
+# 60,000-byte upload limit can hold (a link needs 19 bytes at least). Past it, the rest are
+# matched by their plain label and the rendering counts as unresolved.
+_MAX_VIEW_ANCHORS = 5000
 _REMOTE_IMAGE_WARNING = message_text('warning.remote_images')
 _UNRESOLVED_IMAGE_WARNING = message_text('warning.unresolved_images')
 _HAN_TEXT_WARNING = message_text('warning.han_text')
@@ -5204,7 +5462,23 @@ def _government_host(host: str) -> bool:
 # one; none of the 92 genuine downloads or 5,055 Apache list messages do. Unsubscribe and
 # preference links, which carry the address in genuine mail, are left out.
 _SUBSCRIPTION_LINK = re.compile(r"unsubscribe|opt[-_]?out|preferences|manage[-_]?(?:subscription|email)|email[-_]?settings"
-                                r"|list-manage|退订|取消订阅", re.IGNORECASE)
+                                r"|退订|取消订阅", re.IGNORECASE)
+# Mailchimp's list-management domain.
+_SUBSCRIPTION_HOSTS = frozenset({'list-manage.com'})
+
+
+def _subscription_link(label: str, destination: str) -> bool:
+    """An unsubscribe or preferences link, by its label, its path or a list-management
+    host: a word anywhere else in the URL ("?preferences=0") proves nothing."""
+    if _SUBSCRIPTION_LINK.search(label or ''):
+        return True
+    try:
+        target = _parse_link_target(destination)
+    except ValueError:
+        return False
+    host = (target.hostname or '').lower().rstrip('.')
+    return (_organizational_domain(host) in _SUBSCRIPTION_HOSTS if host else False) or bool(
+        _SUBSCRIPTION_LINK.search(unquote(target.path or '')))
 
 
 def _recipient_prefilled_link(links, recipients, sender_domain: str = '') -> str | None:
@@ -5218,7 +5492,7 @@ def _recipient_prefilled_link(links, recipients, sender_domain: str = '') -> str
     if not forms:
         return None
     for label, destination in links or ():
-        if _SUBSCRIPTION_LINK.search(destination) or _SUBSCRIPTION_LINK.search(label or ''):
+        if _subscription_link(label, destination):
             continue
         host = _unlisted_off_sender_host(destination, sender_domain)
         if not host:
@@ -5707,10 +5981,10 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                 # Text that only box geometry may hide was scored before views existed.
                 earlier_uncertain and resolved, readings.get('certain'), readings.get('rules_media') or [],
                 readings.get('images_off'), readings.get('certain_off'), readings.get('rules_media_off') or [],
-                # Each reading's link labels, where the views followed every link.
+                # Each reading's link labels, as far as the views followed them.
                 {key: readings[key] for key in ('certain_links', 'rules_media_links', 'certain_links_off',
-                                                'rules_media_links_off') if key in readings}
-                if readings.get('links_complete') else None)
+                                                'rules_media_links_off', 'links_complete') if key in readings}
+                if 'certain_links' in readings else None)
 
     if content_parts is None:
         raw_parts = [subject, body]
@@ -5875,6 +6149,11 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                 media = labels.get('rules_media_links_off' if off else 'rules_media_links') or []
                 found.extend((label, destination) for label, destination
                              in (media[index - 1] if 0 < index <= len(media) else certain) if label.strip())
+                if not labels.get('links_complete'):
+                    # Past the budget, the labels the reading's text shows whole are read too.
+                    shown = _han_compact(text or '')
+                    found.extend((label, destination) for label, destination in part_links
+                                 if label.strip() and _han_compact(label) in shown)
             else:
                 shown = _han_compact(text or '')
                 found.extend((label, destination) for label, destination in part_links

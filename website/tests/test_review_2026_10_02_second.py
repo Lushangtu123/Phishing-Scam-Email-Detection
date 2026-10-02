@@ -139,7 +139,8 @@ class RdapAdmissionTests(unittest.TestCase):
                                                            fetch=self.blocked, servers=self.SERVERS, deadline=0.01)
                 self.assertEqual(set(dates.values()), {None})
         asyncio.run(run())
-        self.assertLessEqual(len(domain_age._pending), domain_age._pool._max_workers)
+        # Lookups nobody waits for keep their slot until the pool reaches and skips them.
+        self.assertLessEqual(domain_age._admitted, domain_age.MAX_PENDING_LOOKUPS)
         self.release.set()
         time.sleep(0.2)
         self.assertLessEqual(len(self.calls), domain_age._pool._max_workers)
