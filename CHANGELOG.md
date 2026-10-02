@@ -20,6 +20,41 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 09:30 PT] — Fix the review of 06dfbb7: gradient stops, lure views, platform senders, PDF fonts
+
+### Why
+The read-only review of main at 06dfbb7 (2026-10-02) found three P1 and two P2 issues, all reproduced here:
+- **S1 (P1).** `linear-gradient(black 0%, color-mix(in srgb, white, white) 0%)`, a valid gradient that is white behind the text, was read as solid black. The unresolved `color-mix()` stop was dropped, so a visible callback scam was treated as hidden: Safe, previously High.
+- **R1 (P1).** The mailbox, delivery, file-sharing and published-document rules read only the text and link labels no style can hide. `@media print { .attack { display: none } }` made a lure the screen shows Safe or Low.
+- **R2 (P1).** An unauthenticated `From: …@google.com` made a Google Docs link "the sender's own", so a mailbox lure linking there became Safe.
+- **R3 (P2).** PDF font resources were merged by name across pages: two pages each defining `/F1` gave page 2 the first page's ToUnicode map, garbling a callback.
+- **R4 (P2).** A malformed font (`/Widths [.]`, a ToUnicode range past its byte capacity) raised out of `analyze_raw_email`, so no result was produced.
+- **Also found.** The review's other probes showed that backgrounds browsers reject were still applied: `linear-gradient(banana, black)`, `left left black`, `repeat repeat repeat black`, `none none black`. A line break inside a value (`color: rgb(255,\n255,255)`) dropped the declaration.
+
+### Files changed
+- `website/app.py`:
+  - **Gradients.** `_gradient_stops` keeps an unresolved stop as unknown, so the gradient is never taken as one colour. It reports a gradient browsers reject, which drops the declaration.
+  - **Background validity.** `_background_valid` follows the background layer grammar: one image, repeat, attachment, colour and position, two boxes at most; a well-formed position; the size directly after it; no whitespace inside an unquoted `url()`. Checked against Chromium's `CSS.supports`: all 76 crafted values agree, and 551 of 553 values from public templates and Nazario. The two exceptions are `-moz-` and `-o-` gradients, read as images of unknown colour.
+  - **Whitespace.** `_style_values` reads any run of whitespace in a value as one space.
+  - **Lure rules (R1).** The four button-based lure rules run on every reading (each rendering view, images off too), with the link labels that reading shows.
+  - **Published content (R2).** `_unlisted_off_sender_host` checks user-publishable locations before the sender-domain exemption. `_user_content_location` decodes the path (`/%64ocument/`).
+- `website/email_structure.py`:
+  - **Font scoping (R3).** Each content stream uses the fonts of its own page (with `/Parent` inheritance) or form.
+  - **Unmapped codes.** A simple font's codes missing from its ToUnicode map are read in the standard encoding.
+  - **Malformed fonts (R4).** Widths and codes use the full number syntax and are bounded, and CMap ranges past their byte capacity are cut. A PDF or Word attachment that still fails to parse adds `warning.attachment_unreadable`, and the rest of the message is analysed.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the new warning. Asset versions bumped.
+- `website/tests/test_review_2026_10_02.py`: 12 tests; on 06dfbb7 they give 24 failures and 4 errors.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Review samples.** Every finding sample is High in HTML and EML, as are the invalid-background probes and the `/%64ocument/` path. `linear-gradient(black)` stays hidden: Chromium paints it black.
+- **Same served model, 06dfbb7 against this change:**
+  - Nazario 3,466: alerts 3,400 → 3,400; one High → Critical, a file-sharing lure shown only in one rendering view; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- **Not changed.** The sender-domain exemption for other links still trusts an unauthenticated From. An attacker who owns the link's domain can make it pass DMARC as well. Without a chosen mailbox, requiring authentication would remove the exemption from genuine schools' and providers' own notices.
+- Tests: 1,008 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 08:30 PT] — Flag delivery lures that ask for a fee or a corrected address
 
 ### Why

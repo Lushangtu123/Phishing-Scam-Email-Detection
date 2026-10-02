@@ -1408,6 +1408,35 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of 06dfbb7 (2026-10-02)
+
+A read-only review found five issues, all reproduced and fixed:
+- **S1, gradients.** A gradient stop this reader could not compute (`color-mix()`) was dropped. A white-behind-the-text gradient then read as solid black, and a visible callback scam as hidden: Safe.
+- **R1, print-only CSS.** The lure rules read only text no style can hide, so `@media print { … display:none }` made screen-visible lures Safe or Low.
+- **R2, platform sender.** An unauthenticated `From: …@google.com` exempted a Google Docs link.
+- **R3, PDF fonts.** Font names were merged across pages, garbling page 2.
+- **R4, malformed fonts.** These raised an exception out of parsing.
+
+The review's other probes showed that backgrounds browsers reject (`left left black`,
+`linear-gradient(banana, black)`) were still applied. Background validity now follows
+CSS's layer grammar. It was checked against Chromium's `CSS.supports` on 76 crafted
+values and 553 values from public templates and Nazario. The two disagreements are
+`-moz-` and `-o-` gradients, which other engines accept.
+
+| Cohort (same model) | `06dfbb7`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,400 / 59 / 7 | 3,400 / 59 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** One High alert rose to Critical: its file-sharing lure shows in one rendering view only.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Left as is.** The sender-domain exemption for other links still trusts an
+unauthenticated From. An attacker who owns the link's domain can also make it pass DMARC.
+Without a chosen mailbox, requiring authentication would strip the exemption from
+genuine schools' and providers' own notices.
+
 ### Delivery lures asking for a fee or a corrected address (2026-10-02)
 
 Five undetermined Nazario messages were parcel lures:

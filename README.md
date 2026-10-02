@@ -431,9 +431,14 @@ Raw input enables these checks:
   destination checks as message links, prefixed "PDF attachment link". The PDF's
   text is read too: the text operators of its content streams, decoded through each
   font's ToUnicode map and joined by the glyph widths the font gives, bounded in
-  objects, tokens and 20,000 characters of output. It is checked like a Word
-  attachment's text (below), prefixed "PDF attachment". Images (often QR codes) are
-  never read, so the attachment stays `metadata_only`;
+  objects, tokens and 20,000 characters of output. Each content stream uses the fonts
+  of its own page (inherited from parent page nodes) or form, since two pages may give
+  one name to different fonts. A simple font's codes missing from its ToUnicode map
+  are read in the standard encoding, as viewers still draw them. It is checked like a
+  Word attachment's text (below), prefixed "PDF attachment". A PDF or Word attachment
+  that cannot be parsed leaves the rest of the message analysed and marks the
+  analysis incomplete. Images (often QR codes) are never read, so the attachment stays
+  `metadata_only`;
 - the text and external hyperlinks of Word (.docx) attachments. Only
   `word/document.xml` and its relationship list are read, bounded in archive
   size, entry count and decompressed bytes. Macros, embedded objects and images
@@ -470,8 +475,9 @@ Raw input enables these checks:
   brand domain. A school's or provider's own notice links to its own domain. A
   document, form or shared file that anyone can publish on a trusted platform (Google
   Docs and Forms, Microsoft Forms, OneDrive, SharePoint, Dropbox shares) is never
-  exempt. Where a stylesheet makes the rendering uncertain, a link label counts if the
-  text no style can hide shows it;
+  exempt, even when the unauthenticated From claims the platform's own domain. This
+  rule and the button rules below read every rendering view, each with the link
+  labels it shows, and the riskiest view counts;
 - account or payment buttons ("Update Information", "Verify your account", "Log in")
   that lead to such published content: a Google Drawing, Doc, Form or Site, an Apps
   Script page, Firebase storage, Microsoft Forms, OneDrive, a Dropbox share, a Notion
@@ -662,9 +668,17 @@ Colours come from `color` and `background` in rules and inline styles, `var()`,
 `currentcolor`, the `bgcolor` and `<font color>` attributes, and the browser's link
 colour; HTML colour attributes are parsed as browsers do (`bgcolor="fff"` is
 `#0f0f0f`). `lab()`, `lch()`, `oklab()`, `oklch()` and `color()` are converted to sRGB
-as CSS Color 4 does. A `background` that is not valid CSS (`background: banana black`)
-is dropped whole, as browsers drop it. A translucent background blends with what is
-behind it, and a gradient whose stops are all one colour paints that colour. The
+as CSS Color 4 does. Whitespace inside a value counts as one space, so
+`rgb(255,\n255,255)` is white. A `background` that is not valid CSS is dropped whole,
+as browsers drop it: an unknown word (`background: banana black`), a component given
+twice (`left left`, `repeat repeat repeat`, `none none`), a misplaced size, or a
+gradient browsers reject (`linear-gradient(banana, black)`, `linear-gradient(top, …)`).
+The checks were compared with Chromium's `CSS.supports` on 76 crafted values and 553
+values from public templates and Nazario. They disagree only on two `-moz-` and `-o-`
+gradients, which other engines accept and which are read as images of unknown colour. A
+translucent background blends with what is behind it, and a gradient whose stops are
+all one opaque colour paints that colour. A stop this reader cannot compute
+(`color-mix()`, a system colour) leaves the gradient unknown. The
 canvas is white and text black. Any other background image, an Outlook VML shape, or
 a client's dark mode (`prefers-color-scheme: dark`, Outlook's dark mode) leaves the
 background unknown, and such text counts as readable.

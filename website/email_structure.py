@@ -12,6 +12,7 @@ import fnmatch
 import html
 import io
 import json
+import math
 from pathlib import Path, PurePath
 import re
 import time
@@ -717,16 +718,17 @@ def _pdf_cmap(stream: bytes) -> tuple[dict[bytes, str], int]:
         for low, high, value in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*(<[0-9A-Fa-f]*>|\[[^\]]*\])", block):
             start, stop, width = int(low, 16), int(high, 16), (len(low) + 1) // 2
             lengths.add(width)
-            if stop < start or stop - start > 0xFFFF or len(mapping) + stop - start > _MAX_PDF_CMAP_ENTRIES:
+            if (stop < start or stop - start > 0xFFFF or len(mapping) + stop - start > _MAX_PDF_CMAP_ENTRIES
+                    or stop >= 1 << 8 * width):
                 continue
             if value.startswith("["):
                 for offset, item in enumerate(re.findall(r"<([0-9A-Fa-f]*)>", value)):
                     mapping[(start + offset).to_bytes(width, "big")] = target(item)
                 continue
             base = bytes.fromhex(value[1:-1] + "0" * (len(value[1:-1]) % 2))
-            first = int.from_bytes(base, "big") if base else 0
-            for offset in range(stop - start + 1):
-                code = (first + offset).to_bytes(max(len(base), 2), "big")
+            first, capacity = int.from_bytes(base, "big") if base else 0, max(len(base), 2)
+            for offset in range(min(stop - start + 1, (1 << 8 * capacity) - first)):
+                code = (first + offset).to_bytes(capacity, "big")
                 mapping[(start + offset).to_bytes(width, "big")] = code.decode("utf-16-be", "replace")
     return mapping, max(lengths) if lengths else 1
 
@@ -749,40 +751,89 @@ def _pdf_array(objects, body: bytes, key: bytes) -> bytes:
     return b""
 
 
+_PDF_UNSIGNED = rb"(?:\d+\.?\d*|\.\d+)"
+# Character codes are at most four bytes; widths beyond this are not glyph widths.
+_MAX_PDF_CODE = 0xFFFFFFFF
+_MAX_PDF_WIDTH = 100_000.0
+
+
+def _pdf_width(value: bytes) -> float | None:
+    """A glyph width, or None for one no font could hold."""
+    width = float(value)
+    return width if math.isfinite(width) and width <= _MAX_PDF_WIDTH else None
+
+
+def _pdf_code(value: bytes) -> int | None:
+    """A character code, or None outside the four bytes a code may take."""
+    code = float(value)
+    return int(code) if math.isfinite(code) and code <= _MAX_PDF_CODE else None
+
+
 def _pdf_widths(objects, body: bytes) -> tuple[dict[int, float], float]:
     """Glyph widths in thousandths of the font size: /FirstChar and /Widths of a simple
-    font, or /W and /DW of a composite font's descendant."""
+    font, or /W and /DW of a composite font's descendant. Values that are no number, or
+    out of range, are skipped."""
     descendant = re.search(rb"/DescendantFonts\s*(?:\[\s*)?(\d+)\s+\d+\s+R", body)
     if descendant:
         cid_font = objects.get(int(descendant.group(1)), (b"", None))[0]
-        default = re.search(rb"/DW\s+([\d.]+)", cid_font)
+        default = re.search(rb"/DW\s+(" + _PDF_UNSIGNED + rb")", cid_font)
+        default = _pdf_width(default.group(1)) if default else None
         widths = {}
-        numbers = re.findall(rb"\[[^\]]*\]|[\d.]+", _pdf_array(objects, cid_font, b"W"))
+        numbers = re.findall(rb"\[[^\]]*\]|" + _PDF_UNSIGNED, _pdf_array(objects, cid_font, b"W"))
         index = 0
         while index + 1 < len(numbers) and len(widths) < _MAX_PDF_CMAP_ENTRIES:
             first, following = numbers[index], numbers[index + 1]
             if following.startswith(b"["):
-                for offset, width in enumerate(re.findall(rb"[\d.]+", following)):
-                    widths[int(float(first)) + offset] = float(width)
+                start = _pdf_code(first)
+                for offset, width in enumerate(re.findall(_PDF_UNSIGNED, following)):
+                    if start is not None and _pdf_width(width) is not None:
+                        widths[start + offset] = _pdf_width(width)
                 index += 2
-            elif index + 2 < len(numbers):
-                low, high, width = int(float(first)), int(float(following)), float(numbers[index + 2])
-                for code in range(low, min(high, low + 0xFFFF) + 1):
-                    widths[code] = width
+            elif index + 2 < len(numbers) and not numbers[index + 2].startswith(b"["):
+                low, high, width = _pdf_code(first), _pdf_code(following), _pdf_width(numbers[index + 2])
+                if low is not None and high is not None and width is not None:
+                    for code in range(low, min(high, low + 0xFFFF) + 1):
+                        widths[code] = width
                 index += 3
             else:
                 break
-        return widths, float(default.group(1)) if default else 1000.0
+        return widths, 1000.0 if default is None else default
     first = re.search(rb"/FirstChar\s+(\d+)", body)
-    values = [float(value) for value in re.findall(rb"[\d.]+", _pdf_array(objects, body, b"Widths"))]
-    if not first or not values:
+    first = _pdf_code(first.group(1)) if first else None
+    values = [_pdf_width(value) for value in re.findall(_PDF_UNSIGNED, _pdf_array(objects, body, b"Widths"))]
+    if first is None or not values:
         return {}, 500.0
-    return {int(first.group(1)) + offset: width for offset, width in enumerate(values)}, 500.0
+    return {first + offset: width for offset, width in enumerate(values) if width is not None}, 500.0
 
 
-def _pdf_fonts(objects) -> dict[bytes, tuple]:
-    """Font resource names (/F1) -> (ToUnicode CMap or None, code length, glyph widths,
-    default width)."""
+def _pdf_dictionary(objects, body: bytes, key: bytes) -> bytes | None:
+    """The dictionary a /Key of body holds, written in place or as a reference, or None."""
+    match = re.search(rb"/" + key + rb"\s*(<<|(\d+)\s+\d+\s+R)", body)
+    if not match:
+        return None
+    if match.group(2):
+        return objects.get(int(match.group(2)), (None, None))[0]
+    depth = 0
+    for bracket in re.finditer(rb"<<|>>", body[match.start(1):]):
+        depth += 1 if bracket.group() == b"<<" else -1
+        if depth == 0:
+            return body[match.start(1) + 2:match.start(1) + bracket.start()]
+    return body[match.start(1) + 2:]
+
+
+def _pdf_font_map(objects, resources: bytes | None, described: dict) -> dict[bytes, tuple]:
+    """Font resource names (/F1) of one Resources dictionary -> their descriptions."""
+    fonts = _pdf_dictionary(objects, resources, b"Font") if resources else None
+    return {name: described[int(number)]
+            for name, number in re.findall(rb"/([^\s/<>\[\]()]+)\s+(\d+)\s+\d+\s+R", fonts or b"")
+            if int(number) in described}
+
+
+def _pdf_fonts(objects) -> tuple[dict[bytes, tuple], dict[int, dict[bytes, tuple]]]:
+    """Font descriptions (ToUnicode CMap or None, code length, glyph widths, default
+    width) by resource name: for every document, and for each content stream by the
+    Resources of its page (inherited from parent page nodes) or form. Two pages may give
+    one name (/F1) to different fonts."""
     described = {}
     for number, (body, _stream) in objects.items():
         if b"/Font" not in body and b"/ToUnicode" not in body:
@@ -802,7 +853,28 @@ def _pdf_fonts(objects) -> dict[bytes, tuple]:
             for name, number in re.findall(rb"/([^\s/<>\[\]()]+)\s+(\d+)\s+\d+\s+R", block):
                 if int(number) in described:
                     fonts.setdefault(name, described[int(number)])
-    return fonts
+    scoped = {}
+    for number, (body, stream) in objects.items():
+        if stream is not None and re.search(rb"/Subtype\s*/Form\b", body):
+            resources = _pdf_dictionary(objects, body, b"Resources")
+            if resources is not None:
+                scoped[number] = _pdf_font_map(objects, resources, described)
+            continue
+        contents = re.search(rb"/Contents\s*(\[[^\]]*\]|\d+\s+\d+\s+R)", body)
+        if not contents or not re.search(rb"/Type\s*/Page\b", body):
+            continue
+        node, resources, seen = body, None, set()
+        while node is not None and resources is None and len(seen) < 32:
+            resources = _pdf_dictionary(objects, node, b"Resources")
+            parent = re.search(rb"/Parent\s+(\d+)\s+\d+\s+R", node)
+            if not parent or int(parent.group(1)) in seen:
+                break
+            seen.add(int(parent.group(1)))
+            node = objects.get(int(parent.group(1)), (None, None))[0]
+        page_fonts = _pdf_font_map(objects, resources, described)
+        for content in re.findall(rb"(\d+)\s+\d+\s+R", contents.group(1)):
+            scoped.setdefault(int(content), page_fonts)
+    return fonts, scoped
 
 
 def pdf_text(data: bytes) -> str:
@@ -813,11 +885,13 @@ def pdf_text(data: bytes) -> str:
     if not data.startswith(b"%PDF"):
         return ""
     objects = _pdf_objects(data)
-    fonts = _pdf_fonts(objects)
+    document_fonts, page_fonts = _pdf_fonts(objects)
     pieces, budget, written = [], [_MAX_PDF_TOKENS], [0]
-    for _number, (body, stream) in sorted(objects.items()):
+    for number, (body, stream) in sorted(objects.items()):
         if not stream or b"BT" not in stream or re.search(rb"/(?:Subtype\s*/Image|FontFile|Length1|ObjStm)\b", body):
             continue
+        # A stream no page or form claims keeps the document's names.
+        fonts = page_fonts.get(number, document_fonts)
         font, size, scale = None, 12.0, 1.0
         x = y = line_x = line_y = 0.0
         end_x, last_y, leading = None, None, 0.0
@@ -828,7 +902,10 @@ def pdf_text(data: bytes) -> str:
             unit = max(size * scale, 1.0)
             mapping, length, widths, default = font or (None, 1, {}, 500.0)
             codes = [string[index:index + length] for index in range(0, len(string) - length + 1, length)]
-            text = ("".join(mapping.get(code, "") for code in codes) if mapping
+            # A simple font's codes missing from its ToUnicode map still draw their glyphs:
+            # read them in the standard encoding, as a map of a few codes would hide the rest.
+            text = ("".join(mapping.get(code, code.decode("cp1252", "replace") if length == 1 else "")
+                            for code in codes) if mapping
                     else string.decode("cp1252", "replace"))
             if end_x is not None:
                 if last_y is not None and abs(y - last_y) > unit * 0.5:
@@ -1057,8 +1134,14 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                     payload = part.get_payload(decode=True) or b""
                 except Exception:  # malformed transfer encoding: keep metadata only
                     payload = b""
-                links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
-                pdf_body = pdf_text(payload)
+                try:
+                    links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
+                    pdf_body = pdf_text(payload)
+                except Exception:  # a malformed document: leave its text and links unread
+                    links, pdf_body = [], ''
+                    warning = message_text('warning.attachment_unreadable')
+                    if warning not in parse_warnings:
+                        parse_warnings.append(warning)
                 # Links and text are read; images (often QR codes) stay uninspected.
                 if links:
                     attachments[-1]["extracted_links"] = links
@@ -1071,7 +1154,13 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 except Exception:  # malformed transfer encoding: keep metadata only
                     payload = b""
                 # Text and hyperlinks are read; images (often QR codes) stay uninspected.
-                docx_text, links = docx_text_and_links(payload)
+                try:
+                    docx_text, links = docx_text_and_links(payload)
+                except Exception:  # a malformed document: leave its text and links unread
+                    docx_text, links = '', []
+                    warning = message_text('warning.attachment_unreadable')
+                    if warning not in parse_warnings:
+                        parse_warnings.append(warning)
                 if docx_text:
                     attachments[-1]["extracted_text"] = docx_text
                 if links:

@@ -34,7 +34,7 @@ from collections import deque
 from email.utils import getaddresses, parseaddr
 from html.parser import HTMLParser
 from html import escape as escape_html, unescape as unescape_html
-from itertools import product
+from itertools import product, takewhile
 from functools import lru_cache, partial
 from urllib.parse import parse_qs, unquote, urlparse, urljoin
 
@@ -2183,8 +2183,10 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
                 'background', 'background-color', 'background-image'}):
             continue
         # Values are case-insensitive, except the names of custom properties (var(--Name)).
+        # Any run of whitespace is one space to CSS: rgb(255,\n255,255) is white.
         value = ''.join(part if part.startswith('--') else part.lower()
-                        for part in re.split(r'((?<![\w-])--[\w-]+)', _unescape_css(value).strip()))
+                        for part in re.split(r'((?<![\w-])--[\w-]+)',
+                                             re.sub(r'\s+', ' ', _unescape_css(value)).strip()))
         important = bool(re.search(r'!\s*important\s*$', value))
         value = re.sub(r'!\s*important\s*$', '', value).strip()
         # CSS drops an invalid declaration, so an earlier valid one still applies:
@@ -2359,7 +2361,8 @@ _SAME_COLOUR_MODEL_LETTERS = 200
 # (beside the 'color' class), and the background's colour and image.
 _COLOUR_PROPERTIES = frozenset({'text-color', 'background-color', 'background-image'})
 _BACKGROUND_IMAGE = re.compile(
-    r'(?:url|image|image-set|element|cross-fade|(?:repeating-)?(?:linear|radial|conic)-gradient)\(')
+    r'(?:url|image|image-set|-webkit-image-set|element|cross-fade'
+    r'|(?:-webkit-|-moz-|-o-)?(?:repeating-)?(?:linear|radial|conic)-gradient|-webkit-gradient)\(')
 
 
 def _css_channel(text: str, scale: float) -> float:
@@ -2549,12 +2552,19 @@ def _legacy_colour(value: str):
     return '#' + ''.join(f'{int(part[:2], 16):02x}' for part in parts)
 
 
-# Background shorthand words that are no colour: images, repeats, attachments, boxes,
-# positions and sizes.
-_BACKGROUND_KEYWORDS = frozenset("""none repeat repeat-x repeat-y no-repeat space round scroll fixed local
-    border-box padding-box content-box text left right top bottom center auto cover contain""".split())
-_BACKGROUND_FUNCTION = re.compile(r"(?:url|image|image-set|-webkit-image-set|element|cross-fade"
-                                  r"|(?:repeating-)?(?:linear|radial|conic)-gradient|calc|min|max|clamp)\(")
+# The components of a background layer. Each may appear once (a repeat may take two
+# words, a box two), and its position and size follow CSS's grammar: browsers drop a
+# declaration that breaks it ("left left black", "repeat repeat repeat black").
+_BACKGROUND_REPEATS = frozenset({'repeat', 'space', 'round', 'no-repeat'})
+_BACKGROUND_ATTACHMENTS = frozenset({'scroll', 'fixed', 'local'})
+_BACKGROUND_BOXES = frozenset({'border-box', 'padding-box', 'content-box', 'text'})
+_BACKGROUND_POSITION_AXES = {'left': 'h', 'right': 'h', 'top': 'v', 'bottom': 'v', 'center': 'c'}
+_CSS_MATH = re.compile(r'(?:calc|min|max|clamp)\(.*\)\Z', re.S)
+# A gradient's first argument may set its direction, shape, size, position or the colour
+# space it interpolates in ("to right", "45deg", "circle at center", "in oklch longer hue").
+_GRADIENT_SETUP_WORDS = frozenset("""to at from in left right top bottom center circle ellipse closest-side
+    closest-corner farthest-side farthest-corner srgb srgb-linear display-p3 a98-rgb prophoto-rgb rec2020 lab oklab
+    xyz xyz-d50 xyz-d65 hsl hwb lch oklch shorter longer increasing decreasing hue""".split())
 
 
 def _css_top_level(value: str, separators: str) -> list[str]:
@@ -2578,47 +2588,128 @@ def _css_top_level(value: str, separators: str) -> list[str]:
     return parts
 
 
+def _css_words(value: str) -> list[str]:
+    return [word for word in _css_top_level(value, ' \t\n\r\f') if word]
+
+
+def _css_length(word: str) -> bool:
+    return bool(_CSS_DIMENSION.fullmatch(word) or _CSS_MATH.match(word))
+
+
+def _gradient_stops(image: str):
+    """A standard gradient's stop colours, with None for each stop whose colour this
+    reader cannot compute (color-mix(), a system colour, currentcolor); [] for a gradient
+    browsers reject, which drops its declaration; None for any other image."""
+    match = re.fullmatch(r'(?:repeating-)?(?:linear|radial|conic)-gradient\((.*)\)', image, re.S)
+    if not match:
+        return None
+    stops = []
+    for index, argument in enumerate(_css_top_level(match.group(1), ',')):
+        words = _css_words(argument)
+        colours = [word for word in words if word not in _CSS_WIDE_KEYWORDS and (
+            word == 'currentcolor' or _color_class(word) in {'visible', 'transparent', 'unresolved'})]
+        lengths = [word for word in words if _css_length(word)]
+        if len(colours) == 1 and len(lengths) == len(words) - 1 <= 2:
+            colour = colours[0]
+            stops.append(colour if _color_class(colour) in {'visible', 'transparent'} and _colour_rgba(colour) else None)
+        elif index and len(words) == len(lengths) == 1:
+            continue  # a colour hint between two stops
+        elif not index and words and not colours and all(word in _GRADIENT_SETUP_WORDS or _css_length(word)
+                                                         for word in words) and (
+                # A side or position follows 'to' or 'at': linear-gradient(top, …) is the
+                # prefixed syntax, which the standard function rejects.
+                not {'left', 'right', 'top', 'bottom', 'center'} & set(words)
+                or {'to', 'at'} & set(words[:min(words.index(word) for word in words
+                                                 if word in {'left', 'right', 'top', 'bottom', 'center'})])):
+            continue
+        else:
+            return []
+    return stops
+
+
+def _background_position_valid(words: list[str]) -> bool:
+    """One to four words of a background position, as CSS accepts them."""
+    kinds = [_BACKGROUND_POSITION_AXES.get(word, 'l') for word in words]
+    if len(kinds) <= 1:
+        return len(kinds) == 1
+    if len(kinds) == 2:
+        if 'l' in kinds:
+            return kinds[0] in 'hcl' and kinds[1] in 'vcl'
+        return kinds[0] != kinds[1] or kinds[0] == 'c'
+    groups, index = [], 0
+    while index < len(kinds):
+        offset = index + 1 < len(kinds) and kinds[index + 1] == 'l'
+        if kinds[index] == 'l' or (offset and kinds[index] == 'c'):
+            return False
+        groups.append(kinds[index])
+        index += 2 if offset else 1
+    return len(kinds) <= 4 and len(groups) == 2 and (groups[0] != groups[1] or groups[0] == 'c')
+
+
 @lru_cache(maxsize=4096)
 def _background_valid(value: str, name: str = 'background') -> bool:
     """Whether a background shorthand (or background-image) is valid CSS as far as this
-    reader can tell: each layer holds only images, positions, sizes, repeats,
-    attachments and boxes, and only the shorthand's last layer one colour. Browsers drop
-    an invalid declaration whole ("background: banana black" leaves the background as
-    it was). A var() is decided where it is substituted."""
+    reader can tell: each layer holds one image at most, a position and size, a repeat,
+    an attachment and boxes, each once, and only the shorthand's last layer one colour.
+    Browsers drop an invalid declaration whole ("background: banana black" leaves the
+    background as it was), and so a gradient browsers reject. A var() is decided where
+    it is substituted."""
     value = value.strip()
     if 'var(' in value or value in _CSS_WIDE_KEYWORDS:
         return bool(value)
     layers = _css_top_level(value, ',')
     for index, layer in enumerate(layers):
-        tokens = [token for part in _css_top_level(layer, ' \t\n\r\f') for token in _css_top_level(part, '/') if token]
-        if not tokens:
+        pieces = _css_top_level(layer, '/')
+        if len(pieces) > 2:
             return False
-        colours = 0
-        for token in tokens:
-            if token in _BACKGROUND_KEYWORDS or _BACKGROUND_FUNCTION.match(token) and token.endswith(')'):
-                if name == 'background-image' and not (_BACKGROUND_IMAGE.match(token) or token == 'none'):
+        words, size = _css_words(pieces[0]), None
+        if len(pieces) == 2:
+            # The size directly follows the position's '/'; other components may follow it.
+            after = _css_words(pieces[1])
+            size = after[:1] if after[:1] in (['cover'], ['contain']) else list(
+                takewhile(lambda word: word == 'auto' or _css_length(word), after[:2]))
+            if not size:
+                return False
+            ends = len(words)
+            words += after[len(size):]
+        if not words:
+            return False
+        counts = {'image': 0, 'repeat': 0, 'attachment': 0, 'box': 0, 'colour': 0}
+        position = []
+        for at, word in enumerate(words):
+            if word == 'none' or (_BACKGROUND_IMAGE.match(word) and word.endswith(')')):
+                if _gradient_stops(word) == [] or re.fullmatch(r'url\(\s*[^\s"\'()]+\s+[^)]*\)', word):
                     return False
-                continue
-            if name == 'background' and _CSS_DIMENSION.fullmatch(token):
-                continue
-            if (name == 'background' and index == len(layers) - 1 and not colours and token not in _CSS_WIDE_KEYWORDS
-                    and (token == 'currentcolor' or _color_class(token) in {'visible', 'transparent', 'unresolved'})):
-                colours += 1
-                continue
+                counts['image'] += 1
+            elif word in {'repeat-x', 'repeat-y'}:
+                counts['repeat'] += 2
+            elif word in _BACKGROUND_REPEATS:
+                counts['repeat'] += 1
+            elif word in _BACKGROUND_ATTACHMENTS:
+                counts['attachment'] += 1
+            elif word in _BACKGROUND_BOXES:
+                counts['box'] += 1
+            elif word in _BACKGROUND_POSITION_AXES or _css_length(word):
+                position.append(at)
+            elif (index == len(layers) - 1 and word not in _CSS_WIDE_KEYWORDS
+                  and (word == 'currentcolor' or _color_class(word) in {'visible', 'transparent', 'unresolved'})):
+                counts['colour'] += 1
+            else:
+                return False
+        if name == 'background-image':
+            if counts['image'] != 1 or len(words) != 1 or size is not None:
+                return False
+            continue
+        if (counts['image'] > 1 or counts['repeat'] > 2 or counts['attachment'] > 1 or counts['box'] > 2
+                or counts['colour'] > 1):
+            return False
+        # The position's words stand together, and a size follows it directly.
+        if position and (position != list(range(position[0], position[-1] + 1))
+                         or not _background_position_valid([words[at] for at in position])):
+            return False
+        if size is not None and (not position or position[-1] != ends - 1):
             return False
     return True
-
-
-def _gradient_stops(image: str):
-    """The colour tokens of a gradient's stops, or None for any other image."""
-    match = re.fullmatch(r'(?:repeating-)?(?:linear|radial|conic)-gradient\((.*)\)', image, re.S)
-    if not match:
-        return None
-    stops = []
-    for argument in _css_top_level(match.group(1), ','):
-        stops.extend([word for word in _css_top_level(argument.strip(), ' \t\n\r\f')
-                      if word not in _CSS_WIDE_KEYWORDS and _color_class(word) in {'visible', 'transparent'}][:1])
-    return stops or None
 
 
 @lru_cache(maxsize=4096)
@@ -4744,7 +4835,8 @@ def _user_content_location(destination: str, *, actions: bool = False) -> bool:
         target = _parse_link_target(destination)
     except ValueError:
         return False
-    host, path = (target.hostname or '').lower().rstrip('.'), target.path or '/'
+    # Servers read /%64ocument/ as /document/.
+    host, path = (target.hostname or '').lower().rstrip('.'), unquote(target.path or '/')
     return any(pattern.fullmatch(host) and (place is None or place.search(path)) and (for_actions or not actions)
                for pattern, place, for_actions in _USER_CONTENT_LOCATIONS)
 
@@ -4758,8 +4850,9 @@ def _user_content_action(links) -> bool:
 def _unlisted_off_sender_host(destination: str, sender_domain: str) -> str | None:
     """The host of a link that leaves the sender's domain for one no registry lists.
 
-    Published documents and forms on trusted platforms count as unlisted; a known mail
-    provider's sign-in does not.
+    Published documents and forms on trusted platforms count as unlisted, whatever the
+    From domain claims: anyone can publish there, and a From of google.com is not proof
+    of anything. A known mail provider's sign-in does not count.
     """
     try:
         host = (_parse_link_target(destination).hostname or '').lower().rstrip('.')
@@ -4767,7 +4860,7 @@ def _unlisted_off_sender_host(destination: str, sender_domain: str) -> str | Non
         return None
     sender = _organizational_domain(sender_domain) if '.' in sender_domain else ''
     domain = _organizational_domain(host) if host else ''
-    if domain and not (sender and domain == sender) and (_user_content_location(destination) or (
+    if domain and (_user_content_location(destination) or not (sender and domain == sender) and (
             domain not in _MAIL_SIGN_IN_DOMAINS and not _official_sender(domain))):
         return host
     return None
@@ -5414,7 +5507,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     url_parts = [_mask_inline_data_payloads(part) if is_html else part
                  for part, is_html in zip(raw_parts, html_parts)]
     raw_text = '\n'.join(url_parts)
-    links, labelled_links = [], []
+    links, part_links_by_part = [], []
     for part, visible, is_html, stylesheet_uncertain, certain in zip(
         url_parts, visible_parts, html_parts, stylesheet_uncertain_parts, certain_parts,
     ):
@@ -5427,11 +5520,17 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         # neither naked HTML URLs nor displayed anchor labels are reliable.
         links.extend((('', destination) for _label, destination in part_links)
                      if is_html and stylesheet_uncertain else part_links)
-        # Labels that the text no style can hide shows are reliable all the same.
-        certain_text = _han_compact(certain or '')
-        labelled_links.extend((label, destination) for label, destination in part_links
-                              if not (is_html and stylesheet_uncertain)
-                              or (label.strip() and _han_compact(label) in certain_text))
+        part_links_by_part.append((part_links, is_html and stylesheet_uncertain))
+
+    def reading_links(parts):
+        """The links of one reading with their labels: where a stylesheet makes the
+        rendering uncertain, a label counts if that reading's text shows it."""
+        found = []
+        for text, (part_links, uncertain) in zip(parts, part_links_by_part):
+            shown = _han_compact(text or '') if uncertain else ''
+            found.extend((label, destination) for label, destination in part_links
+                         if not uncertain or (label.strip() and _han_compact(label) in shown))
+        return found
     # CSS may hide arbitrary body text. Do not derive high phishing scores from
     # prose that might be hidden; independent destination/form checks still run.
     # Where every hiding rule's targets are known, the text no style can hide is scored,
@@ -5506,21 +5605,32 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     extra_indicators.extend(link_findings)
     risk_floor = max((risk_floor, link_floor), key=floor_rank.get)
 
+    # The lures read by their buttons are checked in every reading, each with the labels
+    # it shows: the riskiest plausible rendering counts for these rules as for the others.
     sender_domain = parseaddr(sender)[1].rpartition('@')[2].lower()
-    if _mailbox_lure(analysis_text, labelled_links, sender_domain):
+    display_name = parseaddr(sender)[0]
+    lure_readings = dict.fromkeys(
+        (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()), tuple(reading_links(parts)))
+        for parts in readings_for_rules + readings_off)
+    mailbox_lure = user_content_action = False
+    file_share = delivery_host = None
+    for text, labelled_links in lure_readings:
+        mailbox_lure = mailbox_lure or _mailbox_lure(text, labelled_links, sender_domain)
+        user_content_action = user_content_action or _user_content_action(labelled_links)
+        file_share = file_share or _file_share_elsewhere(text, display_name, labelled_links, sender_domain)
+        delivery_host = delivery_host or _delivery_lure(text, labelled_links, sender_domain)
+    if mailbox_lure:
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.mailbox_lure'))
-    elif _user_content_action(labelled_links):
+    elif user_content_action:
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'link.user_content_action'))
-    file_share = _file_share_elsewhere(analysis_text, parseaddr(sender)[0], labelled_links, sender_domain)
     if file_share:
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'link.file_share_elsewhere', service=file_share[0], host=file_share[1]))
-    delivery_host = _delivery_lure(analysis_text, labelled_links, sender_domain)
     if delivery_host:
         total_score += 4
         risk_floor = 'high'

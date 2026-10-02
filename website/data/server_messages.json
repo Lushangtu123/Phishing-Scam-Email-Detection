@@ -125,6 +125,7 @@
   "warning.han_text": "Substantial Han-script text detected; language-specific phishing checks are limited and this content may not be fully evaluated.",
   "warning.model_insufficient_context": "The message contains too little text for reliable model scoring; ML classification was not applied.",
   "warning.model_insufficient_coverage": "Text model feature coverage is insufficient; ML classification was not applied.",
+  "warning.attachment_unreadable": "A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.",
   "warning.attachments_uninspected": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete.",
   "warning.duplicate_mime_headers": "Duplicate MIME headers ({headers}) are ambiguous; bounded alternate inspection, analysis is incomplete.",
   "warning.mime_candidate_limit": "MIME candidate limit reached; additional interpretations were not inspected.",

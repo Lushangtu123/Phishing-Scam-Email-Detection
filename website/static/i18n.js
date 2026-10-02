@@ -925,6 +925,7 @@ window.PhishGuardI18n = (() => {
     'server.warning.han_text': 'Substantial Han-script text detected; language-specific phishing checks are limited and this content may not be fully evaluated.',
     'server.warning.model_insufficient_context': 'The message contains too little text for reliable model scoring; ML classification was not applied.',
     'server.warning.model_insufficient_coverage': 'Text model feature coverage is insufficient; ML classification was not applied.',
+    'server.warning.attachment_unreadable': 'A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.',
     'server.warning.attachments_uninspected': 'Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete.',
     'server.warning.duplicate_mime_headers': 'Duplicate MIME headers ({headers}) are ambiguous; bounded alternate inspection, analysis is incomplete.',
     'server.warning.mime_candidate_limit': 'MIME candidate limit reached; additional interpretations were not inspected.',
@@ -1315,7 +1316,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=34'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=35'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
