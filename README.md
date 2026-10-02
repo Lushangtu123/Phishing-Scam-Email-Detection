@@ -515,9 +515,7 @@ checked (`rgb(nope)`, `hsl(bogus)` and `color(nope)` are invalid). `min()`, `max
 computed by sign, for a zero and for a positive parent size, and a negative result
 is a zero size: `max(16px, 1rem)` is visible, `max(-1px, 0px)` and `min(-1px, 16px)`
 are zero, and `max(1em, 0px)` follows the parent. A missing or negative alpha is
-zero. A color or size that is one `var(--name)` takes every value the stylesheet
-gives `--name`: visible if all are visible, transparent if all are transparent,
-inherited if there is none, unresolved otherwise. A `display`, `visibility` or `opacity` value the reader does
+zero. A `display`, `visibility` or `opacity` value the reader does
 not know replaces nothing and leaves the text unresolved, because a browser drops it
 only if it is invalid. Values the parser cannot compute (`calc()`, `var()`,
 `color-mix()`, relative arguments that decide the result) leave the text unresolved,
@@ -542,10 +540,19 @@ HTML view several ways:
 
 Each view is rendered element by element, as CSS does:
 - Selectors are matched exactly against the document: tags, classes, ids,
-  attribute tests, and descendant, child and sibling combinators.
+  attribute tests, and descendant, child and sibling combinators. Attribute values
+  are read after character references are decoded (`class="p&#97;d"` is `pad`).
+  `<style>`, `<script>` and `<template>` render nothing but are siblings all the
+  same, so `p + p` does not match across a `<style>`.
 - The stylesheet and inline cascade decides `display`, `visibility`, `opacity`,
   font size and colour, by `!important`, then specificity (an inline style above
   any selector), then source order. A `hidden` attribute yields to any author rule.
+- Custom properties (`--name`) cascade and inherit the same way, from rules and
+  inline styles alike. `var()` in a size, colour, opacity or box value takes the
+  element's own value. With no value and no fallback, the declaration is unset, as
+  in browsers: a size or colour then inherits.
+- Rules on `html`, `:root` or `body` apply to the document's root when the document
+  leaves those elements implied, so everything inherits them.
 - `.wrap span{display:none}` hides the spans, not the text beside them, and showing
   `.menu > a` does not show a hidden `.menu`.
 - Content a browser moves out of a table (a `<div>` directly in a `<tr>`) inherits
@@ -573,11 +580,14 @@ Some rules cannot be matched exactly:
 - implied table sections (`table > tr`);
 - a state that several elements share;
 - class names that match only regardless of case;
+- an unknown or vendor-prefixed pseudo-element (`::-moz-selection`), which some
+  browsers drop with its whole rule;
 - every selector of a list that contains one of these, because a browser drops a
   whole rule for one selector it cannot read.
 
-These may or may not apply. Text whose rendering they could change leaves the views
-unresolved, and the text rules read it as well.
+These may or may not apply. Text whose rendering they could change, directly or
+through a custom property that `var()` reads, leaves the views unresolved, and the
+text rules read it as well.
 
 Some text may be invisible without being hidden:
 - a font size below 3px;
@@ -590,8 +600,10 @@ Some text may be invisible without being hidden:
 
 Phishing uses these to bury benign padding beside the scam ("hidden-text salting"),
 and marketing mail uses them for preheaders. They are cascaded like the properties
-above (`max-height` from one rule and `overflow` from another still clip), and the
-views leave such text out. `mso-hide:all` leaves it out of the Outlook view.
+above, wherever they are declared: inline, in a stylesheet, through `var()`, or
+split between them (`max-height` from one rule and `overflow` from another still
+clip, as does `position` inline with `left:-9999px` in a rule). The views leave such
+text out. `mso-hide:all` leaves it out of the Outlook view.
 `warning.possibly_invisible_text` says so. Unlike CSS-uncertain text, the text rules
 still read the message with this text as well as each view without it, so a payload
 put off screen stays visible to them.

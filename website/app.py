@@ -2066,14 +2066,15 @@ _DISPLAY_MULTI_KEYWORDS = frozenset('block inline run-in flow flow-root table fl
 
 
 def _recognised_visibility_value(name: str, value: str) -> bool:
-    """Whether a display, visibility or opacity value is one this reader knows."""
+    """Whether a display, visibility or opacity value is one this reader knows. An opacity
+    from var() is resolved element by element."""
     if name == 'display':
         words = value.split()
         return value in _DISPLAY_KEYWORDS or (1 < len(words) <= 3 and set(words) <= _DISPLAY_MULTI_KEYWORDS)
     if name == 'visibility':
         return value in {'visible', 'hidden', 'collapse'} | _CSS_WIDE_KEYWORDS
     if name == 'opacity':
-        return (value in _CSS_WIDE_KEYWORDS or value.startswith('calc(')
+        return (value in _CSS_WIDE_KEYWORDS or value.startswith(('calc(', 'var('))
                 or bool(re.fullmatch(_CSS_NUMBER + '%?', value)))
     return True
 
@@ -2130,8 +2131,11 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
     values = {}
     for declaration in declarations:
         name, separator, value = declaration.partition(':')
-        name = _unescape_css(name).strip().lower()
-        if not separator or name not in {'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES}:
+        name = _unescape_css(name).strip()
+        # Custom properties (--name) keep their case; other names are case-insensitive.
+        name = name if name.startswith('--') else name.lower()
+        if not separator or not (name.startswith('--') or name in {
+                'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES}):
             continue
         value = _unescape_css(value).strip().lower()
         important = bool(re.search(r'!\s*important\s*$', value))
@@ -2455,10 +2459,12 @@ def _hiding_value(name: str, value) -> bool:
     """Whether one declaration can hide content on its own or with another: every display,
     visibility, opacity, font size, colour or unknown value, and the box values that clip
     (a zero size, overflow hidden or clip), move off screen, clip, scale to nothing, or
-    hide in Outlook. A width of 100% or a padding cannot."""
+    hide in Outlook, or a value from var(). A width of 100% or a padding cannot."""
     if name not in _GEOMETRY_PROPERTIES:
         return True
     value = value if isinstance(value, str) else ''
+    if 'var(' in value:
+        return True
     if name in {'max-height', 'height', 'max-width', 'width'}:
         return _css_pixels(value) in (0.0, ('%', 0.0))
     if name in {'overflow', 'overflow-x', 'overflow-y'}:
@@ -2477,6 +2483,15 @@ def _zero_box(get) -> bool:
     """A zero height or width: content stays visible unless something clips it."""
     return any(_css_pixels(get(name)) in (0.0, ('%', 0.0)) for name in ('max-height', 'height', 'max-width', 'width')
                if get(name))
+
+
+def _box_may_hide(get) -> bool:
+    """Whether box values may hide content, alone or with values declared elsewhere (an
+    off-screen offset with a position set by another rule): hiding geometry, a zero box,
+    an off-screen offset, a clip rectangle, or mso-hide."""
+    return bool(_geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide')
+                or any(_hiding_value(name, get(name)) for name in ('left', 'top', 'right', 'bottom', 'clip')
+                       if get(name)))
 
 
 def _inline_text_state(style: str) -> tuple[bool | None, bool | None, bool]:
@@ -2642,12 +2657,18 @@ def _selector_compounds(selector: str):
 
 _GENERATED_CONTENT = re.compile(r'::|:(?:before|after|first-line|first-letter|marker|placeholder|selection)\b',
                                 re.IGNORECASE)
+# Pseudo-elements every current browser reads; another one (unknown, or vendor-prefixed
+# like ::-moz-selection) makes the browser drop the whole rule it appears in.
+_KNOWN_PSEUDO_ELEMENTS = frozenset({
+    'before', 'after', 'first-line', 'first-letter', 'marker', 'placeholder', 'selection', 'backdrop',
+    'file-selector-button', 'cue', 'grammar-error', 'spelling-error', 'target-text', 'highlight', 'part', 'slotted'})
 _COMPOUND_TAG = re.compile(r'\*|[a-zA-Z][\w-]*')
 _COMPOUND_PART = re.compile(r'''
     \.(?P<cls>-?[_a-zA-Z][\w-]*)
   | \#(?P<id>-?[_a-zA-Z][\w-]*)
   | \[\s*(?P<name>[a-zA-Z_][\w:-]*)\s*(?:(?P<op>[~|^$*]?=)\s*(?P<value>"[^"]*"|'[^']*'|[^\s\]"']+)\s*(?P<flag>[iIsS])?\s*)?\]
   | :(?P<state>checked|hover|focus-within|focus-visible|focus|active|target)(?![\w-])
+  | :(?P<root>root)(?![\w-])
 ''', re.VERBOSE)
 # HTML attribute values that selectors compare without regard to case.
 _CASELESS_ATTRIBUTES = frozenset({'type', 'align', 'valign', 'dir', 'lang', 'checked', 'disabled', 'method'})
@@ -2662,12 +2683,18 @@ def _parse_compound(text: str):
     if match:
         tag = None if match.group() == '*' else match.group().lower()
         position = match.end()
-    classes, ids, attributes, states = [], [], [], []
+    typed = bool(tag)
+    classes, ids, attributes, states, extra = [], [], [], [], 0
     while position < len(text):
         match = _COMPOUND_PART.match(text, position)
         if not match:
             return None
-        if match.group('cls'):
+        if match.group('root'):
+            # :root is the html element, with a pseudo-class's specificity.
+            if tag not in {None, 'html'}:
+                return None
+            tag, extra = 'html', extra + 1
+        elif match.group('cls'):
             classes.append(match.group('cls'))
         elif match.group('id'):
             ids.append(match.group('id'))
@@ -2685,27 +2712,30 @@ def _parse_compound(text: str):
            + ''.join(f'[{name}{operator or ""}{value or ""}{" i" if caseless else ""}]'
                      for name, operator, value, caseless in attributes))
     return {'tag': tag, 'classes': tuple(classes), 'ids': tuple(ids), 'attributes': tuple(attributes),
-            'states': tuple(states), 'key': key}
+            'states': tuple(states), 'key': key, 'extra': extra, 'typed': typed}
 
 
 def _document_features(html: str) -> dict:
     """Elements of an HTML document as (tag, classes, id, attributes), and the tags, classes,
-    ids and attribute names they use, from a tolerant scan of its start tags."""
+    ids and attribute names they use, read by the same parser as the text (character
+    references decoded, the first of a repeated attribute kept, conditional comments open)."""
     features = {'tags': set(), 'classes': set(), 'ids': set(), 'attributes': set(), 'nodes': []}
-    for match in re.finditer(r'<([a-zA-Z][\w:-]*)((?:[^>"\']|"[^"]*"|\'[^\']*\')*)>', html):
-        tag = match.group(1).lower()
-        attributes = {}
-        for name, _assignment, value in re.findall(
-                r'([^\s=/<>"\']+)\s*(=\s*("[^"]*"|\'[^\']*\'|[^\s>]+))?', match.group(2)):
-            attributes.setdefault(name.lower(), value.strip('"\'') if _assignment else '')
-        classes = tuple(attributes.get('class', '').split())
-        element_id = attributes.get('id', '').strip()
-        features['tags'].add(tag)
-        features['attributes'].update(attributes)
-        features['classes'].update(name.casefold() for name in classes)
-        if element_id:
-            features['ids'].add(element_id.casefold())
-        features['nodes'].append((tag, classes, element_id, attributes))
+
+    class Elements(_AnalysisHTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+
+        def handle_starttag(self, tag, attrs):
+            attributes = {name: value or '' for name, value in _first_html_attributes(attrs).items()}
+            classes = tuple(attributes.get('class', '').split())
+            element_id = attributes.get('id', '').strip()
+            features['tags'].add(tag)
+            features['attributes'].update(attributes)
+            features['classes'].update(name.casefold() for name in classes)
+            if element_id:
+                features['ids'].add(element_id.casefold())
+            features['nodes'].append((tag, classes, element_id, attributes))
+    _collect_html(Elements, html)
     return features
 
 
@@ -2769,6 +2799,7 @@ def _loose_subject(selector: str, text: str):
 
 def _parse_selector(selector: str, features: dict):
     """How one selector is matched: ('exact', pattern), ('maybe', subject, specificity),
+    ('root', specificity, subject) for the html or body element a document leaves implied,
     or ('skip',) for generated content or a compound the document lacks.
 
     An exact pattern is matched element by element. Leading client hooks (u + .body,
@@ -2783,13 +2814,21 @@ def _parse_selector(selector: str, features: dict):
         return ('maybe', *_loose_subject(selector, ''))
     texts, combinators = split
     if _GENERATED_CONTENT.search(texts[-1]):
-        return ('skip',)
+        names = re.findall(r'::?([\w-]+)', texts[-1])
+        if all(name.lower() in _KNOWN_PSEUDO_ELEMENTS for name in names if f'::{name}' in texts[-1]):
+            return ('skip',)
+        return ('maybe', *_loose_subject(selector, texts[-1]))
     compounds = [_parse_compound(text) for text in texts]
     if (any(compound is None for compound in compounds)
             or any(compound['tag'] in {'tbody', 'thead', 'tfoot'} for compound in compounds)
             or any(combinator == '>' and left['tag'] == 'table' and right['tag'] in {'tr', 'td', 'th'}
                    for combinator, left, right in zip(combinators, compounds, compounds[1:]))):
         return ('maybe', *_loose_subject(selector, texts[-1]))
+    subject = compounds[-1]
+    if (len(compounds) == 1 and subject['tag'] in {'html', 'body'} and subject['tag'] not in features['tags']
+            and not (subject['classes'] or subject['ids'] or subject['attributes'] or subject['states'])):
+        # The browser's implied html and body: everything inherits from them.
+        return ('root', (0, 0, subject['extra'], int(subject['typed'])), subject)
     if _compound_absent(compounds[-1], features):
         return ('skip',)
     first, rooted, client = 0, False, set()
@@ -2817,43 +2856,113 @@ def _parse_selector(selector: str, features: dict):
         'states': tuple(dict.fromkeys((compound['key'], state) for compound in kept for state in compound['states'])),
         'specificity': (0, sum(len(compound['ids']) for compound in compounds),
                         sum(len(compound['classes']) + len(compound['attributes']) + len(compound['states'])
-                            for compound in compounds),
-                        sum(1 for compound in compounds if compound['tag'])),
+                            + compound['extra'] for compound in compounds),
+                        sum(1 for compound in compounds if compound['typed'])),
         'key': ('^ ' if rooted else '') + key,
     })
 
 
-def _custom_properties(css: str) -> dict:
-    """Every value a stylesheet gives each custom property (--name), in any rule or context."""
-    found = {}
-    for name, value in re.findall(r'(--[\w-]+)\s*:\s*([^;{}]*)', _strip_css_comments(css)[0]):
-        found.setdefault(name, []).append(re.sub(r'!\s*important\s*$', '', value.strip().lower()).strip())
-    return found
+def _substitute_variables(value: str, custom: dict, depth: int = 0):
+    """value with each var(--name[, fallback]) replaced from the element's custom properties,
+    or None when one is undefined without a fallback (invalid at computed-value time)."""
+    if depth > 8:
+        return None
+    result, index = [], 0
+    while True:
+        start = value.find('var(', index)
+        if start < 0:
+            result.append(value[index:])
+            return ''.join(result)
+        result.append(value[index:start])
+        level, end = 0, start + 3
+        for end in range(start + 3, len(value)):
+            level += (value[end] == '(') - (value[end] == ')')
+            if level == 0:
+                break
+        else:
+            return None
+        inner = value[start + 4:end]
+        level, split = 0, len(inner)
+        for position, character in enumerate(inner):
+            level += (character == '(') - (character == ')')
+            if character == ',' and level == 0:
+                split = position
+                break
+        name, fallback = inner[:split].strip(), inner[split + 1:] if split < len(inner) else None
+        replacement = custom.get(name, fallback)
+        if replacement is None:
+            return None
+        replacement = _substitute_variables(replacement.strip(), custom, depth + 1)
+        if replacement is None:
+            return None
+        result.append(replacement)
+        index = end + 1
 
 
-def _with_variables(value: str, classify, variables: dict | None) -> str:
-    """Classify a value that is one var(--name[, fallback]) by every value --name can take:
-    one class if they agree, else 'unresolved'. An undefined variable inherits."""
-    match = re.fullmatch(r'var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*))?\)', value)
-    if not match or variables is None:
-        return classify(value)
-    values = variables.get(match.group(1), [])
-    classes = {classify(item) if '(' not in item or not item.startswith('var(') else 'unresolved' for item in values}
-    if match.group(2) is not None:
-        classes.add(classify(match.group(2).strip()))
-    elif not values:
-        classes.add('inherit')  # invalid at computed-value time: the property is unset
-    classes.discard('invalid')
-    return classes.pop() if len(classes) == 1 else 'unresolved' if classes else 'inherit'
+def _variable_class(name: str, value):
+    """The class of a font-size, color or opacity value after var() substitution. A value
+    that cannot be substituted, or is invalid, makes the declaration unset: size and colour
+    inherit, opacity stays 1."""
+    if value is None:
+        return False if name == 'opacity' else 'inherit'
+    if name == 'opacity':
+        opacity = _opacity_number(value)
+        if opacity is None:
+            return 'unresolved' if _UNCOMPUTED.search(value) else False
+        return True if opacity <= 0 else 'faint' if opacity < _NEAR_ZERO_OPACITY else False
+    kind = _font_size_class(value) if name == 'font-size' else _color_class(value)
+    return 'inherit' if kind == 'invalid' else kind
 
 
-def _declared_values(block: str, *, typography: bool = True, variables: dict | None = None,
-                     geometry: bool = False) -> list:
+def _with_custom_properties(winners: dict, custom: dict) -> tuple:
+    """An element's winning declarations with var() substituted, and its custom properties.
+
+    Custom properties inherit; an element's own (--name) replace its parent's, and var()
+    in them reads the element's own values first. A size, colour or opacity read from
+    var() is classified; a box value takes the substituted text, or is dropped when it
+    cannot be substituted (it is then unset, as in browsers)."""
+    defined = [name for name in winners if name.startswith('--')]
+    if defined:
+        raw = dict(custom)
+        for name in defined:
+            value = winners[name][3]
+            if value == 'initial':
+                raw.pop(name, None)
+            elif value not in {'inherit', 'unset', 'revert', 'revert-layer'}:
+                raw[name] = value
+        custom = dict(raw)
+        for name in defined:
+            if name in raw and 'var(' in raw[name]:
+                substituted = _substitute_variables(raw[name], raw)
+                if substituted is None:
+                    del custom[name]
+                else:
+                    custom[name] = substituted
+    resolved = winners
+    for name, ranked in winners.items():
+        value = ranked[3]
+        if isinstance(value, tuple) and value[0] == 'var':
+            value = _variable_class(name, _substitute_variables(value[1], custom))
+        elif name in _GEOMETRY_PROPERTIES and isinstance(value, str) and 'var(' in value:
+            value = _substitute_variables(value, custom)
+        else:
+            continue
+        if resolved is winners:
+            resolved = dict(winners)
+        if value is None:
+            del resolved[name]
+        else:
+            resolved[name] = (*ranked[:3], value)
+    return resolved, custom
+
+
+def _declared_values(block: str, *, typography: bool = True, geometry: bool = False) -> list:
     """The declarations of one rule or style attribute that decide whether text renders,
     as (property, value, !important). display, visibility and opacity take True (hidden)
     or False; visibility also 'inherit'; font-size and color take 'zero' or 'transparent',
     'visible', 'inherit' or 'unresolved'. An unknown display, visibility or opacity value
-    is ('unknown', 'unresolved')."""
+    is ('unknown', 'unresolved'). A size, colour or opacity from var() is ('var', value),
+    resolved per element; custom properties (--name) keep their value."""
     values = _style_values(block)
     declared = []
     if 'display' in values:
@@ -2865,14 +2974,18 @@ def _declared_values(block: str, *, typography: bool = True, variables: dict | N
     if 'opacity' in values:
         value = values['opacity'][0]
         opacity = _opacity_number(value)
-        declared.append(('opacity', (True if opacity <= 0 else 'faint' if opacity < _NEAR_ZERO_OPACITY else False)
+        declared.append(('opacity', ('var', value) if 'var(' in value else
+                         (True if opacity <= 0 else 'faint' if opacity < _NEAR_ZERO_OPACITY else False)
                          if opacity is not None else 'unresolved' if value.startswith('calc(') else False,
                          values['opacity'][1]))
     if typography and 'font-size' in values:
-        declared.append(('font-size', _with_variables(values['font-size'][0], _font_size_class, variables),
+        value = values['font-size'][0]
+        declared.append(('font-size', ('var', value) if 'var(' in value else _font_size_class(value),
                          values['font-size'][1]))
     if typography and 'color' in values:
-        declared.append(('color', _with_variables(values['color'][0], _color_class, variables), values['color'][1]))
+        value = values['color'][0]
+        declared.append(('color', ('var', value) if 'var(' in value else _color_class(value), values['color'][1]))
+    declared.extend((name, value, important) for name, (value, important) in values.items() if name.startswith('--'))
     if geometry:
         declared.extend((name, values[name][0], values[name][1]) for name in _GEOMETRY_PROPERTIES if name in values)
     if '#unrecognised' in values:
@@ -2881,23 +2994,29 @@ def _declared_values(block: str, *, typography: bool = True, variables: dict | N
 
 
 def _stylesheet_hides_geometry(css: str) -> bool:
-    """Whether any rule sets a zero box, off-screen offsets, a clip or zero scale, or mso-hide."""
+    """Whether any rule sets box values that may hide content (see _box_may_hide), a tiny
+    font, a faint opacity, or any of them, a size or a colour from var()."""
     cleaned, _complete = _strip_css_comments(css)
     for block in re.findall(r'\{([^{}]*)\}', cleaned):
         values = _style_values(block)
 
         def get(name):
             return values.get(name, ('', False))[0]
-        if _geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide'):
+        opacity = _opacity_number(get('opacity'))
+        if (_box_may_hide(get) or _font_size_class(get('font-size')) == 'tiny'
+                or (opacity is not None and opacity < _NEAR_ZERO_OPACITY)
+                or any('var(' in get(name) for name in ('font-size', 'color', 'opacity', *_GEOMETRY_PROPERTIES))):
             return True
     return False
 
 
 def _stylesheet_hides_typography(css: str) -> bool:
-    """Whether any rule sets a zero font size or a transparent text colour."""
+    """Whether any rule sets a zero or tiny font size, a transparent text colour, or either
+    from var()."""
     cleaned, _complete = _strip_css_comments(css)
-    return any(value in {'zero', 'transparent'} for block in re.findall(r'\{([^{}]*)\}', cleaned)
-               for _name, value, _important in _declared_values(block))
+    return any(value in {'zero', 'tiny', 'transparent'} or 'var(' in _style_values(block).get(name, ('', False))[0]
+               for block in re.findall(r'\{([^{}]*)\}', cleaned)
+               for name, value, _important in _declared_values(block) if name in {'font-size', 'color'})
 
 
 def _cascade_state(parent: tuple, winners: dict) -> tuple:
@@ -2963,8 +3082,9 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
     if not complete:
         return None
     features = _document_features(html)
-    variables = _custom_properties(css)
-    patterns, pattern_ids, maybe, events, position, clients = [], {}, [], [], 0, {}
+    # Custom properties var() reads anywhere: a rule setting one may hide text elsewhere.
+    read_variables = frozenset(re.findall(r'var\(\s*(--[\w-]+)', css + html))
+    patterns, pattern_ids, maybe, events, position, clients, root_events = [], {}, [], [], 0, {}, []
     shared_states = {}
 
     def shared(condition, compound):
@@ -2997,14 +3117,14 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
             prelude = preludes.pop()
             block = cleaned[start:index]
             start = index + 1
-            declared = _declared_values(block, typography=typography, variables=variables, geometry=geometry)
+            declared = _declared_values(block, typography=typography, geometry=geometry)
             values = _style_values(block)
 
             def get(name):
                 return values.get(name, ('', False))[0]
-            hides = any(value is True or value in {'zero', 'transparent', 'unresolved'}
-                        for _name, value, _important in declared) or (
-                geometry and (_geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide') == 'all'))
+            hides = any(value is True or isinstance(value, tuple) or value in {'zero', 'transparent', 'unresolved'}
+                        or name in read_variables for name, value, _important in declared) or (
+                geometry and _box_may_hide(get))
             if declared and prelude.startswith('@'):
                 if hides:
                     return None
@@ -3024,7 +3144,8 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
                     # Browsers drop a whole rule for one selector they cannot read, so no
                     # selector of a list with one this reader cannot match is certain to apply.
                     parsed_list = [('maybe', parsed[1]['compounds'][-1], parsed[1]['specificity'])
-                                   if parsed[0] == 'exact' else parsed for parsed in parsed_list]
+                                   if parsed[0] == 'exact' else ('maybe', parsed[2], parsed[1])
+                                   if parsed[0] == 'root' else parsed for parsed in parsed_list]
                 for parsed in parsed_list:
                     position += 1
                     if parsed[0] == 'skip':
@@ -3035,6 +3156,10 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
                         parsed = ('maybe', parsed[1]['compounds'][-1], parsed[1]['specificity'])
                     if parsed[0] == 'maybe':
                         maybe.append((media, parsed[1], parsed[2], declared, position))
+                        continue
+                    if parsed[0] == 'root':
+                        root_events.extend((frozenset(filter(None, (media,))), name, (important, parsed[1], position, value))
+                                           for name, value, important in declared)
                         continue
                     pattern = parsed[1]
                     pattern_id = pattern_ids.setdefault(pattern['key'], len(patterns))
@@ -3049,20 +3174,23 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
                                        (important, pattern['specificity'], position, value)))
         index += 1
     clients = list(clients)
-    conditions = [condition for condition in dict.fromkeys(condition for event in events for condition in event[0])
-                  if condition not in clients]
+    conditions = [condition for condition in dict.fromkeys(
+        condition for event in (*events, *root_events) for condition in event[0]) if condition not in clients]
     conditions += list(dict.fromkeys(media for media, *_rest in maybe if media and media not in conditions))
     if len(conditions) > _MAX_MEDIA_CONTEXTS or (1 << len(conditions)) * (1 + len(clients)) > _MAX_RENDERING_VIEWS:
         return None
     views = []
     for client, mask in product([None, *clients], range(1 << len(conditions))):
         active = {condition for bit, condition in enumerate(conditions) if mask >> bit & 1} | {client}
-        winners = {}
+        winners, root = {}, {}
         for required, pattern_id, name, ranked in events:
             declared = winners.setdefault(pattern_id, {})
             if required <= active and (name not in declared or ranked[:3] > declared[name][:3]):
                 declared[name] = ranked
-        views.append({'winners': winners, 'maybe': [
+        for required, name, ranked in root_events:
+            if required <= active and (name not in root or ranked[:3] > root[name][:3]):
+                root[name] = ranked
+        views.append({'winners': winners, 'root': root, 'maybe': [
             (subject, {name: (important, specificity, position, value) for name, value, important in declared})
             for media, subject, specificity, declared, position in maybe if not media or media in active]})
     index_by = {'class': {}, 'id': {}, 'tag': {}, 'any': []}
@@ -3077,7 +3205,7 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
         else:
             index_by['any'].append(pattern_id)
     return {'patterns': patterns, 'index': index_by, 'conditions': conditions + clients, 'views': views,
-            'contexts': bool(conditions or clients), 'variables': variables, 'geometry': geometry,
+            'contexts': bool(conditions or clients), 'geometry': geometry, 'variables': read_variables,
             # Patterns with combinators whose rules can change what renders, for content a
             # browser moves out of a table.
             'structural': [patterns[pattern_id] for pattern_id in sorted(
@@ -3134,8 +3262,11 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             views = targets['views'] if targets else []
             # Per view, an element's state: display none, visibility hidden, opacity zero,
             # zero font size, transparent colour, clipped by its box, hidden in Outlook
-            # (mso-hide). The document root is visible everywhere.
-            self.root_states = tuple((False,) * 7 for _view in views)
+            # (mso-hide); and its custom properties. The document root takes the rules on
+            # the html and body elements a document leaves implied.
+            self.root_states, self.root_custom, self.root_tokens = (), (), frozenset()
+            if targets:
+                self._cascade_root()
             self.view_parts = [[] for _view in views] if targets and targets['contexts'] else []
             # The same readings with images off: linked images show their alt text in place.
             self.parts_off, self.certain_parts_off = [], []
@@ -3189,7 +3320,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             if self.targets is None:
                 return
             if tokens is None:
-                tokens = self.elements[-1][5] if self.elements else frozenset()
+                tokens = self.elements[-1][5] if self.elements else self.root_tokens
             if states is None:
                 states = self.elements[-1][7] if self.elements else self.root_states
             if '#ambiguous' in tokens and text.strip():
@@ -3239,8 +3370,38 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             tables = [index for index, element in enumerate(self.elements) if element[0] == 'table']
             return tables[-1] - 1 if tables else None
 
+        def _maybe_changes(self, view, node, parent, custom, winners, state, element_custom):
+            """Whether a rule this reader cannot match exactly, applying to node (None for the
+            implied root), would change its state or a custom property var() reads."""
+            for subject, declared in view['maybe']:
+                if subject is not None and not (
+                        _compound_matches(subject, node, True) if node is not None else
+                        subject['tag'] in {None, 'html', 'body'} and not (subject['classes'] or subject['ids']
+                                                                         or subject['attributes'])):
+                    continue
+                for name, ranked in declared.items():
+                    if name not in winners or ranked[:3] > winners[name][:3]:
+                        resolved, changed = _with_custom_properties({**winners, name: ranked}, custom)
+                        if _cascade_state(parent, resolved)[0] != state or (
+                                name in self.targets['variables'] and changed.get(name) != element_custom.get(name)):
+                            return True
+            return False
+
+        def _cascade_root(self):
+            states, customs, ambiguous = [], [], False
+            for view in self.targets['views']:
+                parent = (False,) * 7
+                resolved, custom = _with_custom_properties(view['root'], {})
+                state, unresolved = _cascade_state(parent, resolved)
+                ambiguous |= unresolved or self._maybe_changes(view, None, parent, {}, view['root'], state, custom)
+                states.append(state)
+                customs.append(custom)
+            self.root_states, self.root_custom = tuple(states), tuple(customs)
+            self.root_tokens = frozenset({'#ambiguous'}) if ambiguous else frozenset()
+
         def _cascade_element(self, tag, attrs, style, fostered=False):
-            """Record an element among its siblings; return its markers and per-view states."""
+            """Record an element among its siblings; return its markers, and its per-view
+            states and custom properties."""
             values = dict(attrs)
             node = (tag, tuple((values.get('class') or '').split()), (values.get('id') or '').strip(),
                     {name: value or '' for name, value in attrs})
@@ -3261,20 +3422,22 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     matched.append(pattern_id)
                 elif self._matches(pattern, final, level, last, True):
                     ambiguous = True  # matches only if names ignore case, as in quirks mode
-            inline = _declared_values(style, variables=cascade['variables'], geometry=cascade['geometry'])
+            inline = _declared_values(style, geometry=cascade['geometry'])
             hidden_attribute = 'hidden' in values
             parents = self.elements[-1][7] if self.elements else self.root_states
+            customs = self.elements[-1][8] if self.elements else self.root_custom
             outside = self._outside_table() if fostered else None
             if outside is not None:
                 # Browsers move this element before the table: it inherits from outside it.
                 # Selectors that reach it through the table's elements cannot be decided.
                 parents = self.elements[outside][7] if outside >= 0 else self.root_states
+                customs = self.elements[outside][8] if outside >= 0 else self.root_custom
                 chain = [self.children[index][-1] for index in range(outside + 1, len(self.elements))]
                 ambiguous |= any(set(pattern['combinators']) & {'+', '~'} or any(
                     _compound_matches(compound, node, True) for compound in pattern['compounds'][:-1] for node in chain)
                     for pattern in cascade['structural'])
-            states = []
-            for view, parent in zip(cascade['views'], parents):
+            states, element_customs = [], []
+            for view, parent, custom in zip(cascade['views'], parents, customs):
                 winners = {}
                 for pattern_id in matched:
                     for name, ranked in view['winners'].get(pattern_id, {}).items():
@@ -3287,18 +3450,14 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         winners[name] = ranked
                 if hidden_attribute and 'display' not in winners:
                     winners['display'] = (False, (0, 0, 0, 0), 0, True)
-                state, unresolved = _cascade_state(parent, winners)
-                ambiguous |= unresolved
-                for subject, declared in view['maybe']:
-                    if ambiguous or not _compound_matches(subject, node, True):
-                        continue
-                    for name, ranked in declared.items():
-                        if name not in winners or ranked[:3] > winners[name][:3]:
-                            if _cascade_state(parent, {**winners, name: ranked})[0] != state:
-                                ambiguous = True
+                resolved, element_custom = _with_custom_properties(winners, custom)
+                state, unresolved = _cascade_state(parent, resolved)
+                ambiguous = ambiguous or unresolved or self._maybe_changes(
+                    view, node, parent, custom, winners, state, element_custom)
                 states.append(state)
-            markers = (self.elements[-1][5] if self.elements else frozenset()) & {'#ambiguous'}
-            return (markers | {'#ambiguous'} if ambiguous else markers), tuple(states)
+                element_customs.append(element_custom)
+            markers = (self.elements[-1][5] if self.elements else self.root_tokens) & {'#ambiguous'}
+            return (markers | {'#ambiguous'} if ambiguous else markers), tuple(states), tuple(element_customs)
 
         def _truncate_elements(self, index):
             if self.open_paragraph and any(item[0] == 'p' for item in self.elements[index:]):
@@ -3356,6 +3515,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                                    media if media and media.lower() not in {'all', 'screen'} else '')
                 if self.style_mode not in {'', 'ignore'}:
                     self.stylesheet_parts.append(f'@media {self.style_mode} {{')
+            if self.targets is not None and not self.hidden and tag in {'script', 'style', 'template', 'noframes'}:
+                # Not rendered, but an element all the same: sibling selectors count it
+                # (p + p does not match across a <style> between them).
+                values = dict(attrs)
+                self.children[len(self.elements)].append(
+                    (tag, tuple((values.get('class') or '').split()), (values.get('id') or '').strip(),
+                     {name: value or '' for name, value in attrs}))
             if tag in {'script', 'style', 'head', 'title', 'template', 'noframes'}:
                 self.hidden.append(tag)
             if self.hidden:
@@ -3378,14 +3544,14 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             # can restore the first two (font-size:14px inside a font-size:0 layout wrapper).
             zero_size, transparent, opacity_uncertain = _inline_text_state(style or '')
             if self.targets is None and style and re.search(
-                    r'height|width|position|indent|clip|transform|mso-hide|font-size|opacity', style, re.IGNORECASE):
+                    r'height|width|position|left|top|right|bottom|indent|clip|transform|mso-hide|font-size|opacity',
+                    style, re.IGNORECASE):
                 values = _style_values(style)
 
                 def get(name):
                     return values.get(name, ('', False))[0]
                 opacity = _opacity_number(get('opacity'))
-                self.geometry_hint |= bool(_geometry_hidden(get) is not False or _zero_box(get) or get('mso-hide')
-                                           or _font_size_class(get('font-size')) == 'tiny'
+                self.geometry_hint |= bool(_box_may_hide(get) or _font_size_class(get('font-size')) == 'tiny'
                                            or (opacity is not None and 0 < opacity < _NEAR_ZERO_OPACITY))
             parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
             inline_state = (parent_inline[0] if zero_size is None else zero_size,
@@ -3394,12 +3560,12 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             inline_uncertain = any(inline_state)
             # In the view pass, the stylesheet and inline cascade per view; '#ambiguous'
             # marks content whose rendering this reader cannot decide.
-            element_tokens, element_states = frozenset(), None
+            element_tokens, element_states, element_custom = frozenset(), None, None
             if self.targets is not None:
                 parent = self.elements[-1][0] if self.elements else None
                 fostered = parent in _TABLE_CONTENT_MODEL and tag not in _TABLE_CONTENT_MODEL[parent] and not (
                     tag == 'input' and (dict(attrs).get('type') or '').strip().lower() == 'hidden')
-                element_tokens, element_states = self._cascade_element(tag, attrs, style or '', fostered)
+                element_tokens, element_states, element_custom = self._cascade_element(tag, attrs, style or '', fostered)
             if tag == 'source' and any(name == 'srcset' and value and value.strip()
                                        for name, value in attrs):
                 for index in range(len(self.elements) - 1, -1, -1):
@@ -3454,7 +3620,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     except ValueError:
                         pass
                 self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
-                                      element_tokens, inline_state, element_states))
+                                      element_tokens, inline_state, element_states, element_custom))
                 self.children.append([])
                 if tag == 'p':
                     self.open_paragraph = True
@@ -3501,7 +3667,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     and self.elements[-1][0] in _TABLE_CONTENT_MODEL and self._outside_table() is not None):
                 # Browsers move text out of a table: it inherits from outside it.
                 outside = self._outside_table()
-                self._emit(data, self.elements[outside][5] if outside >= 0 else frozenset(),
+                self._emit(data, self.elements[outside][5] if outside >= 0 else self.root_tokens,
                            states=self.elements[outside][7] if outside >= 0 else self.root_states)
             elif self.targets is None and self._visually_hidden():
                 self.hidden_characters += sum(not char.isspace() for char in _strip_invisible_format_controls(data))

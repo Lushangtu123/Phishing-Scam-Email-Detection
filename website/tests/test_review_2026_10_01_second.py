@@ -134,12 +134,16 @@ class DroppedCssTests(CallbackTestCase):
         found = readings('<style>.hide{display:none}</style><table><tr><div>Order shipped</div><td>Total</td></tr></table>')
         self.assertTrue(found['resolved'])
 
-    def test_custom_properties_take_the_values_the_stylesheet_gives_them(self):
-        variables = {'--body': ['#0f1111', '#ffffff'], '--clear': ['transparent']}
-        self.assertEqual(app._with_variables('var(--body)', app._color_class, variables), 'visible')
-        self.assertEqual(app._with_variables('var(--clear)', app._color_class, variables), 'transparent')
-        self.assertEqual(app._with_variables('var(--missing)', app._color_class, variables), 'inherit')
-        self.assertEqual(app._with_variables('var(--missing, transparent)', app._color_class, variables), 'transparent')
+    def test_custom_properties_take_the_values_the_element_has(self):
+        custom = {'--body': '#0f1111', '--clear': 'transparent'}
+
+        def color(value):
+            winners = {'color': (False, (0, 0, 1, 0), 1, ('var', value))}
+            return app._with_custom_properties(winners, custom)[0]['color'][3]
+        self.assertEqual(color('var(--body)'), 'visible')
+        self.assertEqual(color('var(--clear)'), 'transparent')
+        self.assertEqual(color('var(--missing)'), 'inherit')
+        self.assertEqual(color('var(--missing, transparent)'), 'transparent')
         found = readings('<style>:root{--c:#111} body{color:var(--c)} .pad{font-size:0}</style>'
                          '<p>Visible</p><p class="pad">x</p>')
         self.assertTrue(found['resolved'])

@@ -1408,6 +1408,66 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review at 8f6aca6: CSS variables, decoded attributes and unrendered siblings (2026-10-01)
+
+A read-only review of the hidden-text change supplied synthetic fixtures for four
+findings. All four reproduced on the served model, in HTML and `.eml`:
+
+| Finding | Input | Before | After |
+|---|---|---|---|
+| S1 CSS variables (P1) | `.absent{--z:16px}` and `.pad{font-size:var(--z)}` in a `font-size:0` wrapper; or inline `--z:0px;font-size:var(--z)` | Low | High (callback) |
+| S2 character references (P1) | `class="p&#97;d"` or `id="p&#97;d"`, with `.pad` or `#pad` hidden | Low | High (callback) |
+| R1 unrendered siblings (P1) | `p+p{display:none}` with a `<style>` between two paragraphs; `style + .pad`, `script + .pad` | Safe; Low | High (callback) |
+| R2 tiny or faint text in a stylesheet (P1) | `.pad{font-size:1px}` or `.pad{opacity:0.05}` | Low, complete, no warning | High (callback) |
+
+Causes:
+- **S1.** A variable took every value any rule gave it, wherever the rule applied.
+  Custom properties now cascade and inherit element by element, from rules and inline
+  styles, and `var()` takes the element's own value.
+- **S2.** A tolerant scan of start tags, separate from the HTML parser, kept character
+  references undecoded. It then dropped selectors it believed matched nothing. The
+  document's elements are now read with the same parser as its text.
+- **R1.** The element tree left out elements that render nothing.
+- **R2.** Only the inline path opened the views that leave tiny and faint text out.
+  Inline and stylesheet values now share one gate.
+
+Fixing these turned up four more cases:
+
+| Case | Before | Now |
+|---|---|---|
+| `body{font-size:0}`, `html{...}` or `:root{...}` in a document that leaves `<html>` and `<body>` implied, padding inheriting from it | Low or undetermined: the rule was dropped | applies to the root; High (callback) |
+| `.attack, p::unknown{display:none}`: some browsers drop the rule, others keep it | Safe | undecidable; High (callback) |
+| `position` inline and `left:-9999px` in a rule, or the reverse | Low | High (callback) |
+| `:root{--z:transparent}.pad{color:var(--z)}` | Low, complete | High (callback), complete |
+
+Two of the review's probes now differ from before without being findings:
+- `html{font-size:0}` alone hides all text. It was Low and is now undetermined.
+- `body{font-size:0}` with `.attack{font-size:16px}` around the padding stays Low:
+  the padding inherits 16px, as the reviewer's browser shows.
+
+The other 25 of the review's 39 fixtures are unchanged.
+
+| Cohort | `c195630`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+| Nazario 2015–25 phishing (3,466) | 3,320 / 137 / 9 | 3,320 / 137 / 9 |
+
+No verdict, mail type or question changed for any message in:
+- the 92 genuine downloads, with and without a mailbox;
+- DataCon 2023 day 1 (611);
+- the 87 public HTML templates;
+- Nazario.
+
+Counts are also identical for the pasted genuine text, PhishFuzzer recent,
+UniqueData and Postmark. Single-threaded on an Apple M2 Max, the genuine downloads
+took 9.5 s instead of 9.3 s, and Nazario 112.3 s instead of 110.8 s.
+
+Still not modelled:
+- external stylesheets;
+- text coloured like its background;
+- HTML that a browser's tree builder restructures in ways other than tables.
+
 ### Hidden-text salting: tiny, faint, clipped and off-screen text (2026-10-01)
 
 Phishing hides benign padding beside the scam, so a text model reads the message as
@@ -1530,7 +1590,8 @@ Several first versions changed genuine mail and were refined:
   undecidable only where a selector with combinators could reach it through the
   table's elements.
 - **CSS variables.** Amazon's `body{color:var(--body-color)}` was uncomputable. A
-  variable now takes every value the stylesheet gives it.
+  variable then took every value the stylesheet gave it. Since the review at
+  8f6aca6 (above), variables are resolved element by element.
 
 | Cohort | `1d9206d`: alerts / undetermined / Safe or Low | After |
 |---|---|---|

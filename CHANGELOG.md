@@ -20,6 +20,64 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 22:00 PT] — Fix four findings from the review at 8f6aca6
+
+### Why
+- A read-only review at 8f6aca6 reproduced four ways to keep a callback scam Low or Safe with its padding hidden, in HTML and `.eml` alike:
+  - S1 (P1): CSS variables were read globally, not per element.
+    - `.absent{--z:16px}` made `.pad{font-size:var(--z)}` readable inside a `font-size:0` wrapper, though no element had `--z`.
+    - An inline `--z:0px;font-size:var(--z)` was not read at all.
+  - S2 (P1): selectors on elements the document lacks are dropped. The scan that decides this read attribute values raw, so `class="p&#97;d"` (which is `pad`) dropped `.pad{display:none}`. Ids too.
+  - R1 (P1): `<style>` and `<script>` were left out of the element tree.
+    - `p + p{display:none}` matched across a `<style>` and hid the scam.
+    - `style + .pad` and `script + .pad` hid nothing.
+  - R2 (P1): a 1px font or opacity 0.05 in a stylesheet did not open the views that leave such text out, unlike the same style inline. The result was Low, as a complete analysis with no warning.
+- Found while fixing these:
+  - rules on `html`, `:root` or `body` were dropped when the document leaves those elements implied. Browsers apply them to everything (`body{font-size:0}`);
+  - an unknown pseudo-element in a selector list (`.attack, p::unknown{display:none}`) skipped the list instead of making it undecidable: Safe;
+  - `position` inline with `left:-9999px` in a rule, or the reverse, did not open the geometry views;
+  - `:root{--z:transparent}.pad{color:var(--z)}` was Low as a complete analysis (the review's probe `vars_gate`).
+
+### Files changed
+- `website/app.py`:
+  - Custom properties:
+    - `_style_values` keeps `--name` declarations;
+    - `_with_custom_properties` cascades and inherits them per element, from rules and inline styles. It substitutes `var()` (`_substitute_variables`: nested, with fallbacks) in size, colour, opacity and box values, and `_variable_class` classifies the result;
+    - a `var()` with no value and no fallback unsets its declaration, as in browsers;
+    - these replace `_custom_properties` and `_with_variables`;
+    - a rule this reader cannot match that may set a custom property `var()` reads leaves the text it reaches undecidable.
+  - `_parse_selector`:
+    - `:root`, and `html` or `body` absent from the document, apply to the root, with `:root`'s pseudo-class specificity;
+    - unknown and vendor-prefixed pseudo-elements are "maybe".
+  - `_document_features` reads elements with the same HTML parser as the text: character references decoded, the first of a repeated attribute kept.
+  - The view pass records `<style>`, `<script>`, `<template>` and `<noframes>` as siblings.
+  - Gates for the geometry and typography views:
+    - `_box_may_hide` is one gate for inline and stylesheet box values. It includes an off-screen offset or a clip rectangle on its own, and any `var()` box value;
+    - the stylesheet gate also opens on tiny fonts, faint opacity and `var()` values;
+    - the typography gate opens on tiny fonts and `var()` too.
+- Tests:
+  - `website/tests/test_review_2026_10_01_third.py`: 19 tests. 17 fail on 8f6aca6; the other two are controls;
+  - `website/tests/test_review_2026_10_01_second.py` reads custom properties per element.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- The review's fixtures, served model, HTML and `.eml`:
+  - High (callback), from Low or Safe: scoped and inline variables; entity-encoded class and id; the three `<style>` and `<script>` sibling cases; a stylesheet 1px font or opacity 0.05, with or without an unrelated hiding rule; the unknown pseudo-element list;
+  - `vars_gate`: Low → High (callback), still a complete analysis;
+  - `root_hide` (`html{font-size:0}`, so no text is visible): Low → Unknown;
+  - `body_style` stays Low: its padding inherits a readable size, as the reviewer's browser shows;
+  - the other 25 of the 39 fixtures are unchanged.
+- Found-while-fixing cases, served model: root rules (`body`, `html`, `:root` font size, `body` transparent colour) Low or Unknown → High (callback); split offsets Low → High (callback).
+- Same served model, main (c195630) against this change: no verdict, mail-type or question change, per message, on:
+  - the 92 genuine downloads, with and without a mailbox;
+  - DataCon 2023 day 1 (611);
+  - the 87 public HTML templates;
+  - Nazario 3,466.
+
+  Counts are also identical on the pasted genuine text, PhishFuzzer recent, UniqueData and Postmark.
+- Analysis time, single-threaded on an Apple M2 Max: the 92 genuine downloads 9.3 → 9.5 s; Nazario 110.8 → 112.3 s.
+- Tests: 934 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-01 21:00 PT] — Treat tiny, faint, clipped, off-screen and Outlook-hidden text as possibly invisible
 
 ### Why
