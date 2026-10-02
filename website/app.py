@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import asyncio
+import base64
 import json
 import hashlib
 import ipaddress
@@ -5021,6 +5022,41 @@ _GOVERNMENT_HOST = re.compile(r"(?:^|\.)(?:gov|mil)$|\.(?:gov|gob|gouv|govt|go|g
                               r"|\.bund\.de$")
 
 
+# A link carrying the recipient's own address ("?email=jose@example.org", or in base64) to
+# a site that is neither the sender's nor listed: phishing kits pre-fill their sign-in
+# page so it looks like the reader's own account. 1,324 of 3,466 Nazario messages carry
+# one; none of the 92 genuine downloads or 5,055 Apache list messages do. Unsubscribe and
+# preference links, which carry the address in genuine mail, are left out.
+_SUBSCRIPTION_LINK = re.compile(r"unsubscribe|opt[-_]?out|preferences|manage[-_]?(?:subscription|email)|email[-_]?settings"
+                                r"|list-manage|退订|取消订阅", re.IGNORECASE)
+
+
+def _recipient_prefilled_link(links, recipients, sender_domain: str = '') -> str | None:
+    """The host of an unlisted link, off the sender's domain, whose URL carries a recipient's address."""
+    forms = set()
+    for recipient in recipients or ():
+        address = recipient.strip().lower()
+        if '@' in address:
+            encoded = base64.b64encode(address.encode()).decode().rstrip('=').lower()
+            forms |= {address, encoded, encoded.replace('+', '-').replace('/', '_')}
+    if not forms:
+        return None
+    for label, destination in links or ():
+        if _SUBSCRIPTION_LINK.search(destination) or _SUBSCRIPTION_LINK.search(label or ''):
+            continue
+        host = _unlisted_off_sender_host(destination, sender_domain)
+        if not host:
+            continue
+        try:
+            target = _parse_link_target(destination)
+        except ValueError:
+            continue
+        tail = unquote(unquote(f"{target.path or ''}?{target.query or ''}#{target.fragment or ''}")).lower()
+        if any(form in tail for form in forms):
+            return host
+    return None
+
+
 def _fine_lure(text: str, links, sender_domain: str = '') -> str | None:
     """The host an unpaid-fine or toll notice links to, off the sender's and government domains."""
     if not _FINE_LURE.search(re.sub(r'\s+', ' ', text or '')):
@@ -5129,7 +5165,7 @@ _PHISHING_TACTICS = {
     "credential": {"content.pressured_credential_request", "content.password_form", "content.mailbox_lure",
                    "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
                    "content.sensitive_request.recovery_secret", "link.credential_collection_host",
-                   "link.user_content_action", "content.attachment_account_lure"},
+                   "link.user_content_action", "content.attachment_account_lure", "link.recipient_prefilled"},
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
@@ -5419,7 +5455,7 @@ def _text_rule_findings(full_orig: str) -> dict:
 
 
 def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
-                          _model_view: dict | None = None, sender: str = '') -> dict:
+                          _model_view: dict | None = None, sender: str = '', recipients=()) -> dict:
     """Rule-based heuristic phishing analysis of email subject + body text."""
     analysis_warnings = []
 
@@ -5726,6 +5762,11 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.fine_lure', host=fine_host))
+    prefilled_host = _recipient_prefilled_link(links, recipients, sender_domain)
+    if prefilled_host:
+        total_score += 3
+        risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
+        extra_indicators.append(indicator('medium', 'link.recipient_prefilled', host=prefilled_host))
 
     extra_indicators.extend(rules['style'])
 
@@ -5973,7 +6014,10 @@ async def _analyze_content(
     model_view = {}
     result = await _run_analysis(analyze_email_content, subject, body, content_parts=(structure['content_parts'] if structure else
                                        [{'content_type': 'text/plain', 'content': body}] if plain_text else None),
-                                   _model_view=model_view, sender=structure['from'] if structure else '')
+                                   _model_view=model_view, sender=structure['from'] if structure else '',
+                                   recipients=[address for name in ('To', 'Cc') for value in
+                                               (structure['header_candidates'][name] if structure else ())
+                                               for _name, address in getaddresses([value]) if '@' in address])
     if model_view.get('mime_alternatives_truncated'):
         result['analysis_warnings'].append(_MIME_ALTERNATIVE_LIMIT_WARNING)
     remote_image_dominant = model_view['remote_image_dominant']

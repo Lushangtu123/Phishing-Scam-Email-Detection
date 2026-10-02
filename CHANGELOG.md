@@ -20,6 +20,31 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 17:30 PT] — Flag links that carry the recipient's own address
+
+### Why
+- 1,324 of 3,466 Nazario messages link to a site that is neither the sender's nor listed, with the recipient's address in the URL. Forms seen include `?email=jose@monkey.org`, `#jose@monkey.org` and base64.
+- Phishing kits pre-fill their sign-in page this way, so it looks like the reader's own account.
+- Eight such messages were still undetermined, most in English or Chinese: a FlowAccount document, an SF Express e-invoice and parcel notice, invoice and purchase-order lures, and a garbled mailbox notice.
+
+### Files changed
+- `website/app.py`: `link.recipient_prefilled` (Medium; score 3; Medium floor; the credential tactic) fires when:
+  - a link leaves the sender's domain for an unlisted host;
+  - its path, query or fragment carries a To or Cc address, as written, URL-encoded or in base64.
+  
+  Unsubscribe and preference links and `mailto:` links are left out. `analyze_email_content` now takes the recipients.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_recipient_prefilled_link.py`: 3 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (ca047e5) against this change:
+  - Nazario 3,466: alerts 3,428 → 3,436 (8 undetermined → 5 High, 3 Medium); 11 Medium → High; 62 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts, which have no recipients.
+- The pattern fires on none of the 92 genuine downloads (real marketing and account mail to these addresses) or 5,055 Apache list messages.
+- Tests: 1,044 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 16:30 PT] — Flag display names that show the recipient's own domain
 
 ### Why

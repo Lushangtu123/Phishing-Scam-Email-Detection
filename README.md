@@ -505,6 +505,11 @@ Raw input enables these checks:
   button on a host that is neither the sender's, an official carrier's, nor a
   retailers' tracking platform (Narvar, AfterShip, Route, ParcelPanel, 17TRACK,
   Shopify). "Sorry we missed you, reschedule" alone does not count;
+- links that carry the recipient's own address (`?email=jose@example.org`, URL-encoded,
+  or in base64) to a site that is neither the sender's nor listed: phishing kits
+  pre-fill their sign-in page so it looks like the reader's account. Unsubscribe and
+  preference links, which carry the address in genuine mail, are left out. Medium,
+  with a Medium floor;
 - unpaid fine and toll lures: "unpaid toll balance", "your parking ticket is
   overdue", "multa no pagada", "amende impayée", 交通违法, "ETC 已失效", with a link
   that leaves the sender's domain for one that is neither listed nor a

@@ -868,6 +868,7 @@
   'server.link.file_share_elsewhere': '邮件称有人通过 {service} 与你共享了文件，但其中的下载或打开按钮却指向另一个网站 {host}。请在该服务的官网或 App 中打开共享文件。',
   'server.sender.recently_registered': '发件域名 {domain} 注册于 {date}，距今 {days} 天（注册局 RDAP 记录）。钓鱼邮件常用新注册的域名；正规机构一般使用持有多年的域名发信。',
   'server.link.recently_registered': '链接域名 {domain} 注册于 {date}，距今 {days} 天（注册局 RDAP 记录）。钓鱼网页常放在新注册的域名上。',
+  'server.link.recipient_prefilled': '指向 {host} 的链接里带着你自己的邮箱地址，这样打开的页面会预先填好你的邮箱。该网站既不是发件方的，也不在已登记名录中。钓鱼网页常这样伪装成你账户的真实登录页。',
   'server.link.user_content_action': '要求你登录、验证或更新账户或付款信息的按钮，指向的是任何人都能在可信平台上发布的文档、表单或共享文件。正规公司不会在这类地方收集账户或付款信息。',
   'server.link.credential_collection_host': '链接目标（{host}）同时包含凭据和收集类字样。',
   'server.link.sensitive_host': '链接目标（{host}）在未识别的域名上使用了账户相关字样；仅凭这一点不能认定为钓鱼。',

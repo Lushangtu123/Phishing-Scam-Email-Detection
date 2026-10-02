@@ -1408,6 +1408,23 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Links that carry the recipient's own address (2026-10-02)
+
+1,324 of 3,466 Nazario messages link to an unlisted site, off the sender's domain, with
+the recipient's address in the URL (`?email=jose@monkey.org`, base64), so the phishing page
+shows it pre-filled. A new check (`link.recipient_prefilled`, Medium) flags it. It leaves
+out unsubscribe and preference links.
+
+| Cohort (same model) | `ca047e5`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,428 / 31 / 7 | 3,436 / 23 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 11 Medium alerts rose to High and 62 High to Critical; none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates.
+- **Genuine sets.** No message of the genuine downloads (real marketing and account mail to these addresses) or the Apache lists fires.
+
 ### Display names showing the recipient's own domain (2026-10-02)
 
 485 of 3,466 Nazario messages put the recipient's domain ("monkey.org") in the From display
