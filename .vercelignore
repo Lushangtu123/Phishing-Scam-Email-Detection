@@ -25,6 +25,7 @@ website/tools/prepare_public_pilot.py
 website/tools/compare_evaluations.py
 website/tools/import_own_mailbox.py
 website/tools/update_ip_reputation.py
+website/tools/update_rdap_bootstrap.py
 
 # Development-only lint configuration
 ruff.toml

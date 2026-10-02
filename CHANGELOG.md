@@ -20,6 +20,44 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 11:30 PT] — Look up domain registration dates through RDAP
+
+### Why
+- Newly registered domains are a common phishing signal. The owner asked for registration dates via RDAP and chose:
+  - to check the sender's domain and the link domains;
+  - to evaluate on public data only;
+  - to commit a snapshot of IANA's bootstrap.
+- RDAP sends a registrable domain to that top-level domain's registry, a third party, so the lookups are off unless a deployment enables them, and the page says so.
+
+### Files changed
+- `website/domain_age.py` (new):
+  - bootstrap loading and validation;
+  - the RDAP server of a top-level domain (longest suffix);
+  - bounded lookups: https only (also on redirect), 256 KB, a 2-second timeout and 3 seconds per message, up to five domains;
+  - a cache (a day for answers, an hour for failures);
+  - an asynchronous variant that holds no analysis worker while waiting.
+- `website/tools/update_rdap_bootstrap.py` (new): downloads https://data.iana.org/rdap/dns.json and keeps the https servers. Excluded from the deployment.
+- `website/data/rdap_bootstrap.json` (new): fetched 2026-10-02 17:30 UTC (IANA publication 2026-09-30), 54.6 KB, 590 services covering 1,201 top-level domains.
+- `website/config.py`: `RDAP_LOOKUPS`, off by default. `vercel.json`: on for the Vercel profile.
+- `website/app.py`:
+  - `_registration_candidates` takes the From domain, then link domains, as registrable domains only. It skips official brands, mail providers, file-sharing services, shared-suffix hosts and IP addresses.
+  - `_registration_findings` names domains registered less than 90 days ago (`sender.recently_registered`, `link.recently_registered`, info level, no points). The dates are in `domain_registrations`.
+  - `rdap_lookups_enabled` is in `/api/config` and the health payload.
+- `website/email_structure.py`: `registrable_domain` (private suffixes included).
+- `website/static/index.html`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the privacy notice says which domains go to which service. `website/data/server_messages.json`: the two findings. Asset versions bumped.
+- `website/tests/test_domain_age.py`: 10 tests with fake fetchers. `website/tests/test_app_security.py`: the public config lists the new flag.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Public data only, real RDAP lookups, age at the time each message was sent:**
+  - Nazario 2023–25 sender domains: 4 of 67 with a known date were under 90 days old (3 under 30);
+  - Nazario link domains: none of 72;
+  - Apache list mail: no domain under 90 days among 80 with known dates.
+  - The rest had no RDAP service (52 Nazario, 36 Apache), were not found (96 Nazario, mostly deleted since; 3 Apache) or were re-registered after sending (13 Nazario, 1 Apache).
+- **Weak on historical mail, so context only.** In live use the domains are still registered when the message is analysed.
+- **No verdict change** on any cohort (lookups are off locally).
+- Tests: 1,028 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 10:30 PT] — Show the sending server's address and check it against Tor exit and Spamhaus DROP lists
 
 ### Why

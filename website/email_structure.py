@@ -263,6 +263,12 @@ def organizational_domain(domain: str) -> str:
     return _ORGANIZATIONAL_DOMAINS(domain).top_domain_under_public_suffix or domain
 
 
+def registrable_domain(domain: str) -> str:
+    """organizational_domain with private suffixes too: a user's site on a shared host
+    (alice.github.io) is its own registrable domain."""
+    return _REGISTRABLE_DOMAINS(domain).top_domain_under_public_suffix or domain
+
+
 # Words any sender can put in a display name; they never tie a name to a domain.
 _GENERIC_DISPLAY_WORDS = frozenset("""
     access account accounts admin administrator alert alerts and app apps auth bank billing care center centre

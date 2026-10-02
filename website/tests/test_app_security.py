@@ -434,6 +434,7 @@ class VerificationFeatureGateTests(unittest.TestCase):
             "jev_configured": False,
             "deployment_profile": app.SETTINGS.app_env,
             "email_verification_enabled": False,
+            "rdap_lookups_enabled": False,
             "verification_mode": "off",
             "domain_verification_enabled": False,
             "smtp_verification_enabled": False,

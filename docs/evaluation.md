@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Domain registration dates through RDAP (2026-10-02)
+
+Registration dates were looked up for a random sample of distinct domains:
+- 300 domains from Nazario 2023–25;
+- 120 domains from the Apache lists, as genuine mail.
+
+Queries were sequential and spaced. Each age is counted at the time the message was
+sent. Only public data was queried, as the owner chose: no domain from the genuine
+downloads was sent anywhere.
+
+| Sample | Domains | Under 90 days | 90 days or more | No RDAP service | Not found | Re-registered after sending |
+|---|---|---|---|---|---|---|
+| Nazario sender domains | 176 | 4 (3 under 30) | 63 | 30 | 69 | 10 |
+| Nazario link domains | 124 | 0 | 72 | 22 | 27 | 3 |
+| Apache sender domains | 37 | 0 | 14 | 21 | 2 | 0 |
+| Apache link domains | 83 | 0 | 66 | 15 | 1 | 1 |
+
+**Historical mail.** Most phishing domains have since been deleted or re-registered, and
+many Nazario messages use compromised old domains, so this sample undercounts new
+domains. Live analysis queries domains while they are still registered.
+
+**Result.** The finding names domains under 90 days and adds no points. No genuine
+domain fell under 90 days.
+
 ### Sending server address and IP lists (2026-10-02)
 
 The sending server, the one that handed each message to the reader's mail service, is

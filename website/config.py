@@ -42,6 +42,9 @@ class Settings:
     sender_history_retention_days: int = 90
     sender_history_timeout_seconds: float = 1.0
     sender_history_config_error: str | None = None
+    # Registration dates from registries' RDAP servers. Off unless enabled: it sends
+    # registrable domains (never paths or text) to the registry of each domain's TLD.
+    rdap_lookups_enabled: bool = False
 
     @property
     def is_production(self) -> bool:
@@ -180,6 +183,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             source.get("CONTENT_MODEL_ARTIFACT_SHA256", "").strip().lower() or None
         ),
         verification_mode=verification_mode,
+        rdap_lookups_enabled=_parse_bool(source, "RDAP_LOOKUPS", False),
         **sender_history,
     )
     if settings.is_public_service and settings.smtp_verification_enabled:

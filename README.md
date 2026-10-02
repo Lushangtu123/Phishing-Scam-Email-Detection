@@ -513,6 +513,21 @@ Raw input enables these checks:
   hour). Spamhaus DROP data © The Spamhaus Project SLU
   (https://www.spamhaus.org/drop/terms/); the snapshot keeps its copyright and
   dates;
+- domain registration dates, where the deployment sets `RDAP_LOOKUPS=true` (the
+  Vercel profile does; it is off by default, so tests and local evaluation never
+  query). The registrable domains of the sender and of the links (up to five per
+  message) are looked up at the RDAP server of their top-level domain's registry,
+  named by IANA's bootstrap (`website/data/rdap_bootstrap.json`, refreshed by hand
+  with `website/tools/update_rdap_bootstrap.py`). Only the registrable domain is
+  sent: never a subdomain, a path or message text. Official brands, mail
+  providers, file-sharing services, hosts on shared suffixes (`alice.github.io`)
+  and IP addresses are not asked about. Each lookup has a 2-second timeout and
+  the message 3 seconds in all, answers are cached for a day (failures for an
+  hour), and an unanswered lookup leaves the date unknown. Many country domains
+  (`.cn`, `.de`, `.io`, `.ru`) publish no RDAP service, so their dates are unknown.
+  A domain registered less than 90 days before the analysis is named
+  (`sender.recently_registered`, `link.recently_registered`); the dates are in
+  `domain_registrations`. Context only, no points;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;

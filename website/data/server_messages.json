@@ -83,6 +83,8 @@
   "link.idn_confusable": "Link destination ({host}) is an IDN/confusable lookalike for {brand}.",
   "link.brand_lookalike": "Link destination ({host}) is a noncanonical lookalike for {brand}.",
   "link.file_share_elsewhere": "The message says files were shared with you through {service}, but its download or open button leads to another site, {host}. Open shared files from the service's own website or app.",
+  "sender.recently_registered": "The sender's domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing often uses newly registered domains; established organisations send from long-held ones.",
+  "link.recently_registered": "The link domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing pages are often hosted on newly registered domains.",
   "link.user_content_action": "A button asking you to sign in, or to verify or update your account or payment, leads to a document, form or shared file that anyone can publish on a trusted platform. Companies do not collect account or payment details there.",
   "link.credential_collection_host": "Link destination ({host}) combines credential and collection wording.",
   "link.sensitive_host": "Link destination ({host}) uses account-related wording on an unrecognized domain; this alone does not establish phishing.",

@@ -31,6 +31,7 @@ import time
 import unicodedata
 import warnings
 from collections import deque
+from datetime import datetime, timezone
 from email.utils import getaddresses, parseaddr
 from html.parser import HTMLParser
 from html import escape as escape_html, unescape as unescape_html
@@ -49,6 +50,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from config import load_settings
+import domain_age
 from case_api import build_case_service, make_case_router, public_jev_status
 from feedback_api import make_feedback_router
 from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE  # noqa: F401 -- used by tests via app._REGISTRY_DOMAIN_RE
@@ -94,6 +96,7 @@ from email_structure import (
     _official_sender,
     _CONSUMER_MAILBOX_DOMAINS,
     organizational_domain as _organizational_domain,
+    registrable_domain as _registrable_domain,
     MAILBOX_AUTHSERV_IDS,
     SENDER_ONLY_SERVICES,
     OFFICIAL_SERVICE_NUMBERS as _OFFICIAL_SERVICE_NUMBERS,
@@ -713,6 +716,7 @@ async def health():
             "analysis_workers": ANALYSIS_WORKERS,
             "deployment_profile": SETTINGS.app_env,
             "email_verification_enabled": SETTINGS.domain_verification_enabled,
+            "rdap_lookups_enabled": SETTINGS.rdap_lookups_enabled,
             "verification_mode": SETTINGS.effective_verification_mode,
             "domain_verification_enabled": SETTINGS.domain_verification_enabled,
             "smtp_verification_enabled": SETTINGS.smtp_verification_enabled,
@@ -759,6 +763,7 @@ async def get_public_config():
         **public_jev_status(app),
         "deployment_profile": SETTINGS.app_env,
         "email_verification_enabled": SETTINGS.domain_verification_enabled,
+        "rdap_lookups_enabled": SETTINGS.rdap_lookups_enabled,
         "verification_mode": SETTINGS.effective_verification_mode,
         "domain_verification_enabled": SETTINGS.domain_verification_enabled,
         "smtp_verification_enabled": SETTINGS.smtp_verification_enabled,
@@ -5010,6 +5015,55 @@ def _delivery_lure(text: str, links, sender_domain: str = '') -> str | None:
     return None
 
 
+# Domains registered this recently are named in the result (registry RDAP records).
+_NEW_DOMAIN_DAYS = 90
+
+
+def _link_hosts(links) -> list[str]:
+    hosts = []
+    for _label, destination in links:
+        try:
+            host = (_parse_link_target(destination).hostname or '').lower().rstrip('.')
+        except ValueError:
+            continue
+        if host and host not in hosts:
+            hosts.append(host)
+    return hosts
+
+
+def _registration_candidates(sender: str, link_hosts) -> list[tuple[str, str]]:
+    """(role, registrable domain) pairs whose registration date is worth asking: the From
+    domain, then link domains. Official brands, mail providers, file-sharing services and
+    hosts on shared suffixes (alice.github.io, whose suffix's age says nothing) are left
+    out, as are IP addresses."""
+    sender_host = parseaddr(sender)[1].rpartition('@')[2].lower().rstrip('.')
+    found = []
+    for role, host in [('sender', sender_host)] + [('link', host) for host in link_hosts]:
+        if not host or '.' not in host or _is_ip_host(host):
+            continue
+        domain = _organizational_domain(host)
+        if (domain != _registrable_domain(host) or domain in _CONSUMER_MAILBOX_DOMAINS or domain in _FILE_SHARE_DOMAINS
+                or _official_sender(domain) or any(known == domain for _role, known in found)):
+            continue
+        found.append((role, domain))
+    return found[:domain_age.MAX_LOOKUPS_PER_MESSAGE]
+
+
+def _registration_findings(candidates, dates, now=None) -> list[dict]:
+    now = now or datetime.now(timezone.utc)
+    findings = []
+    for role, domain in candidates:
+        date = dates.get(domain)
+        if date is None:
+            continue
+        days = max(0, (now - date).days)
+        if days < _NEW_DOMAIN_DAYS:
+            findings.append(indicator('info', 'sender.recently_registered' if role == 'sender'
+                                      else 'link.recently_registered', domain=domain,
+                                      date=date.date().isoformat(), days=days))
+    return findings
+
+
 def _attachment_account_lure(attachment: dict, sender_domain: str) -> str | None:
     """The host an account-hold lure in a document attachment links to, off the sender's domain."""
     if not _account_hold_lure(attachment.get('extracted_text') or ''):
@@ -5707,6 +5761,8 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         "has_ip_url":        _has_ip_url(raw_text, links=links),
         "has_shortener":     _has_shortener_url(raw_text, links=links),
         "risk_floor":        risk_floor,
+        # For registration-date lookups only; removed before the response.
+        "link_hosts":        _link_hosts(links),
     }
 
 
@@ -6165,6 +6221,15 @@ async def _analyze_content(
         item = indicator('info', 'warning.attachments_uninspected')
         result['analysis_warnings'].append(item['msg'])
         result['extra_indicators'].append(item)
+
+    # Registration dates of the sender's and the links' domains, from the registries'
+    # RDAP servers where the deployment enables it. Context only: no points.
+    candidates = _registration_candidates(structure['from'] if structure else '', result.pop('link_hosts', []))
+    if SETTINGS.rdap_lookups_enabled and candidates:
+        dates = await domain_age.lookup_many_async([domain for _role, domain in candidates])
+        result['domain_registrations'] = {domain: date.date().isoformat() if date else None
+                                          for domain, date in dates.items()}
+        result['extra_indicators'].extend(_registration_findings(candidates, dates))
 
     result['analysis_warnings'] = list(dict.fromkeys(result['analysis_warnings']
         + (structure['parse_warnings'] if structure else [])))
