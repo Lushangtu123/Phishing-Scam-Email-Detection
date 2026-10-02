@@ -20,6 +20,51 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-01 23:00 PT] — Treat text the colour of its background as possibly invisible
+
+### Why
+- Hidden-text salting with padding in the colour of its background got through. On 5dc7c3d a callback scam with its padding in white on white was Low, presented as a complete analysis with no warning. So were these variants:
+  - near white (`#fafafa`), or a colour from a stylesheet or `var()`;
+  - the colour of a coloured background;
+  - the legacy `bgcolor` and `<font color>` attributes.
+- The same technique also splits keywords: single white letters between words, so `#YourwPaymentbof1569.85` does not read as "Your Payment of". Nazario 2021 #66 does exactly this.
+
+### Files changed
+- `website/app.py`:
+  - Colours:
+    - `_colour_rgba` parses CSS colours (named, hex, `rgb()`, `hsl()`, `hwb()`, alpha);
+    - `_legacy_colour` parses HTML colour attributes as browsers do (`bgcolor="fff"` is `#0f0f0f`);
+    - `_background_parts` reads `background` and `background-color`;
+    - `_same_colour` compares contrast: below 1.1 is the same colour. The 148 named colours were taken from pandas' CSS4 table and checked against pydantic and npm's `color-name`.
+  - The view pass cascades the text colour and the background (`_COLOUR_PROPERTIES`). This includes presentational attributes and the link colour (`_colour_hints`), and translucent backgrounds. Text the colour of its backdrop is possibly invisible, like a tiny font.
+  - The backdrop is unknown, and such text counts as readable, in three cases:
+    - under a background image or an Outlook VML shape;
+    - in `prefers-color-scheme: dark` views (the canvas and default text colour);
+    - in Outlook's dark mode, where all colours are unknown because the client recolours them.
+  - `_colours_may_match` opens the view pass only when some text colour may match some background or the canvas. When colour was the only reason and no text matches, the views are dropped, so nothing changes.
+  - Fewer than 200 letters in their background's colour (`_SAME_COLOUR_MODEL_LETTERS`, a preheader) stay in the model's views and raise no warning. The text rules still read the message without them.
+  - Rules this reader cannot match:
+    - one aimed at a class, id or attribute that could only give text its background's colour makes it possibly invisible, not undecidable;
+    - each such rule's declarations apply together.
+  - `:link` and `:any-link` match a link with a destination; rules with `:visited` are skipped.
+  - When colour rules add more conditions than are modelled, the views are rendered without colours.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the warning names text the same color as its background. Asset versions bumped (`website/tools/asset-versions/manifest.json`, the HTML pages, `lang-init.js`).
+- `website/tests/test_same_colour_text.py`: 12 tests. On 5dc7c3d, 10 fail, all 12 salting techniques among them; the two controls pass.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Served model, synthetic callback scam with padding between its halves:
+  - six same-colour techniques: Low (complete) → High (callback), now marked incomplete with the warning;
+  - the callback split by white letters: High → High with the callback found;
+  - white on a blue cell, and visible padding: Low, unchanged.
+- Same served model, main (5dc7c3d) against this change:
+  - no verdict, mail-type or question change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 (611) or the 87 public HTML templates;
+  - counts identical on the pasted genuine text, PhishFuzzer recent, UniqueData and Postmark;
+  - Nazario 3,466: alerts 3,320 → 3,320; Low or Safe 9 → 7 (two missed phishing messages now undetermined); seven alerts rose a level, and one fell from High to Medium, where the model abstains because its reading depends on hidden text.
+- The 39 fixtures of the review at 8f6aca6: unchanged, in HTML and `.eml`.
+- Analysis time, single-threaded on an Apple M2 Max: the 92 genuine downloads 9.6 → 10.1 s; Nazario 113.6 → 126.5 s.
+- Tests: 946 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-01 22:00 PT] — Fix four findings from the review at 8f6aca6
 
 ### Why

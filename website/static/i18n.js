@@ -909,7 +909,7 @@ window.PhishGuardI18n = (() => {
     'server.warning.hidden_html_text': 'Hidden HTML text was excluded from text scoring; visual rendering was not fully verified, so analysis is incomplete.',
     'server.warning.stylesheet_visibility': 'A stylesheet may hide or reveal text; CSS rendering was not verified, so the affected text-model view was not scored.',
     'server.warning.inline_css_visibility': 'Inline CSS may conceal text; its rendering was not verified, so the affected text-model view was not scored.',
-    'server.warning.possibly_invisible_text': 'Some text may be too small or faint to read, clipped, off screen, or hidden in Outlook; its rendering was not verified, so the affected text-model view was not scored.',
+    'server.warning.possibly_invisible_text': 'Some text may be too small or faint to read, the same color as its background, clipped, off screen, or hidden in Outlook; its rendering was not verified, so the affected text-model view was not scored.',
     'server.warning.image_alt_fallback': 'Image alternative text may be shown when an image is unavailable; that rendering was not verified, so the affected text-model view was not scored.',
     'server.warning.mime_alternative_limit': 'MIME alternative view limit reached; not every rendered version was model-scored. Analysis is incomplete.',
     'server.warning.mime_alternative_model': 'At least one MIME alternative could not be model-scored; analysis is incomplete.',
@@ -1309,7 +1309,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=25'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=26'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

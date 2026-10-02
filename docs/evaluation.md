@@ -1408,6 +1408,82 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Text the colour of its background (2026-10-01)
+
+Padding in the colour of its background is the most common way to hide text, after
+`display:none`. A synthetic callback scam with such padding between its halves, on the
+served model:
+
+| Technique | `5dc7c3d` | After |
+|---|---|---|
+| `color:#ffffff` on the white canvas | Low, complete | High (callback) |
+| near white, `color:#fafafa` | Low, complete | High (callback) |
+| `.pad{color:#fff}` in a stylesheet | Low, complete | High (callback) |
+| `#f4f4f4` text on a `#f4f4f4` background | Low, complete | High (callback) |
+| `<table bgcolor="#336699">` with `<font color="336699">` | Low, complete | High (callback) |
+| `color:var(--bg)` with `:root{--bg:#fff}` | Low | High (callback) |
+| `ca<span style="color:#fff">zq</span>ll 1-888-…` (split keyword) | High, no callback found | High (callback) |
+| controls: white on a blue cell; visible padding | Low | Low |
+
+Same-colour text is possibly invisible, as a tiny font is. The views compute each
+element's text colour and backdrop through the cascade, and a contrast ratio below 1.1
+counts as the same colour.
+
+Five first versions changed results and were refined:
+- **Dark mode.** Templates set white text for dark mode and let the client darken the
+  canvas (Amazon, in Outlook's dark mode), or set a dark background and leave the text
+  to the client. In those views the canvas and default text colour are now unknown,
+  and in Outlook's dark mode all colours are.
+- **Outlook buttons.** White labels on VML buttons (`v:roundrect fillcolor`) read as
+  white on white. A VML shape now counts as a background image: unknown.
+- **Rules this reader cannot match.** A link-colour rule with an unreadable selector
+  made Cloudflare's links possibly white on white, and the whole message undecidable.
+  Such a rule now applies whole (its own background included). It can only make text
+  possibly invisible, and only when it is aimed at a class, id or attribute. `:link`
+  is matched exactly and `:visited` skipped.
+- **Side effects of rendering.** Opening the view pass for colours let the model score
+  Atlassian's images-off rendering, raising it from Medium to High. When colour was
+  the only reason and no text matches its background, the views are now dropped.
+- **Condition limit.** Colour rules inside `@media` pushed three Nazario stylesheets
+  past five conditions, so they were no longer modelled. They are now rendered
+  without colours.
+
+A white preheader of a few dozen letters is not salting, and the model's decision on
+genuine mail can hinge on it. Fewer than 200 letters in their background's colour
+therefore stay in the model's views and raise no warning, while the text rules also
+read the message without them. Same-colour text with letters, counted per message:
+none of the 92 genuine downloads; 3 DataCon messages (8–37 letters); 73 Nazario
+messages, 53 of them under 200 letters and 20 from 214 to 2,081.
+
+| Cohort | `5dc7c3d`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+| Nazario 2015–25 phishing (3,466) | 3,320 / 137 / 9 | 3,320 / 139 / 7 |
+
+No verdict, mail type or question changed for any message in:
+- the 92 genuine downloads, with and without a mailbox;
+- DataCon 2023 day 1 (611);
+- the 87 public HTML templates.
+
+Counts are identical for the pasted genuine text, PhishFuzzer recent, UniqueData and
+Postmark.
+
+In Nazario, two missed phishing messages are now undetermined instead of Low. Seven
+alerts rose a level. Nazario 2021 #66 rose from Medium to Critical: its white letters
+split "Your Payment of" into `#YourwPaymentbof`. One alert fell from High to Medium:
+the model's reading depends on its hidden text, so the model abstains. The 39
+fixtures of the review at 8f6aca6 are unchanged.
+
+Single-threaded on an Apple M2 Max, the genuine downloads took 10.1 s instead of
+9.6 s, and Nazario 126.5 s instead of 113.6 s.
+
+Still not modelled:
+- text over a background image;
+- text in a client's dark mode;
+- colours a mail client rewrites;
+- `-webkit-text-fill-color`, `mix-blend-mode` and text shadows.
+
 ### Review at 8f6aca6: CSS variables, decoded attributes and unrendered siblings (2026-10-01)
 
 A read-only review of the hidden-text change supplied synthetic fixtures for four
@@ -1465,7 +1541,7 @@ took 9.5 s instead of 9.3 s, and Nazario 112.3 s instead of 110.8 s.
 
 Still not modelled:
 - external stylesheets;
-- text coloured like its background;
+- text coloured like its background (modelled since; see the section above);
 - HTML that a browser's tree builder restructures in ways other than tables.
 
 ### Hidden-text salting: tiny, faint, clipped and off-screen text (2026-10-01)

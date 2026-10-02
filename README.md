@@ -587,7 +587,10 @@ Some rules cannot be matched exactly:
 
 These may or may not apply. Text whose rendering they could change, directly or
 through a custom property that `var()` reads, leaves the views unresolved, and the
-text rules read it as well.
+text rules read it as well. A rule aimed at a class, id or attribute that could only
+give text its background's colour makes that text possibly invisible (below) instead.
+`:link` is matched exactly, as a link with a destination. Rules with `:visited` are
+skipped: they style only links the reader has already followed, and only their colour.
 
 Some text may be invisible without being hidden:
 - a font size below 3px;
@@ -596,7 +599,16 @@ Some text may be invisible without being hidden:
   keeps it open;
 - an absolute, fixed or relative position at least 1000px or 100% off screen;
 - a `text-indent` of -1000px or less;
-- a zero `clip` rectangle, `clip-path: inset(50%)`, or `transform: scale(0)`.
+- a zero `clip` rectangle, `clip-path: inset(50%)`, or `transform: scale(0)`;
+- text the colour of its background: a contrast ratio below 1.1 (white on white,
+  `#f4f4f4` on `#f4f4f4`).
+
+Colours come from `color` and `background` in rules and inline styles, `var()`,
+`currentcolor`, the `bgcolor` and `<font color>` attributes, and the browser's link
+colour; HTML colour attributes are parsed as browsers do (`bgcolor="fff"` is
+`#0f0f0f`). The canvas is white and text black. A background image, an Outlook VML
+shape, or a client's dark mode (`prefers-color-scheme: dark`, Outlook's dark mode)
+leaves the background unknown, and such text counts as readable.
 
 Phishing uses these to bury benign padding beside the scam ("hidden-text salting"),
 and marketing mail uses them for preheaders. They are cascaded like the properties
@@ -604,7 +616,11 @@ above, wherever they are declared: inline, in a stylesheet, through `var()`, or
 split between them (`max-height` from one rule and `overflow` from another still
 clip, as does `position` inline with `left:-9999px` in a rule). The views leave such
 text out. `mso-hide:all` leaves it out of the Outlook view.
-`warning.possibly_invisible_text` says so. Unlike CSS-uncertain text, the text rules
+`warning.possibly_invisible_text` says so. Fewer than 200 letters in the colour of
+their background, such as a white preheader, are too few to dilute the model: the
+model reads them and no warning is shown, but the text rules also read the message
+without them, so `ca<span style="color:#fff">zq</span>ll 1-888-…` still reads as a
+callback. Colours that could match but match no text change nothing. Unlike CSS-uncertain text, the text rules
 still read the message with this text as well as each view without it, so a payload
 put off screen stays visible to them.
 

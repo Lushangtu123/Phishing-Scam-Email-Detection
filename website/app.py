@@ -22,6 +22,7 @@ import asyncio
 import json
 import hashlib
 import ipaddress
+import math
 import re
 import socket
 import smtplib
@@ -2135,21 +2136,24 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
         # Custom properties (--name) keep their case; other names are case-insensitive.
         name = name if name.startswith('--') else name.lower()
         if not separator or not (name.startswith('--') or name in {
-                'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES}):
+                'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES,
+                'background', 'background-color', 'background-image'}):
             continue
         value = _unescape_css(value).strip().lower()
         important = bool(re.search(r'!\s*important\s*$', value))
         value = re.sub(r'!\s*important\s*$', '', value).strip()
         # CSS drops an invalid declaration, so an earlier valid one still applies:
         # color:transparent; color:rgb(nope) stays transparent.
-        if (name == 'color' and _color_class(value) == 'invalid') or (
+        if (name in {'color', 'background-color'} and _color_class(value) == 'invalid') or (
                 name == 'font-size' and _font_size_class(value) == 'invalid'):
             continue
         if not _recognised_visibility_value(name, value):
             values['#unrecognised'] = (name, False)
             continue
-        if name not in values or important or not values[name][1]:
-            values[name] = (value, important)
+        # The background shorthand sets both longhands; each reads its own part of it.
+        for target in ('background-color', 'background-image') if name == 'background' else (name,):
+            if target not in values or important or not values[target][1]:
+                values[target] = (value, important)
     return values
 
 
@@ -2257,6 +2261,248 @@ def _color_state(color: str) -> bool | None:
     not clear an inherited transparent colour.
     """
     return {'transparent': True, 'visible': False}.get(_color_class(color))
+
+
+# The CSS named colours as 0xRRGGBB. System colours (Canvas, ButtonText) depend on the
+# client and are left out.
+_NAMED_COLOR_VALUES = {
+    'aliceblue': 0xf0f8ff, 'antiquewhite': 0xfaebd7, 'aqua': 0x00ffff, 'aquamarine': 0x7fffd4, 'azure': 0xf0ffff,
+    'beige': 0xf5f5dc, 'bisque': 0xffe4c4, 'black': 0x000000, 'blanchedalmond': 0xffebcd, 'blue': 0x0000ff,
+    'blueviolet': 0x8a2be2, 'brown': 0xa52a2a, 'burlywood': 0xdeb887, 'cadetblue': 0x5f9ea0,
+    'chartreuse': 0x7fff00, 'chocolate': 0xd2691e, 'coral': 0xff7f50, 'cornflowerblue': 0x6495ed,
+    'cornsilk': 0xfff8dc, 'crimson': 0xdc143c, 'cyan': 0x00ffff, 'darkblue': 0x00008b, 'darkcyan': 0x008b8b,
+    'darkgoldenrod': 0xb8860b, 'darkgray': 0xa9a9a9, 'darkgreen': 0x006400, 'darkgrey': 0xa9a9a9,
+    'darkkhaki': 0xbdb76b, 'darkmagenta': 0x8b008b, 'darkolivegreen': 0x556b2f, 'darkorange': 0xff8c00,
+    'darkorchid': 0x9932cc, 'darkred': 0x8b0000, 'darksalmon': 0xe9967a, 'darkseagreen': 0x8fbc8f,
+    'darkslateblue': 0x483d8b, 'darkslategray': 0x2f4f4f, 'darkslategrey': 0x2f4f4f, 'darkturquoise': 0x00ced1,
+    'darkviolet': 0x9400d3, 'deeppink': 0xff1493, 'deepskyblue': 0x00bfff, 'dimgray': 0x696969,
+    'dimgrey': 0x696969, 'dodgerblue': 0x1e90ff, 'firebrick': 0xb22222, 'floralwhite': 0xfffaf0,
+    'forestgreen': 0x228b22, 'fuchsia': 0xff00ff, 'gainsboro': 0xdcdcdc, 'ghostwhite': 0xf8f8ff, 'gold': 0xffd700,
+    'goldenrod': 0xdaa520, 'gray': 0x808080, 'green': 0x008000, 'greenyellow': 0xadff2f, 'grey': 0x808080,
+    'honeydew': 0xf0fff0, 'hotpink': 0xff69b4, 'indianred': 0xcd5c5c, 'indigo': 0x4b0082, 'ivory': 0xfffff0,
+    'khaki': 0xf0e68c, 'lavender': 0xe6e6fa, 'lavenderblush': 0xfff0f5, 'lawngreen': 0x7cfc00,
+    'lemonchiffon': 0xfffacd, 'lightblue': 0xadd8e6, 'lightcoral': 0xf08080, 'lightcyan': 0xe0ffff,
+    'lightgoldenrodyellow': 0xfafad2, 'lightgray': 0xd3d3d3, 'lightgreen': 0x90ee90, 'lightgrey': 0xd3d3d3,
+    'lightpink': 0xffb6c1, 'lightsalmon': 0xffa07a, 'lightseagreen': 0x20b2aa, 'lightskyblue': 0x87cefa,
+    'lightslategray': 0x778899, 'lightslategrey': 0x778899, 'lightsteelblue': 0xb0c4de, 'lightyellow': 0xffffe0,
+    'lime': 0x00ff00, 'limegreen': 0x32cd32, 'linen': 0xfaf0e6, 'magenta': 0xff00ff, 'maroon': 0x800000,
+    'mediumaquamarine': 0x66cdaa, 'mediumblue': 0x0000cd, 'mediumorchid': 0xba55d3, 'mediumpurple': 0x9370db,
+    'mediumseagreen': 0x3cb371, 'mediumslateblue': 0x7b68ee, 'mediumspringgreen': 0x00fa9a,
+    'mediumturquoise': 0x48d1cc, 'mediumvioletred': 0xc71585, 'midnightblue': 0x191970, 'mintcream': 0xf5fffa,
+    'mistyrose': 0xffe4e1, 'moccasin': 0xffe4b5, 'navajowhite': 0xffdead, 'navy': 0x000080, 'oldlace': 0xfdf5e6,
+    'olive': 0x808000, 'olivedrab': 0x6b8e23, 'orange': 0xffa500, 'orangered': 0xff4500, 'orchid': 0xda70d6,
+    'palegoldenrod': 0xeee8aa, 'palegreen': 0x98fb98, 'paleturquoise': 0xafeeee, 'palevioletred': 0xdb7093,
+    'papayawhip': 0xffefd5, 'peachpuff': 0xffdab9, 'peru': 0xcd853f, 'pink': 0xffc0cb, 'plum': 0xdda0dd,
+    'powderblue': 0xb0e0e6, 'purple': 0x800080, 'rebeccapurple': 0x663399, 'red': 0xff0000, 'rosybrown': 0xbc8f8f,
+    'royalblue': 0x4169e1, 'saddlebrown': 0x8b4513, 'salmon': 0xfa8072, 'sandybrown': 0xf4a460,
+    'seagreen': 0x2e8b57, 'seashell': 0xfff5ee, 'sienna': 0xa0522d, 'silver': 0xc0c0c0, 'skyblue': 0x87ceeb,
+    'slateblue': 0x6a5acd, 'slategray': 0x708090, 'slategrey': 0x708090, 'snow': 0xfffafa, 'springgreen': 0x00ff7f,
+    'steelblue': 0x4682b4, 'tan': 0xd2b48c, 'teal': 0x008080, 'thistle': 0xd8bfd8, 'tomato': 0xff6347,
+    'turquoise': 0x40e0d0, 'violet': 0xee82ee, 'wheat': 0xf5deb3, 'white': 0xffffff, 'whitesmoke': 0xf5f5f5,
+    'yellow': 0xffff00, 'yellowgreen': 0x9acd32
+}
+# Text and canvas colours before any style: black on white, links blue.
+_DEFAULT_TEXT, _DEFAULT_CANVAS, _LINK_TEXT = (0, 0, 0, 1.0), (255, 255, 255), '#0000ee'
+# Below this contrast ratio (1 for identical colours, 21 for black on white), text is the
+# colour of its background: #fafafa or #f4f4f4 on white, #111 on black.
+_SAME_COLOUR_CONTRAST = 1.1
+# Below this many letters, text the colour of its background is too little to dilute the
+# model (a preheader): the model reads it, and only the text rules also read without it.
+_SAME_COLOUR_MODEL_LETTERS = 200
+# Cascaded for text that may be the colour of its background: the text colour's value
+# (beside the 'color' class), and the background's colour and image.
+_COLOUR_PROPERTIES = frozenset({'text-color', 'background-color', 'background-image'})
+_BACKGROUND_IMAGE = re.compile(
+    r'(?:url|image|image-set|element|cross-fade|(?:repeating-)?(?:linear|radial|conic)-gradient)\(')
+
+
+def _css_channel(text: str, scale: float) -> float:
+    """A colour channel: a number, or a percentage of scale; 'none' is zero."""
+    if text == 'none':
+        return 0.0
+    return float(text[:-1]) * scale / 100 if text.endswith('%') else float(text)
+
+
+def _hue_degrees(text: str) -> float:
+    match = re.fullmatch(rf'({_CSS_NUMBER})(deg|grad|rad|turn)?', text)
+    if not match:
+        return 0.0
+    return float(match.group(1)) * {None: 1, 'deg': 1, 'grad': 0.9, 'rad': 180 / math.pi, 'turn': 360}[match.group(2)]
+
+
+@lru_cache(maxsize=4096)
+def _colour_rgba(value: str):
+    """A CSS colour as (red, green, blue, alpha), channels 0-255 and alpha 0-1, or None
+    for colours that depend on the client or a colour space this reader does not convert
+    (system colours, lab(), color()). currentcolor is the caller's to resolve."""
+    value = value.strip().lower()
+    if value == 'transparent':
+        return (0, 0, 0, 0.0)
+    if value in _NAMED_COLOR_VALUES:
+        rgb = _NAMED_COLOR_VALUES[value]
+        return (rgb >> 16, rgb >> 8 & 255, rgb & 255, 1.0)
+    if _HEX_COLOR.fullmatch(value):
+        digits = value[1:]
+        if len(digits) in (3, 4):
+            digits = ''.join(digit * 2 for digit in digits)
+        return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16),
+                int(digits[6:8], 16) / 255 if len(digits) == 8 else 1.0)
+    match = _COLOR_FUNCTION.fullmatch(value)
+    if not match or match.group(1) not in {'rgb', 'rgba', 'hsl', 'hsla', 'hwb'} or _color_function_alpha(
+            match.group(1), match.group(2).strip()) is None:
+        return None
+    function, arguments = match.group(1), match.group(2).strip()
+    if ',' in arguments:
+        parts = [part.strip() for part in arguments.split(',')]
+        channels, alpha = parts[:3], parts[3] if len(parts) == 4 else '1'
+    else:
+        before, slash, after = arguments.partition('/')
+        channels, alpha = before.split(), after.strip() if slash else '1'
+    alpha = min(1.0, max(0.0, _css_channel(alpha, 1)))
+    if function.startswith('rgb'):
+        red, green, blue = (min(255.0, max(0.0, _css_channel(channel, 255))) for channel in channels)
+    else:
+        hue = _hue_degrees(channels[0]) % 360
+        first, second = (min(1.0, max(0.0, _css_channel(channel, 100) / 100)) for channel in channels[1:])
+        if function == 'hwb' and first + second >= 1:
+            red = green = blue = 255 * first / (first + second)
+        else:
+            saturation, lightness = (1.0, 0.5) if function == 'hwb' else (first, second)
+
+            def component(offset):
+                k = (offset + hue / 30) % 12
+                return lightness - saturation * min(lightness, 1 - lightness) * max(-1, min(k - 3, 9 - k, 1))
+            red, green, blue = (255 * component(offset) for offset in (0, 8, 4))
+            if function == 'hwb':
+                red, green, blue = (channel * (1 - first - second) + 255 * first for channel in (red, green, blue))
+    return (round(red), round(green), round(blue), alpha)
+
+
+def _legacy_colour(value: str):
+    """An HTML colour attribute (bgcolor, font color, body text) as browsers parse it:
+    a named colour, #rgb, or the legacy hex digits (bgcolor="ffffff"; "fff" is #0f0f0f).
+    Returns '#rrggbb', or None where browsers ignore it."""
+    value = value.strip()
+    if not value or value.lower() == 'transparent':
+        return None
+    if value.lower() in _NAMED_COLOR_VALUES:
+        return f'#{_NAMED_COLOR_VALUES[value.lower()]:06x}'
+    if re.fullmatch('#[0-9a-fA-F]{3}', value):
+        return '#' + ''.join(digit * 2 for digit in value[1:].lower())
+    value = re.sub('[\U00010000-\U0010ffff]', '00', value)[:128]
+    value = re.sub('[^0-9a-fA-F]', '0', value[1:] if value.startswith('#') else value)
+    while not value or len(value) % 3:
+        value += '0'
+    length = len(value) // 3
+    parts = [value[index * length:(index + 1) * length] for index in range(3)]
+    if length > 8:
+        parts, length = [part[-8:] for part in parts], 8
+    while length > 2 and all(part[0] == '0' for part in parts):
+        parts, length = [part[1:] for part in parts], length - 1
+    return '#' + ''.join(f'{int(part[:2], 16):02x}' for part in parts)
+
+
+@lru_cache(maxsize=4096)
+def _background_parts(value: str):
+    """The colour token of a background or background-color value (its last layer), or
+    None, and whether it paints an image."""
+    image = bool(_BACKGROUND_IMAGE.search(value))
+    depth, layers, current = 0, [], []
+    for character in value:
+        depth += (character == '(') - (character == ')')
+        if character == ',' and depth == 0:
+            layers.append(''.join(current))
+            current = []
+        else:
+            current.append(character)
+    layers.append(''.join(current))
+    depth, tokens, current = 0, [], []
+    for character in layers[-1]:
+        depth += (character == '(') - (character == ')')
+        if character.isspace() and depth == 0:
+            tokens.append(''.join(current))
+            current = []
+        else:
+            current.append(character)
+    tokens.append(''.join(current))
+    colour = None
+    for token in filter(None, tokens):
+        if token == 'currentcolor' or (token not in _CSS_WIDE_KEYWORDS
+                                       and _color_class(token) in {'visible', 'transparent'}):
+            colour = token
+    return colour, image
+
+
+def _luminance(rgb) -> float:
+    def linear(channel):
+        channel /= 255
+        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+    return 0.2126 * linear(rgb[0]) + 0.7152 * linear(rgb[1]) + 0.0722 * linear(rgb[2])
+
+
+def _blend(colour, backdrop):
+    alpha = colour[3]
+    return tuple(alpha * top + (1 - alpha) * bottom for top, bottom in zip(colour[:3], backdrop))
+
+
+def _colour_hints(tag: str, attributes: dict) -> dict:
+    """Colours an element's attributes give it (bgcolor, background, <font color>, <body
+    text>), and the browser's link colour, as declarations below any author rule. A VML
+    shape counts as a background image: its fill is not read."""
+    hints = {}
+    if ':' in tag:
+        # Outlook's VML shapes (v:roundrect fillcolor) paint behind their text.
+        hints['background-image'] = 'url()'
+    if tag in {'body', 'table', 'tr', 'td', 'th'} and attributes.get('bgcolor'):
+        hints['background-color'] = _legacy_colour(attributes['bgcolor'])
+    if tag in {'body', 'table', 'td', 'th'} and (attributes.get('background') or '').strip():
+        hints['background-image'] = 'url()'
+    if tag == 'font' and attributes.get('color'):
+        hints['text-color'] = _legacy_colour(attributes['color'])
+    elif tag == 'body' and attributes.get('text'):
+        hints['text-color'] = _legacy_colour(attributes['text'])
+    elif tag == 'a' and 'href' in attributes:
+        hints['text-color'] = _LINK_TEXT
+    return {name: value for name, value in hints.items() if value}
+
+
+def _stylesheet_colours(css: str) -> tuple[set, set]:
+    """The text colours and backgrounds a stylesheet's rules declare."""
+    cleaned, _complete = _strip_css_comments(css)
+    text_colours, backgrounds = set(), set()
+    for block in re.findall(r'\{([^{}]*)\}', cleaned):
+        if re.search(r'color|background', block, re.IGNORECASE):
+            values = _style_values(block)
+            text_colours.update(values[name][0] for name in ('color',) if name in values)
+            backgrounds.update(values[name][0] for name in ('background-color',) if name in values)
+    return text_colours, backgrounds
+
+
+def _colours_may_match(text_colours: set, backgrounds: set) -> bool:
+    """Whether some text colour may be the colour of some background or of the canvas:
+    black or link text included. A colour from var(), or currentcolor, may be any."""
+    texts, fills = {_DEFAULT_TEXT, _colour_rgba(_LINK_TEXT)}, {_DEFAULT_CANVAS}
+    for value in text_colours:
+        if 'var(' in value:
+            return True
+        texts.add(_colour_rgba(value) if value not in _CSS_WIDE_KEYWORDS | {'currentcolor'} else None)
+    for value in backgrounds:
+        token = _background_parts(value)[0]
+        if 'var(' in value or token == 'currentcolor':
+            return True
+        paint = _colour_rgba(token) if token else None
+        if paint and paint[3] > 0:
+            fills.add(tuple(round(channel) for channel in _blend(paint, _DEFAULT_CANVAS)))
+    return any(_same_colour(text, fill) for text in texts if text for fill in fills)
+
+
+@lru_cache(maxsize=4096)
+def _same_colour(colour, backdrop) -> bool:
+    """Whether text of colour (r, g, b, alpha) is indistinguishable from its backdrop (r, g, b)."""
+    if colour is None or backdrop is None:
+        return False
+    lighter, darker = sorted((_luminance(_blend(colour, backdrop)), _luminance(backdrop)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05) < _SAME_COLOUR_CONTRAST
 
 
 # Font sizes: absolute units restore text inside a zero-size wrapper (the inline-block
@@ -2459,7 +2705,10 @@ def _hiding_value(name: str, value) -> bool:
     """Whether one declaration can hide content on its own or with another: every display,
     visibility, opacity, font size, colour or unknown value, and the box values that clip
     (a zero size, overflow hidden or clip), move off screen, clip, scale to nothing, or
-    hide in Outlook, or a value from var(). A width of 100% or a padding cannot."""
+    hide in Outlook, or a value from var(). A width of 100% or a padding cannot, nor can a
+    text or background colour alone."""
+    if name in _COLOUR_PROPERTIES:
+        return False
     if name not in _GEOMETRY_PROPERTIES:
         return True
     value = value if isinstance(value, str) else ''
@@ -2669,6 +2918,7 @@ _COMPOUND_PART = re.compile(r'''
   | \[\s*(?P<name>[a-zA-Z_][\w:-]*)\s*(?:(?P<op>[~|^$*]?=)\s*(?P<value>"[^"]*"|'[^']*'|[^\s\]"']+)\s*(?P<flag>[iIsS])?\s*)?\]
   | :(?P<state>checked|hover|focus-within|focus-visible|focus|active|target)(?![\w-])
   | :(?P<root>root)(?![\w-])
+  | :(?P<link>link|any-link|visited)(?![\w-])
 ''', re.VERBOSE)
 # HTML attribute values that selectors compare without regard to case.
 _CASELESS_ATTRIBUTES = frozenset({'type', 'align', 'valign', 'dir', 'lang', 'checked', 'disabled', 'method'})
@@ -2684,7 +2934,7 @@ def _parse_compound(text: str):
         tag = None if match.group() == '*' else match.group().lower()
         position = match.end()
     typed = bool(tag)
-    classes, ids, attributes, states, extra = [], [], [], [], 0
+    classes, ids, attributes, states, extra, visited = [], [], [], [], 0, False
     while position < len(text):
         match = _COMPOUND_PART.match(text, position)
         if not match:
@@ -2694,6 +2944,11 @@ def _parse_compound(text: str):
             if tag not in {None, 'html'}:
                 return None
             tag, extra = 'html', extra + 1
+        elif match.group('link'):
+            # :link is a link with a destination: an attribute test's specificity. :visited
+            # styles only links the reader has followed, and only their colour.
+            visited |= match.group('link') == 'visited'
+            attributes.append(('href', None, None, False))
         elif match.group('cls'):
             classes.append(match.group('cls'))
         elif match.group('id'):
@@ -2712,7 +2967,7 @@ def _parse_compound(text: str):
            + ''.join(f'[{name}{operator or ""}{value or ""}{" i" if caseless else ""}]'
                      for name, operator, value, caseless in attributes))
     return {'tag': tag, 'classes': tuple(classes), 'ids': tuple(ids), 'attributes': tuple(attributes),
-            'states': tuple(states), 'key': key, 'extra': extra, 'typed': typed}
+            'states': tuple(states), 'key': key, 'extra': extra, 'typed': typed, 'visited': visited}
 
 
 def _document_features(html: str) -> dict:
@@ -2824,6 +3079,8 @@ def _parse_selector(selector: str, features: dict):
             or any(combinator == '>' and left['tag'] == 'table' and right['tag'] in {'tr', 'td', 'th'}
                    for combinator, left, right in zip(combinators, compounds, compounds[1:]))):
         return ('maybe', *_loose_subject(selector, texts[-1]))
+    if any(compound['visited'] for compound in compounds):
+        return ('skip',)
     subject = compounds[-1]
     if (len(compounds) == 1 and subject['tag'] in {'html', 'body'} and subject['tag'] not in features['tags']
             and not (subject['classes'] or subject['ids'] or subject['attributes'] or subject['states'])):
@@ -2943,7 +3200,7 @@ def _with_custom_properties(winners: dict, custom: dict) -> tuple:
         value = ranked[3]
         if isinstance(value, tuple) and value[0] == 'var':
             value = _variable_class(name, _substitute_variables(value[1], custom))
-        elif name in _GEOMETRY_PROPERTIES and isinstance(value, str) and 'var(' in value:
+        elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES) and isinstance(value, str) and 'var(' in value:
             value = _substitute_variables(value, custom)
         else:
             continue
@@ -2956,13 +3213,15 @@ def _with_custom_properties(winners: dict, custom: dict) -> tuple:
     return resolved, custom
 
 
-def _declared_values(block: str, *, typography: bool = True, geometry: bool = False) -> list:
+def _declared_values(block: str, *, typography: bool = True, geometry: bool = False, colours: bool = False) -> list:
     """The declarations of one rule or style attribute that decide whether text renders,
     as (property, value, !important). display, visibility and opacity take True (hidden)
     or False; visibility also 'inherit'; font-size and color take 'zero' or 'transparent',
     'visible', 'inherit' or 'unresolved'. An unknown display, visibility or opacity value
     is ('unknown', 'unresolved'). A size, colour or opacity from var() is ('var', value),
-    resolved per element; custom properties (--name) keep their value."""
+    resolved per element; custom properties (--name) keep their value. With colours, the
+    text colour ('text-color') and background ('background-color', 'background-image')
+    keep their values too."""
     values = _style_values(block)
     declared = []
     if 'display' in values:
@@ -2986,6 +3245,11 @@ def _declared_values(block: str, *, typography: bool = True, geometry: bool = Fa
         value = values['color'][0]
         declared.append(('color', ('var', value) if 'var(' in value else _color_class(value), values['color'][1]))
     declared.extend((name, value, important) for name, (value, important) in values.items() if name.startswith('--'))
+    if colours:
+        if 'color' in values:
+            declared.append(('text-color', values['color'][0], values['color'][1]))
+        declared.extend((name, values[name][0], values[name][1]) for name in ('background-color', 'background-image')
+                        if name in values)
     if geometry:
         declared.extend((name, values[name][0], values[name][1]) for name in _GEOMETRY_PROPERTIES if name in values)
     if '#unrecognised' in values:
@@ -3023,8 +3287,11 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
     """An element's rendering state in one view, from its parent's and the winning
     declarations: ((display none, visibility hidden, opacity zero, zero font size
     (or 'tiny'), transparent colour, clipped by box geometry or faint, hidden in
-    Outlook), unresolved)."""
-    display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden = parent
+    Outlook, the colour of its background, text colour (r, g, b, alpha), backdrop
+    (r, g, b)), unresolved). A colour is None where it cannot be known: a background
+    image, a system colour."""
+    (display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden,
+     _same, colour, backdrop) = parent
     unresolved = bool(winners.get('unknown'))
     geometry = _geometry_hidden(lambda name: winners[name][3] if name in winners else '')
     unresolved |= geometry == 'unresolved'
@@ -3051,9 +3318,27 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
         unresolved |= ranked[3] == 'unresolved'
         if ranked[3] in {'transparent', 'visible'}:
             transparent = ranked[3] == 'transparent'
-    return (display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden), unresolved
+    ranked = winners.get('text-color')
+    if ranked and ranked[3] not in {'inherit', 'unset', 'revert', 'revert-layer', 'currentcolor'}:
+        colour = _DEFAULT_TEXT if ranked[3] == 'initial' else _colour_rgba(ranked[3])
+    image, fill = winners.get('background-image'), winners.get('background-color')
+    token = _background_parts(fill[3])[0] if fill else None
+    if image and _background_parts(image[3])[1]:
+        backdrop = None
+    elif token:
+        # A background paints behind the element's text and its descendants'; a
+        # translucent one blends with what is behind it.
+        paint = colour if token == 'currentcolor' else _colour_rgba(token)
+        if paint is None or (paint[3] < 1 and backdrop is None):
+            backdrop = None
+        elif paint[3] > 0:
+            backdrop = paint[:3] if paint[3] >= 1 else tuple(round(channel) for channel in _blend(paint, backdrop))
+    return (display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden,
+            _same_colour(colour, backdrop), colour, backdrop), unresolved
 
 
+# The document root: nothing hidden, black text on a white canvas.
+_ROOT_STATE = (False,) * 8 + (_DEFAULT_TEXT, _DEFAULT_CANVAS)
 # Children a table part keeps; browsers move anything else out of the table.
 _TABLE_CONTENT_MODEL = {
     'table': frozenset({'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
@@ -3067,7 +3352,8 @@ _MAX_MEDIA_CONTEXTS = 5
 _MAX_RENDERING_VIEWS = 64
 
 
-def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, geometry: bool = True):
+def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, geometry: bool = True,
+                        colours: bool = False):
     """The stylesheet rules that decide which text of an HTML document renders.
 
     Returns None if unmodelled (CSS nesting, a hiding @-rule, an unreadable selector in a
@@ -3117,13 +3403,14 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
             prelude = preludes.pop()
             block = cleaned[start:index]
             start = index + 1
-            declared = _declared_values(block, typography=typography, geometry=geometry)
+            declared = _declared_values(block, typography=typography, geometry=geometry, colours=colours)
             values = _style_values(block)
 
             def get(name):
                 return values.get(name, ('', False))[0]
-            hides = any(value is True or isinstance(value, tuple) or value in {'zero', 'transparent', 'unresolved'}
-                        or name in read_variables for name, value, _important in declared) or (
+            hides = any((value is True or isinstance(value, tuple) or value in {'zero', 'transparent', 'unresolved'}
+                         or name in read_variables) and name not in _COLOUR_PROPERTIES
+                        for name, value, _important in declared) or (
                 geometry and _box_may_hide(get))
             if declared and prelude.startswith('@'):
                 if hides:
@@ -3190,7 +3477,11 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
         for required, name, ranked in root_events:
             if required <= active and (name not in root or ranked[:3] > root[name][:3]):
                 root[name] = ranked
-        views.append({'winners': winners, 'root': root, 'maybe': [
+        # In dark mode a client paints its own canvas and default text colour; Outlook's
+        # recolours the message's own colours too.
+        dark = 'client' if client == 'outlook-dark' else 'scheme' if any(isinstance(condition, str) and re.search(
+            r'prefers-color-scheme\s*:\s*dark', condition, re.IGNORECASE) for condition in active) else None
+        views.append({'winners': winners, 'root': root, 'dark': dark, 'maybe': [
             (subject, {name: (important, specificity, position, value) for name, value, important in declared})
             for media, subject, specificity, declared, position in maybe if not media or media in active]})
     index_by = {'class': {}, 'id': {}, 'tag': {}, 'any': []}
@@ -3206,6 +3497,7 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
             index_by['any'].append(pattern_id)
     return {'patterns': patterns, 'index': index_by, 'conditions': conditions + clients, 'views': views,
             'contexts': bool(conditions or clients), 'geometry': geometry, 'variables': read_variables,
+            'colours': colours,
             # Patterns with combinators whose rules can change what renders, for content a
             # browser moves out of a table.
             'structural': [patterns[pattern_id] for pattern_id in sorted(
@@ -3252,18 +3544,21 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         head_elements = {'html', 'head', 'base', 'basefont', 'bgsound', 'link',
                          'meta', 'title', 'noscript', 'noframes', 'script', 'style', 'template'}
 
-        def __init__(self, targets=None):
+        def __init__(self, targets=None, colour_views=True):
             super().__init__(convert_charrefs=True)
             # targets is set only in the rendering-view pass (see readings below).
             self.targets = targets
+            # Whether the views leave out text the colour of its background.
+            self.colour_views = colour_views
             self.strict_parts = []
             self.outlook_parts = []
             self.certain_parts = []
             views = targets['views'] if targets else []
             # Per view, an element's state: display none, visibility hidden, opacity zero,
             # zero font size, transparent colour, clipped by its box, hidden in Outlook
-            # (mso-hide); and its custom properties. The document root takes the rules on
-            # the html and body elements a document leaves implied.
+            # (mso-hide), the colour of its background, its text and backdrop colours;
+            # and its custom properties. The document root takes the rules on the html
+            # and body elements a document leaves implied.
             self.root_states, self.root_custom, self.root_tokens = (), (), frozenset()
             if targets:
                 self._cascade_root()
@@ -3282,8 +3577,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             # Text whose rendering this reader cannot decide (a selector it cannot match
             # exactly, a value it cannot compute, names matched only regardless of case).
             self.cascade_conflict = False
-            # Text box geometry or mso-hide conceals in some view.
+            # Text box geometry or mso-hide conceals in some view, and letters only their
+            # background's colour does.
             self.box_hidden_text = False
+            self.same_colour_letters = 0
+            # Text and background colours the document uses, to decide whether any text
+            # may be the colour of its background.
+            self.text_colours, self.backgrounds = set(), set()
             self.hidden_parts = []
             self.outlook_only = 0
             self.hidden_from_outlook = 0
@@ -3325,10 +3625,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 states = self.elements[-1][7] if self.elements else self.root_states
             if '#ambiguous' in tokens and text.strip():
                 self.cascade_conflict = True
-            shown = [not any(state[:6]) for state in states]
+            same = [state[7] and self.colour_views for state in states]
+            shown = [not any(state[:6]) and not hidden for state, hidden in zip(states, same)]
             in_outlook = not any(state[6] for state in states)
             if text.strip() and any(state[5] or state[6] or state[3] == 'tiny' for state in states):
                 self.box_hidden_text = True
+            if not images_off and any(hidden and not any(state[:6]) for state, hidden in zip(states, same)):
+                self.same_colour_letters += sum(character.isalnum() for character in text)
             if not images_off and (all(shown) or '#ambiguous' in tokens):
                 self.loose_parts.append(text)
             # Certain text renders in every view; each @media context shows its own.
@@ -3371,29 +3674,47 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             return tables[-1] - 1 if tables else None
 
         def _maybe_changes(self, view, node, parent, custom, winners, state, element_custom):
-            """Whether a rule this reader cannot match exactly, applying to node (None for the
-            implied root), would change its state or a custom property var() reads."""
+            """How rules this reader cannot match exactly, applying to node (None for the
+            implied root), may change it: 'ambiguous' if one may change whether its text
+            renders or a custom property var() reads, 'same' if one may only give its text
+            the colour of its background, else None."""
+            found = None
             for subject, declared in view['maybe']:
                 if subject is not None and not (
                         _compound_matches(subject, node, True) if node is not None else
                         subject['tag'] in {None, 'html', 'body'} and not (subject['classes'] or subject['ids']
                                                                          or subject['attributes'])):
                     continue
-                for name, ranked in declared.items():
-                    if name not in winners or ranked[:3] > winners[name][:3]:
-                        resolved, changed = _with_custom_properties({**winners, name: ranked}, custom)
-                        if _cascade_state(parent, resolved)[0] != state or (
-                                name in self.targets['variables'] and changed.get(name) != element_custom.get(name)):
-                            return True
-            return False
+                # A rule applies whole: its declarations that outrank the winners apply together
+                # (a white text colour with the dark background beside it hides nothing).
+                outranking = {name: ranked for name, ranked in declared.items()
+                              if name not in winners or ranked[:3] > winners[name][:3]}
+                if not outranking:
+                    continue
+                resolved, changed = _with_custom_properties({**winners, **outranking}, custom)
+                possible = _cascade_state(parent, resolved)[0]
+                if possible[:7] != state[:7] or any(
+                        name in self.targets['variables'] and changed.get(name) != element_custom.get(name)
+                        for name in outranking):
+                    return 'ambiguous'
+                if possible[7] and not state[7] and subject is not None and (
+                        subject['classes'] or subject['ids'] or subject['attributes']):
+                    # Only a rule aimed at a class, id or attribute: a bare tag stands for
+                    # every element of it, with a specificity this reader over-estimates.
+                    found = 'same'
+            return found
 
         def _cascade_root(self):
             states, customs, ambiguous = [], [], False
             for view in self.targets['views']:
-                parent = (False,) * 7
+                # A client in dark mode paints its own canvas and default text colour.
+                parent = (*_ROOT_STATE[:8], None, None) if view['dark'] else _ROOT_STATE
                 resolved, custom = _with_custom_properties(view['root'], {})
                 state, unresolved = _cascade_state(parent, resolved)
-                ambiguous |= unresolved or self._maybe_changes(view, None, parent, {}, view['root'], state, custom)
+                change = None if unresolved else self._maybe_changes(view, None, parent, {}, view['root'], state, custom)
+                ambiguous |= unresolved or change == 'ambiguous'
+                if change == 'same':
+                    state = (*state[:7], True, *state[8:])
                 states.append(state)
                 customs.append(custom)
             self.root_states, self.root_custom = tuple(states), tuple(customs)
@@ -3422,8 +3743,11 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                     matched.append(pattern_id)
                 elif self._matches(pattern, final, level, last, True):
                     ambiguous = True  # matches only if names ignore case, as in quirks mode
-            inline = _declared_values(style, geometry=cascade['geometry'])
+            inline = _declared_values(style, geometry=cascade['geometry'], colours=cascade['colours'])
             hidden_attribute = 'hidden' in values
+            # Presentational colours (bgcolor, <font color>) and the browser's link colour
+            # yield to any author rule, as the hidden attribute does.
+            hints = _colour_hints(tag, values) if cascade['colours'] else {}
             parents = self.elements[-1][7] if self.elements else self.root_states
             customs = self.elements[-1][8] if self.elements else self.root_custom
             outside = self._outside_table() if fostered else None
@@ -3450,10 +3774,24 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         winners[name] = ranked
                 if hidden_attribute and 'display' not in winners:
                     winners['display'] = (False, (0, 0, 0, 0), 0, True)
+                if view['dark'] == 'client':
+                    # Outlook's dark mode recolours text and backgrounds: their colours are unknown.
+                    for name in _COLOUR_PROPERTIES:
+                        winners.pop(name, None)
+                else:
+                    for name, value in hints.items():
+                        if name not in winners:
+                            winners[name] = (False, (0, 0, 0, 0), 0, value)
                 resolved, element_custom = _with_custom_properties(winners, custom)
                 state, unresolved = _cascade_state(parent, resolved)
-                ambiguous = ambiguous or unresolved or self._maybe_changes(
-                    view, node, parent, custom, winners, state, element_custom)
+                ambiguous = ambiguous or unresolved
+                if not ambiguous:
+                    change = self._maybe_changes(view, node, parent, custom, winners, state, element_custom)
+                    ambiguous = change == 'ambiguous'
+                    if change == 'same':
+                        # A rule this reader cannot match may give the text its background's
+                        # colour: possibly invisible, like a tiny font.
+                        state = (*state[:7], True, *state[8:])
                 states.append(state)
                 element_customs.append(element_custom)
             markers = (self.elements[-1][5] if self.elements else self.root_tokens) & {'#ambiguous'}
@@ -3553,6 +3891,14 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 opacity = _opacity_number(get('opacity'))
                 self.geometry_hint |= bool(_box_may_hide(get) or _font_size_class(get('font-size')) == 'tiny'
                                            or (opacity is not None and 0 < opacity < _NEAR_ZERO_OPACITY))
+            if self.targets is None:
+                hints = _colour_hints(tag, dict(attrs))
+                self.text_colours.update(filter(None, (hints.get('text-color'),)))
+                self.backgrounds.update(filter(None, (hints.get('background-color'),)))
+                if style and re.search(r'color|background', style, re.IGNORECASE):
+                    values = _style_values(style)
+                    self.text_colours.update(values[name][0] for name in ('color',) if name in values)
+                    self.backgrounds.update(values[name][0] for name in ('background-color',) if name in values)
             parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
             inline_state = (parent_inline[0] if zero_size is None else zero_size,
                             parent_inline[1] if transparent is None else transparent,
@@ -3697,45 +4043,66 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         # the model's judgement.
         stylesheet = ''.join(collector.stylesheet_parts)
         geometry = collector.geometry_hint or _stylesheet_hides_geometry(stylesheet)
-        uncertain = (collector.uncertain_inline_style or collector.conditional_image_alt
-                     or collector.excluded_hidden_text or _stylesheet_may_hide_text(stylesheet) or geometry
-                     or (parse_warnings is not None and _MSO_CONDITIONAL_WARNING in parse_warnings))
+        text_colours, backgrounds = _stylesheet_colours(stylesheet)
+        colours = _colours_may_match(collector.text_colours | text_colours, collector.backgrounds | backgrounds)
+        others = (collector.uncertain_inline_style or collector.conditional_image_alt
+                  or collector.excluded_hidden_text or _stylesheet_may_hide_text(stylesheet) or geometry
+                  or (parse_warnings is not None and _MSO_CONDITIONAL_WARNING in parse_warnings))
+        uncertain = others or colours
         def joined(parts):
             return re.sub(r'\s+', ' ', ''.join(parts)).strip()
         if collector.images_off:
             # Text rules always read the fallback text of linked images in place.
             readings['images_off'] = joined(collector.parts_off)
         if uncertain:
-            targets = _stylesheet_cascade(stylesheet, text, typography=collector.uncertain_inline_style
-                                          or _stylesheet_hides_typography(stylesheet), geometry=geometry)
-            unresolved = []
+            typography = collector.uncertain_inline_style or _stylesheet_hides_typography(stylesheet)
+            targets = _stylesheet_cascade(stylesheet, text, typography=typography, geometry=geometry, colours=colours)
+            if targets is None and colours:
+                # Colour rules may add more conditions than are modelled: render without colours.
+                targets = _stylesheet_cascade(stylesheet, text, typography=typography, geometry=geometry)
+            unresolved, views, model_views = [], None, None
             if targets is not None:
-                views = _collect_html(lambda: TextCollector(targets), text, [], mark=True, unresolved=unresolved)
+                views = model_views = _collect_html(lambda: TextCollector(targets), text, [], mark=True,
+                                                    unresolved=unresolved)
                 if views.cascade_conflict:
                     unresolved.append('cascade')
-                if views.box_hidden_text and parse_warnings is not None and _POSSIBLY_INVISIBLE_WARNING not in parse_warnings:
+                if 0 < views.same_colour_letters < _SAME_COLOUR_MODEL_LETTERS:
+                    # Too little to dilute the model (a preheader): its views keep this
+                    # text, and only the text rules also read the message without it.
+                    model_views = _collect_html(lambda: TextCollector(targets, colour_views=False), text, [],
+                                                mark=True) if others else None
+                elif not others and not views.same_colour_letters:
+                    # Colours that could match, but no text has its background's colour.
+                    views = model_views = None
+                if model_views is not None and (model_views.box_hidden_text or model_views.same_colour_letters) \
+                        and parse_warnings is not None and _POSSIBLY_INVISIBLE_WARNING not in parse_warnings:
                     parse_warnings.append(_POSSIBLY_INVISIBLE_WARNING)
-            readings['resolved'] = targets is not None and not unresolved and not collector.alt_instruction
-            if targets is not None and 'malformed' not in unresolved:
+            if others or model_views is not None:
+                readings['resolved'] = (model_views is not None and not unresolved
+                                        and not collector.alt_instruction)
+            if views is not None and 'malformed' not in unresolved:
                 # Text rules may read what no style can hide, and what each context
                 # shows, even where the model's renderings stay unresolved (fallback
                 # instructions, odd conditional comments, undecidable rules).
                 readings['certain'] = joined(views.certain_parts)
-                readings['media'] = [joined(parts) for parts in views.view_parts]
+                if model_views is not None:
+                    readings['media'] = [joined(parts) for parts in model_views.view_parts]
                 # Text rules read each view, the Outlook view, and undecidable text too.
-                readings['rules_media'] = [*readings['media'], joined(views.outlook_parts)] + (
+                readings['rules_media'] = [*(joined(parts) for parts in views.view_parts), joined(views.outlook_parts)] + (
                     [joined(views.loose_parts)] if views.cascade_conflict else [])
                 if collector.images_off:
                     readings['certain_off'] = joined(views.certain_parts_off)
-                    readings['media_off'] = [joined(parts) for parts in views.view_parts_off]
-                    readings['rules_media_off'] = [*readings['media_off'], joined(views.outlook_parts_off)]
-            if readings['resolved']:
-                readings.update(strict=joined(views.strict_parts), outlook=joined(views.outlook_parts),
+                    if model_views is not None:
+                        readings['media_off'] = [joined(parts) for parts in model_views.view_parts_off]
+                    readings['rules_media_off'] = [*(joined(parts) for parts in views.view_parts_off),
+                                                   joined(views.outlook_parts_off)]
+            if readings.get('resolved'):
+                readings.update(strict=joined(model_views.strict_parts), outlook=joined(model_views.outlook_parts),
                                 hidden=joined([visible, ' ', *collector.hidden_parts]))
                 readings.update({f'media_{index}': text for index, text in enumerate(readings['media'])})
                 if collector.images_off:
-                    readings.update(strict_off=joined(views.strict_parts_off),
-                                    outlook_off=joined(views.outlook_parts_off))
+                    readings.update(strict_off=joined(model_views.strict_parts_off),
+                                    outlook_off=joined(model_views.outlook_parts_off))
                     readings.update({f'media_{index}_off': text for index, text in enumerate(readings['media_off'])})
     if structure_stats is not None:
         structure_stats.update(hidden_characters=collector.hidden_characters,
