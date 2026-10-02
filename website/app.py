@@ -4718,23 +4718,75 @@ def _user_content_action(links) -> bool:
                for label, destination in links or ())
 
 
+def _unlisted_off_sender_host(destination: str, sender_domain: str) -> str | None:
+    """The host of a link that leaves the sender's domain for one no registry lists.
+
+    Published documents and forms on trusted platforms count as unlisted; a known mail
+    provider's sign-in does not.
+    """
+    try:
+        host = (_parse_link_target(destination).hostname or '').lower().rstrip('.')
+    except ValueError:
+        return None
+    sender = _organizational_domain(sender_domain) if '.' in sender_domain else ''
+    domain = _organizational_domain(host) if host else ''
+    if domain and not (sender and domain == sender) and (_user_content_location(destination) or (
+            domain not in _MAIL_SIGN_IN_DOMAINS and not _official_sender(domain))):
+        return host
+    return None
+
+
 def _mailbox_lure(text: str, links, sender_domain: str = '') -> bool:
     """A mailbox lure whose action link leads off the sender's domain to an unlisted one."""
     if not (_MAILBOX_LURE.search(_han_compact(text)) or _MAILBOX_LURE_OTHER.search(text)):
         return False
-    sender = _organizational_domain(sender_domain) if '.' in sender_domain else ''
-    for label, destination in links or ():
-        if not (_MAILBOX_ACTION.search(_han_compact(label or '')) or _MAILBOX_ACTION_OTHER.search(label or '')):
-            continue
-        try:
-            host = (_parse_link_target(destination).hostname or '').lower().rstrip('.')
-        except ValueError:
-            continue
-        domain = _organizational_domain(host) if host else ''
-        if domain and not (sender and domain == sender) and (_user_content_location(destination) or (
-                domain not in _MAIL_SIGN_IN_DOMAINS and not _official_sender(domain))):
+    return any((_MAILBOX_ACTION.search(_han_compact(label or '')) or _MAILBOX_ACTION_OTHER.search(label or ''))
+               and _unlisted_off_sender_host(destination, sender_domain)
+               for label, destination in links or ())
+
+
+# Account-hold lures in document attachments: the body says a line or nothing, and a PDF
+# says the reader's account, access or a payment is restricted, on hold or compromised,
+# asks them to verify or sign on, and links off the sender's domain. The text model never
+# reads attachments. On message text, the wording (without the link) appears in 2 of
+# 9,198 genuine DIFraud messages, none of 16,440 marketing emails, and 1,408 of 6,074
+# DIFraud fraud messages.
+_HOLD_OWNER = r"(?:your|this|the)\s+(?:[\w-]+\s+){0,2}?"
+_HOLD_ACCOUNT = r"(?:accounts?|access|online\s+banking|profile)"
+_HOLD_MONEY = r"(?:(?:debit\s+|credit\s+)?cards?|payments?|transfers?|deposits?|transactions?|funds)"
+_HOLD_STATE = (r"(?:restrict(?:ed|ions?)|suspen(?:ded|sion|d)|(?:is|are|be|been|was|temporarily)\s+limited|limitations?"
+               r"|locked|blocked|disabled|deactivated|frozen|compromised|on\s+hold|(?:been|put)\s+(?:a\s+)?(?:on\s+)?hold"
+               r"|hold\s+on|prevented|pending\s+(?:verification|approval|confirmation)|revers(?:al|ed))")
+# Only an account ends: "your card expired" is how genuine payment reminders begin.
+_HOLD_ENDED = r"(?:expired|closed|terminated|cancell?ed)"
+_ACCOUNT_HOLD = re.compile(
+    rf"\b{_HOLD_OWNER}(?:{_HOLD_ACCOUNT}\b[^.!?]{{0,80}}?\b(?:{_HOLD_STATE}|{_HOLD_ENDED})"
+    rf"|{_HOLD_MONEY}\b[^.!?]{{0,80}}?\b{_HOLD_STATE})\b"
+    rf"|\b(?:{_HOLD_STATE}|{_HOLD_ENDED})\b[^.!?]{{0,60}}?\b{_HOLD_OWNER}{_HOLD_ACCOUNT}\b"
+    rf"|\b{_HOLD_STATE}\b[^.!?]{{0,60}}?\b{_HOLD_OWNER}{_HOLD_MONEY}\b", re.IGNORECASE)
+# "has not been compromised"; "is not updated now, it will be restricted" still holds.
+_HOLD_NEGATED = re.compile(rf"(?:\bnot|\bnever|n't)\s+(?:(?:been|be|being|yet|temporarily)\s+){{0,2}}"
+                           rf"(?:{_HOLD_STATE}|{_HOLD_ENDED})\b", re.IGNORECASE)
+_HOLD_ACTION = re.compile(r"\b(?:verify|update|re-?confirm|confirm|validate|unlock|restore|re-?activate|log\s?on|log\s?in"
+                          r"|login|sign[\s-]?on|sign[\s-]?in|approve|accept)\b", re.IGNORECASE)
+
+
+def _account_hold_lure(text: str) -> bool:
+    """Text saying an account or payment is held, with a request to verify or sign on near it."""
+    text = re.sub(r'\s+', ' ', text or '')  # PDF lines break mid-sentence
+    for match in _ACCOUNT_HOLD.finditer(text):
+        if not _HOLD_NEGATED.search(match.group(0)) and _HOLD_ACTION.search(
+                text[max(0, match.start() - 300):match.end() + 400]):
             return True
     return False
+
+
+def _attachment_account_lure(attachment: dict, sender_domain: str) -> str | None:
+    """The host an account-hold lure in a document attachment links to, off the sender's domain."""
+    if not _account_hold_lure(attachment.get('extracted_text') or ''):
+        return None
+    return next(filter(None, (_unlisted_off_sender_host(destination, sender_domain)
+                              for destination in attachment.get('extracted_links', ()))), None)
 
 
 def _attachment_text_findings(text: str) -> list[dict]:
@@ -4763,7 +4815,7 @@ _PHISHING_TACTICS = {
     "credential": {"content.pressured_credential_request", "content.password_form", "content.mailbox_lure",
                    "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
                    "content.sensitive_request.recovery_secret", "link.credential_collection_host",
-                   "link.user_content_action"},
+                   "link.user_content_action", "content.attachment_account_lure"},
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
@@ -5610,13 +5662,21 @@ async def _analyze_content(
         # Word and PDF attachment text: lures often sit in the attachment while the body
         # has a line or none (a callback "invoice"). Only strong requests are scored here,
         # never keyword categories: genuine contracts, quotes and invoices are full of
-        # "payment", "invoice" and "urgent".
+        # "payment", "invoice" and "urgent". An account-hold lure also needs the
+        # attachment's own link to leave the sender's domain.
         text_findings = []
+        sender_domain = parseaddr(structure['from'])[1].rpartition('@')[2].lower()
         for is_docx, prefix in ((True, 'prefix.docx_text'), (False, 'prefix.pdf_text')):
             attachment_text = '\n'.join(attachment['extracted_text'] for attachment in structure['attachments']
                                          if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)
             if attachment_text:
                 text_findings.extend(wrap_message(item, prefix) for item in _attachment_text_findings(attachment_text))
+            lure_host = next(filter(None, (_attachment_account_lure(attachment, sender_domain)
+                                           for attachment in structure['attachments']
+                                           if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)), None)
+            if lure_host:
+                text_findings.append(wrap_message(indicator('high', 'content.attachment_account_lure', domain=lure_host),
+                                                  prefix))
         if text_findings:
             result["total_score"] += 4
             result["risk_floor"] = max(result["risk_floor"], 'high', key=floor_rank.__getitem__)

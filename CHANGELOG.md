@@ -20,6 +20,37 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 04:30 PT] — Flag account-hold lures in PDF and Word attachments
+
+### Why
+- 18 undetermined Nazario messages had an empty body and a PDF holding the whole lure. Most imitated USAA ("your online account has been temporarily restricted", "your payment has been put on hold"); one imitated American Express.
+- Each PDF linked to an unrelated site. The text model never reads attachments, and attachment text was checked only for callbacks, secrets and subsidy lures, so nothing fired.
+
+### Files changed
+- `website/app.py`:
+  - `content.attachment_account_lure` (High; the credential tactic) fires when a Word or PDF attachment:
+    - says the reader's account, access or a payment is restricted, suspended, on hold, compromised or expired (`_ACCOUNT_HOLD`, after joining the PDF's broken lines);
+    - asks them to verify, update, confirm, log on or sign on within the surrounding 700 characters;
+    - links to a host that is neither the sender's domain nor an official one. The finding names the host.
+  - Left out: an expired card (genuine payment reminders), wording negated right before the state ("has not been compromised"), and PDFs linking only to the sender's or an official domain.
+  - `_unlisted_off_sender_host`: the destination test the mailbox-lure rule already used, now shared by both rules.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_attachment_account_lure.py`: 5 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (dc8d420) against this change:
+  - Nazario 3,466: alerts 3,350 → 3,368 (18 undetermined → High); 5 Medium → High and 29 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts, which have no attachments.
+- None of the genuine downloads has attachment text, so the risk was measured on message text instead. Without the link condition, the wording matches:
+  - 2 of 9,198 genuine DIFraud messages;
+  - none of 16,440 marketing emails;
+  - 1,408 of 6,074 DIFraud fraud messages.
+  
+  With the link condition, it fires on none of the 92 genuine downloads, 5,055 Apache list messages, 10 templates or 58 UniqueData legitimate messages.
+- Tests: 979 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 03:30 PT] — Flag account and payment buttons that lead to published documents and forms
 
 ### Why

@@ -440,9 +440,17 @@ Raw input enables these checks:
   (often QR codes) are never opened, so the attachment stays `metadata_only`.
   Hyperlinks go through the destination checks, prefixed "Word attachment link".
   The text is checked only for strong requests: callback numbers, requests for
-  codes or secrets, and subsidy lures. Keyword categories are not run on it,
-  because genuine contracts and quotes are full of "payment", "invoice" and
-  "urgent";
+  codes or secrets, subsidy lures, and account-hold lures (below). Keyword
+  categories are not run on it, because genuine contracts and quotes are full of
+  "payment", "invoice" and "urgent";
+- account-hold lures in a Word or PDF attachment, usually with an empty body: the
+  attachment says your account, your access or a payment is restricted, suspended,
+  on hold, compromised or expired ("your online account has been temporarily
+  restricted", "your payment has been put on hold"), asks you to verify, update,
+  log on or sign on nearby, and carries a link to a domain that is neither the
+  sender's nor an official one. The text model never reads attachments, so these
+  went unscored. "Your card expired" alone, negated wording ("has not been
+  compromised") and a bank's PDF linking only to its own domain do not match;
 - subsidy and tax-refund lures, in the body or a Word or PDF attachment: a labour
   subsidy, high-temperature allowance or tax refund (劳动补贴, 高温补助, 退税申请)
   together with pressure to claim it at once or by scanning a code (视为放弃,

@@ -1408,6 +1408,44 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Account-hold lures in attachments (2026-10-02)
+
+18 undetermined Nazario messages had an empty body and a PDF holding the whole lure.
+Most imitated USAA, one American Express: "your online account has been temporarily
+restricted", "your payment has been put on hold", "your login access has been
+compromised", each with a link to an unrelated site. The text model never reads
+attachments, and attachment text was checked only for callbacks, secrets and subsidy
+lures.
+
+A new rule (`content.attachment_account_lure`) reads Word and PDF attachment text. It
+fires when the text says the account, access or a payment is held, restricted or
+compromised, and asks the reader to verify, update or sign on nearby. The attachment
+must also link to a host that is neither the sender's domain nor an official one.
+
+| Cohort (same model) | `dc8d420`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,350 / 109 / 7 | 3,368 / 91 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 5 Medium alerts rose to High and 29 High to Critical; none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates. The pasted cohorts have no attachments.
+
+**Limit.** None of the genuine downloads carries attachment text, so the wording was
+measured on message text instead:
+
+| Text (no link condition) | Messages | Wording matches |
+|---|---|---|
+| DIFraud genuine | 9,198 | 2 |
+| Marketing emails | 16,440 | 0 |
+| DIFraud fraud | 6,074 | 1,408 |
+
+With the link condition, it fires on none of the 92 genuine downloads, the 5,055
+Apache list messages, the templates or the UniqueData legitimate messages.
+
+An expired card is left out: "your card expired, update your payment method" is how
+genuine payment reminders begin, and a Postmark template matched it in the prototype.
+
 ### Buttons that lead to published documents and forms (2026-10-02)
 
 Eight undetermined Nazario messages were fake Amazon Prime renewals. They read "the
