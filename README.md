@@ -483,6 +483,12 @@ Raw input enables these checks:
   Dropbox, Google Drive or DocuSign in the text or the sender's display name, with a
   Download, Open or View button on a host that is neither the service's (including
   we.tl, 1drv.ms, SharePoint and Dropbox Sign), the sender's, nor an official one;
+- delivery lures: a parcel held for an unpaid shipping or customs fee ("shipping cost
+  have not been paid", "Confirm the shipping fee 50 ZAR"), or undeliverable for a
+  wrong address the reader must correct, with a Pay, Confirm, Update or Continue
+  button on a host that is neither the sender's, an official carrier's, nor a
+  retailers' tracking platform (Narvar, AfterShip, Route, ParcelPanel, 17TRACK,
+  Shopify). "Sorry we missed you, reschedule" alone does not count;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;

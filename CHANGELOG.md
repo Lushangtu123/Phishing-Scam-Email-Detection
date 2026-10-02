@@ -20,6 +20,39 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 08:30 PT] — Flag delivery lures that ask for a fee or a corrected address
+
+### Why
+- Five undetermined Nazario messages were parcel lures:
+  - Fastway and South African Post Office fakes: "R 25.00 shipping cost have not been paid", "Confirm the shipping fee 50 ZAR";
+  - FedEx and DHL fakes: "unable to locate you due to a mix up in your address", "incorrect address details … update your shipping address".
+- Each button led to an unrelated host, and no rule read delivery wording.
+
+### Files changed
+- `website/app.py`: `content.delivery_lure` (High; the payment tactic) fires on a delivery notice that:
+  - asks for an unpaid shipping, customs or redelivery fee, or says the address is wrong and asks the reader to correct it;
+  - has a Pay, Confirm, Update, Continue or Click here button on a host that is not the sender's or an official carrier's;
+  - links to no retailers' tracking platform (`_DELIVERY_TRACKING_DOMAINS`: Narvar, AfterShip, Route, ParcelPanel, 17TRACK, Shopify).
+  
+  "Sorry we missed you, reschedule" alone does not count, because genuine retailers send it.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_delivery_lure.py`: 3 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (902bca6) against this change:
+  - Nazario 3,466: alerts 3,395 → 3,400 (5 undetermined → 4 Critical, 1 High); 13 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- The wording appears in 26 Nazario messages. It appears in none of:
+  - the 92 genuine downloads;
+  - 5,055 Apache list messages;
+  - 9,198 genuine DIFraud messages;
+  - 16,440 marketing emails.
+  
+  These sets hold few genuine delivery notices, so retailers' fee or address notices are covered by synthetic tests only.
+- Tests: 996 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 07:30 PT] — Close gaps in the mailbox-lure rule
 
 ### Why

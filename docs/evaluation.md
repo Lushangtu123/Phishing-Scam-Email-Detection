@@ -1408,6 +1408,33 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Delivery lures asking for a fee or a corrected address (2026-10-02)
+
+Five undetermined Nazario messages were parcel lures:
+- an unpaid shipping fee ("R 25.00 shipping cost have not been paid", "Confirm the shipping fee 50 ZAR");
+- a wrong address to correct ("unable to locate you due to a mix up in your address").
+
+Each button led to an unrelated host.
+
+A new rule (`content.delivery_lure`) fires on such a notice when its Pay, Confirm,
+Update or Continue button leads to a host that is not the sender's, an official
+carrier's, or a retailers' tracking platform's. "Sorry we missed you, reschedule" alone
+is left out.
+
+| Cohort (same model) | `902bca6`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,395 / 64 / 7 | 3,400 / 59 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 13 High alerts rose to Critical; none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** The wording appears in 26 Nazario messages. It appears in no message of the
+genuine downloads, Apache lists, genuine DIFraud or marketing sets. Those sets hold few
+genuine delivery notices, though. A retailer's fee or address notice sent through an
+unlisted tracking service would be flagged.
+
 ### Gaps in the mailbox-lure rule (2026-10-02)
 
 Sixteen undetermined Nazario messages were mailbox-credential lures that the rule did

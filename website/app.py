@@ -4873,6 +4873,50 @@ def _file_share_elsewhere(text: str, display_name: str, links, sender_domain: st
     return None
 
 
+# Delivery lures: a parcel held for an unpaid shipping or customs fee ("A R 25.00 shipping
+# cost have not been paid", "Confirm the shipping fee 50 ZAR"), or undeliverable for a
+# wrong address the reader must correct, with the button on an unrelated host. Carriers'
+# official domains, the sender's own and the tracking platforms retailers use are exempt.
+# "Sorry we missed you, reschedule" alone is left out: genuine retailers send it. The
+# wording appears in none of the 92 genuine downloads, 5,055 Apache list messages, 9,198
+# genuine DIFraud messages or 16,440 marketing emails.
+_DELIVERY_PARCEL = re.compile(r"\b(?:packages?|parcels?|shipments?|deliver(?:y|ies|ed)?|couriers?|consignments?)\b",
+                              re.IGNORECASE)
+_DELIVERY_CHARGE = (r"(?:shipping|delivery|re-?delivery|customs|postage|handling|clearance)\s+"
+                    r"(?:fees?|costs?|charges?|dut(?:y|ies))")
+_DELIVERY_FEE = re.compile(
+    rf"\b{_DELIVERY_CHARGE}\b[^.!?]{{0,40}}?\b(?:(?:have|has)\s+not\s+(?:yet\s+)?been\s+paid|not\s+(?:been\s+)?paid"
+    rf"|unpaid|outstanding|due)\b"
+    rf"|\b(?:pay|confirm|settle)\s+(?:the\s+|a\s+|your\s+)?(?:outstanding\s+|small\s+)?{_DELIVERY_CHARGE}\b"
+    rf"|\b{_DELIVERY_CHARGE}\s+(?:of\s+)?(?:[$€£]\s?\d|\d+(?:[.,]\d+)?\s?(?:usd|eur|gbp|zar|aud|cad|r\b))",
+    re.IGNORECASE)
+_DELIVERY_ADDRESS = re.compile(
+    r"\b(?:incorrect|incomplete|wrong|invalid|insufficient|unclear|mix[\s-]?up\s+in\s+(?:your|the))\s+"
+    r"(?:delivery\s+|shipping\s+|recipient\s+)?address|\bunable\s+to\s+locate\s+(?:you|your\s+address)",
+    re.IGNORECASE)
+_DELIVERY_ADDRESS_FIX = re.compile(
+    r"\b(?:update|confirm|fill(?:\s+in)?|correct|verify|provide|re-?enter|enter)\s+(?:your\s+|the\s+)?"
+    r"(?:correct\s+|full\s+|complete\s+)?(?:delivery\s+|shipping\s+)?address", re.IGNORECASE)
+_DELIVERY_ACTION = re.compile(r"\b(?:update|confirm|continue|pay|click\s+here|schedule|reschedule|submit|verify|proceed"
+                              r"|track|release|redeliver|correct)\b", re.IGNORECASE)
+_DELIVERY_TRACKING_DOMAINS = frozenset({'narvar.com', 'aftership.com', 'route.com', 'parcelpanel.com', '17track.net',
+                                        'shopify.com'})
+
+
+def _delivery_lure(text: str, links, sender_domain: str = '') -> str | None:
+    """The host a delivery-fee or wrong-address lure's button leads to, off the sender's domain."""
+    text = re.sub(r'\s+', ' ', text or '')
+    if not (_DELIVERY_PARCEL.search(text) and (
+            _DELIVERY_FEE.search(text) or (_DELIVERY_ADDRESS.search(text) and _DELIVERY_ADDRESS_FIX.search(text)))):
+        return None
+    for label, destination in links or ():
+        if _DELIVERY_ACTION.search(label or ''):
+            host = _unlisted_off_sender_host(destination, sender_domain)
+            if host and _organizational_domain(host) not in _DELIVERY_TRACKING_DOMAINS:
+                return host
+    return None
+
+
 def _attachment_account_lure(attachment: dict, sender_domain: str) -> str | None:
     """The host an account-hold lure in a document attachment links to, off the sender's domain."""
     if not _account_hold_lure(attachment.get('extracted_text') or ''):
@@ -4911,7 +4955,7 @@ _PHISHING_TACTICS = {
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
-                "content.large_amounts"},
+                "content.large_amounts", "content.delivery_lure"},
     "remote_access": {"content.sensitive_request.remote_access"},
     "impersonation": {"link.brand_lookalike", "link.idn_confusable", "structure.brand_display_name",
                       "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
@@ -5476,6 +5520,11 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'link.file_share_elsewhere', service=file_share[0], host=file_share[1]))
+    delivery_host = _delivery_lure(analysis_text, labelled_links, sender_domain)
+    if delivery_host:
+        total_score += 4
+        risk_floor = 'high'
+        extra_indicators.append(indicator('high', 'content.delivery_lure', host=delivery_host))
 
     extra_indicators.extend(rules['style'])
 
