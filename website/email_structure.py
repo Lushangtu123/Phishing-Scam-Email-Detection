@@ -1428,6 +1428,18 @@ _MAILBOX_RECEIVING_HOSTS = {
     "outlook": re.compile(r"(?:^|\.)(?:outlook\.com|office365\.com|microsoft\.com|exchangelabs\.com|hotmail\.com"
                           r"|live\.com)$"),
 }
+# The networks each service's own servers send and relay from (Google's mail netblocks;
+# Exchange Online's ranges), without the cloud ranges its customers rent. A peer that names
+# itself after the service (its HELO, which the sender writes) is one of its servers only
+# when the receiving server recorded an address in them.
+_MAILBOX_NETWORKS = {
+    "gmail": tuple(map(ipaddress.ip_network, """64.233.160.0/19 66.102.0.0/20 66.249.80.0/20 72.14.192.0/18
+        74.125.0.0/16 108.177.0.0/17 172.217.0.0/16 172.253.0.0/16 173.194.0.0/16 209.85.128.0/17 216.58.192.0/19
+        216.239.32.0/19 2001:4860::/32 2404:6800::/32 2607:f8b0::/32 2800:3f0::/32 2a00:1450::/32
+        2c0f:fb50::/32""".split())),
+    "outlook": tuple(map(ipaddress.ip_network, """40.92.0.0/15 40.107.0.0/16 52.96.0.0/14 52.100.0.0/14
+        104.47.0.0/17 2603:1000::/24 2a01:111::/32""".split())),
+}
 _RECEIVED_FROM = re.compile(r"^\s*from\s+(\S+)(.*?)\sby\s+(\S+)", re.I | re.S)
 _RECEIVED_ADDRESS = re.compile(r"\[(?:ipv6:)?([0-9a-f:.]+)\]|\(([0-9a-f:.]+)\)|\s([0-9]{1,3}(?:\.[0-9]{1,3}){3})\b", re.I)
 _MAX_RECEIVED = 30
@@ -1447,17 +1459,19 @@ def _sending_server(message, mailbox_provider: str | None) -> tuple[str, bool] |
 
     Received lines are read from the top while they are the receiving service's (anything
     below may be written by the sender). The first hop from outside the service is the
-    sending server; mail sent from the service itself ends at its own outbound server.
+    sending server: a peer that is not the service's by its recorded address, whatever
+    name it gives; mail sent from the service itself ends at its own outbound server.
     Without a chosen mailbox the service is recognised from the topmost line, and the
     address is unverified."""
     values = [str(value) for value in message.get_all("Received", [])[:_MAX_RECEIVED]]
     by_hosts = [by.group(1).lower().rstrip(";.") if by else "" for by in
                 (re.search(r"\sby\s+(\S+)", " " + value, re.I) for value in values)]
-    receiving = _MAILBOX_RECEIVING_HOSTS.get(mailbox_provider or "")
-    verified = receiving is not None
-    if receiving is None:
+    service = mailbox_provider if mailbox_provider in _MAILBOX_RECEIVING_HOSTS else None
+    verified = service is not None
+    if service is None:
         top = next(filter(None, by_hosts), "")
-        receiving = next((pattern for pattern in _MAILBOX_RECEIVING_HOSTS.values() if pattern.search(top)), None)
+        service = next((name for name, pattern in _MAILBOX_RECEIVING_HOSTS.items() if pattern.search(top)), None)
+    receiving = _MAILBOX_RECEIVING_HOSTS.get(service or "")
     own = None
     for value, by_host in zip(values, by_hosts):
         if receiving is not None and not receiving.search(by_host):
@@ -1466,11 +1480,13 @@ def _sending_server(message, mailbox_provider: str | None) -> tuple[str, bool] |
         if not match:
             continue
         from_host, details = match.group(1).lower().rstrip("."), match.group(2)
-        address = next(filter(None, (_public_address(next(filter(None, found))) for found
-                                     in _RECEIVED_ADDRESS.findall(" " + details + " " + from_host))), None)
+        # The address the receiving server recorded; the peer's own name only without one.
+        found = _RECEIVED_ADDRESS.findall(" " + details + " ") or _RECEIVED_ADDRESS.findall(" " + from_host + " ")
+        address = next(filter(None, (_public_address(next(filter(None, parts))) for parts in found)), None)
         if address is None:
             continue
-        if receiving is None or not receiving.search(from_host):
+        if receiving is None or not receiving.search(from_host) or not any(
+                ipaddress.ip_address(address) in network for network in _MAILBOX_NETWORKS[service]):
             return address, verified
         own = address
     return (own, verified) if own else None

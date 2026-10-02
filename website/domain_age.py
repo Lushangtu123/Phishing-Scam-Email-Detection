@@ -10,7 +10,7 @@ the date unknown and changes nothing else.
 from __future__ import annotations
 
 import asyncio
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from functools import lru_cache
 import json
@@ -26,6 +26,9 @@ DEFAULT_BOOTSTRAP_PATH = Path(__file__).parent / "data" / "rdap_bootstrap.json"
 LOOKUP_TIMEOUT = 2.0
 LOOKUP_DEADLINE = 3.0
 MAX_LOOKUPS_PER_MESSAGE = 5
+# Lookups admitted at once, running or waiting, across all messages: beyond it a domain's
+# date is unknown rather than queued behind lookups nobody waits for.
+MAX_PENDING_LOOKUPS = 16
 MAX_RESPONSE_BYTES = 256 * 1024
 CACHE_TTL = 24 * 3600
 FAILURE_TTL = 3600
@@ -143,24 +146,75 @@ def lookup(domain: str, *, fetch=_fetch, servers: dict[str, str] | None = None,
 
 
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="rdap")
+# Admitted lookups: domain -> [future, messages waiting for it]. One lookup serves every
+# message that asks for the same domain while it is pending.
+_pending: dict[str, list] = {}
+_pending_lock = threading.RLock()
+
+
+def _cached(domain: str):
+    with _cache_lock:
+        cached = _cache.get(domain)
+    return cached if cached and cached[0] > time.monotonic() else None
+
+
+def _release(domain: str, future) -> None:
+    with _pending_lock:
+        if _pending.get(domain, (None,))[0] is future:
+            del _pending[domain]
 
 
 def _submit(domains, fetch, servers):
-    domains = list(dict.fromkeys(domains))[:MAX_LOOKUPS_PER_MESSAGE]
-    return {domain: _pool.submit(lookup, domain, fetch=fetch, servers=servers) for domain in domains}
+    """Futures (or cached dates) for up to MAX_LOOKUPS_PER_MESSAGE domains."""
+    domains = list(dict.fromkeys(domain.lower().rstrip(".") for domain in domains))[:MAX_LOOKUPS_PER_MESSAGE]
+    futures = {}
+    with _pending_lock:
+        for domain in domains:
+            cached = _cached(domain)
+            if cached:
+                futures[domain] = cached[1]
+                continue
+            entry = _pending.get(domain)
+            if entry is None:
+                if len(_pending) >= MAX_PENDING_LOOKUPS:
+                    futures[domain] = None
+                    continue
+                entry = _pending[domain] = [_pool.submit(lookup, domain, fetch=fetch, servers=servers), 0]
+                entry[0].add_done_callback(lambda future, domain=domain: _release(domain, future))
+            entry[1] += 1
+            futures[domain] = entry[0]
+    return futures
 
 
 def _collect(futures) -> dict[str, datetime | None]:
-    return {domain: future.result() if future.done() and not future.exception() else None
-            for domain, future in futures.items()}
+    """The dates answered so far. A lookup no message waits for any more is cancelled if
+    it has not started; one that has keeps its place until it ends, and fills the cache."""
+    dates = {}
+    with _pending_lock:
+        for domain, future in futures.items():
+            if not isinstance(future, Future):
+                dates[domain] = future
+                continue
+            if future.done():
+                dates[domain] = None if future.cancelled() or future.exception() else future.result()
+                continue
+            dates[domain] = None
+            entry = _pending.get(domain)
+            if entry and entry[0] is future:
+                entry[1] -= 1
+                if entry[1] <= 0:
+                    future.cancel()
+    return dates
 
 
 def lookup_many(domains, *, fetch=_fetch, servers: dict[str, str] | None = None,
                 deadline: float = LOOKUP_DEADLINE) -> dict[str, datetime | None]:
     """Registration dates of up to MAX_LOOKUPS_PER_MESSAGE domains, in parallel. A domain
-    not answered before the deadline is unknown."""
+    not answered before the deadline, or beyond MAX_PENDING_LOOKUPS, is unknown."""
     futures = _submit(domains, fetch, servers)
-    wait(futures.values(), timeout=deadline)
+    waiting = [future for future in futures.values() if isinstance(future, Future)]
+    if waiting:
+        wait(waiting, timeout=deadline)
     return _collect(futures)
 
 
@@ -168,6 +222,7 @@ async def lookup_many_async(domains, *, fetch=_fetch, servers: dict[str, str] | 
                             deadline: float = LOOKUP_DEADLINE) -> dict[str, datetime | None]:
     """lookup_many for the event loop: waiting holds no analysis worker."""
     futures = _submit(domains, fetch, servers)
-    if futures:
-        await asyncio.wait([asyncio.wrap_future(future) for future in futures.values()], timeout=deadline)
+    waiting = [future for future in futures.values() if isinstance(future, Future)]
+    if waiting:
+        await asyncio.wait([asyncio.wrap_future(future) for future in waiting], timeout=deadline)
     return _collect(futures)

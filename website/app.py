@@ -94,6 +94,7 @@ def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: 
 
 
 from email_structure import (
+    _ORGANIZATIONAL_DOMAINS,
     _official_sender,
     _CONSUMER_MAILBOX_DOMAINS,
     organizational_domain as _organizational_domain,
@@ -2186,8 +2187,10 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
         name = name if name.startswith('--') else name.lower()
         if not separator or not (name.startswith('--') or name in {
                 'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES,
-                'background', 'background-color', 'background-image'}):
+                'background', 'background-color', 'background-image', 'background-clip', '-webkit-background-clip'}):
             continue
+        # Browsers read the prefixed name as the same property.
+        name = 'background-clip' if name == '-webkit-background-clip' else name
         # Values are case-insensitive, except the names of custom properties (var(--Name)).
         # Any run of whitespace is one space to CSS: rgb(255,\n255,255) is white.
         value = ''.join(part if part.startswith('--') else part.lower()
@@ -2199,13 +2202,14 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
         # color:transparent; color:rgb(nope) stays transparent.
         if (name in {'color', 'background-color'} and _color_class(value) == 'invalid') or (
                 name == 'font-size' and _font_size_class(value) == 'invalid') or (
-                name in {'background', 'background-image'} and not _background_valid(value, name)):
+                name in {'background', 'background-image'} and not _background_valid(value, name)) or (
+                name == 'background-clip' and not _background_clip_valid(value)):
             continue
         if not _recognised_visibility_value(name, value):
             values['#unrecognised'] = (name, False)
             continue
-        # The background shorthand sets both longhands; each reads its own part of it.
-        for target in ('background-color', 'background-image') if name == 'background' else (name,):
+        # The background shorthand sets the longhands; each reads its own part of it.
+        for target in ('background-color', 'background-image', 'background-clip') if name == 'background' else (name,):
             if target not in values or important or not values[target][1]:
                 values[target] = (value, important)
     return values
@@ -2566,11 +2570,19 @@ _BACKGROUND_ATTACHMENTS = frozenset({'scroll', 'fixed', 'local'})
 _BACKGROUND_BOXES = frozenset({'border-box', 'padding-box', 'content-box', 'text'})
 _BACKGROUND_POSITION_AXES = {'left': 'h', 'right': 'h', 'top': 'v', 'bottom': 'v', 'center': 'c'}
 _CSS_MATH = re.compile(r'(?:calc|min|max|clamp)\(.*\)\Z', re.S)
-# A gradient's first argument may set its direction, shape, size, position or the colour
-# space it interpolates in ("to right", "45deg", "circle at center", "in oklch longer hue").
-_GRADIENT_SETUP_WORDS = frozenset("""to at from in left right top bottom center circle ellipse closest-side
-    closest-corner farthest-side farthest-corner srgb srgb-linear display-p3 a98-rgb prophoto-rgb rec2020 lab oklab
-    xyz xyz-d50 xyz-d65 hsl hwb lch oklch shorter longer increasing decreasing hue""".split())
+# CSS units by what they measure.
+_CSS_LENGTH_UNITS = frozenset("""px em rem ex rex ch rch ic ric cap rcap lh rlh vw vh vi vb vmin vmax svw svh svi svb
+    svmin svmax lvw lvh lvi lvb lvmin lvmax dvw dvh dvi dvb dvmin dvmax cqw cqh cqi cqb cqmin cqmax cm mm q in pt pc""".split())
+_CSS_ANGLE_UNITS = frozenset({'deg', 'grad', 'rad', 'turn'})
+# A gradient's first argument (CSS Images 4): a linear gradient's angle or "to" sides, a
+# radial one's shape, size and "at" position, a conic one's "from" angle and "at"
+# position; any of them may add the colour space it interpolates in ("in oklch longer hue").
+_GRADIENT_SIDES = {'left': 'h', 'right': 'h', 'top': 'v', 'bottom': 'v'}
+_GRADIENT_EXTENTS = frozenset({'closest-side', 'closest-corner', 'farthest-side', 'farthest-corner'})
+_GRADIENT_RECTANGULAR_SPACES = frozenset("""srgb srgb-linear display-p3 a98-rgb prophoto-rgb rec2020 lab oklab xyz xyz-d50
+    xyz-d65""".split())
+_GRADIENT_POLAR_SPACES = frozenset({'hsl', 'hwb', 'lch', 'oklch'})
+_GRADIENT_HUE_METHODS = frozenset({'shorter', 'longer', 'increasing', 'decreasing'})
 
 
 def _css_top_level(value: str, separators: str) -> list[str]:
@@ -2598,39 +2610,107 @@ def _css_words(value: str) -> list[str]:
     return [word for word in _css_top_level(value, ' \t\n\r\f') if word]
 
 
+def _css_quantity(word: str) -> str | None:
+    """What a value measures: 'length', 'angle', 'percentage', 'zero' (a unitless 0),
+    'number' (another unitless number), 'math' (calc() and the like), or None."""
+    if _CSS_MATH.match(word):
+        return 'math'
+    match = _CSS_DIMENSION.fullmatch(word)
+    if not match:
+        return None
+    unit = match.group(2)
+    if unit is None:
+        return 'zero' if float(match.group(1)) == 0 else 'number'
+    return ('percentage' if unit == '%' else 'length' if unit in _CSS_LENGTH_UNITS
+            else 'angle' if unit in _CSS_ANGLE_UNITS else None)
+
+
 def _css_length(word: str) -> bool:
-    return bool(_CSS_DIMENSION.fullmatch(word) or _CSS_MATH.match(word))
+    """A length or percentage, as a background position or size takes it: a unitless
+    number other than 0 is none, even in a quirks-mode document."""
+    return _css_quantity(word) in {'length', 'percentage', 'zero', 'math'}
+
+
+def _gradient_setup_valid(kind: str, words: list[str]) -> bool:
+    """Whether a gradient's first argument is valid for its kind."""
+    if 'in' in words:
+        at = words.index('in')
+        space = words[at + 1] if at + 1 < len(words) else ''
+        clause = 2
+        if space in _GRADIENT_POLAR_SPACES and words[at + 2:at + 4][1:] == ['hue'] \
+                and words[at + 2] in _GRADIENT_HUE_METHODS:
+            clause = 4
+        elif space not in _GRADIENT_RECTANGULAR_SPACES | _GRADIENT_POLAR_SPACES:
+            return False
+        # The interpolation clause stands at the start or the end.
+        if at not in (0, len(words) - clause):
+            return False
+        words = words[:at] + words[at + clause:]
+    if kind == 'linear':
+        if len(words) == 1:
+            return _css_quantity(words[0]) in {'angle', 'zero', 'math'}
+        if words[:1] == ['to'] and 2 <= len(words) <= 3:
+            axes = [_GRADIENT_SIDES.get(word) for word in words[1:]]
+            return None not in axes and len(set(axes)) == len(axes)
+        return not words
+    position = []
+    if 'at' in words:
+        at = words.index('at')
+        words, position = words[:at], words[at + 1:]
+        if not all(word in _BACKGROUND_POSITION_AXES or _css_length(word) for word in position) \
+                or not _background_position_valid(position):
+            return False
+    if kind == 'conic':
+        if not words:
+            return True
+        return len(words) == 2 and words[0] == 'from' and _css_quantity(words[1]) in {'angle', 'zero', 'math'}
+    shapes = [word for word in words if word in {'circle', 'ellipse'}]
+    extents = [word for word in words if word in _GRADIENT_EXTENTS]
+    sizes = [word for word in words if word not in {'circle', 'ellipse'} and word not in _GRADIENT_EXTENTS]
+    if len(shapes) > 1 or len(extents) > 1 or (extents and sizes) or len(sizes) > 2:
+        return False
+    if any(_css_quantity(word) not in {'length', 'percentage', 'zero', 'math'} or word.startswith('-') for word in sizes):
+        return False
+    # One size is a circle's radius (no percentage); two are an ellipse's.
+    if len(sizes) == 1 and ('ellipse' in shapes or _css_quantity(sizes[0]) == 'percentage'):
+        return False
+    return not (len(sizes) == 2 and 'circle' in shapes)
 
 
 def _gradient_stops(image: str):
     """A standard gradient's stop colours, with None for each stop whose colour this
     reader cannot compute (color-mix(), a system colour, currentcolor); [] for a gradient
-    browsers reject, which drops its declaration; None for any other image."""
-    match = re.fullmatch(r'(?:repeating-)?(?:linear|radial|conic)-gradient\((.*)\)', image, re.S)
+    browsers reject, which drops its declaration; None for any other image. Linear and
+    radial stops sit at lengths or percentages, conic ones at angles or percentages; a
+    colour hint (a position alone) stands between two stops."""
+    match = re.fullmatch(r'(?:repeating-)?(linear|radial|conic)-gradient\((.*)\)', image, re.S)
     if not match:
         return None
-    stops = []
-    for index, argument in enumerate(_css_top_level(match.group(1), ',')):
-        words = _css_words(argument)
-        colours = [word for word in words if word not in _CSS_WIDE_KEYWORDS and (
+    kind = match.group(1)
+    positions = {'angle', 'percentage', 'zero', 'math'} if kind == 'conic' else {'length', 'percentage', 'zero', 'math'}
+    arguments = [_css_words(argument) for argument in _css_top_level(match.group(2), ',')]
+    items = []
+    for index, words in enumerate(arguments):
+        colours = [word for word in words if word not in _CSS_WIDE_KEYWORDS and _css_quantity(word) is None and (
             word == 'currentcolor' or _color_class(word) in {'visible', 'transparent', 'unresolved'})]
-        lengths = [word for word in words if _css_length(word)]
-        if len(colours) == 1 and len(lengths) == len(words) - 1 <= 2:
+        rest = [word for word in words if word not in colours]
+        # A stop's colour comes first, its positions after it.
+        if len(colours) == 1 and words[0] == colours[0]:
+            if len(rest) > 2 or any(_css_quantity(word) not in positions for word in rest):
+                return []
             colour = colours[0]
-            stops.append(colour if _color_class(colour) in {'visible', 'transparent'} and _colour_rgba(colour) else None)
-        elif index and len(words) == len(lengths) == 1:
-            continue  # a colour hint between two stops
-        elif not index and words and not colours and all(word in _GRADIENT_SETUP_WORDS or _css_length(word)
-                                                         for word in words) and (
-                # A side or position follows 'to' or 'at': linear-gradient(top, …) is the
-                # prefixed syntax, which the standard function rejects.
-                not {'left', 'right', 'top', 'bottom', 'center'} & set(words)
-                or {'to', 'at'} & set(words[:min(words.index(word) for word in words
-                                                 if word in {'left', 'right', 'top', 'bottom', 'center'})])):
+            items.append(colour if _color_class(colour) in {'visible', 'transparent'} and _colour_rgba(colour) else None)
+        elif not colours and len(words) == 1 and _css_quantity(words[0]) in positions and index:
+            items.append('#hint')
+        elif not index and words and not colours and _gradient_setup_valid(kind, words):
             continue
         else:
             return []
-    return stops
+    # A hint needs a stop on each side.
+    for at, item in enumerate(items):
+        if item == '#hint' and (at == 0 or at == len(items) - 1 or '#hint' in (items[at - 1], items[at + 1])):
+            return []
+    return [item for item in items if item != '#hint']
 
 
 def _background_position_valid(words: list[str]) -> bool:
@@ -2674,7 +2754,8 @@ def _background_valid(value: str, name: str = 'background') -> bool:
             after = _css_words(pieces[1])
             size = after[:1] if after[:1] in (['cover'], ['contain']) else list(
                 takewhile(lambda word: word == 'auto' or _css_length(word), after[:2]))
-            if not size:
+            # A size is never negative (a position may be).
+            if not size or any(word.startswith('-') for word in size):
                 return False
             ends = len(words)
             words += after[len(size):]
@@ -2694,7 +2775,8 @@ def _background_valid(value: str, name: str = 'background') -> bool:
             elif word in _BACKGROUND_ATTACHMENTS:
                 counts['attachment'] += 1
             elif word in _BACKGROUND_BOXES:
-                counts['box'] += 1
+                # Two boxes are the origin and the clip; only the clip may be the text.
+                counts['box'] += 1 if word != 'text' or 'text' not in words[:at] else 2
             elif word in _BACKGROUND_POSITION_AXES or _css_length(word):
                 position.append(at)
             elif (index == len(layers) - 1 and word not in _CSS_WIDE_KEYWORDS
@@ -2716,6 +2798,25 @@ def _background_valid(value: str, name: str = 'background') -> bool:
         if size is not None and (not position or position[-1] != ends - 1):
             return False
     return True
+
+
+@lru_cache(maxsize=4096)
+def _background_clip_valid(value: str) -> bool:
+    """Whether a background-clip value is valid: one box for each layer."""
+    return 'var(' in value or value in _CSS_WIDE_KEYWORDS or all(
+        len(words) == 1 and words[0] in _BACKGROUND_BOXES
+        for words in map(_css_words, _css_top_level(value, ',')))
+
+
+@lru_cache(maxsize=4096)
+def _background_clip(value: str) -> str:
+    """Which layers of a background-clip value, or of a background shorthand, clip to the
+    text: 'all', 'some' or 'none'; 'unknown' where it is inherited or from var()."""
+    if 'var(' in value or value == 'inherit':
+        return 'unknown'
+    layers = [_css_words(layer) for layer in _css_top_level(value, ',')]
+    clipped = sum('text' in words for words in layers)
+    return 'all' if clipped == len(layers) else 'some' if clipped else 'none'
 
 
 @lru_cache(maxsize=4096)
@@ -2779,14 +2880,16 @@ def _stylesheet_colours(css: str) -> tuple[set, set]:
         if re.search(r'color|background', block, re.IGNORECASE):
             values = _style_values(block)
             text_colours.update(values[name][0] for name in ('color',) if name in values)
-            backgrounds.update(values[name][0] for name in ('background-color', 'background-image') if name in values)
+            backgrounds.update(values[name][0] for name in ('background-color', 'background-image', 'background-clip')
+                               if name in values)
     return text_colours, backgrounds
 
 
 def _colours_may_match(text_colours: set, backgrounds: set) -> bool:
     """Whether some text colour may be the colour of some background or of the canvas:
     black or link text included. A colour from var(), currentcolor or a translucent
-    background may be any."""
+    background may be any. A background clipped to the text decides whether transparent
+    text shows."""
     texts, fills = {_DEFAULT_TEXT, _colour_rgba(_LINK_TEXT)}, {_DEFAULT_CANVAS}
     for value in text_colours:
         if 'var(' in value:
@@ -2794,7 +2897,7 @@ def _colours_may_match(text_colours: set, backgrounds: set) -> bool:
         texts.add(_colour_rgba(value) if value not in _CSS_WIDE_KEYWORDS | {'currentcolor'} else None)
     for value in backgrounds:
         token, _image, solid = _background_parts(value)
-        if 'var(' in value or token == 'currentcolor':
+        if 'var(' in value or token == 'currentcolor' or _background_clip(value) in {'all', 'some'}:
             return True
         for paint in (_colour_rgba(token) if token else None, _colour_rgba(solid) if solid else None):
             if paint and 0 < paint[3] < 1:
@@ -3508,7 +3611,8 @@ def _with_custom_properties(winners: dict, custom: dict) -> tuple:
         value = ranked[3]
         if isinstance(value, tuple) and value[0] == 'var':
             value = _variable_class(name, _substitute_variables(value[1], custom))
-        elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES) and isinstance(value, str) and 'var(' in value:
+        elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES or name == 'background-clip') \
+                and isinstance(value, str) and 'var(' in value:
             value = _substitute_variables(value, custom)
         else:
             continue
@@ -3528,8 +3632,8 @@ def _declared_values(block: str, *, typography: bool = True, geometry: bool = Fa
     'visible', 'inherit' or 'unresolved'. An unknown display, visibility or opacity value
     is ('unknown', 'unresolved'). A size, colour or opacity from var() is ('var', value),
     resolved per element; custom properties (--name) keep their value. With colours, the
-    text colour ('text-color') and background ('background-color', 'background-image')
-    keep their values too."""
+    text colour ('text-color') and background ('background-color', 'background-image',
+    'background-clip') keep their values too."""
     values = _style_values(block)
     declared = []
     if 'display' in values:
@@ -3554,6 +3658,8 @@ def _declared_values(block: str, *, typography: bool = True, geometry: bool = Fa
         declared.append(('color', ('var', value) if 'var(' in value else _color_class(value), values['color'][1]))
     declared.extend((name, value, important) for name, (value, important) in values.items() if name.startswith('--'))
     if colours:
+        if 'background-clip' in values:
+            declared.append(('background-clip', *values['background-clip']))
         if 'color' in values:
             declared.append(('text-color', values['color'][0], values['color'][1]))
         declared.extend((name, values[name][0], values[name][1]) for name in ('background-color', 'background-image')
@@ -3631,7 +3737,17 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
         colour = _DEFAULT_TEXT if ranked[3] == 'initial' else _colour_rgba(ranked[3])
     image, fill = winners.get('background-image'), winners.get('background-color')
     painted, solid = _background_parts(image[3])[1:] if image else (False, None)
-    if painted:
+    ranked = winners.get('background-clip')
+    clip = _background_clip(ranked[3]) if ranked and isinstance(ranked[3], str) else 'none'
+    if clip != 'none' and transparent:
+        # background-clip: text paints the background inside the glyphs, where transparent
+        # text shows it (gradient text).
+        if painted or solid or (fill and _background_parts(fill[3])[0] not in {None, 'transparent'}):
+            transparent, colour = False, None
+            unresolved |= clip == 'unknown'
+    if clip == 'all':
+        pass  # painted inside the glyphs only: the backdrop stays the parent's
+    elif painted or clip == 'some':
         backdrop = None
     else:
         # A background paints behind the element's text and its descendants', its colour
@@ -3943,6 +4059,15 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
             self.alt_instruction = False
             self.uncertain_inline_style = False
             self.open_paragraph = False
+            # In the view pass, each link's label as every view shows it: the text inside
+            # an <a href> that the view renders, children a rule hides left out.
+            self.anchors = []
+            self.open_anchors = []
+
+        def _anchor_record(self, href):
+            views = len(self.view_parts)
+            return {'href': href, 'certain': [], 'certain_off': [], 'outlook': [], 'outlook_off': [], 'loose': [],
+                    'views': [[] for _view in range(views)], 'views_off': [[] for _view in range(views)]}
 
         def _visually_hidden(self):
             return bool(self.elements and (self.elements[-1][1] or self.elements[-1][2]))
@@ -3990,6 +4115,25 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                         if not images_off:
                             parts.append(text)
                         parts_off.append(text)
+            if self.open_anchors:
+                # The same text, as the label of the innermost open link.
+                anchor = self.anchors[self.open_anchors[-1][1]]
+                if not images_off and (all(shown) or '#ambiguous' in tokens):
+                    anchor['loose'].append(text)
+                if all(shown):
+                    if not images_off:
+                        anchor['certain'].append(text)
+                    anchor['certain_off'].append(text)
+                    if not self.hidden_from_outlook and in_outlook:
+                        if not images_off:
+                            anchor['outlook'].append(text)
+                        anchor['outlook_off'].append(text)
+                if not self.outlook_only:
+                    for parts, parts_off, visible in zip(anchor['views'], anchor['views_off'], shown):
+                        if visible:
+                            if not images_off:
+                                parts.append(text)
+                            parts_off.append(text)
 
         def _matches(self, pattern, position, level, index, fold):
             # Right to left, as browsers match: the open element at a level is the last
@@ -4140,6 +4284,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
         def _truncate_elements(self, index):
             if self.open_paragraph and any(item[0] == 'p' for item in self.elements[index:]):
                 self.open_paragraph = False
+            while self.open_anchors and self.open_anchors[-1][0] >= index:
+                self.open_anchors.pop()
             del self.elements[index:]
             del self.children[index + 1:]
 
@@ -4238,8 +4384,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 if style and re.search(r'color|background', style, re.IGNORECASE):
                     values = _style_values(style)
                     self.text_colours.update(values[name][0] for name in ('color',) if name in values)
-                    self.backgrounds.update(values[name][0] for name in ('background-color', 'background-image')
-                                            if name in values)
+                    self.backgrounds.update(values[name][0] for name in ('background-color', 'background-image',
+                                                                         'background-clip') if name in values)
             parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
             inline_state = (parent_inline[0] if zero_size is None else zero_size,
                             parent_inline[1] if transparent is None else transparent,
@@ -4309,6 +4455,9 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
                                       element_tokens, inline_state, element_states, element_custom))
                 self.children.append([])
+                if actionable_anchor and self.targets is not None and len(self.anchors) < _MAX_VIEW_ANCHORS:
+                    self.anchors.append(self._anchor_record(href))
+                    self.open_anchors.append((len(self.elements) - 1, len(self.anchors) - 1))
                 if tag == 'p':
                     self.open_paragraph = True
             if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
@@ -4431,12 +4580,24 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 # Text rules read each view, the Outlook view, and undecidable text too.
                 readings['rules_media'] = [*(joined(parts) for parts in views.view_parts), joined(views.outlook_parts)] + (
                     [joined(views.loose_parts)] if views.cascade_conflict else [])
+                # Each link's label as each of these readings shows it.
+                def labels(key, index=None):
+                    return [(joined(anchor[key] if index is None else anchor[key][index]), anchor['href'])
+                            for anchor in views.anchors]
+                readings['certain_links'] = labels('certain')
+                readings['links_complete'] = len(views.anchors) < _MAX_VIEW_ANCHORS
+                readings['rules_media_links'] = [*(labels('views', index) for index in range(len(views.view_parts))),
+                                                 labels('outlook')] + ([labels('loose')] if views.cascade_conflict else [])
                 if collector.images_off:
                     readings['certain_off'] = joined(views.certain_parts_off)
                     if model_views is not None:
                         readings['media_off'] = [joined(parts) for parts in model_views.view_parts_off]
                     readings['rules_media_off'] = [*(joined(parts) for parts in views.view_parts_off),
                                                    joined(views.outlook_parts_off)]
+                    readings['certain_links_off'] = labels('certain_off')
+                    readings['rules_media_links_off'] = [*(labels('views_off', index)
+                                                           for index in range(len(views.view_parts_off))),
+                                                         labels('outlook_off')]
             if readings.get('resolved'):
                 readings.update(strict=joined(model_views.strict_parts), outlook=joined(model_views.outlook_parts),
                                 hidden=joined([visible, ' ', *collector.hidden_parts]))
@@ -4453,6 +4614,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
 
 
 _INLINE_IMAGE_WARNING = message_text('warning.inline_images')
+# Links whose label is followed through each rendering view (the rest keep their plain label).
+_MAX_VIEW_ANCHORS = 200
 _REMOTE_IMAGE_WARNING = message_text('warning.remote_images')
 _UNRESOLVED_IMAGE_WARNING = message_text('warning.unresolved_images')
 _HAN_TEXT_WARNING = message_text('warning.han_text')
@@ -5018,8 +5181,15 @@ _FINE_LURE = re.compile(
     r"|\bsanzione\s+(?:non\s+pagata|pendente)\b|\b(?:offene[sn]?|unbezahlte[sn]?)\s+(?:bu(?:ß|ss)geld|strafzettel"
     r"|verwarnungsgeld|maut)\w*"
     r"|交通违法|违章(?:罚款|缴费|处理|记录)|未缴(?:纳)?(?:的)?罚款|罚款未(?:缴|交)|ETC.{0,8}(?:失效|停用|过期|异常)", re.IGNORECASE)
-_GOVERNMENT_HOST = re.compile(r"(?:^|\.)(?:gov|mil)$|\.(?:gov|gob|gouv|govt|go|gc|gv)\.[a-z]{2}$|\.gouv\.fr$|\.admin\.ch$"
-                              r"|\.bund\.de$")
+# Government suffixes are those the Public Suffix List names (gov.uk, go.jp, gc.ca,
+# nsw.gov.au, .gov): a second level anyone may register (go.to) is none.
+_GOVERNMENT_LABELS = frozenset({'gov', 'gob', 'gouv', 'govt', 'go', 'gc', 'gv'})
+
+
+def _government_host(host: str) -> bool:
+    suffix = _ORGANIZATIONAL_DOMAINS(host).suffix.split('.')
+    return (suffix in (['gov'], ['mil']) or bool(_GOVERNMENT_LABELS.intersection(suffix[:-1]))
+            or host.endswith(('.admin.ch', '.bund.de')))
 
 
 # A link carrying the recipient's own address ("?email=jose@example.org", or in base64) to
@@ -5063,7 +5233,7 @@ def _fine_lure(text: str, links, sender_domain: str = '') -> str | None:
         return None
     for _label, destination in links or ():
         host = _unlisted_off_sender_host(destination, sender_domain)
-        if host and not _GOVERNMENT_HOST.search(host):
+        if host and not _government_host(host):
             return host
     return None
 
@@ -5509,12 +5679,16 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                  if isinstance(value, str) and key not in {'certain', 'certain_off'}} if resolved else {},
                 # Text that only box geometry may hide was scored before views existed.
                 earlier_uncertain and resolved, readings.get('certain'), readings.get('rules_media') or [],
-                readings.get('images_off'), readings.get('certain_off'), readings.get('rules_media_off') or [])
+                readings.get('images_off'), readings.get('certain_off'), readings.get('rules_media_off') or [],
+                # Each reading's link labels, where the views followed every link.
+                {key: readings[key] for key in ('certain_links', 'rules_media_links', 'certain_links_off',
+                                                'rules_media_links_off') if key in readings}
+                if readings.get('links_complete') else None)
 
     if content_parts is None:
         raw_parts = [subject, body]
         html_parts = [False, True]
-        parsed_parts = [(subject, False, False, {}, False, None, [], None, None, []), visible_html(body)]
+        parsed_parts = [(subject, False, False, {}, False, None, [], None, None, [], None), visible_html(body)]
         visible_parts = [parsed[0] for parsed in parsed_parts]
         stylesheet_uncertain_parts = [parsed[1] for parsed in parsed_parts]
         model_uncertain_parts = [parsed[2] for parsed in parsed_parts]
@@ -5522,14 +5696,15 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         resolved_parts = [parsed[4] for parsed in parsed_parts]
         certain_parts = [parsed[5] for parsed in parsed_parts]
         media_parts = [parsed[6] for parsed in parsed_parts]
-        off_parts = [parsed[7:] for parsed in parsed_parts]
+        off_parts = [parsed[7:10] for parsed in parsed_parts]
+        view_links = [parsed[10] for parsed in parsed_parts]
     else:
         # Each MIME part is its own document. Plain text must not be interpreted
         # as markup, nor may an unclosed tag in one part hide another part.
         raw_parts = [subject] + [part['content'] for part in content_parts]
         html_parts = [False] + [part['content_type'] == 'text/html' for part in content_parts]
         parsed_parts = [visible_html(part['content']) if part['content_type'] == 'text/html'
-                        else (part['content'], False, False, {}, False, None, [], None, None, [])
+                        else (part['content'], False, False, {}, False, None, [], None, None, [], None)
                         for part in content_parts]
         visible_parts = [subject] + [parsed[0] for parsed in parsed_parts]
         stylesheet_uncertain_parts = [False] + [parsed[1] for parsed in parsed_parts]
@@ -5538,7 +5713,8 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         resolved_parts = [False] + [parsed[4] for parsed in parsed_parts]
         certain_parts = [None] + [parsed[5] for parsed in parsed_parts]
         media_parts = [[]] + [parsed[6] for parsed in parsed_parts]
-        off_parts = [(None, None, [])] + [parsed[7:] for parsed in parsed_parts]
+        off_parts = [(None, None, [])] + [parsed[7:10] for parsed in parsed_parts]
+        view_links = [None] + [parsed[10] for parsed in parsed_parts]
     raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
     if _model_view is not None:
         # The model and rule checks consume the same MIME-aware visible text.
@@ -5658,14 +5834,24 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
                      if is_html and stylesheet_uncertain else part_links)
         part_links_by_part.append((part_links, is_html and stylesheet_uncertain))
 
-    def reading_links(parts):
-        """The links of one reading with their labels: where a stylesheet makes the
-        rendering uncertain, a label counts if that reading's text shows it."""
+    def reading_links(parts, index=0, off=False):
+        """The links of one reading with their labels. Where a stylesheet makes the
+        rendering uncertain, each link's label is what that reading (index 0: the text no
+        style can hide; index n: rendering view n) shows of it, children a rule hides left
+        out; without views, a label counts if the reading's text shows it whole."""
         found = []
-        for text, (part_links, uncertain) in zip(parts, part_links_by_part):
-            shown = _han_compact(text or '') if uncertain else ''
-            found.extend((label, destination) for label, destination in part_links
-                         if not uncertain or (label.strip() and _han_compact(label) in shown))
+        for text, (part_links, uncertain), labels in zip(parts, part_links_by_part, view_links):
+            if not uncertain:
+                found.extend(part_links)
+            elif labels is not None:
+                certain = labels.get('certain_links_off' if off else 'certain_links') or []
+                media = labels.get('rules_media_links_off' if off else 'rules_media_links') or []
+                found.extend((label, destination) for label, destination
+                             in (media[index - 1] if 0 < index <= len(media) else certain) if label.strip())
+            else:
+                shown = _han_compact(text or '')
+                found.extend((label, destination) for label, destination in part_links
+                             if label.strip() and _han_compact(label) in shown)
         return found
     # CSS may hide arbitrary body text. Do not derive high phishing scores from
     # prose that might be hidden; independent destination/form checks still run.
@@ -5746,8 +5932,10 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     sender_domain = parseaddr(sender)[1].rpartition('@')[2].lower()
     display_name = parseaddr(sender)[0]
     lure_readings = dict.fromkeys(
-        (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()), tuple(reading_links(parts)))
-        for parts in readings_for_rules + readings_off)
+        (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()),
+         tuple(reading_links(parts, index, off)))
+        for off, readings in ((False, readings_for_rules), (True, readings_off))
+        for index, parts in enumerate(readings))
     mailbox_lure = user_content_action = False
     file_share = delivery_host = fine_host = hold_host = None
     for text, labelled_links in lure_readings:

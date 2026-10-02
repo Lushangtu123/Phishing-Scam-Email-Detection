@@ -491,7 +491,8 @@ Raw input enables these checks:
   Docs and Forms, Microsoft Forms, OneDrive, SharePoint, Dropbox shares) is never
   exempt, even when the unauthenticated From claims the platform's own domain. This
   rule and the button rules below read every rendering view, each with the link
-  labels it shows, and the riskiest view counts;
+  labels it shows (the text that view shows inside each link, so a word a stylesheet
+  hides inside a button is left out), and the riskiest view counts;
 - account or payment buttons ("Update Information", "Verify your account", "Log in")
   that lead to such published content: a Google Drawing, Doc, Form or Site, an Apps
   Script page, Firebase storage, Microsoft Forms, OneDrive, a Dropbox share, a Notion
@@ -517,14 +518,19 @@ Raw input enables these checks:
 - unpaid fine and toll lures: "unpaid toll balance", "your parking ticket is
   overdue", "multa no pagada", "amende impayée", 交通违法, "ETC 已失效", with a link
   that leaves the sender's domain for one that is neither listed nor a
-  government's (`.gov`, `gob.es`, `gouv.fr` and the like). An operator's own
-  billing site does not count;
+  government's: `.gov`, `.mil`, `admin.ch`, `bund.de`, or a government suffix the
+  Public Suffix List names (`gov.uk`, `go.jp`, `gc.ca`, `gob.es`, `gouv.fr`). A
+  second level anyone may register, such as `go.to`, is no government's. An
+  operator's own billing site does not count;
 - the sending server's address, shown as context. It is the server that handed the
   message to the reader's mail service, not the sender's own device: mail services
   such as Gmail and Outlook.com do not record that. `Received` lines are read from
   the top while the receiving service wrote them (Gmail's `mx.google.com` and
   internal `2002:…` hops, Outlook's Exchange Online servers); lines below them can
-  be written by the sender and are ignored. With a chosen mailbox the address is
+  be written by the sender and are ignored. A peer counts as one of the service's
+  own servers only when the receiving server recorded an address in the service's
+  mail networks (Google's netblocks; Exchange Online's ranges), never by the name
+  it gives itself, which the sender writes. With a chosen mailbox the address is
   verified; without one, the service is recognised from the topmost line and the
   address is marked unverified. The address, and an `X-Originating-IP` header (which
   the sender can write), are compared with two checked-in lists: Tor exit nodes
@@ -547,7 +553,10 @@ Raw input enables these checks:
   providers, file-sharing services, hosts on shared suffixes (`alice.github.io`)
   and IP addresses are not asked about. Each lookup has a 2-second timeout and
   the message 3 seconds in all, answers are cached for a day (failures for an
-  hour), and an unanswered lookup leaves the date unknown. Many country domains
+  hour), and an unanswered lookup leaves the date unknown. At most 16 lookups are
+  admitted at once across all messages, one per domain however many messages ask;
+  beyond that a date is unknown, and a lookup no message waits for any more is
+  cancelled before it starts. Many country domains
   (`.cn`, `.de`, `.io`, `.ru`) publish no RDAP service, so their dates are unknown.
   A domain registered less than 90 days before the analysis is named
   (`sender.recently_registered`, `link.recently_registered`); the dates are in
@@ -728,11 +737,20 @@ colour; HTML colour attributes are parsed as browsers do (`bgcolor="fff"` is
 as CSS Color 4 does. Whitespace inside a value counts as one space, so
 `rgb(255,\n255,255)` is white. A `background` that is not valid CSS is dropped whole,
 as browsers drop it: an unknown word (`background: banana black`), a component given
-twice (`left left`, `repeat repeat repeat`, `none none`), a misplaced size, or a
-gradient browsers reject (`linear-gradient(banana, black)`, `linear-gradient(top, …)`).
-The checks were compared with Chromium's `CSS.supports` on 76 crafted values and 553
+twice (`left left`, `repeat repeat repeat`, `none none`), a misplaced or negative
+size, a unitless number (rejected in the shorthand even in quirks mode), or a gradient
+browsers reject. Each gradient type is read by its own grammar (CSS Images 4): a linear
+gradient's angle or `to` sides on two axes, a radial one's shape, size and `at`
+position, a conic one's `from` angle; stops give the colour first, then lengths or
+percentages (angles for conic ones), and a colour hint stands between two stops. So
+`linear-gradient(to circle, …)`, `linear-gradient(black 1deg, black)`,
+`conic-gradient(black 10px, black)` and `linear-gradient(black, 10px)` are dropped.
+The checks were compared with Chromium's `CSS.supports` on 305 crafted values and 553
 values from public templates and Nazario. They disagree only on two `-moz-` and `-o-`
-gradients, which other engines accept and which are read as images of unknown colour. A
+gradients, which other engines accept and which are read as images of unknown colour.
+A background clipped to the text (`background-clip: text`, its `-webkit-` form, or
+`text` in the shorthand) paints only inside the glyphs: it is no backdrop for them,
+and transparent text over it shows it (gradient text). A
 translucent background blends with what is behind it, and a gradient whose stops are
 all one opaque colour paints that colour. A stop this reader cannot compute
 (`color-mix()`, a system colour) leaves the gradient unknown. The

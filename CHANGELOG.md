@@ -20,6 +20,66 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 19:30 PT] — Fix the review of ca047e5: gradient grammar, link labels per view, RDAP admission, Received trust
+
+### Why
+The read-only review of main at ca047e5 (2026-10-02) found two P1 and two P2 issues, all reproduced here:
+- **S1 (P1).** Gradients browsers reject were still read as solid backgrounds, so a visible callback scam was treated as hidden: Safe, where a white background gives High. The probes:
+  - `linear-gradient(to circle, black, black)` and `to left right`;
+  - a linear stop at an angle (`black 1deg`) and a conic stop at a length (`black 10px`);
+  - a trailing or doubled colour hint (`linear-gradient(black, 10px)`, `black 1px, 2px, 3px, black`);
+  - a negative background size (`black -1px / -2px`).
+- **S2 (P2).** RDAP lookups had no admission bound. The pool's queue was unbounded, the deadline cancelled nothing, and a domain already in flight was submitted again. Four messages of five blocked lookups left 8 running and 12 queued, and all 20 ran after the deadline.
+- **S3 (P2).** `_sending_server` crossed the receiving boundary on the peer's own name. `from mail.google.com (attacker.example. [185.220.101.1]) by mx.google.com` let a forged line below report 8.8.8.8 as the verified sending server.
+- **R1 (P1).** A link's label in each view was matched from the anchor's whole text. With `.decoy{display:none}`, `Release<span class="decoy">decoy</span> messages` read "Releasedecoy messages" in every view, so the mailbox lure was missed: Safe, where the control and an inline-hidden decoy are High.
+- **Exploration.** The fine rule's government exemption accepted any `go.` second level, so a toll lure linking to `local-test.go.to` (a name anyone may register) was Safe.
+- **Also found.**
+  - `background: black text` is valid, as the review notes, but `text` clips the background to the glyphs. The black text then shows on the white canvas; it was read as hidden (Safe).
+  - Gradient text (`background-clip: text` with transparent text) was likewise read as hidden.
+  - Chromium rejects unitless numbers in the background shorthand, even in quirks mode, and stops written position first (`10px black`). Both were accepted.
+
+### Files changed
+- `website/app.py`:
+  - **Gradient grammar (S1).** `_gradient_stops` checks each gradient type's first argument (`_gradient_setup_valid`) and its stops, following CSS Images 4:
+    - first argument: a linear angle, or `to` with sides on two axes; a radial shape, extent or sizes, with an `at` position; a conic `from` angle, with an `at` position; any of them with an `in <colour space> [<method> hue]` clause at either end;
+    - stops: the colour first, then up to two lengths or percentages (angles or percentages for conic);
+    - colour hints: only between two colour stops.
+    
+    `_css_quantity` classifies values as lengths, angles or percentages. `_background_valid` rejects a negative size and a second `text` box. `_css_length` no longer accepts unitless numbers.
+  - **background-clip.** `background-clip`, `-webkit-background-clip` and `text` in the shorthand are cascaded with the colours (`_background_clip`). A background clipped to the text is no backdrop, and transparent text over one that paints counts as visible. A clip anywhere in the message turns on the colour cascade.
+  - **Link labels per view (R1).** The view pass records each actionable link's label in every rendering view (`anchors`, up to 200 links). `reading_links` gives each reading the labels its view shows; beyond 200 links it falls back to the old matching.
+  - **Government hosts.** `_government_host` reads the Public Suffix List and accepts:
+    - `.gov` and `.mil`;
+    - a suffix with a government label (`gov.uk`, `go.jp`, `gc.ca`, `nsw.gov.au`);
+    - `admin.ch` and `bund.de`.
+- `website/domain_age.py` (S2):
+  - at most 16 lookups are admitted at once (`MAX_PENDING_LOOKUPS`);
+  - one future per domain is shared by every message that asks for it;
+  - cached dates are answered without the pool;
+  - a lookup no message waits for any more is cancelled before it starts.
+- `website/email_structure.py` (S3):
+  - a peer is the service's own server only when the receiving server recorded an address in the service's mail networks (`_MAILBOX_NETWORKS`: Google's mail netblocks; Exchange Online's ranges);
+  - the receiving server's recorded address is read before an address in the peer's name.
+- `website/tests/test_review_2026_10_02_second.py`: 16 tests; on e806393 they give 37 failures and 16 errors.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Review samples.** All are High in HTML and EML:
+  - `css_01`–`css_09` (`css_08`, `black text`, included);
+  - `decoy_label`;
+  - `fine_gov`;
+  - seven `background-clip` probes that Chromium shows. Transparent clipped text with no background stays hidden, as Chromium shows it.
+- **S2 probe.** Once every call has returned, 8 lookups are running and the queued ones are cancelled. Releasing the fetcher runs 8 fetches, not 20. Five concurrent messages asking for one domain make one fetch.
+- **S3 probe.** The sending server is 185.220.101.1, as with the control.
+- **Chromium `CSS.supports`.** All 305 crafted values agree (the earlier 76, plus 229 gradient, size and clip probes). 551 of 553 public values agree; the exceptions are the `-moz-` and `-o-` gradients, as before.
+- **Same served model, main (e806393) against this change:**
+  - Nazario 3,466: no per-message change (3,439 alerts, 20 undetermined, 7 Safe or Low);
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts;
+  - the sending server is unchanged for all 92 genuine downloads, with and without a mailbox.
+- **Timing.** The 92 genuine `.eml` files took 14.5 s against 12.8 s, and Nazario 145.8 s against 142.6 s. These runs went alongside other evaluations.
+- **Tests.** 1,062 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 18:30 PT] — Read account-hold lures in the message body
 
 ### Why

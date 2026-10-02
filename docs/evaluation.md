@@ -1408,6 +1408,34 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of ca047e5 (2026-10-02)
+
+A read-only review found four issues, all reproduced and fixed:
+- **S1, gradients.** Gradients browsers reject (`to circle`, a linear stop at an angle, a conic stop at a length, a stray colour hint) and negative sizes were read as solid backgrounds. A visible callback scam was then treated as hidden: Safe.
+- **S2, RDAP.** Lookups queued without bound and kept running after the deadline.
+- **S3, Received.** A peer naming itself `mail.google.com` let a forged line below it set the verified sending server.
+- **R1, link labels.** A word hidden by a stylesheet inside a button stayed in its label ("Releasedecoy messages"), so a mailbox lure was missed.
+
+The review's toll probe linking to `*.go.to` was exempt as a government's, and is not
+any more: government suffixes now come from the Public Suffix List. A background clipped
+to the text (`background: black text`, gradient text) was read as hidden, and is now
+read as Chromium shows it. Gradient validity follows each type's grammar. It was checked
+against Chromium's `CSS.supports` on 305 crafted values and 553 public ones. The only
+disagreements are the `-moz-` and `-o-` gradients, as before.
+
+| Cohort (same model) | `e806393`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,439 / 20 / 7 | 3,439 / 20 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any Nazario message, or any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+- **Sending server.** Unchanged for every genuine download, with and without a mailbox.
+
+**Limit.** A hop is trusted as internal by fixed network lists (Google's mail netblocks,
+Exchange Online's ranges). If a service relays from a network missing from them, the
+walk stops early and names one of the service's own servers.
+
 ### Account-hold lures in the message body (2026-10-02)
 
 The account-hold wording, read in attachments since 2026-10-02, is now read in the body
