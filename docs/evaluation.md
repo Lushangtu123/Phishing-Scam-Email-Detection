@@ -1408,6 +1408,20 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Alibaba.com added to the official registry (2026-10-02)
+
+Two undetermined Nazario messages were fake Alibaba.com inquiries ("Alibaba Trade
+Center", "Alibaba trade Centre"). Alibaba.com was added, with its own seller site as the
+source; "Alibaba" alone was left out, as Alibaba Cloud and AliExpress use other domains.
+
+| Cohort (same model) | `98917f2`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,422 / 37 / 7 | 3,424 / 35 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
 ### Unpaid fine and toll lures (2026-10-02)
 
 Three Nazario messages forged Spain's Ministerio del Interior ("Multa no pagada"), linking

@@ -12,7 +12,7 @@
     "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded.",
     "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused.",
     "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message.",
-    "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool."
+    "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool. Alibaba.com was added the same day, read in a browser."
   ],
   "regulatory_statements": [
     {
@@ -1677,6 +1677,30 @@
       "unverified_statements": [],
       "official_contact_emails": [],
       "review_note": "The page lists its official URLs under smbc.co.jp. SMBC alone is left out: SMBC Nikko and SMBC Card use it from other domains."
+    },
+    {
+      "id": "alibaba_com",
+      "category": "ecommerce",
+      "name": "Alibaba.com",
+      "region": "INTL",
+      "display_names": [
+        "Alibaba.com",
+        "Alibaba Trade"
+      ],
+      "official_domains": [
+        "alibaba.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "There are generally three types of spam: (1) e-mails with suspicious links, (2) e-mails with suspicious attachments, and (3) fake inquiries.",
+          "source": "https://seller.alibaba.com/learningcenter/content/detail/PXX05I5H.htm",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "review_note": "Read in a browser on 2026-10-02 on Alibaba.com's own seller site. Alibaba alone is left out: Alibaba Cloud, AliExpress and 1688 send from other domains. Alibaba Trade covers the Alibaba Trade Center/Centre names fake inquiries use."
     }
   ]
 }

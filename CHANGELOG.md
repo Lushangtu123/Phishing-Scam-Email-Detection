@@ -20,6 +20,29 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 15:30 PT] — Add Alibaba.com to the official registry
+
+### Why
+- Two undetermined Nazario messages were fake Alibaba.com inquiries ("Alibaba Trade Center", "Alibaba trade Centre"). They mixed a real alibaba.com link with "Reply Now" and document buttons on attacker sites.
+- Alibaba.com's own seller site lists fake inquiries among the three kinds of spam its users receive.
+
+### Files changed
+- `website/data/official_brands_intl.json`: Alibaba.com, 39 → 40 brands with display names.
+  - **Domain:** `alibaba.com`.
+  - **Display names:** "Alibaba.com", and "Alibaba Trade" for the trade-centre names fake inquiries use.
+  - **Left out:** "Alibaba" alone, because Alibaba Cloud, AliExpress and 1688 send from other domains.
+  - **Source:** the quote was read in a browser on seller.alibaba.com.
+- The New York Times (one undetermined message) was not added: both its help centre and its search results were out of reach, so its domains could not be confirmed on its own pages.
+- `website/tests/test_registry_additions.py`: 1 test.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (98917f2) against this change:
+  - Nazario 3,466: alerts 3,422 → 3,424 (the two inquiries → 1 Critical, 1 High); 5 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,039 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 14:30 PT] — Flag unpaid fine and toll lures
 
 ### Why

@@ -1,5 +1,5 @@
 """Registry entries added on 2026-10-02: USAA, Fifth Third Bank, PNC Bank, Charles Schwab,
-MetaMask, Tinder and 三井住友銀行."""
+MetaMask, Tinder, 三井住友銀行 and Alibaba.com."""
 import sys
 import unittest
 from pathlib import Path
@@ -40,6 +40,16 @@ class RegistryAdditionTests(unittest.TestCase):
             with self.subTest(display=display):
                 self.assertIsNone(es._registry_brand_claim(display, domain))
         self.assertEqual(es._registry_brand_claim('MetaMask', 'other.discoursemail.com'), 'MetaMask')
+
+    def test_alibaba(self):
+        for display, domain in (('Alibaba Trade Center', 'noreply.com'), ('Alibaba trade Centre', 'kbss.sk'),
+                                ('Alibaba.com Team', 'notice-alibaba.top')):
+            with self.subTest(display=display):
+                self.assertIsNotNone(es._registry_brand_claim(display, domain))
+        for display, domain in (('Alibaba.com', 'service.alibaba.com'), ('Alibaba Cloud', 'alibabacloud.com'),
+                                ('AliExpress', 'aliexpress.com')):
+            with self.subTest(display=display, domain=domain):
+                self.assertIsNone(es._registry_brand_claim(display, domain))
 
 
 if __name__ == '__main__':
