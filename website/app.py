@@ -5895,6 +5895,7 @@ async def _analyze_content(
                 "from", "reply_to", "return_path", "auth_results",
                 "authentication_trusted", "authentication_results_trusted",
                 "untrusted_authentication_claims", "attachments", "risk_floor", "parse_warnings", "header_candidates",
+                "sending_server",
             )
         }
         floor_rank = {"safe": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}

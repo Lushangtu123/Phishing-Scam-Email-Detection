@@ -20,6 +20,37 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 10:30 PT] — Show the sending server's address and check it against Tor exit and Spamhaus DROP lists
+
+### Why
+- Asked whether the sender's IP, and their use of a VPN, can be seen. The sender's own device is not recorded by Gmail or Outlook.com. The server that handed the message to the reader's mail service is recorded in that service's own `Received` lines, and it can be compared with public lists.
+- The owner chose downloaded lists over online lookups, limited to Tor exits and blocklists, kept as a checked-in snapshot refreshed by hand. A VPN cannot be detected reliably, so it is not claimed.
+
+### Files changed
+- `website/ip_reputation.py` (new): schema, validation, and lookups for the snapshot (Tor exit addresses; Spamhaus DROP networks by bisection). It is never fetched at runtime.
+- `website/tools/update_ip_reputation.py` (new): downloads the Tor Project bulk exit list (CC0) and Spamhaus DROP v4/v6 (free with credit; copyright and dates kept). It checks each list before writing atomically. Excluded from the deployment in `.vercelignore`.
+- `website/data/ip_reputation.json` (new): fetched 2026-10-02 16:50 UTC, 117 KB. It holds 1,383 Tor exit addresses (IPv4) and 1,783 DROP networks (91 IPv6), DROP list of 2026-09-30.
+- `website/email_structure.py`:
+  - `_sending_server` reads `Received` lines from the top while the receiving service wrote them (Gmail's `mx.google.com` and `2002:…` hops, Outlook's Exchange Online servers) and takes the first public address from outside the service.
+  - With a chosen mailbox the address is verified; otherwise the service is recognised from the topmost line and the address is unverified.
+  - The address, and `X-Originating-IP` (sender-written), are compared with the lists. New fields and findings: `sending_server`, `structure.sending_server[_unverified]`, `structure.sending_server_tor`, `structure.sending_server_drop`, `structure.originating_ip_tor`, `structure.originating_ip_drop`. All are info level and add no points.
+- `website/app.py`: returns `sending_server` in `message_structure`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the six findings. Asset versions bumped.
+- `website/tests/test_ip_reputation.py`: 10 tests (no network).
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Sending server found:**
+  - Nazario: 3,455 of 3,466 (unverified, as Nazario's mailbox is neither Gmail nor Outlook);
+  - the 92 genuine downloads: all 92, verified with their mailbox chosen;
+  - DataCon 2023 day 1: 584 of 611.
+- **List matches.** Today's lists match no message on Tor. On Spamhaus DROP they match:
+  - 12 Nazario sending servers and 1 Nazario `X-Originating-IP`;
+  - 3 DataCon messages;
+  - none of the genuine downloads.
+- **No verdict change**, per message, on any cohort: the findings are context only.
+- Tests: 1,018 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 09:30 PT] — Fix the review of 06dfbb7: gradient stops, lure views, platform senders, PDF fonts
 
 ### Why

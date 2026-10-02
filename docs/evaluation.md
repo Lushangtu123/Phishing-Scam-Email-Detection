@@ -1408,6 +1408,25 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Sending server address and IP lists (2026-10-02)
+
+The sending server, the one that handed each message to the reader's mail service, is
+read from that service's own `Received` lines. Its address is compared with a checked-in
+Tor exit list and Spamhaus DROP, both fetched on 2026-10-02.
+
+| Cohort | Sending server found | Tor exit | Spamhaus DROP |
+|---|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,455 (unverified) | 0 | 12 (+1 `X-Originating-IP`) |
+| 92 genuine downloads, mailbox chosen | 92 (verified) | 0 | 0 |
+| DataCon 2023 day 1 (611) | 584 (unverified) | 0 | 3 |
+
+The findings are context only and change no verdict. Two limits keep them so:
+- **The lists describe today.** Most Nazario messages are years old, so a match, or its absence, says little about the sending day.
+- **Tor rarely sends mail.** Tor exits seldom send mail directly, and as expected they match nothing here.
+
+DROP never matched a genuine message, but 12 of 3,466 phishing messages is too few to
+score.
+
 ### Review of 06dfbb7 (2026-10-02)
 
 A read-only review found five issues, all reproduced and fixed:

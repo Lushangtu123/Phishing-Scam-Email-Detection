@@ -11,6 +11,7 @@ from email.header import decode_header, make_header
 import fnmatch
 import html
 import io
+import ipaddress
 import json
 import math
 from pathlib import Path, PurePath
@@ -24,6 +25,7 @@ from itertools import product
 
 import tldextract
 
+from ip_reputation import load_ip_reputation
 from server_messages import indicator, text as message_text, warning_indicator
 
 
@@ -1377,6 +1379,68 @@ def _authentication_results(value: str) -> tuple[str, dict[str, str], bool]:
     return authserv_id, results, bool(identity) and complete
 
 
+# The hosts of each mailbox service's own Received lines. Gmail's internal hops are
+# written "by 2002:…" (an IPv6 address); Outlook's by Exchange Online servers.
+_MAILBOX_RECEIVING_HOSTS = {
+    "gmail": re.compile(r"(?:^|\.)(?:google\.com|googlemail\.com|gmail\.com)$|^[0-9a-f]{1,4}(?::[0-9a-f]{0,4}){2,7}$"),
+    "outlook": re.compile(r"(?:^|\.)(?:outlook\.com|office365\.com|microsoft\.com|exchangelabs\.com|hotmail\.com"
+                          r"|live\.com)$"),
+}
+_RECEIVED_FROM = re.compile(r"^\s*from\s+(\S+)(.*?)\sby\s+(\S+)", re.I | re.S)
+_RECEIVED_ADDRESS = re.compile(r"\[(?:ipv6:)?([0-9a-f:.]+)\]|\(([0-9a-f:.]+)\)|\s([0-9]{1,3}(?:\.[0-9]{1,3}){3})\b", re.I)
+_MAX_RECEIVED = 30
+
+
+def _public_address(text: str) -> str | None:
+    try:
+        address = ipaddress.ip_address(text.strip("[]"))
+    except ValueError:
+        return None
+    return str(address) if address.is_global else None
+
+
+def _sending_server(message, mailbox_provider: str | None) -> tuple[str, bool] | None:
+    """The address of the server that handed the message to the user's mail service, and
+    whether that service's own Received lines say so.
+
+    Received lines are read from the top while they are the receiving service's (anything
+    below may be written by the sender). The first hop from outside the service is the
+    sending server; mail sent from the service itself ends at its own outbound server.
+    Without a chosen mailbox the service is recognised from the topmost line, and the
+    address is unverified."""
+    values = [str(value) for value in message.get_all("Received", [])[:_MAX_RECEIVED]]
+    by_hosts = [by.group(1).lower().rstrip(";.") if by else "" for by in
+                (re.search(r"\sby\s+(\S+)", " " + value, re.I) for value in values)]
+    receiving = _MAILBOX_RECEIVING_HOSTS.get(mailbox_provider or "")
+    verified = receiving is not None
+    if receiving is None:
+        top = next(filter(None, by_hosts), "")
+        receiving = next((pattern for pattern in _MAILBOX_RECEIVING_HOSTS.values() if pattern.search(top)), None)
+    own = None
+    for value, by_host in zip(values, by_hosts):
+        if receiving is not None and not receiving.search(by_host):
+            break
+        match = _RECEIVED_FROM.match(value)
+        if not match:
+            continue
+        from_host, details = match.group(1).lower().rstrip("."), match.group(2)
+        address = next(filter(None, (_public_address(next(filter(None, found))) for found
+                                     in _RECEIVED_ADDRESS.findall(" " + details + " " + from_host))), None)
+        if address is None:
+            continue
+        if receiving is None or not receiving.search(from_host):
+            return address, verified
+        own = address
+    return (own, verified) if own else None
+
+
+def _originating_address(message) -> str | None:
+    """X-Originating-IP: the sending device's address as some services record it. The
+    sender can write it, so it is only ever compared with the lists."""
+    value = message.get("X-Originating-IP")
+    return _public_address(str(value).strip().strip("[]")) if value else None
+
+
 def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, budget, mailbox_provider=None,
                      raw_email=None):
     # Attached (nested) messages are analyzed without a mailbox or their raw bytes: their
@@ -1650,6 +1714,31 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 risk_floor = "medium"
             indicators.append(indicator('medium', 'structure.archive_attachment', filename=attachment['filename']))
 
+    # The server that handed the message to the user's mail service, and the sending
+    # device as X-Originating-IP claims it, compared with the checked-in Tor exit and
+    # Spamhaus DROP lists. Context only for now: the lists are today's, not the sending
+    # day's. Attached messages were never received by the user's service.
+    sending_server = None
+    if depth == 0:
+        found = _sending_server(message, mailbox_provider)
+        reputation = load_ip_reputation()
+        if found:
+            address, verified = found
+            sending_server = {"address": address, "verified": verified}
+            indicators.append(indicator('info', 'structure.sending_server' if verified
+                                        else 'structure.sending_server_unverified', ip=address))
+        for address, tor_code, drop_code in (
+                (sending_server and sending_server["address"], 'structure.sending_server_tor',
+                 'structure.sending_server_drop'),
+                (_originating_address(message), 'structure.originating_ip_tor', 'structure.originating_ip_drop')):
+            if not address or reputation is None:
+                continue
+            if reputation.tor_exit(address):
+                indicators.append(indicator('info', tor_code, ip=address, date=reputation.tor_date))
+            listing = reputation.drop_listing(address)
+            if listing:
+                indicators.append(indicator('info', drop_code, ip=address, listing=listing, date=reputation.drop_date))
+
     return {
         "input_mode": "raw-email",
         "subject": '\n'.join(header_candidates['Subject']),
@@ -1666,6 +1755,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "verified_official_sender": verified_official_sender,
         "authenticated_sender": authenticated_sender,
         "service_domain_sender": service_domain_sender,
+        "sending_server": sending_server,
         "bulk_mail": _bulk_mail(message),
         "authentication_results_trusted": bool(auth_results),
         "authentication_source": authentication_source,

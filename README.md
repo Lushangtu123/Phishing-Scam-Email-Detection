@@ -495,6 +495,24 @@ Raw input enables these checks:
   button on a host that is neither the sender's, an official carrier's, nor a
   retailers' tracking platform (Narvar, AfterShip, Route, ParcelPanel, 17TRACK,
   Shopify). "Sorry we missed you, reschedule" alone does not count;
+- the sending server's address, shown as context. It is the server that handed the
+  message to the reader's mail service, not the sender's own device: mail services
+  such as Gmail and Outlook.com do not record that. `Received` lines are read from
+  the top while the receiving service wrote them (Gmail's `mx.google.com` and
+  internal `2002:…` hops, Outlook's Exchange Online servers); lines below them can
+  be written by the sender and are ignored. With a chosen mailbox the address is
+  verified; without one, the service is recognised from the topmost line and the
+  address is marked unverified. The address, and an `X-Originating-IP` header (which
+  the sender can write), are compared with two checked-in lists: Tor exit nodes
+  (Tor Project, CC0) and Spamhaus DROP, networks leased or stolen by spam and crime
+  operations. A match is reported with the list's date and adds no risk points: the
+  lists describe the day they were fetched, not the day the message was sent, and
+  Tor exits rarely send mail directly. Nothing is looked up at runtime, so no
+  address leaves the server. `website/tools/update_ip_reputation.py` refreshes
+  `website/data/ip_reputation.json` by hand (Spamhaus asks for at most one fetch an
+  hour). Spamhaus DROP data © The Spamhaus Project SLU
+  (https://www.spamhaus.org/drop/terms/); the snapshot keeps its copyright and
+  dates;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;

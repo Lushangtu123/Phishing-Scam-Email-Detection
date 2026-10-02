@@ -893,6 +893,12 @@ window.PhishGuardI18n = (() => {
     'server.structure.idn_sender_domain': 'Sender domain ({domain}) is a Unicode/IDN confusable for {brand}.',
     'server.structure.no_visible_recipient': 'No visible To or Cc recipient is present; the message may have used Bcc.',
     'server.structure.self_addressed': 'Self-addressed message: a From mailbox also appears in To or Cc.',
+    'server.structure.sending_server': "Your mail service received this message from the server at {ip}. This is the sending server, not the sender's own device.",
+    'server.structure.sending_server_unverified': "The topmost Received header names the sending server {ip}. Choose the mailbox you downloaded the message from to confirm that your mail service wrote it.",
+    'server.structure.sending_server_tor': "The sending server {ip} is a Tor exit node on the Tor Project's list of {date}. The list describes that day, not the day the message was sent.",
+    'server.structure.sending_server_drop': "The sending server {ip} is in a network that Spamhaus lists as run by spammers or criminals ({listing}, DROP list of {date}).",
+    'server.structure.originating_ip_tor': "The X-Originating-IP header, which the sender can write, names a Tor exit node: {ip} (Tor Project list of {date}).",
+    'server.structure.originating_ip_drop': "The X-Originating-IP header, which the sender can write, names {ip}, in a network that Spamhaus lists as run by spammers or criminals ({listing}, DROP list of {date}).",
     'server.structure.routing_mismatch': '{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.',
     'server.structure.arc_sealed_results': 'No mailbox was chosen, but the sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.',
     'server.structure.auth_failed': 'Message authentication failed: {mechanisms}.',
@@ -1316,7 +1322,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=35'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=36'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
