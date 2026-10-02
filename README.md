@@ -466,6 +466,10 @@ Raw input enables these checks:
   sender's nor an official one. The text model never reads attachments, so these
   went unscored. "Your card expired" alone, negated wording ("has not been
   compromised") and a bank's PDF linking only to its own domain do not match;
+- the same account-hold wording in the message body ("your online account has been
+  temporarily suspended … login below to verify"), with a link to a site that is
+  neither the sender's nor listed: Medium with a Medium floor, as genuine account
+  notices use the wording too and are told apart only by their links;
 - subsidy and tax-refund lures, in the body or a Word or PDF attachment: a labour
   subsidy, high-temperature allowance or tax refund (劳动补贴, 高温补助, 退税申请)
   together with pressure to claim it at once or by scanning a code (视为放弃,

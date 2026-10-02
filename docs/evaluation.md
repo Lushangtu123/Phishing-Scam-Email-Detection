@@ -1408,6 +1408,24 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Account-hold lures in the message body (2026-10-02)
+
+The account-hold wording, read in attachments since 2026-10-02, is now read in the body
+too. It needs a link to a site that is neither the sender's nor listed. Three English
+messages were undetermined: two Chase lures and a New York Times payment lure.
+
+| Cohort (same model) | `eb82c61`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,436 / 23 / 7 | 3,439 / 20 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** 2 of the 92 genuine downloads use the wording; their links go to the service's
+own or an official domain. A genuine notice sent through an unlisted click-tracking
+domain would be flagged Medium, which is why the finding is not High.
+
 ### Links that carry the recipient's own address (2026-10-02)
 
 1,324 of 3,466 Nazario messages link to an unlisted site, off the sender's domain, with

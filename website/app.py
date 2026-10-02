@@ -5131,6 +5131,20 @@ def _registration_findings(candidates, dates, now=None) -> list[dict]:
     return findings
 
 
+def _account_hold_link(text: str, links, sender_domain: str = '') -> str | None:
+    """The host a message body's account-hold lure links to, off the sender's domain.
+
+    The attachment rule's wording, read in the body: genuine account notices use it too
+    (2 of the 92 genuine downloads), but link to the service's own or an official domain.
+    In Nazario, 429 of 3,466 messages fire; no genuine download or Apache list message
+    does. Medium only, as a genuine notice sent through an unlisted click-tracking domain
+    would match."""
+    if not _account_hold_lure(text):
+        return None
+    return next(filter(None, (_unlisted_off_sender_host(destination, sender_domain)
+                              for _label, destination in links or ())), None)
+
+
 def _attachment_account_lure(attachment: dict, sender_domain: str) -> str | None:
     """The host an account-hold lure in a document attachment links to, off the sender's domain."""
     if not _account_hold_lure(attachment.get('extracted_text') or ''):
@@ -5165,7 +5179,8 @@ _PHISHING_TACTICS = {
     "credential": {"content.pressured_credential_request", "content.password_form", "content.mailbox_lure",
                    "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
                    "content.sensitive_request.recovery_secret", "link.credential_collection_host",
-                   "link.user_content_action", "content.attachment_account_lure", "link.recipient_prefilled"},
+                   "link.user_content_action", "content.attachment_account_lure", "link.recipient_prefilled",
+                   "content.account_hold_lure"},
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
@@ -5734,7 +5749,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()), tuple(reading_links(parts)))
         for parts in readings_for_rules + readings_off)
     mailbox_lure = user_content_action = False
-    file_share = delivery_host = fine_host = None
+    file_share = delivery_host = fine_host = hold_host = None
     for text, labelled_links in lure_readings:
         mailbox_lure = mailbox_lure or _mailbox_lure(text, labelled_links, sender_domain)
         user_content_action = user_content_action or _user_content_action(labelled_links)
@@ -5742,6 +5757,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         delivery_host = delivery_host or _delivery_lure(text, labelled_links, sender_domain)
         # Labels do not matter here: every destination counts, as for the link checks.
         fine_host = fine_host or _fine_lure(text, links, sender_domain)
+        hold_host = hold_host or _account_hold_link(text, links, sender_domain)
     if mailbox_lure:
         total_score += 4
         risk_floor = 'high'
@@ -5762,6 +5778,10 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.fine_lure', host=fine_host))
+    if hold_host:
+        total_score += 3
+        risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
+        extra_indicators.append(indicator('medium', 'content.account_hold_lure', host=hold_host))
     prefilled_host = _recipient_prefilled_link(links, recipients, sender_domain)
     if prefilled_host:
         total_score += 3

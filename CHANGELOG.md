@@ -20,6 +20,30 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 18:30 PT] — Read account-hold lures in the message body
+
+### Why
+- Three undetermined English Nazario messages put an account-hold lure in the body, each linking off the sender's domain:
+  - Chase: "your online account has been temporarily suspended … login below to verify";
+  - J.P. Morgan Chase: "we had to suspend your online banking … Verify now";
+  - The New York Times: "your billing information … needs to be updated … Verify Payment Information".
+- The wording was read only in attachments.
+
+### Files changed
+- `website/app.py`: `content.account_hold_lure` (Medium; score 3; Medium floor; the credential tactic) applies the attachment rule's wording (`_account_hold_lure`) to every rendering view of the body. It needs a link to a host that is neither the sender's nor listed (`_account_hold_link`).
+  - Medium, not High: 2 of the 92 genuine downloads use the wording and are told apart only by their links, which go to the service's own or an official domain.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_account_hold_body.py`: 2 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (eb82c61) against this change:
+  - Nazario 3,466: alerts 3,436 → 3,439 (the three → High); 1 Medium → High; 82 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- The finding fires on 429 Nazario messages and on no genuine download, Apache list message or template.
+- Tests: 1,046 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 17:30 PT] — Flag links that carry the recipient's own address
 
 ### Why
