@@ -20,6 +20,34 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 07:30 PT] — Close gaps in the mailbox-lure rule
+
+### Why
+- Sixteen undetermined Nazario messages were mailbox-credential lures the rule should have read. Four reasons:
+  - **The reader's address.** It sat inside the threatening sentence ("квота jose@monkey.org перевищена", "كلمة السر … لـ jose@monkey.org تنتهي"), and its dots ended the sentence window.
+  - **Password expiry.** "The current password for … expired today", "Your account … password expires today".
+  - **Missing wording.** "Unable to send and receive messages", "out of date", and "new version update of your webmail box" were not listed.
+  - **Unlisted button labels.** "더 많은 공간을 추가" (add more space), "移除限制" (remove restriction), "Оновіть …" (Ukrainian "update"), "استخدام كلمة المرور الحالية" (use current password), "Read Delayed Messages", and "Cᴏɴғɪʀᴍ ᴀᴄᴄᴏᴜɴᴛ" written in small capitals.
+
+### Files changed
+- `website/app.py`, in the mailbox-lure rule (`_mailbox_lure`):
+  - email addresses in the text become a neutral word before matching (`_MAIL_ADDRESS`);
+  - new threats: the mail account's password expiring, mail that cannot be sent or received, and a mailbox that is out of date or due for a new version;
+  - new labels: 추가, 移除, онов-, استخدام, and "read … messages" (not "Read more");
+  - labels in small capitals are read as letters (`_SMALL_CAPITALS`).
+  
+  The link condition is unchanged: off the sender's domain, not a mail provider's sign-in, not official.
+- `website/tests/test_mailbox_lure_gaps.py`: 4 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, 1f58e25 against this change:
+  - Nazario 3,466: alerts 3,384 → 3,395 (11 undetermined → 6 Critical, 5 High); 3 Medium raised; 66 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Five of the sixteen remain: garbled or obfuscated wording, a link on the sender's own domain, or the lure inside a Word attachment.
+- Tests: 993 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 06:30 PT] — Flag file-sharing notices whose button leaves the service
 
 ### Why

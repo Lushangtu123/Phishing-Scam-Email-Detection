@@ -4676,7 +4676,7 @@ _MAILBOX_STATE = (r"升级|升級|迁移|遷移|切换|切換|备案|備案|容�
 _MAILBOX_LURE = re.compile(rf"(?:{_MAILBOX_TERM})[^。！？!?]{{0,30}}(?:{_MAILBOX_STATE})"
                            rf"|(?:{_MAILBOX_STATE})[^。！？!?]{{0,30}}(?:{_MAILBOX_TERM})")
 _MAILBOX_ACTION = re.compile(r"登录|登陆|登入|登錄|升级|升級|验证|驗證|激活|啟用|启用|扩容|擴容|清理|恢复|恢復"
-                             r"|解除|保留|保持|迁移|遷移|备案|備案|点此|點此|点击|點擊")
+                             r"|解除|移除|保留|保持|迁移|遷移|备案|備案|点此|點此|点击|點擊")
 _MAIL_SIGN_IN_DOMAINS = _CONSUMER_MAILBOX_DOMAINS | {'office.com', 'office365.com', 'microsoftonline.com'}
 # The same lures in English and other languages. Only threats to the mailbox count (full,
 # blocked, held, expiring, closing): "verify your email address" is how genuine sign-ups
@@ -4687,7 +4687,7 @@ _MAILBOX_STATE_EN = (r"(?:quota|storage\s+(?:is\s+)?(?:full|limit)|(?:almost|is|
                      r"|reached\s+(?:its|the|your)\s+(?:limit|capacity)|deactivat\w*|suspend\w*|terminat\w*|clos(?:e|ed|ing|ure)\b"
                      r"|expir\w*|disabled|disconnect\w*|blocked|restricted|pending|undelivered|on\s+hold|held|stuck"
                      r"|failed\s+to\s+(?:be\s+)?deliver\w*|not\s+(?:been\s+)?delivered|delayed|shut\s*down|delet(?:e|ed|ion)"
-                     r"|de-?activation|upgrade\s+required|server\s+error)")
+                     r"|de-?activation|upgrade\s+required|server\s+error|out\s+of\s+date|new\s+version)")
 _MAILBOX_LURE_OTHER = re.compile(
     rf"\b{_MAILBOX_TERM_EN}\b[^.!?\n]{{0,80}}\b{_MAILBOX_STATE_EN}|\b{_MAILBOX_STATE_EN}[^.!?\n]{{0,80}}\b{_MAILBOX_TERM_EN}\b"
     r"|(?:우편함|메일함|계정|이메일)[^.!?\n]{0,40}(?:할당량|폐쇄|중단|차단|만료|삭제|업그레이드)"
@@ -4697,11 +4697,18 @@ _MAILBOX_LURE_OTHER = re.compile(
     r"|(?:كلمة\s+(?:المرور|السر)|حساب|البريد)[^.!?\n]{0,60}(?:تنتهي|انتهاء|إيقاف|تعليق|حظر)"
     r"|messages?\s+bloqu\w+|bo[iî]te\s+(?:aux\s+lettres|mail)[^.!?\n]{0,40}(?:pleine|bloqu\w+|expir\w+|suspend\w+)"
     r"|caixa\s+de\s+(?:correio|e-?mail)[^.!?\n]{0,40}(?:cheia|bloquead\w+|expir\w+|suspens\w+)"
-    r"|buz[oó]n[^.!?\n]{0,40}(?:lleno|bloquead\w+|expir\w+|suspendid\w+)", re.IGNORECASE)
+    r"|buz[oó]n[^.!?\n]{0,40}(?:lleno|bloquead\w+|expir\w+|suspendid\w+)"
+    # The mail account's password expiring, and mail that can no longer be sent or received.
+    r"|\bpassword\s+(?:for\s+)?(?:your\s+)?(?:address|e-?mail|mail\s?box|webmail)\b[^.!?\n]{0,60}\bexpir\w*"
+    r"|\b(?:address|e-?mail|mail\s?box|webmail)\s+(?:account\s+)?password\b[^.!?\n]{0,40}\bexpir\w*"
+    r"|\b(?:unable|not\s+(?:be\s+)?able|won.?t\s+be\s+able|cannot|can.?t)\s+to\s+send\s+(?:and|or)\s+receive\b",
+    re.IGNORECASE)
 _MAILBOX_ACTION_OTHER = re.compile(
     r"\b(?:upgrade|log\s?in|login|sign\s?in|update|restore|release|retrieve|recover|keep|re-?activate|increase|unlock"
-    r"|deliver|resolve|fix|retain|migrate|activate|validate|verify|confirm|access|view|review|click\s+here|continue)\b"
-    r"|업그레이드|확인|로그인|обнов\w+|войти|увійти|продовж\w+|再認証|ログイン|تحديث|تسجيل|متابعة|\blire\b|\bvoir\b"
+    r"|deliver|resolve|fix|retain|migrate|activate|validate|verify|confirm|access|view|review|click\s+here|continue"
+    r"|read\s+(?:\w+\s+)?(?:messages|mails?|e-?mails))\b"
+    r"|업그레이드|확인|로그인|추가|обнов\w+|онов\w+|войти|увійти|продовж\w+|再認証|ログイン|تحديث|تسجيل|متابعة|استخدام"
+    r"|\blire\b|\bvoir\b"
     r"|atualiz\w+|verificar|actualizar", re.IGNORECASE)
 
 
@@ -4766,13 +4773,24 @@ def _unlisted_off_sender_host(destination: str, sender_domain: str) -> str | Non
     return None
 
 
+# The reader's address inside a sentence ("квота jose@example.org перевищена") would end
+# the sentence at its dots.
+_MAIL_ADDRESS = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# Labels in small capitals ("Cᴏɴғɪʀᴍ ᴀᴄᴄᴏᴜɴᴛ"), which have no compatibility decomposition.
+_SMALL_CAPITALS = str.maketrans({'ᴀ': 'a', 'ʙ': 'b', 'ᴄ': 'c', 'ᴅ': 'd', 'ᴇ': 'e', 'ꜰ': 'f', 'ғ': 'f', 'ɢ': 'g',
+                                 'ʜ': 'h', 'ɪ': 'i', 'ᴊ': 'j', 'ᴋ': 'k', 'ʟ': 'l', 'ᴍ': 'm', 'ɴ': 'n', 'ᴏ': 'o',
+                                 'ᴘ': 'p', 'ʀ': 'r', 'ꜱ': 's', 'ᴛ': 't', 'ᴜ': 'u', 'ᴠ': 'v', 'ᴡ': 'w', 'ʏ': 'y', 'ᴢ': 'z'})
+
+
 def _mailbox_lure(text: str, links, sender_domain: str = '') -> bool:
     """A mailbox lure whose action link leads off the sender's domain to an unlisted one."""
+    text = _MAIL_ADDRESS.sub(' address ', text)
     if not (_MAILBOX_LURE.search(_han_compact(text)) or _MAILBOX_LURE_OTHER.search(text)):
         return False
-    return any((_MAILBOX_ACTION.search(_han_compact(label or '')) or _MAILBOX_ACTION_OTHER.search(label or ''))
+    labels = (((label or '').translate(_SMALL_CAPITALS), destination) for label, destination in links or ())
+    return any((_MAILBOX_ACTION.search(_han_compact(label)) or _MAILBOX_ACTION_OTHER.search(label))
                and _unlisted_off_sender_host(destination, sender_domain)
-               for label, destination in links or ())
+               for label, destination in labels)
 
 
 # Account-hold lures in document attachments: the body says a line or nothing, and a PDF

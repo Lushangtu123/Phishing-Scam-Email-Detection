@@ -1408,6 +1408,32 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Gaps in the mailbox-lure rule (2026-10-02)
+
+Sixteen undetermined Nazario messages were mailbox-credential lures that the rule did
+not read, for four reasons:
+- **The reader's address.** "квота jose@monkey.org перевищена": the address's dots ended the sentence window.
+- **Password expiry.** "The current password for … expired today".
+- **Unlisted threats.** "Unable to send and receive messages", "out of date" and "new version" were not listed.
+- **Unlisted labels.** Korean "add space", Chinese "remove restriction", Ukrainian "update", Arabic "use current password", "Read Delayed Messages", and labels in small capitals.
+
+Addresses now become a neutral word before matching, and the missing wording and labels
+are listed. The link condition is unchanged.
+
+| Cohort (same model) | `1f58e25`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,384 / 75 / 7 | 3,395 / 64 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** 3 Medium alerts and 66 High alerts rose; none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Still missed.** Five of the sixteen remain undetermined:
+- wording garbled with inserted letters or invisible marks;
+- a link on the sender's own (compromised) domain;
+- a lure inside a Word attachment, whose links the rule does not read.
+
 ### File-sharing notices whose button leaves the service (2026-10-02)
 
 Nine undetermined Nazario messages copied a file-sharing notice: WeTransfer's "sent you

@@ -457,11 +457,14 @@ Raw input enables these checks:
   当天未完成, 扫码). An allowance notice without that pressure does not match;
 - mailbox-credential lures: the mail system is upgrading, moving, full or closing
   (邮件系统 … 升级, 邮箱 … 容量上限, 停止服务), or in English the mailbox or its incoming
-  mail is full, blocked, held, stuck, expiring or closing, in one sentence; Korean,
-  Russian, Ukrainian, Japanese, Arabic, French, Portuguese and Spanish wordings too.
-  English counts only these threats: "verify your email address" is how genuine
-  sign-ups begin. A link labelled with the fix ("点此登录完成本次升级", "Retrieve 14
-  Emails", "Release messages") must lead to a site that is neither the
+  mail is full, blocked, held, stuck, expiring, closing, out of date or due for a new
+  version, in one sentence; the mail account's password expiring; mail that can no
+  longer be sent or received. Korean, Russian, Ukrainian, Japanese, Arabic, French,
+  Portuguese and Spanish wordings too. The reader's own address inside the sentence
+  ("квота jose@… перевищена") does not end it. English counts only these threats:
+  "verify your email address" is how genuine sign-ups begin. A link labelled with the
+  fix ("点此登录完成本次升级", "Retrieve 14 Emails", "Read Delayed Messages", "移除限制",
+  also written in small capitals such as "Cᴏɴғɪʀᴍ") must lead to a site that is neither the
   sender's domain, nor a mail provider's sign-in (163, QQ, Aliyun, Outlook and the
   other providers in `_CONSUMER_MAILBOX_DOMAINS`, Microsoft 365), nor an official
   brand domain. A school's or provider's own notice links to its own domain. A
