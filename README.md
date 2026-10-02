@@ -475,6 +475,11 @@ Raw input enables these checks:
   or Canva page, Tencent Docs. Companies do not collect account or payment details
   there, while the trusted domain keeps other link checks quiet. "Confirm attendance"
   or "View document" do not count, nor do company SharePoint sites;
+- file-sharing notices whose button leaves the service they name: "sent you some
+  files" or "shared a file with you", naming WeTransfer, OneDrive, SharePoint,
+  Dropbox, Google Drive or DocuSign in the text or the sender's display name, with a
+  Download, Open or View button on a host that is neither the service's (including
+  we.tl, 1drv.ms, SharePoint and Dropbox Sign), the sender's, nor an official one;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;

@@ -863,6 +863,7 @@
   'server.link.display_mismatch': '链接显示的域名（{display_host}）与实际目标（{host}）不一致。',
   'server.link.idn_confusable': '链接目标（{host}）是 {brand} 的 IDN/易混淆字符仿冒域名。',
   'server.link.brand_lookalike': '链接目标（{host}）是 {brand} 的非官方仿冒域名。',
+  'server.link.file_share_elsewhere': '邮件称有人通过 {service} 与你共享了文件，但其中的下载或打开按钮却指向另一个网站 {host}。请在该服务的官网或 App 中打开共享文件。',
   'server.link.user_content_action': '要求你登录、验证或更新账户或付款信息的按钮，指向的是任何人都能在可信平台上发布的文档、表单或共享文件。正规公司不会在这类地方收集账户或付款信息。',
   'server.link.credential_collection_host': '链接目标（{host}）同时包含凭据和收集类字样。',
   'server.link.sensitive_host': '链接目标（{host}）在未识别的域名上使用了账户相关字样；仅凭这一点不能认定为钓鱼。',

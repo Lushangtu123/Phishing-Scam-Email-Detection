@@ -20,6 +20,38 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 06:30 PT] — Flag file-sharing notices whose button leaves the service
+
+### Why
+- Nine undetermined Nazario messages copied a file-sharing notice: WeTransfer's "sent you some files … expires on", OneDrive's "shared a file with you", Dropbox's file-request mail.
+- Their Download, Open or View button led to an unrelated host: Cloud Foundry and Workers apps, compromised sites, a SendGrid click link.
+- The service was named only in the text or the display name, and no brand rule covers WeTransfer or OneDrive.
+
+### Files changed
+- `website/app.py`: `link.file_share_elsewhere` (High; the impersonation tactic) fires when all three hold:
+  - the text or the sender's display name names WeTransfer, OneDrive, SharePoint, Dropbox, Google Drive or DocuSign;
+  - the text reads as a sharing notice ("sent you some files", "shared a file with you", "files … will be deleted", "download your files");
+  - a link labelled Download, Open, View, Get, Access, Review or Preview leads to a host that is not one of the listed services' domains (`_FILE_SHARE_SERVICES`: we.tl, 1drv.ms, SharePoint, aka.ms, Dropbox Sign's hellosign.com among them), the sender's domain, or an official one.
+  
+  The finding names the service and the host.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_file_share_elsewhere.py`: 4 tests, including genuine-style WeTransfer, OneDrive, SharePoint, Google Drive, Dropbox Sign and company-portal notices.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (38d77b5) against this change:
+  - Nazario 3,466: alerts 3,375 → 3,384 (9 undetermined → 8 Critical, 1 High); 45 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- No genuine set holds a sharing notice to test against. The wording alone appears in none of these:
+  - the 92 genuine downloads;
+  - 5,055 Apache list messages;
+  - 9,198 genuine DIFraud messages;
+  - 16,440 marketing emails.
+  
+  Genuine notices from the six services are covered by synthetic tests only.
+- Tests: 989 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 05:30 PT] — Catch brand names written with a capital I for l
 
 ### Why

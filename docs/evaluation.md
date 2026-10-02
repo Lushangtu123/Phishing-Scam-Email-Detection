@@ -1408,6 +1408,38 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### File-sharing notices whose button leaves the service (2026-10-02)
+
+Nine undetermined Nazario messages copied a file-sharing notice: WeTransfer's "sent you
+some files … expires on", OneDrive's "shared a file with you", a Dropbox file request.
+Their Download or Open button led to an unrelated host. The service was named only in
+the text or the display name, where no brand rule looks for WeTransfer or OneDrive.
+
+A new rule (`link.file_share_elsewhere`) fires when a message:
+- names one of six sharing services;
+- reads as a sharing notice;
+- has a Download, Open or View link to a host that is neither the service's, the sender's, nor an official one.
+
+| Cohort (same model) | `38d77b5`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,375 / 84 / 7 | 3,384 / 75 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** Eight of the nine are Critical. 45 High alerts rose to Critical.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** No genuine set holds a sharing notice. The wording alone appears in none of
+these:
+- the 92 downloads;
+- 5,055 Apache list messages;
+- 9,198 genuine DIFraud messages;
+- 16,440 marketing emails.
+
+The services' own link domains are listed from their public notices (we.tl, 1drv.ms,
+SharePoint, aka.ms, Dropbox Sign's hellosign.com). Only synthetic genuine notices test
+them. A genuine notice routed through another click-tracking domain would be flagged.
+
 ### Brand names with a capital I for l (2026-10-02)
 
 Eight undetermined Nazario messages spelled a brand or lure word with a capital I for

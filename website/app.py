@@ -4811,6 +4811,50 @@ def _account_hold_lure(text: str) -> bool:
     return False
 
 
+# File-sharing notices whose button leaves the service: "info@… sent you some files" in
+# WeTransfer's layout, "shared a file with you using OneDrive", with the Download or Open
+# button on an unrelated host. Genuine notices link to the service's own domains (listed
+# here with their short-link and e-signature domains), or a company's own SharePoint.
+# The wording appears in none of the 92 genuine downloads, 5,055 Apache list messages,
+# 9,198 genuine DIFraud messages or 16,440 marketing emails.
+_FILE_SHARE_SERVICES = {
+    'WeTransfer': ('wetransfer.com', 'we.tl'),
+    'OneDrive': ('onedrive.com', 'live.com', '1drv.ms', 'sharepoint.com', 'microsoft.com', 'office.com',
+                 'microsoftonline.com', 'office365.com', 'aka.ms'),
+    'SharePoint': ('sharepoint.com', 'microsoft.com', 'office.com', 'microsoftonline.com', 'office365.com', 'aka.ms'),
+    'Dropbox': ('dropbox.com', 'dropboxmail.com', 'db.tt', 'hellosign.com'),
+    'Google Drive': ('google.com', 'goo.gl', 'googleusercontent.com'),
+    'DocuSign': ('docusign.com', 'docusign.net'),
+}
+_FILE_SHARE_DOMAINS = frozenset(domain for domains in _FILE_SHARE_SERVICES.values() for domain in domains)
+_FILE_SHARE_NAME = re.compile(r"\b(?:(we\s?transfer)|(one\s?drive)|(share\s?point)|(dropbox)|(google\s+drive)|(docu\s?sign))\b",
+                              re.IGNORECASE)
+_FILE_SHARE_NOTICE = re.compile(
+    r"\b(?:sent|shared)\s+(?:you\s+)?(?:(?:a|an|the|some|\d+)\s+)?(?:new\s+)?(?:pdf\s+)?(?:files?|documents?|folders?|items?)\b"
+    r"|\bshared\s+(?:(?:a|an|the|some|\d+)\s+)?(?:files?|documents?|folders?)\s+with\s+you\b"
+    r"|\b(?:received|have)\s+(?:(?:a|some|\d+)\s+)?(?:new\s+)?(?:pdf\s+)?(?:files?|documents?)\s+(?:via|from|through|using)\b"
+    r"|\b(?:files?|documents?|items?)\b[^.!?]{0,40}\b(?:will\s+be\s+deleted|expires?\s+on)\b"
+    r"|\b(?:get|download|view|access|open|retrieve)\s+(?:your\s+|the\s+)?(?:completed\s+|shared\s+)?(?:files?|documents?)\b",
+    re.IGNORECASE)
+_FILE_SHARE_ACTION = re.compile(r"\b(?:download|open|view|get|access|review|preview|retrieve|see)\b", re.IGNORECASE)
+
+
+def _file_share_elsewhere(text: str, display_name: str, links, sender_domain: str = '') -> tuple[str, str] | None:
+    """(service, host) when a file-sharing notice's button leaves the service it names."""
+    text = re.sub(r'\s+', ' ', _strip_invisible_format_controls(text or ''))
+    named = _FILE_SHARE_NAME.search(display_name or '') or _FILE_SHARE_NAME.search(text)
+    if not (named and _FILE_SHARE_NOTICE.search(text)):
+        return None
+    service = tuple(_FILE_SHARE_SERVICES)[named.lastindex - 1]
+    for label, destination in links or ():
+        if not _FILE_SHARE_ACTION.search(_strip_invisible_format_controls(label or '')):
+            continue
+        host = _unlisted_off_sender_host(destination, sender_domain)
+        if host and _organizational_domain(host) not in _FILE_SHARE_DOMAINS:
+            return service, host
+    return None
+
+
 def _attachment_account_lure(attachment: dict, sender_domain: str) -> str | None:
     """The host an account-hold lure in a document attachment links to, off the sender's domain."""
     if not _account_hold_lure(attachment.get('extracted_text') or ''):
@@ -4852,7 +4896,8 @@ _PHISHING_TACTICS = {
                 "content.large_amounts"},
     "remote_access": {"content.sensitive_request.remote_access"},
     "impersonation": {"link.brand_lookalike", "link.idn_confusable", "structure.brand_display_name",
-                      "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation"},
+                      "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
+                      "link.file_share_elsewhere"},
     "deceptive_link": {"link.display_mismatch", "link.ip_host", "link.url_userinfo", "link.ipfs_gateway",
                        "link.obfuscated_scheme", "link.unsafe_scheme"},
     "spoofed_sender": {"structure.auth_failed"},
@@ -5408,6 +5453,11 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'link.user_content_action'))
+    file_share = _file_share_elsewhere(analysis_text, parseaddr(sender)[0], labelled_links, sender_domain)
+    if file_share:
+        total_score += 4
+        risk_floor = 'high'
+        extra_indicators.append(indicator('high', 'link.file_share_elsewhere', service=file_share[0], host=file_share[1]))
 
     extra_indicators.extend(rules['style'])
 
