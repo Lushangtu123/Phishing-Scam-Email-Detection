@@ -433,8 +433,9 @@ Raw input enables these checks:
   domain (`gaia.bounces.google.com` and `accounts.google.com`) align; users of a shared
   host such as `github.io` do not;
 - the same sender/domain heuristics used by the sender-only workflow;
-- executable, macro-enabled, disk-image, and archive attachment extensions or
-  MIME types;
+- executable, macro-enabled, disk-image, web-page and archive attachment extensions
+  or MIME types. A name's trailing dots and spaces are dropped first, as Windows
+  drops them: `vm_0526.htm.` opens as a web page;
 - link annotations inside PDF attachments. The parser reads plain objects and
   FlateDecode object streams, bounded in size, inflation, stream count and link
   count, and never renders or executes anything. The targets go through the same
@@ -455,7 +456,7 @@ Raw input enables these checks:
   (often QR codes) are never opened, so the attachment stays `metadata_only`.
   Hyperlinks go through the destination checks, prefixed "Word attachment link".
   The text is checked only for strong requests: callback numbers, requests for
-  codes or secrets, subsidy lures, and account-hold lures (below). Keyword
+  codes or secrets, subsidy lures, and account-hold and mailbox lures (below). Keyword
   categories are not run on it, because genuine contracts and quotes are full of
   "payment", "invoice" and "urgent";
 - account-hold lures in a Word or PDF attachment, usually with an empty body: the
@@ -465,7 +466,14 @@ Raw input enables these checks:
   log on or sign on nearby, and carries a link to a domain that is neither the
   sender's nor an official one. The text model never reads attachments, so these
   went unscored. "Your card expired" alone, negated wording ("has not been
-  compromised") and a bank's PDF linking only to its own domain do not match;
+  compromised") and a bank's PDF linking only to its own domain do not match.
+  "Regain full access to your account" counts as held; "regain access", how genuine
+  password resets put it, does not;
+- mailbox lures in a Word or PDF attachment ("your email account mailbox requires
+  immediate update … click here for reactivation of your web-mail account"), with a
+  link off the sender's domain to one no registry lists
+  (`content.attachment_mailbox_lure`, High). Only the mailbox itself counts (mailbox,
+  email account, inbox, webmail): "this email" beside "pending" does not;
 - the same account-hold wording in the message body ("your online account has been
   temporarily suspended … login below to verify"), with a link to a site that is
   neither the sender's nor listed: Medium with a Medium floor, as genuine account
@@ -500,7 +508,8 @@ Raw input enables these checks:
   there, while the trusted domain keeps other link checks quiet. "Confirm attendance"
   or "View document" do not count, nor do company SharePoint sites;
 - file-sharing notices whose button leaves the service they name: "sent you some
-  files" or "shared a file with you", naming WeTransfer, OneDrive, SharePoint,
+  files", "shared a file with you", "Document Shared With You" or "a file … was
+  shared with you", naming WeTransfer, OneDrive, SharePoint,
   Dropbox, Google Drive or DocuSign in the text or the sender's display name, with a
   Download, Open or View button on a host that is neither the service's (including
   we.tl, 1drv.ms, SharePoint and Dropbox Sign), the sender's, nor an official one;
@@ -768,7 +777,11 @@ text out. `mso-hide:all` leaves it out of the Outlook view.
 their background, such as a white preheader, are too few to dilute the model: the
 model reads them and no warning is shown, but the text rules also read the message
 without them, so `ca<span style="color:#fff">zq</span>ll 1-888-…` still reads as a
-callback. Colours that could match but match no text change nothing. Unlike CSS-uncertain text, the text rules
+callback. 200 letters or more in their background's colour are salting:
+`content.hidden_padding` (Medium, with a Medium floor) names it. 15 of the 3,466
+Nazario messages hide that much ("Sorry we missed you!" over white Wikipedia
+paragraphs); none of the 92 genuine downloads, DataCon day 1 or the 87 public
+templates hides any. Colours that could match but match no text change nothing. Unlike CSS-uncertain text, the text rules
 still read the message with this text as well as each view without it, so a payload
 put off screen stays visible to them.
 

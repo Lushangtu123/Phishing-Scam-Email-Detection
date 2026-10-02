@@ -4556,6 +4556,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                                                     unresolved=unresolved)
                 if views.cascade_conflict:
                     unresolved.append('cascade')
+                readings['same_colour_letters'] = views.same_colour_letters
                 if 0 < views.same_colour_letters < _SAME_COLOUR_MODEL_LETTERS:
                     # Too little to dilute the model (a preheader): its views keep this
                     # text, and only the text rules also read the message without it.
@@ -4947,7 +4948,8 @@ _MAILBOX_STATE_EN = (r"(?:quota|storage\s+(?:is\s+)?(?:full|limit)|(?:almost|is|
                      r"|reached\s+(?:its|the|your)\s+(?:limit|capacity)|deactivat\w*|suspend\w*|terminat\w*|clos(?:e|ed|ing|ure)\b"
                      r"|expir\w*|disabled|disconnect\w*|blocked|restricted|pending|undelivered|on\s+hold|held|stuck"
                      r"|failed\s+to\s+(?:be\s+)?deliver\w*|not\s+(?:been\s+)?delivered|delayed|shut\s*down|delet(?:e|ed|ion)"
-                     r"|de-?activation|upgrade\s+required|server\s+error|out\s+of\s+date|new\s+version)")
+                     r"|de-?activation|re-?activation|upgrade\s+required|server\s+error|out\s+of\s+date|new\s+version"
+                     r"|requires?\s+(?:an?\s+)?(?:immediate\s+|urgent\s+)?(?:update|upgrade|verification|validation))")
 _MAILBOX_LURE_OTHER = re.compile(
     rf"\b{_MAILBOX_TERM_EN}\b[^.!?\n]{{0,80}}\b{_MAILBOX_STATE_EN}|\b{_MAILBOX_STATE_EN}[^.!?\n]{{0,80}}\b{_MAILBOX_TERM_EN}\b"
     r"|(?:우편함|메일함|계정|이메일)[^.!?\n]{0,40}(?:할당량|폐쇄|중단|차단|만료|삭제|업그레이드)"
@@ -5066,7 +5068,9 @@ _HOLD_ACCOUNT = r"(?:accounts?|access|online\s+banking|profile)"
 _HOLD_MONEY = r"(?:(?:debit\s+|credit\s+)?cards?|payments?|transfers?|deposits?|transactions?|funds)"
 _HOLD_STATE = (r"(?:restrict(?:ed|ions?)|suspen(?:ded|sion|d)|(?:is|are|be|been|was|temporarily)\s+limited|limitations?"
                r"|locked|blocked|disabled|deactivated|frozen|compromised|on\s+hold|(?:been|put)\s+(?:a\s+)?(?:on\s+)?hold"
-               r"|hold\s+on|prevented|pending\s+(?:verification|approval|confirmation)|revers(?:al|ed))")
+               r"|hold\s+on|prevented|pending\s+(?:verification|approval|confirmation)|revers(?:al|ed)"
+               # "regain full access": genuine resets say "regain access to your account".
+               r"|(?:regain|restore)\s+full\s+access)")
 # Only an account ends: "your card expired" is how genuine payment reminders begin.
 _HOLD_ENDED = r"(?:expired|closed|terminated|cancell?ed)"
 _ACCOUNT_HOLD = re.compile(
@@ -5113,6 +5117,8 @@ _FILE_SHARE_NOTICE = re.compile(
     r"\b(?:sent|shared)\s+(?:you\s+)?(?:(?:a|an|the|some|\d+)\s+)?(?:new\s+)?(?:pdf\s+)?(?:files?|documents?|folders?|items?)\b"
     r"|\bshared\s+(?:(?:a|an|the|some|\d+)\s+)?(?:files?|documents?|folders?)\s+with\s+you\b"
     r"|\b(?:received|have)\s+(?:(?:a|some|\d+)\s+)?(?:new\s+)?(?:pdf\s+)?(?:files?|documents?)\s+(?:via|from|through|using)\b"
+    r"|\b(?:files?|documents?|docs|folders?)\s+shared\s+with\s+you\b"
+    r"|\b(?:files?|documents?|folders?)\b[^.!?]{0,40}\b(?:was|were|has\s+been|have\s+been)\s+shared\s+with\s+you\b"
     r"|\b(?:files?|documents?|items?)\b[^.!?]{0,40}\b(?:will\s+be\s+deleted|expires?\s+on)\b"
     r"|\b(?:get|download|view|access|open|retrieve)\s+(?:your\s+|the\s+)?(?:completed\s+|shared\s+)?(?:files?|documents?)\b",
     re.IGNORECASE)
@@ -5323,6 +5329,24 @@ def _attachment_account_lure(attachment: dict, sender_domain: str) -> str | None
                               for destination in attachment.get('extracted_links', ()))), None)
 
 
+# In attachments, which have no button labels to read, only the mailbox itself counts:
+# "this email" beside "pending" is no mailbox lure.
+_MAILBOX_ACCOUNT_EN = (r"(?:mail\s?box(?:es)?|e-?mail\s+accounts?|mail\s+accounts?|inbox(?:es)?|web-?mail(?:\s+accounts?)?"
+                       r"|mail\s+server)")
+_ATTACHMENT_MAILBOX_LURE = re.compile(rf"\b{_MAILBOX_ACCOUNT_EN}\b[^.!?\n]{{0,80}}\b{_MAILBOX_STATE_EN}"
+                                      rf"|\b{_MAILBOX_STATE_EN}[^.!?\n]{{0,80}}\b{_MAILBOX_ACCOUNT_EN}\b", re.IGNORECASE)
+
+
+def _attachment_mailbox_lure(attachment: dict, sender_domain: str) -> str | None:
+    """The host a mailbox lure in a document attachment links to, off the sender's domain:
+    the body says a line or nothing, and a Word file says the mailbox needs an update."""
+    text = re.sub(r'\s+', ' ', _MAIL_ADDRESS.sub(' address ', attachment.get('extracted_text') or ''))
+    if not (_MAILBOX_LURE.search(_han_compact(text)) or _ATTACHMENT_MAILBOX_LURE.search(text)):
+        return None
+    return next(filter(None, (_unlisted_off_sender_host(destination, sender_domain)
+                              for destination in attachment.get('extracted_links', ()))), None)
+
+
 def _attachment_text_findings(text: str) -> list[dict]:
     """Strong requests in attachment text: callback numbers, secrets, subsidy lures."""
     findings = []
@@ -5349,7 +5373,8 @@ _PHISHING_TACTICS = {
     "credential": {"content.pressured_credential_request", "content.password_form", "content.mailbox_lure",
                    "content.sensitive_request.password_pin", "content.sensitive_request.one_time_code",
                    "content.sensitive_request.recovery_secret", "link.credential_collection_host",
-                   "link.user_content_action", "content.attachment_account_lure", "link.recipient_prefilled",
+                   "link.user_content_action", "content.attachment_account_lure", "content.attachment_mailbox_lure",
+                   "link.recipient_prefilled",
                    "content.account_hold_lure"},
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
@@ -5645,12 +5670,14 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     analysis_warnings = []
 
     hidden_image_padding = []
+    same_colour_letters = []
 
     def visible_html(part):
         part_warnings = []
         stats = {}
         readings = {}
         visible = _visible_content_text(part, part_warnings, structure_stats=stats, readings=readings)
+        same_colour_letters.append(readings.get('same_colour_letters', 0))
         # Require a large explicitly concealed block and an actionable image in
         # this same HTML document. Short preheaders and text-rich mail do not qualify.
         hidden_image_padding.append(
@@ -5975,6 +6002,15 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 3
         risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
         extra_indicators.append(indicator('medium', 'link.recipient_prefilled', host=prefilled_host))
+    # Hidden-text salting: a block of text in its background's colour, which no reader
+    # sees, padding the message for filters (white Wikipedia paragraphs under "Sorry we
+    # missed you"). 15 of 3,466 Nazario messages hide 200 letters or more this way; none
+    # of the 92 genuine downloads, DataCon day 1 or the 87 public templates hides any.
+    padding = max(same_colour_letters, default=0)
+    if padding >= _SAME_COLOUR_MODEL_LETTERS:
+        total_score += 3
+        risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
+        extra_indicators.append(indicator('medium', 'content.hidden_padding', letters=padding))
 
     extra_indicators.extend(rules['style'])
 
@@ -6285,6 +6321,13 @@ async def _analyze_content(
                                            if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)), None)
             if lure_host:
                 text_findings.append(wrap_message(indicator('high', 'content.attachment_account_lure', domain=lure_host),
+                                                  prefix))
+            mailbox_host = next(filter(None, (_attachment_mailbox_lure(attachment, sender_domain)
+                                              for attachment in structure['attachments']
+                                              if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)),
+                                None)
+            if mailbox_host:
+                text_findings.append(wrap_message(indicator('high', 'content.attachment_mailbox_lure', domain=mailbox_host),
                                                   prefix))
         if text_findings:
             result["total_score"] += 4

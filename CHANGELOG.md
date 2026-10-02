@@ -20,6 +20,41 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 20:30 PT] — Flag hidden-text salting, mailbox lures in attachments, and attachment names ending in a dot
+
+### Why
+Six of the 27 Nazario messages still undetermined, Safe or Low had a concrete lure the rules missed:
+- **Hidden-text salting.** Two "Sorry we missed you! Schedule your next delivery date" and "Your package could not be delivered" lures put white 8-px Wikipedia paragraphs on the white page. The views already left the padding out, but nothing named it, and the short visible text scored low.
+- **Attachment names.** A voicemail lure attached `vm_20220526_6316080857.htm.`, a page that redirects to a phishing site. Windows drops the trailing dot and opens it as a web page, but `PurePath` read no extension, so it was not a dangerous attachment.
+- **Mailbox lures in attachments.** "Your email account mailbox requires immediate update … reactivation of your web-mail account" sat in a Word file under an empty body. Mailbox rules read only the body and its button labels.
+- **File-sharing wording.** "Remittance Document Shared With You … a file located in Google Drive was shared with you", with an Open button on keap.app, did not match the notice wording.
+- **Account hold.** An AMEX lure said "to regain full access to your account … log in", with no restricted or suspended.
+
+### Files changed
+- `website/app.py`:
+  - `content.hidden_padding` (Medium; score 3; Medium floor) names 200 letters or more in their background's colour. The view pass now reports the count (`same_colour_letters`). 15 of 3,466 Nazario messages have that much; none of the 92 genuine downloads, DataCon 2023 day 1 or the 87 public templates hides any.
+  - `content.attachment_mailbox_lure` (High; the credential tactic): a mailbox lure in Word or PDF attachment text, with an attachment link off the sender's domain to an unlisted host. With no button labels to read, only the mailbox itself counts (`_ATTACHMENT_MAILBOX_LURE`: mailbox, email account, inbox, webmail); "this email" beside "pending" does not.
+  - Mailbox states add "requires (immediate) update, upgrade, verification or validation" and "reactivation".
+  - File-sharing notices add "Document Shared With You" and "a file … was shared with you".
+  - The account-hold states add "regain full access" and "restore full access". Genuine resets say "regain access to your account", so that alone does not count: it added a password-reset email among the PhishFuzzer legitimate texts.
+- `website/email_structure.py`: an attachment's extension is read after dropping trailing dots and spaces.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the two findings. Asset versions bumped.
+- `website/tests/test_salting_and_attachment_lures.py`: 8 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (48aa40d) against this change:
+  - Nazario 3,466: alerts 3,439 → 3,445; undetermined 20 → 16; Safe or Low 7 → 5. The six → High; 8 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Findings on Nazario: `content.hidden_padding` 15, `content.attachment_mailbox_lure` 2; `content.mailbox_lure` 761 → 778, `content.account_hold_lure` 436 → 441, `link.file_share_elsewhere` 106 → 108, `structure.dangerous_attachment` 190 → 191.
+- Wording hits on legitimate text are unchanged: the new mailbox states, file-sharing notices and account-hold states add none on the genuine downloads, PhishFuzzer and UniqueData legitimate sets, DIFraud genuine, Apache lists or marketing mail. The attachment mailbox wording, read in message bodies, appears in 13 of 6,702 PhishFuzzer legitimate texts and 5 of 9,198 DIFraud genuine ones (quarantine digests, mail-server discussions). In attachments it also needs an unlisted link.
+- Tests: 1,070 passed, 10 skipped; all frontend test files 514 passed.
+
+### Not changed
+- A 300-character window for the callback rule would catch a Microsoft Defender invoice scam whose "didn't make this purchase" is 270 characters from the number. It also matched three DIFraud genuine texts (an order-cancellation policy, a legal disclaimer), so the window stays at 200.
+- Digits for letters in display names ("D1sc0ver C4rd.") would add one registry claim in Nazario, on a message already High, so they are not read.
+
 ## [2026-10-02 19:30 PT] — Fix the review of ca047e5: gradient grammar, link labels per view, RDAP admission, Received trust
 
 ### Why

@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Hidden-text salting and attachment lures (2026-10-02)
+
+Six of the 27 Nazario messages left undetermined, Safe or Low carried a lure no rule read:
+- white Wikipedia paragraphs padding two parcel lures;
+- an `.htm.` attachment, which Windows opens as a web page;
+- a mailbox lure in a Word file;
+- a Google Drive share notice whose Open button leads to keap.app;
+- an AMEX "regain full access to your account".
+
+| Cohort (same model) | `48aa40d`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,439 / 20 / 7 | 3,445 / 16 / 5 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **Nazario.** The six rose to High; 8 High alerts rose to Critical; none fell.
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+- **Hidden letters.** 200 or more letters in their background's colour: 15 Nazario messages; none of the 92 genuine downloads, the 611 DataCon day-1 messages or the 87 templates.
+
+**Left as is.** Two undetermined order confirmations carry their callback number only in a GIF,
+which the server does not read. A Microsoft Defender invoice scam puts its "didn't make this
+purchase" 270 characters from the number. A 300-character window would catch it, but it also
+matched three DIFraud genuine texts.
+
 ### Review of ca047e5 (2026-10-02)
 
 A read-only review found four issues, all reproduced and fixed:

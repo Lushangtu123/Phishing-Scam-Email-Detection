@@ -827,6 +827,8 @@
 
   'server.content.hidden_text_padding': '一大段隐藏文字伴随以图片为主、带链接的邮件；可见内容与隐藏文字差异很大。请人工核查图片和链接目标。',
   'server.content.password_form': '内嵌 HTML 表单包含密码输入框；输入凭据前，请先检查表单的提交目标。',
+  'server.content.hidden_padding': '邮件里有 {letters} 个字母的文字与背景同色，读者看不到。发件方这样藏入填充文字来躲避垃圾邮件过滤；正常邮件没有理由这样做。',
+  'server.content.attachment_mailbox_lure': '附件称你的邮箱已满、被封锁、即将过期或需要更新，并链接到 {domain}——它既不是发件方的域名，也不是已知邮箱服务商的。请只通过你平时使用的网址登录邮箱。',
   'server.content.account_hold_lure': '邮件称你的账户、访问权限或某笔款项已被限制、冻结或泄露，要求你验证或登录，并链接到 {host}——它既不是发件方的网站，也不在官方名录中。请只通过你平时使用的网址或 App 登录。',
   'server.content.attachment_account_lure': '附件称你的账户、访问权限或某笔款项已被限制、冻结或泄露，要求你验证或登录，并链接到 {domain}——它既不是发件方的域名，也不在官方名录中。请只通过你平时使用的网址或 App 登录。',
   'server.content.fine_lure': '邮件称你有未缴的罚款或通行费，其中的链接指向 {host}——既不是发件方的网站，也不是政府网站。请只在你熟悉的官方网站或 App 上查询罚款和通行费。',

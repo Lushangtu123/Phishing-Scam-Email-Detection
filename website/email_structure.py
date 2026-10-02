@@ -1767,7 +1767,8 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                                      "organizational_domain": organizational_domain(from_domain)}
 
     for attachment in attachments:
-        suffix = PurePath(attachment["filename"]).suffix.lower()
+        # Windows drops trailing dots and spaces from a file name: "vm.htm." opens as .htm.
+        suffix = PurePath(attachment["filename"].rstrip(". ")).suffix.lower()
         content_type = attachment["content_type"].lower().split(";", 1)[0].strip()
         if suffix in _DANGEROUS_EXTENSIONS or content_type in _DANGEROUS_MIME_TYPES:
             score += 4
