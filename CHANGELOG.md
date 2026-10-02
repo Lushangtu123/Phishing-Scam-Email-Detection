@@ -20,6 +20,30 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 14:30 PT] — Flag unpaid fine and toll lures
+
+### Why
+- Three Nazario messages forged Spain's Ministerio del Interior: "Multa no pagada", "Tienes una multa pendiente", with a link to an Azure cloud app. Two were undetermined.
+- Unpaid toll and traffic-fine lures (E-ZPass-style tolls, 12123 traffic violations, "ETC 已失效") are a common family today, and no rule read them.
+
+### Files changed
+- `website/app.py`: `content.fine_lure` (High; the payment tactic) fires when:
+  - the text speaks of an unpaid fine or toll in English, Spanish, Portuguese, Italian, French, German or Chinese (`_FINE_LURE`);
+  - the message links to a host that is neither the sender's, a listed official one, nor a government's (`_GOVERNMENT_HOST`: `.gov`, `gob.es`, `gouv.fr` and the like).
+  
+  Every link destination counts, labelled or not, as for the link checks. The rule runs in every rendering view.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the finding. Asset versions bumped.
+- `website/tests/test_fine_lure.py`: 3 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- Same served model, main (12a5b65) against this change:
+  - Nazario 3,466: alerts 3,420 → 3,422 (the two undetermined → High); 1 High → Critical; none fell;
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- The wording appears in none of the genuine downloads, the 5,055 Apache list messages, 9,198 genuine DIFraud messages or 16,440 marketing emails. Only three Nazario messages carry it.
+- Tests: 1,038 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 13:30 PT] — Add seven impersonated brands to the official registry
 
 ### Why

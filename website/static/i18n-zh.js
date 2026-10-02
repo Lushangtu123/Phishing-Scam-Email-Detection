@@ -828,6 +828,7 @@
   'server.content.hidden_text_padding': '一大段隐藏文字伴随以图片为主、带链接的邮件；可见内容与隐藏文字差异很大。请人工核查图片和链接目标。',
   'server.content.password_form': '内嵌 HTML 表单包含密码输入框；输入凭据前，请先检查表单的提交目标。',
   'server.content.attachment_account_lure': '附件称你的账户、访问权限或某笔款项已被限制、冻结或泄露，要求你验证或登录，并链接到 {domain}——它既不是发件方的域名，也不在官方名录中。请只通过你平时使用的网址或 App 登录。',
+  'server.content.fine_lure': '邮件称你有未缴的罚款或通行费，其中的链接指向 {host}——既不是发件方的网站，也不是政府网站。请只在你熟悉的官方网站或 App 上查询罚款和通行费。',
   'server.content.delivery_lure': '快递通知要求你支付运费或关税，或更正收件地址，但链接指向 {host}——既不是发件方的网站，也不是已登记的快递公司网站。请只在快递公司的官网或 App 中查询包裹。',
   'server.content.callback_request': "要求你拨打 {number} 来取消、申诉或退款；回拨诈骗会留假的客服电话。请只拨打机构官网、官方 App 或银行卡背面的号码。",
   'server.content.mailbox_lure': '邮件称你的邮箱已满、被封锁、即将过期、正在升级或有邮件被扣留，而其中办理的链接指向的网站既不是发件方的，也不是已知服务商的。请只通过你平时使用的邮箱地址登录。',

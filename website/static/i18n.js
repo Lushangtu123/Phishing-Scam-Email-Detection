@@ -846,6 +846,7 @@ window.PhishGuardI18n = (() => {
     'server.content.hidden_text_padding': 'Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.',
     'server.content.password_form': 'Embedded HTML form contains a password field; inspect the submission destination before entering credentials.',
     'server.content.attachment_account_lure': "The attachment says your account, your access or a payment is restricted, on hold or compromised, asks you to verify or sign in, and links to {domain}, which is neither the sender's domain nor a listed official one. Sign in only through the address or app you normally use.",
+    'server.content.fine_lure': "A notice says you have an unpaid fine or toll, and its link leads to {host}, which is neither the sender's site nor a government one. Check fines and tolls only on the official website or app you already know.",
     'server.content.delivery_lure': "A delivery notice asks you to pay a shipping or customs fee, or to correct your address, through a link to {host}, which is neither the sender's site nor a listed carrier's. Check parcels only on the carrier's own website or app.",
     'server.content.callback_request': "Asks you to call {number} to cancel, dispute or refund a charge; callback scams use fake support numbers. Call only the number on the organization's official website, app or card.",
     'server.content.mailbox_lure': 'A notice says your mailbox is full, blocked, expiring, being upgraded or holding back your mail, and its link to fix it leads to a site that is neither the sender\'s nor a known provider\'s. Sign in only through the address you normally use for your mail.',
@@ -1324,7 +1325,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=38'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=39'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

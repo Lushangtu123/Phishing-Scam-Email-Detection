@@ -5001,6 +5001,37 @@ _DELIVERY_TRACKING_DOMAINS = frozenset({'narvar.com', 'aftership.com', 'route.co
                                         'shopify.com'})
 
 
+# Unpaid fine and toll lures: "Multa no pagada", "unpaid toll balance", "交通违法", with a
+# link to view or pay that leaves the sender's domain for one that is neither listed nor
+# a government's. Authorities and toll operators link to their own or government sites.
+# The wording appears in no message of the genuine downloads, Apache lists, genuine
+# DIFraud or marketing sets.
+_FINE_LURE = re.compile(
+    r"\b(?:unpaid|outstanding|overdue|pending|unsettled)\s+(?:(?:road\s+)?tolls?|toll\s+(?:balance|charges?|invoice)"
+    r"|(?:traffic|parking|speeding)\s+(?:fines?|tickets?|violations?|penalt(?:y|ies))|fines?|penalty\s+(?:notice|charges?))\b"
+    r"|\b(?:tolls?|traffic|parking|speeding)\s+(?:fines?|tickets?|violations?|penalt(?:y|ies)|charges?|balance)\b"
+    r"[^.!?]{0,60}?\b(?:unpaid|outstanding|overdue|not\s+(?:been\s+)?paid|past\s+due)\b"
+    r"|\bpenalty\s+charge\s+notice\b"
+    r"|\bmulta(?:\s+de\s+tr[aá]fico)?\s+(?:pendiente|no\s+pagada|impagada|pendente|n[aã]o\s+paga|non\s+pagata)"
+    r"|\bmulta\s+de\s+tr[aá]fico\b|\bamende\s+(?:impay[ée]e|non\s+r[ée]gl[ée]e|en\s+attente)|\bavis\s+de\s+contravention\b"
+    r"|\bsanzione\s+(?:non\s+pagata|pendente)\b|\b(?:offene[sn]?|unbezahlte[sn]?)\s+(?:bu(?:ß|ss)geld|strafzettel"
+    r"|verwarnungsgeld|maut)\w*"
+    r"|交通违法|违章(?:罚款|缴费|处理|记录)|未缴(?:纳)?(?:的)?罚款|罚款未(?:缴|交)|ETC.{0,8}(?:失效|停用|过期|异常)", re.IGNORECASE)
+_GOVERNMENT_HOST = re.compile(r"(?:^|\.)(?:gov|mil)$|\.(?:gov|gob|gouv|govt|go|gc|gv)\.[a-z]{2}$|\.gouv\.fr$|\.admin\.ch$"
+                              r"|\.bund\.de$")
+
+
+def _fine_lure(text: str, links, sender_domain: str = '') -> str | None:
+    """The host an unpaid-fine or toll notice links to, off the sender's and government domains."""
+    if not _FINE_LURE.search(re.sub(r'\s+', ' ', text or '')):
+        return None
+    for _label, destination in links or ():
+        host = _unlisted_off_sender_host(destination, sender_domain)
+        if host and not _GOVERNMENT_HOST.search(host):
+            return host
+    return None
+
+
 def _delivery_lure(text: str, links, sender_domain: str = '') -> str | None:
     """The host a delivery-fee or wrong-address lure's button leads to, off the sender's domain."""
     text = re.sub(r'\s+', ' ', text or '')
@@ -5102,7 +5133,7 @@ _PHISHING_TACTICS = {
     "callback": {"content.callback_request"},
     "subsidy": {"content.subsidy_lure"},
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
-                "content.large_amounts", "content.delivery_lure"},
+                "content.large_amounts", "content.delivery_lure", "content.fine_lure"},
     "remote_access": {"content.sensitive_request.remote_access"},
     "impersonation": {"link.brand_lookalike", "link.idn_confusable", "structure.brand_display_name",
                       "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
@@ -5667,12 +5698,14 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()), tuple(reading_links(parts)))
         for parts in readings_for_rules + readings_off)
     mailbox_lure = user_content_action = False
-    file_share = delivery_host = None
+    file_share = delivery_host = fine_host = None
     for text, labelled_links in lure_readings:
         mailbox_lure = mailbox_lure or _mailbox_lure(text, labelled_links, sender_domain)
         user_content_action = user_content_action or _user_content_action(labelled_links)
         file_share = file_share or _file_share_elsewhere(text, display_name, labelled_links, sender_domain)
         delivery_host = delivery_host or _delivery_lure(text, labelled_links, sender_domain)
+        # Labels do not matter here: every destination counts, as for the link checks.
+        fine_host = fine_host or _fine_lure(text, links, sender_domain)
     if mailbox_lure:
         total_score += 4
         risk_floor = 'high'
@@ -5689,6 +5722,10 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.delivery_lure', host=delivery_host))
+    if fine_host:
+        total_score += 4
+        risk_floor = 'high'
+        extra_indicators.append(indicator('high', 'content.fine_lure', host=fine_host))
 
     extra_indicators.extend(rules['style'])
 

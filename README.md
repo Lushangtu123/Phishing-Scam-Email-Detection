@@ -499,6 +499,11 @@ Raw input enables these checks:
   button on a host that is neither the sender's, an official carrier's, nor a
   retailers' tracking platform (Narvar, AfterShip, Route, ParcelPanel, 17TRACK,
   Shopify). "Sorry we missed you, reschedule" alone does not count;
+- unpaid fine and toll lures: "unpaid toll balance", "your parking ticket is
+  overdue", "multa no pagada", "amende impayée", 交通违法, "ETC 已失效", with a link
+  that leaves the sender's domain for one that is neither listed nor a
+  government's (`.gov`, `gob.es`, `gouv.fr` and the like). An operator's own
+  billing site does not count;
 - the sending server's address, shown as context. It is the server that handed the
   message to the reader's mail service, not the sender's own device: mail services
   such as Gmail and Outlook.com do not record that. `Received` lines are read from

@@ -1408,6 +1408,25 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Unpaid fine and toll lures (2026-10-02)
+
+Three Nazario messages forged Spain's Ministerio del Interior ("Multa no pagada"), linking
+to an Azure cloud app; two were undetermined. A new rule (`content.fine_lure`) reads
+unpaid fine and toll wording in seven languages. It fires when a link leaves the
+sender's domain for a host that is neither listed nor a government's.
+
+| Cohort (same model) | `12a5b65`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,420 / 39 / 7 | 3,422 / 37 / 7 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+The wording appears in no genuine set (downloads, Apache lists, DIFraud, marketing). It
+appears in only three Nazario messages, so the rule's value lies mostly in toll and
+traffic-fine scams newer than this corpus.
+
 ### Seven brands added to the official registry (2026-10-02)
 
 18 undetermined Nazario messages showed, from unrelated domains, a brand the registry did not list:
