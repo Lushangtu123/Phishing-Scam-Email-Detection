@@ -2152,13 +2152,16 @@ def _style_values(style: str) -> dict[str, tuple[str, bool]]:
                 'display', 'visibility', 'opacity', 'font-size', 'color', *_GEOMETRY_PROPERTIES,
                 'background', 'background-color', 'background-image'}):
             continue
-        value = _unescape_css(value).strip().lower()
+        # Values are case-insensitive, except the names of custom properties (var(--Name)).
+        value = ''.join(part if part.startswith('--') else part.lower()
+                        for part in re.split(r'((?<![\w-])--[\w-]+)', _unescape_css(value).strip()))
         important = bool(re.search(r'!\s*important\s*$', value))
         value = re.sub(r'!\s*important\s*$', '', value).strip()
         # CSS drops an invalid declaration, so an earlier valid one still applies:
         # color:transparent; color:rgb(nope) stays transparent.
         if (name in {'color', 'background-color'} and _color_class(value) == 'invalid') or (
-                name == 'font-size' and _font_size_class(value) == 'invalid'):
+                name == 'font-size' and _font_size_class(value) == 'invalid') or (
+                name in {'background', 'background-image'} and not _background_valid(value, name)):
             continue
         if not _recognised_visibility_value(name, value):
             values['#unrecognised'] = (name, False)
@@ -2343,11 +2346,110 @@ def _hue_degrees(text: str) -> float:
     return float(match.group(1)) * {None: 1, 'deg': 1, 'grad': 0.9, 'rad': 180 / math.pi, 'turn': 360}[match.group(2)]
 
 
+def _srgb_encode(linear: float) -> float:
+    return 12.92 * linear if abs(linear) <= 0.0031308 else math.copysign(1.055 * abs(linear) ** (1 / 2.4) - 0.055, linear)
+
+
+def _srgb_decode(channel: float) -> float:
+    return channel / 12.92 if abs(channel) <= 0.04045 else math.copysign(((abs(channel) + 0.055) / 1.055) ** 2.4, channel)
+
+
+def _matrix(rows, vector):
+    return [sum(row[index] * vector[index] for index in range(3)) for row in rows]
+
+
+# CSS Color 4: linear-light RGB spaces to XYZ, Bradford D50 to D65, and XYZ D65 to linear sRGB.
+_XYZ_D65_TO_SRGB = ((3.2409699419045226, -1.537383177570094, -0.4986107602930034),
+                    (-0.9692436362808796, 1.8759675015077202, 0.04155505740717559),
+                    (0.05563007969699366, -0.20397695888897652, 1.0569715142428786))
+_D50_TO_D65 = ((0.955473421488075, -0.02309845494876471, 0.06325924320057072),
+               (-0.0283697093338637, 1.0099953980813041, 0.021041441191917323),
+               (0.012314014864481998, -0.020507649298898964, 1.330365926242124))
+_RGB_SPACES = {
+    'display-p3': (((0.4865709486482162, 0.26566769316909306, 0.1982172852343625),
+                    (0.2289745640697488, 0.6917385218365064, 0.079286914093745),
+                    (0.0, 0.04511338185890264, 1.043944368900976)), _srgb_decode, False),
+    'a98-rgb': (((0.5766690429101305, 0.1855582379065463, 0.1882286462349947),
+                 (0.29734497525053605, 0.6273635662554661, 0.07529145849399788),
+                 (0.02703136138641234, 0.07068885253582723, 0.9913375368376388)),
+                lambda c: math.copysign(abs(c) ** (563 / 256), c), False),
+    'prophoto-rgb': (((0.7977604896723027, 0.13518583717574031, 0.0313493495815248),
+                      (0.2880711282292934, 0.7118432178101014, 0.00008565396060525902),
+                      (0.0, 0.0, 0.8251046025104601)),
+                     lambda c: c / 16 if abs(c) <= 16 / 512 else math.copysign(abs(c) ** 1.8, c), True),
+    'rec2020': (((0.6369580483012914, 0.14461690358620832, 0.1688809751641721),
+                 (0.2627002120112671, 0.6779980715188708, 0.05930171646986196),
+                 (0.0, 0.028072693049087428, 1.060985057710791)),
+                lambda c: c / 4.5 if abs(c) < 0.018053968510807 * 4.5
+                else math.copysign(((abs(c) + 0.09929682680944) / 1.09929682680944) ** (1 / 0.45), c), False),
+}
+_D50_WHITE = (0.3457 / 0.3585, 1.0, (1 - 0.3457 - 0.3585) / 0.3585)
+
+
+def _xyz_to_srgb(xyz, d50=False):
+    """XYZ (D65, or D50) to sRGB channels 0-255, clamped to the gamut."""
+    if d50:
+        xyz = _matrix(_D50_TO_D65, xyz)
+    return tuple(min(255.0, max(0.0, 255 * _srgb_encode(channel))) for channel in _matrix(_XYZ_D65_TO_SRGB, xyz))
+
+
+def _lab_to_xyz(lightness, a, b):
+    """CIE Lab (D50) to XYZ D50."""
+    epsilon, kappa = 216 / 24389, 24389 / 27
+    fy = (lightness + 16) / 116
+    fx, fz = fy + a / 500, fy - b / 200
+    xr = fx ** 3 if fx ** 3 > epsilon else (116 * fx - 16) / kappa
+    yr = fy ** 3 if lightness > kappa * epsilon else lightness / kappa
+    zr = fz ** 3 if fz ** 3 > epsilon else (116 * fz - 16) / kappa
+    return [xr * _D50_WHITE[0], yr * _D50_WHITE[1], zr * _D50_WHITE[2]]
+
+
+def _oklab_to_srgb(lightness, a, b):
+    l_, m_, s_ = (lightness + 0.3963377774 * a + 0.2158037573 * b, lightness - 0.1055613458 * a - 0.0638541728 * b,
+                  lightness - 0.0894841775 * a - 1.2914855480 * b)
+    l, m, s = l_ ** 3, m_ ** 3, s_ ** 3
+    linear = (4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+              -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+              -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)
+    return tuple(min(255.0, max(0.0, 255 * _srgb_encode(channel))) for channel in linear)
+
+
+def _wide_gamut_rgb(function: str, channels: list[str]):
+    """lab(), lch(), oklab(), oklch() and color() channels as sRGB 0-255, or None."""
+    if function == 'color':
+        space, values = channels[0], [_css_channel(channel, 1) for channel in channels[1:]]
+        if space == 'srgb':
+            return tuple(min(255.0, max(0.0, 255 * value)) for value in values)
+        if space == 'srgb-linear':
+            return tuple(min(255.0, max(0.0, 255 * _srgb_encode(value))) for value in values)
+        if space in {'xyz', 'xyz-d65', 'xyz-d50'}:
+            return _xyz_to_srgb(values, d50=space == 'xyz-d50')
+        if space in _RGB_SPACES:
+            matrix, decode, d50 = _RGB_SPACES[space]
+            return _xyz_to_srgb(_matrix(matrix, [decode(value) for value in values]), d50=d50)
+        return None
+    if function in {'lab', 'lch'}:
+        lightness = _css_channel(channels[0], 100)
+        if function == 'lab':
+            a, b = _css_channel(channels[1], 125), _css_channel(channels[2], 125)
+        else:
+            chroma, hue = _css_channel(channels[1], 150), math.radians(_hue_degrees(channels[2]))
+            a, b = chroma * math.cos(hue), chroma * math.sin(hue)
+        return _xyz_to_srgb(_lab_to_xyz(lightness, a, b), d50=True)
+    lightness = _css_channel(channels[0], 1)
+    if function == 'oklab':
+        a, b = _css_channel(channels[1], 0.4), _css_channel(channels[2], 0.4)
+    else:
+        chroma, hue = _css_channel(channels[1], 0.4), math.radians(_hue_degrees(channels[2]))
+        a, b = chroma * math.cos(hue), chroma * math.sin(hue)
+    return _oklab_to_srgb(lightness, a, b)
+
+
 @lru_cache(maxsize=4096)
 def _colour_rgba(value: str):
     """A CSS colour as (red, green, blue, alpha), channels 0-255 and alpha 0-1, or None
-    for colours that depend on the client or a colour space this reader does not convert
-    (system colours, lab(), color()). currentcolor is the caller's to resolve."""
+    for colours that depend on the client (system colours). Wide-gamut colours are
+    converted to sRGB and clamped. currentcolor is the caller's to resolve."""
     value = value.strip().lower()
     if value == 'transparent':
         return (0, 0, 0, 0.0)
@@ -2361,8 +2463,7 @@ def _colour_rgba(value: str):
         return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16),
                 int(digits[6:8], 16) / 255 if len(digits) == 8 else 1.0)
     match = _COLOR_FUNCTION.fullmatch(value)
-    if not match or match.group(1) not in {'rgb', 'rgba', 'hsl', 'hsla', 'hwb'} or _color_function_alpha(
-            match.group(1), match.group(2).strip()) is None:
+    if not match or _color_function_alpha(match.group(1), match.group(2).strip()) is None:
         return None
     function, arguments = match.group(1), match.group(2).strip()
     if ',' in arguments:
@@ -2372,6 +2473,9 @@ def _colour_rgba(value: str):
         before, slash, after = arguments.partition('/')
         channels, alpha = before.split(), after.strip() if slash else '1'
     alpha = min(1.0, max(0.0, _css_channel(alpha, 1)))
+    if function in {'lab', 'lch', 'oklab', 'oklch', 'color'}:
+        rgb = _wide_gamut_rgb(function, channels)
+        return None if rgb is None else (*(round(channel) for channel in rgb), alpha)
     if function.startswith('rgb'):
         red, green, blue = (min(255.0, max(0.0, _css_channel(channel, 255))) for channel in channels)
     else:
@@ -2415,35 +2519,96 @@ def _legacy_colour(value: str):
     return '#' + ''.join(f'{int(part[:2], 16):02x}' for part in parts)
 
 
+# Background shorthand words that are no colour: images, repeats, attachments, boxes,
+# positions and sizes.
+_BACKGROUND_KEYWORDS = frozenset("""none repeat repeat-x repeat-y no-repeat space round scroll fixed local
+    border-box padding-box content-box text left right top bottom center auto cover contain""".split())
+_BACKGROUND_FUNCTION = re.compile(r"(?:url|image|image-set|-webkit-image-set|element|cross-fade"
+                                  r"|(?:repeating-)?(?:linear|radial|conic)-gradient|calc|min|max|clamp)\(")
+
+
+def _css_top_level(value: str, separators: str) -> list[str]:
+    """value split at the given characters outside parentheses and quotes."""
+    parts, current, depth, quote = [], [], 0, None
+    for character in value:
+        if quote:
+            quote = None if character == quote else quote
+        elif character in "\"'":
+            quote = character
+        elif character == '(':
+            depth += 1
+        elif character == ')':
+            depth -= 1
+        elif depth == 0 and character in separators:
+            parts.append(''.join(current))
+            current = []
+            continue
+        current.append(character)
+    parts.append(''.join(current))
+    return parts
+
+
+@lru_cache(maxsize=4096)
+def _background_valid(value: str, name: str = 'background') -> bool:
+    """Whether a background shorthand (or background-image) is valid CSS as far as this
+    reader can tell: each layer holds only images, positions, sizes, repeats,
+    attachments and boxes, and only the shorthand's last layer one colour. Browsers drop
+    an invalid declaration whole ("background: banana black" leaves the background as
+    it was). A var() is decided where it is substituted."""
+    value = value.strip()
+    if 'var(' in value or value in _CSS_WIDE_KEYWORDS:
+        return bool(value)
+    layers = _css_top_level(value, ',')
+    for index, layer in enumerate(layers):
+        tokens = [token for part in _css_top_level(layer, ' \t\n\r\f') for token in _css_top_level(part, '/') if token]
+        if not tokens:
+            return False
+        colours = 0
+        for token in tokens:
+            if token in _BACKGROUND_KEYWORDS or _BACKGROUND_FUNCTION.match(token) and token.endswith(')'):
+                if name == 'background-image' and not (_BACKGROUND_IMAGE.match(token) or token == 'none'):
+                    return False
+                continue
+            if name == 'background' and _CSS_DIMENSION.fullmatch(token):
+                continue
+            if (name == 'background' and index == len(layers) - 1 and not colours and token not in _CSS_WIDE_KEYWORDS
+                    and (token == 'currentcolor' or _color_class(token) in {'visible', 'transparent', 'unresolved'})):
+                colours += 1
+                continue
+            return False
+    return True
+
+
+def _gradient_stops(image: str):
+    """The colour tokens of a gradient's stops, or None for any other image."""
+    match = re.fullmatch(r'(?:repeating-)?(?:linear|radial|conic)-gradient\((.*)\)', image, re.S)
+    if not match:
+        return None
+    stops = []
+    for argument in _css_top_level(match.group(1), ','):
+        stops.extend([word for word in _css_top_level(argument.strip(), ' \t\n\r\f')
+                      if word not in _CSS_WIDE_KEYWORDS and _color_class(word) in {'visible', 'transparent'}][:1])
+    return stops or None
+
+
 @lru_cache(maxsize=4096)
 def _background_parts(value: str):
     """The colour token of a background or background-color value (its last layer), or
-    None, and whether it paints an image."""
-    image = bool(_BACKGROUND_IMAGE.search(value))
-    depth, layers, current = 0, [], []
-    for character in value:
-        depth += (character == '(') - (character == ')')
-        if character == ',' and depth == 0:
-            layers.append(''.join(current))
-            current = []
-        else:
-            current.append(character)
-    layers.append(''.join(current))
-    depth, tokens, current = 0, [], []
-    for character in layers[-1]:
-        depth += (character == '(') - (character == ')')
-        if character.isspace() and depth == 0:
-            tokens.append(''.join(current))
-            current = []
-        else:
-            current.append(character)
-    tokens.append(''.join(current))
+    None; whether it paints an image; and the colour of gradients whose every stop is one
+    opaque colour (linear-gradient(white, white)), which paint like that colour."""
+    layers = _css_top_level(value, ',')
+    images = [token for layer in layers for token in _css_top_level(layer, ' \t\n\r\f')
+              if _BACKGROUND_IMAGE.match(token)]
     colour = None
-    for token in filter(None, tokens):
+    for token in filter(None, _css_top_level(layers[-1], ' \t\n\r\f')):
         if token == 'currentcolor' or (token not in _CSS_WIDE_KEYWORDS
                                        and _color_class(token) in {'visible', 'transparent'}):
             colour = token
-    return colour, image
+    stops = [stop for image in images for stop in (_gradient_stops(image) or [None])]
+    paints = [_colour_rgba(stop) if stop else None for stop in stops]
+    solid = stops[0] if images and all(paint and paint[3] >= 1 and _same_colour(paint, paints[0][:3])
+                                       for paint in paints) else None
+    return colour, bool(images) and solid is None, solid
 
 
 def _luminance(rgb) -> float:
@@ -2487,25 +2652,28 @@ def _stylesheet_colours(css: str) -> tuple[set, set]:
         if re.search(r'color|background', block, re.IGNORECASE):
             values = _style_values(block)
             text_colours.update(values[name][0] for name in ('color',) if name in values)
-            backgrounds.update(values[name][0] for name in ('background-color',) if name in values)
+            backgrounds.update(values[name][0] for name in ('background-color', 'background-image') if name in values)
     return text_colours, backgrounds
 
 
 def _colours_may_match(text_colours: set, backgrounds: set) -> bool:
     """Whether some text colour may be the colour of some background or of the canvas:
-    black or link text included. A colour from var(), or currentcolor, may be any."""
+    black or link text included. A colour from var(), currentcolor or a translucent
+    background may be any."""
     texts, fills = {_DEFAULT_TEXT, _colour_rgba(_LINK_TEXT)}, {_DEFAULT_CANVAS}
     for value in text_colours:
         if 'var(' in value:
             return True
         texts.add(_colour_rgba(value) if value not in _CSS_WIDE_KEYWORDS | {'currentcolor'} else None)
     for value in backgrounds:
-        token = _background_parts(value)[0]
+        token, _image, solid = _background_parts(value)
         if 'var(' in value or token == 'currentcolor':
             return True
-        paint = _colour_rgba(token) if token else None
-        if paint and paint[3] > 0:
-            fills.add(tuple(round(channel) for channel in _blend(paint, _DEFAULT_CANVAS)))
+        for paint in (_colour_rgba(token) if token else None, _colour_rgba(solid) if solid else None):
+            if paint and 0 < paint[3] < 1:
+                return True  # a translucent background takes the colour of what is behind it
+            if paint and paint[3] > 0:
+                fills.add(paint[:3])
     return any(_same_colour(text, fill) for text in texts if text for fill in fills)
 
 
@@ -3335,17 +3503,21 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
     if ranked and ranked[3] not in {'inherit', 'unset', 'revert', 'revert-layer', 'currentcolor'}:
         colour = _DEFAULT_TEXT if ranked[3] == 'initial' else _colour_rgba(ranked[3])
     image, fill = winners.get('background-image'), winners.get('background-color')
-    token = _background_parts(fill[3])[0] if fill else None
-    if image and _background_parts(image[3])[1]:
+    painted, solid = _background_parts(image[3])[1:] if image else (False, None)
+    if painted:
         backdrop = None
-    elif token:
-        # A background paints behind the element's text and its descendants'; a
-        # translucent one blends with what is behind it.
-        paint = colour if token == 'currentcolor' else _colour_rgba(token)
-        if paint is None or (paint[3] < 1 and backdrop is None):
-            backdrop = None
-        elif paint[3] > 0:
-            backdrop = paint[:3] if paint[3] >= 1 else tuple(round(channel) for channel in _blend(paint, backdrop))
+    else:
+        # A background paints behind the element's text and its descendants', its colour
+        # first and a one-colour gradient over it; a translucent one blends with what is
+        # behind it.
+        for token in (_background_parts(fill[3])[0] if fill else None, solid):
+            if not token:
+                continue
+            paint = colour if token == 'currentcolor' else _colour_rgba(token)
+            if paint is None or (paint[3] < 1 and backdrop is None):
+                backdrop = None
+            elif paint[3] > 0:
+                backdrop = paint[:3] if paint[3] >= 1 else tuple(round(channel) for channel in _blend(paint, backdrop))
     return (display_none, visibility_hidden, opacity_zero, font_zero, transparent, clipped, outlook_hidden,
             _same_colour(colour, backdrop), colour, backdrop), unresolved
 
@@ -3478,10 +3650,34 @@ def _stylesheet_cascade(css: str, html: str = '', *, typography: bool = True, ge
                                        (important, pattern['specificity'], position, value)))
         index += 1
     clients = list(clients)
-    conditions = [condition for condition in dict.fromkeys(
-        condition for event in (*events, *root_events) for condition in event[0]) if condition not in clients]
-    conditions += list(dict.fromkeys(media for media, *_rest in maybe if media and media not in conditions))
-    if len(conditions) > _MAX_MEDIA_CONTEXTS or (1 << len(conditions)) * (1 + len(clients)) > _MAX_RENDERING_VIEWS:
+
+    def needed():
+        found = [condition for condition in dict.fromkeys(
+            condition for event in (*events, *root_events) for condition in event[0]) if condition not in clients]
+        return found + list(dict.fromkeys(media for media, *_rest in maybe if media and media not in found))
+
+    def too_many(found):
+        return len(found) > _MAX_MEDIA_CONTEXTS or (1 << len(found)) * (1 + len(clients)) > _MAX_RENDERING_VIEWS
+
+    conditions = needed()
+    if colours and too_many(conditions):
+        # Colour rules under more @media contexts than are modelled may or may not apply:
+        # as "maybe" rules they can make text possibly invisible, never certain. A dark-mode
+        # context stays one: its colours assume the client's dark canvas.
+        demoted = {condition for condition in conditions if isinstance(condition, str)
+                   and not re.search(r'prefers-color-scheme\s*:\s*dark', condition, re.IGNORECASE)
+                   and all(name in _COLOUR_PROPERTIES or name == 'color'
+                           for required, _pattern_id, name, _ranked in events if condition in required)
+                   and not any(condition in required for required, *_rest in root_events)}
+        grouped = {}
+        for required, pattern_id, name, ranked in events:
+            if required & demoted:
+                grouped.setdefault((pattern_id, ranked[1], ranked[2]), []).append((name, ranked[3], ranked[0]))
+        events = [event for event in events if not event[0] & demoted]
+        maybe.extend((None, patterns[pattern_id]['compounds'][-1], specificity, declared, position)
+                     for (pattern_id, specificity, position), declared in grouped.items())
+        conditions = needed()
+    if too_many(conditions):
         return None
     views = []
     for client, mask in product([None, *clients], range(1 << len(conditions))):
@@ -3915,7 +4111,8 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 if style and re.search(r'color|background', style, re.IGNORECASE):
                     values = _style_values(style)
                     self.text_colours.update(values[name][0] for name in ('color',) if name in values)
-                    self.backgrounds.update(values[name][0] for name in ('background-color',) if name in values)
+                    self.backgrounds.update(values[name][0] for name in ('background-color', 'background-image')
+                                            if name in values)
             parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
             inline_state = (parent_inline[0] if zero_size is None else zero_size,
                             parent_inline[1] if transparent is None else transparent,
@@ -4959,9 +5156,9 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     url_parts = [_mask_inline_data_payloads(part) if is_html else part
                  for part, is_html in zip(raw_parts, html_parts)]
     raw_text = '\n'.join(url_parts)
-    links = []
-    for part, visible, is_html, stylesheet_uncertain in zip(
-        url_parts, visible_parts, html_parts, stylesheet_uncertain_parts,
+    links, labelled_links = [], []
+    for part, visible, is_html, stylesheet_uncertain, certain in zip(
+        url_parts, visible_parts, html_parts, stylesheet_uncertain_parts, certain_parts,
     ):
         part_links = _extract_links(
             part, parse_html=is_html, parse_warnings=analysis_warnings,
@@ -4972,6 +5169,11 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         # neither naked HTML URLs nor displayed anchor labels are reliable.
         links.extend((('', destination) for _label, destination in part_links)
                      if is_html and stylesheet_uncertain else part_links)
+        # Labels that the text no style can hide shows are reliable all the same.
+        certain_text = _han_compact(certain or '')
+        labelled_links.extend((label, destination) for label, destination in part_links
+                              if not (is_html and stylesheet_uncertain)
+                              or (label.strip() and _han_compact(label) in certain_text))
     # CSS may hide arbitrary body text. Do not derive high phishing scores from
     # prose that might be hidden; independent destination/form checks still run.
     # Where every hiding rule's targets are known, the text no style can hide is scored,
@@ -5047,7 +5249,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     risk_floor = max((risk_floor, link_floor), key=floor_rank.get)
 
     sender_domain = parseaddr(sender)[1].rpartition('@')[2].lower()
-    if _mailbox_lure(analysis_text, links, sender_domain):
+    if _mailbox_lure(analysis_text, labelled_links, sender_domain):
         total_score += 4
         risk_floor = 'high'
         extra_indicators.append(indicator('high', 'content.mailbox_lure'))

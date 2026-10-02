@@ -104,13 +104,18 @@ class SameColourTests(CallbackTestCase):
         self.assertNotIn('resolved', found)
         self.assertNotIn('certain', found)
 
-    def test_colour_rules_beyond_the_modelled_conditions_leave_the_rest_modelled(self):
-        # Five contexts that hide, and a sixth that only colours: rendered without colours.
+    def test_colour_rules_beyond_the_modelled_conditions_may_apply(self):
+        # Five contexts that hide, and a sixth that only colours: its rules may or may not
+        # apply, so the padding they could whiten is possibly invisible.
         css = ''.join(f'@media (max-width:{width}px){{.m{width}{{display:none}}}}' for width in (300, 400, 500, 600, 700))
         html = (f'<style>{css}@media (min-width:900px){{.pad{{color:#fff}}}}</style>'
                 + ''.join(f'<p class="m{width}">{width}</p>' for width in (300, 400, 500, 600, 700)) + salted())
-        self.assertIsNone(app._stylesheet_cascade(html[7:html.index('</style>')], html, colours=True))
+        found = app._stylesheet_cascade(html[7:html.index('</style>')], html, colours=True)
+        self.assertEqual(len(found['conditions']), 5)
         self.assertTrue(readings(html)['resolved'])
+        self.assert_callback(html)
+        # Six contexts that only colour the padding white: the same.
+        self.assert_callback(salted(css=''.join(f'@media (min-width:{width}px){{.pad{{color:white}}}}' for width in range(6))))
 
     def test_a_short_preheader_is_read_by_the_model_and_left_out_for_the_text_rules(self):
         html = (f'<div style="color:#ffffff">Your weekly summary is here</div><p>{FIRST} '
@@ -138,12 +143,15 @@ class ColourTests(unittest.TestCase):
         for value, expected in (('white', (255, 255, 255, 1.0)), ('#fff', (255, 255, 255, 1.0)),
                                 ('#ffffff80', (255, 255, 255, 128 / 255)), ('rgb(100% 0% 0% / 50%)', (255, 0, 0, 0.5)),
                                 ('hsl(120deg 100% 25%)', (0, 128, 0, 1.0)), ('hwb(0 100% 0%)', (255, 255, 255, 1.0)),
-                                ('transparent', (0, 0, 0, 0.0))):
+                                ('transparent', (0, 0, 0, 0.0)),
+                                # Wide-gamut colours, converted to sRGB (CSS Color 4) and clamped.
+                                ('lab(50% 0 0)', (119, 119, 119, 1.0)), ('color(srgb 1 1 1)', (255, 255, 255, 1.0)),
+                                ('oklch(0.627955 0.257683 29.2339)', (255, 0, 0, 1.0)),
+                                ('color(display-p3 1 1 1)', (255, 255, 255, 1.0))):
             with self.subTest(value=value):
                 self.assertEqual(app._colour_rgba(value), expected)
-        for value in ('canvas', 'lab(50% 0 0)', 'color(srgb 1 1 1)'):
-            with self.subTest(value=value):
-                self.assertIsNone(app._colour_rgba(value))
+        # System colours depend on the client.
+        self.assertIsNone(app._colour_rgba('canvas'))
 
     def test_legacy_colours_as_browsers_parse_them(self):
         for value, expected in (('ffffff', '#ffffff'), ('fff', '#0f0f0f'), ('#fff', '#ffffff'), ('White', '#ffffff'),
@@ -159,12 +167,15 @@ class ColourTests(unittest.TestCase):
         self.assertFalse(app._same_colour((255, 255, 255, 1.0), None))
 
     def test_the_background_shorthand(self):
-        self.assertEqual(app._background_parts('#fff url(x.png) no-repeat'), ('#fff', True))
-        self.assertEqual(app._background_parts('url(a.png), url(b.png) red'), ('red', True))
-        self.assertEqual(app._background_parts('none'), (None, False))
+        self.assertEqual(app._background_parts('#fff url(x.png) no-repeat'), ('#fff', True, None))
+        self.assertEqual(app._background_parts('url(a.png), url(b.png) red'), ('red', True, None))
+        self.assertEqual(app._background_parts('none'), (None, False, None))
         # The shorthand resets the colour it does not give: nothing behind the image.
         values = app._style_values('background-color:#000; background:url(x.png)')
-        self.assertEqual(app._background_parts(values['background-color'][0]), (None, True))
+        self.assertEqual(app._background_parts(values['background-color'][0]), (None, True, None))
+        # A gradient of one colour paints that colour.
+        self.assertEqual(app._background_parts('linear-gradient(to right, #fff, #fefefe)'), (None, False, '#fff'))
+        self.assertEqual(app._background_parts('linear-gradient(white, black)'), (None, True, None))
 
     def test_colours_that_cannot_match_need_no_colour_views(self):
         self.assertFalse(app._colours_may_match({'#333'}, {'#f4f4f4', '#1a73e8'}))

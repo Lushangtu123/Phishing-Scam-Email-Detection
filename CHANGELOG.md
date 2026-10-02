@@ -20,6 +20,42 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 00:30 PT] — Fix three findings from the review at 0f17def, and the colour bypasses it probed
+
+### Why
+- A read-only review at 0f17def reproduced three ways to bring a callback scam to Low or Safe, in HTML and `.eml`:
+  - S1 (P1): custom property names were lowercased inside values. `var(--ZERO,16px)` missed `--ZERO`, took the 16px fallback, and read 0px padding as visible: Low, complete.
+  - S2 (P1), a regression of a2605bc: an invalid `background: banana black`, which browsers drop, was read as a black background. Visible black scam text was removed from the views: Safe. The reverse (`background: white; background: garbage black` on white text) read hidden padding as visible.
+  - R1 (P1): the colour pre-check blended a translucent background only with the white canvas. Translucent white over red (`#ff8080`) never reached the colour pass: Low, complete.
+- Beside the findings:
+  - an unrelated stylesheet emptied link labels, which turned the Chinese mailbox-lure rule off: High → Unknown;
+  - three of the review's probes showed colour bypasses: six colour-only `@media` contexts pushed the stylesheet past the condition limit, which then dropped colours; a one-colour gradient counted as an unknown image; and `color(srgb 1 1 1)` was an unknown colour.
+
+### Files changed
+- `website/app.py`:
+  - `_style_values` keeps the case of `--name` tokens in values.
+  - `_background_valid` checks a `background` shorthand (and `background-image`) before it is used. Each layer may hold only images, positions, sizes, repeats, attachments and boxes, and only the last layer one colour. An invalid one is dropped whole.
+  - `_colours_may_match`: a translucent background opens the colour pass.
+  - The mailbox-lure rule reads the link labels that the text no style can hide shows.
+  - Over the condition limit, @media contexts that only set colours, other than dark mode, become "maybe" rules. These can make text possibly invisible, never certain.
+  - `_gradient_stops` and `_background_parts`: a gradient whose stops are all one opaque colour paints that colour.
+  - `_wide_gamut_rgb`: `lab()`, `lch()`, `oklab()`, `oklch()` and `color()` (srgb, srgb-linear, display-p3, a98-rgb, prophoto-rgb, rec2020, xyz) are converted to sRGB as CSS Color 4 does.
+- Tests:
+  - `website/tests/test_review_2026_10_01_fourth.py`: 9 tests, all failing on 0f17def;
+  - `website/tests/test_same_colour_text.py`: tests of the old behaviour updated.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- The review's 17 fixtures, served model, HTML and `.eml`:
+  - High (callback): the three findings (std_varcase_css, bg_invalid, bg_invalid_overrides, std_bg_invalid, nested_alpha), and three probes (bg_gradient, bg_unsupported_colour, colour_condition_limit);
+  - High (credential): lure_style;
+  - bg_image_fallback (white text over a background image) stays Low: the image is unknown;
+  - bg_blend_gate stays undetermined: all its text is the colour of its background;
+  - the six controls stay High.
+- Same served model, main (0f17def) against this change: no verdict, mail-type or question change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 (611), the 87 public HTML templates or Nazario 3,466. Counts are identical on the pasted genuine text, PhishFuzzer recent, UniqueData and Postmark.
+- Analysis time: the 92 genuine downloads 10.5 → 10.6 s; Nazario 127.6 → 128.5 s.
+- Tests: 963 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-01 23:30 PT] — Catch Chinese mailbox-upgrade lures and words split by symbols; read stylesheets after @import
 
 ### Why

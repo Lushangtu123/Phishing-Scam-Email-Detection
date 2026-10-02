@@ -448,7 +448,9 @@ Raw input enables these checks:
   with the fix ("点此登录完成本次升级", "点击升级") leads to a site that is neither the
   sender's domain, nor a mail provider's sign-in (163, QQ, Aliyun, Outlook and the
   other providers in `_CONSUMER_MAILBOX_DOMAINS`, Microsoft 365), nor an official
-  brand domain. A school's or provider's own notice links to its own domain;
+  brand domain. A school's or provider's own notice links to its own domain. Where a
+  stylesheet makes the rendering uncertain, a link label counts if the text no style
+  can hide shows it;
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
@@ -555,9 +557,10 @@ Each view is rendered element by element, as CSS does:
   font size and colour, by `!important`, then specificity (an inline style above
   any selector), then source order. A `hidden` attribute yields to any author rule.
 - Custom properties (`--name`) cascade and inherit the same way, from rules and
-  inline styles alike. `var()` in a size, colour, opacity or box value takes the
-  element's own value. With no value and no fallback, the declaration is unset, as
-  in browsers: a size or colour then inherits.
+  inline styles alike. Their names are case-sensitive (`--Zero` is not `--zero`).
+  `var()` in a size, colour, opacity or box value takes the element's own value. With
+  no value and no fallback, the declaration is unset, as in browsers: a size or colour
+  then inherits.
 - Rules on `html`, `:root` or `body` apply to the document's root when the document
   leaves those elements implied, so everything inherits them.
 - `.wrap span{display:none}` hides the spans, not the text beside them, and showing
@@ -580,7 +583,10 @@ Rendering conditions:
   `.appleBody` (Apple Mail). Each client is one condition, and a view is in at most
   one client. A class the document does not use selects nothing.
 
-More than five conditions, or more than 64 views, are not modelled.
+More than five conditions, or more than 64 views, are not modelled. Over that limit,
+@media contexts that only set colours (other than dark mode) stop being conditions:
+their rules may or may not apply, so text they could give its background's colour is
+possibly invisible (below).
 
 Some rules cannot be matched exactly:
 - `:not()` and structural pseudo-classes such as `:first-child`;
@@ -613,9 +619,13 @@ Some text may be invisible without being hidden:
 Colours come from `color` and `background` in rules and inline styles, `var()`,
 `currentcolor`, the `bgcolor` and `<font color>` attributes, and the browser's link
 colour; HTML colour attributes are parsed as browsers do (`bgcolor="fff"` is
-`#0f0f0f`). The canvas is white and text black. A background image, an Outlook VML
-shape, or a client's dark mode (`prefers-color-scheme: dark`, Outlook's dark mode)
-leaves the background unknown, and such text counts as readable.
+`#0f0f0f`). `lab()`, `lch()`, `oklab()`, `oklch()` and `color()` are converted to sRGB
+as CSS Color 4 does. A `background` that is not valid CSS (`background: banana black`)
+is dropped whole, as browsers drop it. A translucent background blends with what is
+behind it, and a gradient whose stops are all one colour paints that colour. The
+canvas is white and text black. Any other background image, an Outlook VML shape, or
+a client's dark mode (`prefers-color-scheme: dark`, Outlook's dark mode) leaves the
+background unknown, and such text counts as readable.
 
 Phishing uses these to bury benign padding beside the scam ("hidden-text salting"),
 and marketing mail uses them for preheaders. They are cascaded like the properties

@@ -1408,6 +1408,62 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review at 0f17def: variable case, invalid backgrounds and translucency (2026-10-02)
+
+A read-only review supplied synthetic fixtures for three findings. All three reproduced
+on the served model, in HTML and `.eml`:
+
+| Finding | Input | Before | After |
+|---|---|---|---|
+| S1 custom property case (P1) | `.pad{--ZERO:0px;font-size:var(--ZERO,16px)}` | Low, complete | High (callback) |
+| S2 invalid background (P1) | visible scam text with `background: banana black` | Safe | High (callback) |
+| S2, reverse | white padding with `background:white; background:garbage black` | Low, complete | High (callback) |
+| R1 translucent background (P1) | `#ff8080` padding on `rgba(255,255,255,.5)` inside a red block | Low, complete | High (callback) |
+
+Causes:
+- **S1.** Values were lowercased whole, but custom property names are case-sensitive.
+- **S2.** The colour was taken from any background, valid or not. Browsers drop an
+  invalid declaration whole, and S2 was a regression of the same-colour change.
+- **R1.** The pre-check that decides whether colours could match at all blended a
+  translucent background only with the white canvas.
+
+The review also noted that an unrelated `<style>` turned the Chinese mailbox-lure rule
+off, because labels of stylesheet-uncertain parts were emptied. The rule now reads the
+labels that the text no style can hide shows, so a label the stylesheet hides still
+does not count.
+
+Three of the review's probes, not counted as findings, were colour bypasses, all now
+High (callback):
+
+| Probe | Before |
+|---|---|
+| six colour-only `@media` contexts whitening the padding (past the condition limit) | Low, complete |
+| `color:white; background:linear-gradient(white,white)` | Low, complete |
+| `color:color(srgb 1 1 1)` | Low, complete |
+
+- **Condition limit.** Over the limit, @media contexts that only set colours, other
+  than dark mode, become "maybe" rules. They can make text possibly invisible, never
+  certain.
+- **Gradients.** A gradient of one opaque colour paints that colour.
+- **Colour spaces.** `lab()`, `lch()`, `oklab()`, `oklch()` and `color()` are
+  converted to sRGB with the CSS Color 4 matrices.
+
+White text over a background image stays readable to the reader: the image is unknown.
+
+| Cohort | `0f17def`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+| DataCon 2023 day 1 (611) | 237 / 351 / 23 | 237 / 351 / 23 |
+| Nazario 2015–25 phishing (3,466) | 3,327 / 132 / 7 | 3,327 / 132 / 7 |
+
+No verdict, mail type or question changed for any message in:
+- these cohorts;
+- the 87 public HTML templates.
+
+Counts are identical for the pasted genuine text, PhishFuzzer recent, UniqueData and
+Postmark.
+
 ### Remaining misses, and Chinese mailbox lures (2026-10-01)
 
 With a mailbox chosen, 9 of the 92 genuine downloads are not Safe or Low:
