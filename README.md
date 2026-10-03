@@ -762,9 +762,10 @@ percentages (angles for conic ones), and a colour hint stands between two stops.
 `conic-gradient(black 10px, black)` and `linear-gradient(black, 10px)` are dropped.
 Math functions (`calc()`, `min()`, `clamp()`, `round()`, trigonometry and the rest) are
 typed as CSS Values 4 types them: units multiply and divide by their powers
-(`calc(1px * 1px / 1px)` is a length), a percentage resolves against the place's length
-or angle and is invalid where the place has none (a gradient's direction), and
-`clamp(none, 10px, none)` leaves a bound out. So `linear-gradient(calc(1px), …)` (a
+(`calc(1px * 1px / 1px)` is a length), a percentage resolves against a length or an
+angle (never a time: `calc((1s + 1%) * 1px / 1s)` is invalid, nor both at once) and is
+invalid where the place has none (a gradient's direction), and a bare `none` leaves a
+bound out of `clamp(none, 10px, none)` (`(none)` in brackets does not). So `linear-gradient(calc(1px), …)` (a
 length where an angle belongs), `atan2(1deg, 1%)` and `calc(banana)` are dropped too.
 Where this reader cannot be sure, the background is kept but its colours count as
 unknown: a function it does not model (`progress()`), a substitution function (`var()`,
@@ -772,7 +773,11 @@ unknown: a function it does not model (`progress()`), a substitution function (`
 dimension, a percentage inside a trigonometric function, nesting past 32 levels, or an
 angle mixed with a percentage in a conic stop (Chromium 154 accepts it, 148 does not).
 Unknown colours hide nothing, and nothing a browser accepts is dropped, so neither a
-misjudged valid background nor a misjudged invalid one can hide visible text. A word
+misjudged valid background nor a misjudged invalid one can hide visible text. Such a
+declaration may also be dropped where this reader keeps it, leaving the background it
+replaced (`background: black; background: linear-gradient(sqrt(4px), …) text`): wherever
+a background, clip, size or repeat may be either, the backdrop counts as unknown, and so
+does a clip this reader cannot resolve (`background-clip: env(…, text)`). A word
 ends at a function's closing bracket, as CSS reads it (`url(a.png)no-repeat`).
 The checks were compared with `CSS.supports` in Chrome 154 and Chromium 148 on 5,545
 values, hand-written ones and generated math expressions, and agree with Chrome 154 on

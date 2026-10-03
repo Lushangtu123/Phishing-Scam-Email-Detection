@@ -1408,6 +1408,33 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of 3351c72 (2026-10-02)
+
+A read-only review found four ways to bring a visible callback scam from High to Safe, all reproduced and fixed:
+- **S1, unknown clip.** `background-clip: env(no-such-env, text)` was unknown, yet the black gradient still counted as the backdrop.
+- **S2, percentage basis.** `calc((1s + 1%) * 1px / 1s)` folded a percentage into a time, then cancelled it into a valid length.
+- **R1, bracketed none.** `clamp((none), 10px, none)` was taken for a missing bound.
+- **R2, dropped declarations.** A background browsers may drop replaced the one before it. Its `text` clip then made the page the backdrop.
+
+Percentages now resolve only against a length or an angle, one basis per value. A
+background, clip, size or repeat that browsers may keep or drop leaves the backdrop
+unknown. The review's four probes that Chromium hides stay hidden.
+
+Verification this round was offline. The fixture's 1,916 Chromium verdicts still hold.
+Of the 5,977 values tested so far, one changes from accepted to dropped, and both
+Chromium builds drop it.
+
+| Cohort (same model) | `3351c72`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,445 / 16 / 5 | 3,445 / 16 / 5 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of Nazario, DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** The fixture checks single declarations. A cascade of several declarations,
+as in R2, is covered by the tests of this review only.
+
 ### Review of e02355e (2026-10-02)
 
 A read-only review found three issues in the math typing, all reproduced and fixed:

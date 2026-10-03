@@ -20,6 +20,38 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 23:30 PT] — Fix the review of 3351c72: unknown clips, percentage bases, bracketed none, backgrounds browsers may drop
+
+### Why
+The read-only review of main at 3351c72 (2026-10-02) found four P1 issues, all reproduced here. Each turned a visible callback scam from High to Safe:
+- **S1.** `background-clip: env(no-such-env, text)` was an unknown clip, yet black text over a black gradient was read as hidden. Chromium falls back to `text`, so the gradient paints only inside the glyphs and the text shows on the white page.
+- **S2.** A percentage folded into any unit: `calc((1s + 1%) * 1px / 1s)` became a length once the time cancelled, and the gradient was read as solid black. Chromium drops it.
+- **R1.** `clamp((none), 10px, none)` was read like `clamp(none, 10px, none)`. Only a bare `none` is a missing bound; Chromium drops the bracketed form.
+- **R2.** A shorthand this reader keeps but browsers may drop replaced the black background before it, and its `text` clip then left the white page as the backdrop. `background: black; background: linear-gradient(sqrt(4px), black, black) text` hid white text that Chromium shows on black.
+
+The review's other probes were checked against its Chromium 154 results. `atan2(calc(1px * 1px), calc(1px * 1px))` is accepted (black on black). Three percentage cancellations are dropped (white on white). All four stay hidden, as Chromium shows them. A conic stop mixing an angle and a percentage, under a `text` clip, is accepted by Chromium 154 and dropped by 148: either may hold.
+
+### Files changed
+- `website/app.py`:
+  - **Percentage basis (S2).** A math type now carries the basis its percentages resolved against. A sum folds a percentage only into a length or an angle, never into a time or another unit. Two bases in one value are invalid, and the result must be its basis (`calc((1px + 1%) / 1px * 1deg)` is invalid).
+  - **none (R1).** `(none)` in brackets is invalid; only a bare `none` is a bound of `clamp()`.
+  - **Backgrounds browsers may keep or drop (R2).** `_background_uncertain` names a value holding a substitution function, a math function this reader cannot type, or a conic stop mixing an angle and a percentage. Wherever the background, clip, size or repeat in effect is such a value, the backdrop is unknown: its own colours and the background it replaced are both possible.
+  - **Unknown clips (S1).** A clip this reader cannot resolve leaves the backdrop unknown too.
+- `website/tests/test_review_2026_10_02_fifth.py`: 7 tests; on 3351c72 they give 10 failures and 6 errors.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Review samples.** `clip-env`, `time-percent-cancel`, `clamp-paren-stop`, `clamp-paren-angle`, `clip-invalid-math` and `clip-version-math` are High in HTML and EML. The four probes Chromium hides stay hidden. The earlier samples (`atan-*`, `clamp-*`, `math0`–`math4`, the link budget, recipient pre-fill) keep their results.
+- **Offline checks** (no browser launched this round):
+  - the 1,916 Chromium 154 and 148 verdicts in the fixture still hold: nothing either build accepts is dropped, and whatever a build drops but this reader keeps has unknown colours;
+  - 5,977 values tested so far: one changes from accepted to dropped, and both builds drop it; none changes the other way.
+- **Nesting.** 124 deeply nested inputs still return a result through both endpoints.
+- **Same served model, main (3351c72) against this change:**
+  - Nazario 3,466: no per-message change (3,445 alerts, 16 undetermined, 5 Safe or Low);
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,106 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 22:30 PT] — Fix the review of e02355e: atan2() percentages, clamp() bounds, deep math, checked against two Chromium builds
 
 ### Why

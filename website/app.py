@@ -2652,25 +2652,30 @@ def _css_math_powers(first, second, sign=1):
 
 def _css_math_sum(types):
     """The type of a sum (or of min(), max() and the like) of typed values, as CSS Values 4
-    adds types: equal powers, or a percentage folded into the other side's base (1px + 10%
-    is a length); None where they cannot be added."""
+    adds types: equal powers, or a percentage folded into the other side's length or angle,
+    which becomes its basis (1px + 10% is a length); None where they cannot be added. A
+    percentage has no basis among times or other units here (1s + 1%), nor two bases."""
     if _MATH_UNKNOWN in types:
         return _MATH_UNKNOWN
     if _MATH_NONE in types:
         return None
-    powers, percent = types[0]
-    for other, other_percent in types[1:]:
+    powers, percent, basis = types[0]
+    for other, other_percent, other_basis in types[1:]:
         percent = percent or other_percent
+        if basis and other_basis and basis != other_basis:
+            return None
+        basis = basis or other_basis
         if other == powers:
             continue
-        for base in {base for base, _exponent in powers + other} - {'percent'}:
+        present = {base for base, _exponent in powers + other}
+        for base in sorted(({basis} if basis else {'length', 'angle'}) & present):
             folded = [_css_math_percent_as(side, base) for side in (powers, other)]
             if folded[0] == folded[1]:
-                powers = folded[0]
+                powers, basis = folded[0], base
                 break
         else:
             return None
-    return powers, percent
+    return powers, percent, basis
 
 
 def _css_math_percent_as(powers, base):
@@ -2705,7 +2710,7 @@ def _css_math_type(word: str) -> str | None:
                     else ((_CSS_OTHER_UNITS[unit], 1),) if unit in _CSS_OTHER_UNITS else None)
             if kind is None:
                 return None
-            tokens.append(('value', (kind, unit == '%'), False, spaced))
+            tokens.append(('value', (kind, unit == '%', None), False, spaced))
         elif match.group(4) is not None:
             tokens.append(('function' if match.group(5) else 'name', match.group(4), False, spaced))
         else:
@@ -2744,7 +2749,7 @@ def _css_math_type(word: str) -> str | None:
             return value
         if kind == 'name':
             if value in _CSS_MATH_CONSTANTS:
-                return (), False
+                return (), False, None
             if value == 'none':
                 return _MATH_NONE  # only clamp() takes it, as a missing bound
             raise ValueError
@@ -2752,7 +2757,8 @@ def _css_math_type(word: str) -> str | None:
             opened()
             result = total()
             close()
-            return result
+            # Only a bare none is a missing bound: clamp((none), …) is invalid.
+            return None if result == _MATH_NONE else result
         if kind != 'function':
             raise ValueError
         opened()
@@ -2786,15 +2792,19 @@ def _css_math_type(word: str) -> str | None:
         if _MATH_UNKNOWN in values:
             return _MATH_UNKNOWN
         percent = any(value_type[1] for value_type in values)
+        bases = {value_type[2] for value_type in values} - {None}
+        if len(bases) > 1:
+            return None
+        basis = next(iter(bases), None)
         # Where a percentage takes part, a mismatch may still resolve in the browser: unknown.
         mismatch = _MATH_UNKNOWN if percent else None
         if value in {'sin', 'cos', 'tan'}:
-            return ((), percent) if values[0][0] in {(), (('angle', 1),)} else mismatch
+            return ((), percent, basis) if values[0][0] in {(), (('angle', 1),)} else mismatch
         if value in {'asin', 'acos', 'atan'}:
-            return ((('angle', 1),), percent) if values[0][0] == () else mismatch
+            return ((('angle', 1),), percent, basis) if values[0][0] == () else mismatch
         if value in {'pow', 'sqrt', 'exp', 'log'}:
             # Browsers accept some dimensions here (sqrt(1vw)): only numbers are typed.
-            return ((), percent) if all(value_type[0] == () for value_type in values) else _MATH_UNKNOWN
+            return ((), percent, basis) if all(value_type[0] == () for value_type in values) else _MATH_UNKNOWN
         if value == 'round' and len(values) == 1 and values[0][0] != ():
             return None  # round(1px) needs its interval; round(1.5) does not
         result = _css_math_sum(values)
@@ -2803,9 +2813,9 @@ def _css_math_type(word: str) -> str | None:
             # two percentages resolve against the place's basis, where it has one.
             if result is None or percent and any(value_type[0] != (('percent', 1),) for value_type in values):
                 return None
-            return (('angle', 1),), percent
+            return (('angle', 1),), percent, None
         if value == 'sign':
-            return None if result is None else ((), percent)
+            return None if result is None else ((), percent, result[2])
         return result
 
     def product():
@@ -2817,8 +2827,11 @@ def _css_math_type(word: str) -> str | None:
                 return None
             if _MATH_UNKNOWN in (result, other):
                 result = _MATH_UNKNOWN
+            elif result[2] and other[2] and result[2] != other[2]:
+                return None  # a percentage cannot resolve against a length and an angle at once
             else:
-                result = (_css_math_powers(result[0], other[0], 1 if operator == '*' else -1), result[1] or other[1])
+                result = (_css_math_powers(result[0], other[0], 1 if operator == '*' else -1), result[1] or other[1],
+                          result[2] or other[2])
         return result
 
     def total():
@@ -2846,7 +2859,11 @@ def _css_math_type(word: str) -> str | None:
         return None
     if result == _MATH_UNKNOWN:
         return result
-    powers, percent = result
+    powers, percent, basis = result
+    if basis:
+        # Resolved against a length or an angle: what is left must be that, the percentages
+        # products kept included.
+        return f'{basis}-percentage' if _css_math_percent_as(powers, basis) == ((basis, 1),) else None
     if powers == (('percent', 1),):
         return 'percentage'
     if any(base == 'percent' for base, _exponent in powers):
@@ -3148,6 +3165,28 @@ def _background_clip(value: str) -> str:
 
 
 @lru_cache(maxsize=4096)
+def _background_uncertain(value: str) -> bool:
+    """Whether browsers may keep or drop a background value: it holds a substitution
+    function, a math function this reader cannot type, or a stop browsers disagree on (an
+    angle mixed with a percentage in a conic stop). Its own colours and the background it
+    would replace are then both possible."""
+    if _CSS_SUBSTITUTION.search(value):
+        return True
+    for layer in _css_top_level(value, ','):
+        for piece in _css_top_level(layer, '/'):
+            for word in _css_words(piece):
+                if _css_quantity(word) == 'math-unknown':
+                    return True
+                gradient = re.fullmatch(r'(?:repeating-)?(linear|radial|conic)-gradient\((.*)\)', word, re.S)
+                if gradient and any(
+                        _css_quantity(inner) == 'math-unknown'
+                        or gradient.group(1) == 'conic' and _css_quantity(inner) == 'angle-percentage'
+                        for argument in _css_top_level(gradient.group(2), ',') for inner in _css_words(argument)):
+                    return True
+    return False
+
+
+@lru_cache(maxsize=4096)
 def _background_parts(value: str):
     """The colour token of a background or background-color value (its last layer), or
     None; whether it paints an image; and the colour of gradients whose every stop is one
@@ -3155,9 +3194,7 @@ def _background_parts(value: str):
     function this reader cannot type anywhere in it may make the declaration invalid:
     its colours are then unknown."""
     layers = _css_top_level(value, ',')
-    if _CSS_SUBSTITUTION.search(value) or any(
-            _css_quantity(word) == 'math-unknown'
-            for layer in layers for piece in _css_top_level(layer, '/') for word in _css_words(piece)):
+    if _background_uncertain(value):
         return None, True, None
     images = [token for layer in layers for token in _css_words(layer) if _BACKGROUND_IMAGE.match(token)]
     colour = None
@@ -4081,7 +4118,14 @@ def _cascade_state(parent: tuple, winners: dict) -> tuple:
         if painted or solid or (fill and _background_parts(fill[3])[0] not in {None, 'transparent'}):
             transparent, colour = False, None
             unresolved |= clip == 'unknown'
-    if clip == 'all':
+    # A declaration browsers may keep or drop (env(), an untyped math function, a clip from
+    # either) leaves both its own background and the one it would replace possible.
+    uncertain = clip == 'unknown' or any(
+        isinstance(winners[name][3], str) and _background_uncertain(winners[name][3])
+        for name in ('background-image', 'background-color', *_BACKGROUND_LAYOUT_PROPERTIES) if name in winners)
+    if uncertain:
+        backdrop = None
+    elif clip == 'all':
         pass  # painted inside the glyphs only: the backdrop stays the parent's
     elif painted or clip == 'some':
         backdrop = None
