@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-03 03:30 PT] — Fix the review of 362eb8f: a bad url() drops its background
+
+### Why
+The read-only review of main at 362eb8f (2026-10-02) found one P2. `url()` arguments were barely checked: only whitespace inside an unquoted address was. `url(a"b")`, `url(a(b))`, two strings or two strings with a comma between them were read as valid images, and `_background_uncertain` skipped every `url()`. Browsers read them as bad URLs and drop the declaration. So `background: black; background: url(a"b") text` keeps the black background under white text, but here it replaced it, and its `text` clip made the white page the backdrop. The callback alert was lost, and the verdict was Unknown (not Safe).
+
+### Files changed
+- `website/app.py`: `_CSS_URL` reads a `url()` as CSS tokenizes it: an unquoted address with no whitespace, quote, bracket, control character or lone backslash (escapes allowed), or one quoted string, either with optional whitespace around. Any other `url()` invalidates its background declaration.
+- `website/tests/test_review_2026_10_02_seventh.py`: 3 tests (bad and valid URLs, and the background before a bad one staying).
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Review samples.** `url-bad-quote`, `url-nested`, `url-two-strings` and `url-comma` are High in HTML and EML, like `url-control`.
+- **Real declarations.** Of 176 background declarations with `url()` in real HTML (Nazario 130, the genuine downloads 19, DataCon 27), none changes validity. Of the 5,977 values tested so far, none changes.
+- **Same served model, main (ff94d10) against this change:** no per-message change on Nazario, the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public templates; pasted cohort counts identical.
+- Tests: 1,118 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-03 02:30 PT] — A model score below its threshold no longer makes an alert
 
 ### Why

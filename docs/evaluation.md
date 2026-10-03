@@ -1408,6 +1408,17 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of 362eb8f (2026-10-03)
+
+A read-only review found one P2. A `url()` browsers read as a bad URL (`url(a"b")`,
+`url(a(b))`, two strings, a comma) was taken for a valid image. Under a `text` clip it
+replaced the black background before it, and white callback text read as hidden. The
+result was Unknown, not Safe.
+
+`url()` is now checked as CSS tokenizes it. None of 176 background declarations with
+`url()` in real HTML changes validity, and no verdict changes on Nazario, the genuine
+downloads, DataCon, the templates or the pasted cohorts.
+
 ### Where false alerts come from (2026-10-03)
 
 The alerts on legitimate cohorts were broken down by what drives them. Counts only; no

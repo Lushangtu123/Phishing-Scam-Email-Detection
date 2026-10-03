@@ -2581,6 +2581,13 @@ _BACKGROUND_REPEATS = frozenset({'repeat', 'space', 'round', 'no-repeat'})
 _BACKGROUND_ATTACHMENTS = frozenset({'scroll', 'fixed', 'local'})
 _BACKGROUND_BOXES = frozenset({'border-box', 'padding-box', 'content-box', 'text'})
 _BACKGROUND_POSITION_AXES = {'left': 'h', 'right': 'h', 'top': 'v', 'bottom': 'v', 'center': 'c'}
+# A url() as CSS tokenizes it: an unquoted address with no whitespace, quote, bracket,
+# control character or lone backslash inside, or one quoted string, either with optional
+# whitespace around. Anything else (url(a"b"), url(a(b)), two strings, or a comma between
+# them) is a bad URL, and the declaration holding it is dropped.
+_CSS_URL = re.compile(
+    r"""url\(\s*(?:"(?:[^"\\\n]|\\[\s\S])*"|'(?:[^'\\\n]|\\[\s\S])*'"""
+    r"""|(?:[^\s"'()\\\x00-\x08\x0b\x0e-\x1f\x7f]|\\[^\n])*)\s*\)""")
 # Substitution functions: browsers accept a declaration holding one when they parse it,
 # and decide when they substitute it (var(), env(safe-area-inset-top), attr(), if()).
 _CSS_SUBSTITUTION = re.compile(r'(?<![\w-])(?:var|env|attr|if|inherit)\(', re.IGNORECASE)
@@ -3061,7 +3068,7 @@ def _background_valid(value: str, name: str = 'background') -> bool:
         position = []
         for at, word in enumerate(words):
             if word == 'none' or (_BACKGROUND_IMAGE.match(word) and word.endswith(')')):
-                if _gradient_stops(word) == [] or re.fullmatch(r'url\(\s*[^\s"\'()]+\s+[^)]*\)', word):
+                if _gradient_stops(word) == [] or word.startswith('url(') and not _CSS_URL.fullmatch(word):
                     return False
                 counts['image'] += 1
             elif word in {'repeat-x', 'repeat-y'}:

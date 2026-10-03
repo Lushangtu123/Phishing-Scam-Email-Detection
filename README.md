@@ -755,8 +755,9 @@ as CSS Color 4 does. Whitespace inside a value counts as one space, so
 `rgb(255,\n255,255)` is white. A `background` that is not valid CSS is dropped whole,
 as browsers drop it: an unknown word (`background: banana black`), a component given
 twice (`left left`, `repeat repeat repeat`, `none none`), a misplaced or negative
-size, a unitless number (rejected in the shorthand even in quirks mode), or a gradient
-browsers reject. Each gradient type is read by its own grammar (CSS Images 4): a linear
+size, a unitless number (rejected in the shorthand even in quirks mode), a bad `url()`
+(an unquoted address holding a quote, bracket or space, or more than one string), or a
+gradient browsers reject. Each gradient type is read by its own grammar (CSS Images 4): a linear
 gradient's angle or `to` sides on two axes, a radial one's shape, size and `at`
 position, a conic one's `from` angle; stops give the colour first, then lengths or
 percentages (angles for conic ones), and a colour hint stands between two stops. So
