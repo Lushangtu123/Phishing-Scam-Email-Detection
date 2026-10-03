@@ -20,6 +20,44 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-03 01:30 PT] — Read plain-text file-sharing lures, and where false alerts come from
+
+### Why
+- **A missed lure.** One Nazario message stayed Medium only through a low model score: "Signed revised agreements has been sent using Dropbox file viewer. Press Here sign in with your email to view the message. http://janiceli.ca/camp/dropbox".
+  - The file-sharing rule did not know "has been sent using Dropbox".
+  - Its link was a bare address in plain text, with no label to read the action from.
+- **False alerts on legitimate mail** were profiled before changing anything. They are almost all model-driven: no rule floor, and often no Medium finding at all.
+  - 92 genuine downloads, pasted: 45 alerts, 27 of them with no Medium finding.
+  - PhishFuzzer legitimate seeds: 72 alerts, 59 with none.
+  - UniqueData legitimate: 42 alerts, 37 with none.
+
+  The six genuine downloads with a High floor without a mailbox come from address keywords: two from `accountprotection.microsoft.com`, four from `notice.aliexpress.com`. They stay alerts through the model even without the keywords, so relaxing those findings would gain nothing and cost Nazario alerts (2 to 8 in the variants tried). They are left as they are.
+
+### Files changed
+- `website/app.py`: file-sharing notices include "has been sent / shared / uploaded using / via / through / on" a named service. A bare address with no label takes the 120 characters before it in the text as its label, for this rule only.
+- `website/tests/test_file_share_plain_links.py`: 3 tests.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **The lure.** Nazario 2016 #342 rises from Medium to High (`link.file_share_elsewhere`).
+- **Legitimate text.** The new wording matches none of the PhishFuzzer legitimate texts, DIFraud genuine, marketing mail or UniqueData legitimate.
+- **Same served model, main (362eb8f) against this change:**
+  - Nazario 3,466: one Medium → High; nothing else changes (3,445 alerts, 16 undetermined, 5 Safe or Low);
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,114 passed, 10 skipped; all frontend test files 514 passed.
+
+### Not changed (a decision for the owner)
+The fusion turns any model probability of 30% or more into a Medium "Suspicious Content" alert. That includes probabilities below the model's own 37.4% decision threshold, whose selection already set the false-positive budget. Counting the model only at its threshold would change alerts as follows (this change included):
+
+| Cohort | Now | Aligned |
+|---|---:|---:|
+| Genuine downloads, no mailbox / pasted | 27 / 45 | 25 / 37 |
+| Genuine downloads, mailbox chosen | 3 | 3 |
+| PhishFuzzer legitimate / UniqueData / Postmark | 72 / 42 / 4 | 63 / 39 / 3 |
+| Nazario phishing | 3,445 | 3,445 (2 Safe or Low → undetermined) |
+| PhishFuzzer phishing | 90 | 88 |
+
 ## [2026-10-03 00:30 PT] — Fix the recheck of 9162549: words that are no colours, uncertainty through the whole cascade
 
 ### Why

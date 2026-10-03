@@ -5522,6 +5522,8 @@ _FILE_SHARE_NOTICE = re.compile(
     r"|\bshared\s+(?:(?:a|an|the|some|\d+)\s+)?(?:files?|documents?|folders?)\s+with\s+you\b"
     r"|\b(?:received|have)\s+(?:(?:a|some|\d+)\s+)?(?:new\s+)?(?:pdf\s+)?(?:files?|documents?)\s+(?:via|from|through|using)\b"
     r"|\b(?:files?|documents?|docs|folders?)\s+shared\s+with\s+you\b"
+    r"|\b(?:has|have)\s+been\s+(?:sent|shared|uploaded)\s+(?:to\s+you\s+)?(?:using|via|through|on)\s+(?:the\s+)?"
+    r"(?:we\s?transfer|one\s?drive|share\s?point|dropbox|google\s+drive|docu\s?sign)\b"
     r"|\b(?:files?|documents?|folders?)\b[^.!?]{0,40}\b(?:was|were|has\s+been|have\s+been)\s+shared\s+with\s+you\b"
     r"|\b(?:files?|documents?|items?)\b[^.!?]{0,40}\b(?:will\s+be\s+deleted|expires?\s+on)\b"
     r"|\b(?:get|download|view|access|open|retrieve)\s+(?:your\s+|the\s+)?(?:completed\s+|shared\s+)?(?:files?|documents?)\b",
@@ -5537,7 +5539,12 @@ def _file_share_elsewhere(text: str, display_name: str, links, sender_domain: st
         return None
     service = tuple(_FILE_SHARE_SERVICES)[named.lastindex - 1]
     for label, destination in links or ():
-        if not _FILE_SHARE_ACTION.search(_strip_invisible_format_controls(label or '')):
+        label = _strip_invisible_format_controls(label or '')
+        if not label.strip() and destination in text:
+            # A bare address in plain text: its instruction stands just before it
+            # ("Press Here sign in with your email to view the message. http://…").
+            label = text[max(0, text.index(destination) - 120):text.index(destination)]
+        if not _FILE_SHARE_ACTION.search(label):
             continue
         host = _unlisted_off_sender_host(destination, sender_domain)
         if host and _organizational_domain(host) not in _FILE_SHARE_DOMAINS:

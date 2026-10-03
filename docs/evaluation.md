@@ -1408,6 +1408,33 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Where false alerts come from (2026-10-03)
+
+The alerts on legitimate cohorts were broken down by what drives them. Counts only; no
+genuine message's text was read.
+
+| Cohort | Alerts | Rule floor Medium or above | No Medium finding at all | Model ≥ 50% |
+|---|---:|---:|---:|---:|
+| 92 genuine downloads, no mailbox | 27 | 6 | 6 | 22 |
+| 92 genuine downloads, pasted | 45 | 0 | 27 | 23 |
+| PhishFuzzer legitimate seeds | 72 | 0 | 59 | 50 |
+| UniqueData legitimate | 42 | 0 | 37 | 35 |
+
+- **Model-driven.** Most false alerts rest on the text model alone, or on the model with weak
+  cues (exclamation marks, link count, a generic greeting). Their model scores overlap those
+  of phishing caught the same way. Of 521 such Nazario alerts, 26 score below 60% and 78
+  below 80%. No cut on the score removes legitimate alerts without phishing ones.
+- **Address keywords.** The six High floors without a mailbox are keywords in the address
+  (`accountprotection.microsoft.com`, `notice.aliexpress.com`). Without them the model still
+  alerts, and relaxing the keywords costs Nazario alerts, so they are kept.
+- **Below the threshold.** A model probability between 30% and the 37.4% decision threshold
+  still gives a Medium alert through the combined score. Counting the model only at its
+  threshold would remove 23 legitimate alerts across the cohorts and 2 PhishFuzzer phishing
+  alerts, with no Nazario alert lost (see the CHANGELOG entry of 2026-10-03 01:30). It is
+  left to the owner to decide.
+- **One missed lure fixed.** A plain-text "has been sent using Dropbox … to view the
+  message" notice with a bare link now reads as a file-sharing lure (Nazario 2016 #342).
+
 ### Recheck of 9162549 (2026-10-03)
 
 An offline recheck found one P1 left from the last fix. A gradient whose first argument is

@@ -511,11 +511,13 @@ Raw input enables these checks:
   there, while the trusted domain keeps other link checks quiet. "Confirm attendance"
   or "View document" do not count, nor do company SharePoint sites;
 - file-sharing notices whose button leaves the service they name: "sent you some
-  files", "shared a file with you", "Document Shared With You" or "a file … was
-  shared with you", naming WeTransfer, OneDrive, SharePoint,
+  files", "shared a file with you", "Document Shared With You", "a file … was
+  shared with you" or "has been sent using Dropbox", naming WeTransfer, OneDrive, SharePoint,
   Dropbox, Google Drive or DocuSign in the text or the sender's display name, with a
   Download, Open or View button on a host that is neither the service's (including
-  we.tl, 1drv.ms, SharePoint and Dropbox Sign), the sender's, nor an official one;
+  we.tl, 1drv.ms, SharePoint and Dropbox Sign), the sender's, nor an official one. A bare
+  address in plain text has no label: the instruction just before it counts ("Press Here
+  sign in with your email to view the message. http://…");
 - delivery lures: a parcel held for an unpaid shipping or customs fee ("shipping cost
   have not been paid", "Confirm the shipping fee 50 ZAR"), or undeliverable for a
   wrong address the reader must correct, with a Pay, Confirm, Update or Continue
