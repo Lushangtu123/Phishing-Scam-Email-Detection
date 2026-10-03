@@ -1408,6 +1408,75 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Candidate models in the serving pipeline (2026-10-03)
+
+"Adding public data to training" (section 5) found that LLM variants of recent seeds (C2)
+halved the false-positive rate on the 205 recent PhishFuzzer seeds. That was the model
+alone, in cross-validation, and it asked for a check on independent legitimate mail before
+any retraining. This is that check:
+- candidates trained offline on public data only;
+- scored through the full serving pipeline, rules and fusion included, on the cohorts used
+  for every change;
+- the owner's mail scored for counts only, never trained on.
+
+No candidate replaced the served artifact.
+
+**Method.**
+- **Recipe.** The committed one: seed 42, Logistic Regression on word and character
+  n-grams, synthetic hard negatives, and a threshold chosen on SpaPhish 2024 validation
+  within a 20% false-positive budget. Extra public rows join the training side after the
+  split, as the hard negatives do, so no held-out or SpaPhish validation family is trained
+  on.
+- **Reproduction.** Retrained this way with no extra rows, the model equals the served
+  artifact. Vocabularies, coefficients and threshold (0.3736) are the same, and the
+  probabilities on the 273 public test messages (PhishFuzzer recent seeds, UniqueData,
+  Postmark) are identical.
+- **Reduced scale.** Two full-scale trainings run at the same time ran out of the machine's
+  64 GB of memory. The comparison was rerun one training at a time at 40% scale: 12,000
+  corpus rows instead of 30,000, and 40% of the extra rows.
+  - Every training text was cut to 20,000 characters.
+  - A watchdog stopped any training past 16 GB; peaks were 1.8, 12.9 and 12.4 GB.
+- **Baseline.** M0r is the recipe alone at this scale, and the candidates are compared
+  with it. Against the served model it trades a few legitimate alerts for phishing ones
+  (genuine pasted 37 → 33, Nazario 2,152 → 2,144).
+- **Candidates.**
+  - M1r adds 40% of DiFraud and of the LLM variants of PhishFuzzer's legacy seeds:
+    10,959 rows, so training grows from 11,652 to 22,475 rows.
+  - M2r adds 40% of those sources plus the LLM variants of the 205 recent seeds: 11,451
+    rows.
+
+| Alerts / undetermined / Safe or Low | Served | M0r | M1r | M2r |
+|---|---|---|---|---|
+| 92 genuine downloads, no mailbox | 25 / 10 / 57 | 25 / 8 / 59 | 32 / 8 / 52 | 24 / 14 / 54 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 4 / 85 | 6 / 6 / 80 | 3 / 8 / 81 |
+| 92 genuine downloads, pasted | 37 / 1 / 54 | 33 / 1 / 58 | 56 / 1 / 35 | 36 / 1 / 55 |
+| UniqueData legitimate, pasted (58) | 39 / 0 / 19 | 39 / 0 / 19 | 42 / 0 / 16 | 38 / 0 / 20 |
+| Postmark templates, pasted (10) | 3 / 0 / 7 | 2 / 0 / 8 | 9 / 0 / 1 | 6 / 0 / 4 |
+| PhishFuzzer recent legitimate seeds (102) | 63 / 0 / 39 | 55 / 0 / 47 | 68 / 0 / 34 | (45 / 0 / 57) |
+| PhishFuzzer recent phishing seeds (103) | 88 / 0 / 15 | 84 / 0 / 19 | 91 / 0 / 12 | (95 / 0 / 8) |
+| Nazario 2015–22 phishing (2,163) | 2,152 / 9 / 2 | 2,144 / 9 / 10 | 2,155 / 8 / 0 | 2,155 / 8 / 0 |
+| Nazario 2023–25 phishing (1,303) | 1,293 / 7 / 3 | 1,286 / 6 / 11 | 1,290 / 7 / 6 | 1,287 / 8 / 8 |
+
+M2r's PhishFuzzer figures are bracketed because they are no test: it was trained on LLM
+variants of those seeds.
+
+Against M0r:
+- **M1r is worse on every legitimate cohort.** Its threshold falls from 0.39 to 0.25.
+  - Genuine pasted alerts rise from 33 to 56.
+  - Postmark alerts rise from 2 to 9.
+  - It gains 11 and 4 Nazario alerts and 7 PhishFuzzer phishing alerts.
+- **M2r is no better on independent legitimate mail.**
+  - It stays within one alert on the genuine `.eml` and UniqueData cohorts, but six more
+    genuine downloads become undetermined without a mailbox.
+  - Genuine pasted alerts rise from 33 to 36, and Postmark from 2 to 6.
+  - Its PhishFuzzer gain (55 → 45 legitimate alerts) is on seeds it trained on. The C2 gain
+    of section 5 does not show on legitimate mail from other sources.
+- **Conclusion.** None of the public data here lowers false alerts on legitimate mail from
+  outside its own source. The served model stays.
+- **Next step.** As section 4 concluded: consented, dated, recent legitimate mail, measured
+  with `evaluate_serving_pipeline.py` before any retraining. The training and scoring
+  scripts used here stayed outside the repository.
+
 ### Review of 362eb8f (2026-10-03)
 
 A read-only review found one P2. A `url()` browsers read as a bad URL (`url(a"b")`,

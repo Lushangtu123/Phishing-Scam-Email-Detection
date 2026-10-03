@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-03 04:30 PT] — Record candidate models scored in the serving pipeline
+
+### Why
+The owner asked for an offline evaluation of a candidate content model trained on public data, before any decision to replace the served one. It also checks section 5's C2 result (recent-seed LLM variants halving false positives on PhishFuzzer seeds) on legitimate mail from other sources.
+
+### Files changed
+- `docs/evaluation.md`: method, results and conclusion of the comparison. No code or model changes.
+
+### Effect
+Against a baseline trained the same way (M0r), neither candidate lowers false alerts on legitimate mail from other sources:
+- M1r (+ DiFraud and legacy-seed LLM variants): genuine pasted false alerts 33 → 56, Postmark 2 → 9.
+- M2r (+ recent-seed variants too):
+  - within one alert on the genuine `.eml` and UniqueData cohorts;
+  - six more genuine messages undetermined;
+  - genuine pasted 33 → 36, Postmark 2 → 6.
+
+The served model is unchanged.
+
 ## [2026-10-03 03:30 PT] — Fix the review of 362eb8f: a bad url() drops its background
 
 ### Why
