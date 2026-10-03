@@ -1038,6 +1038,20 @@ class ContentRuleRobustnessTests(unittest.TestCase):
         self.assertEqual(fused['risk_level'], 'low')
         self.assertEqual(fused['fusion_basis'], 'other')
 
+    def test_a_score_just_below_the_threshold_is_no_alert(self):
+        # The threshold was chosen within the false-positive budget: 30–37% lies inside it.
+        for probability in (0.30, 0.35, 0.3735):
+            fused = app.fuse_content_risk(
+                ml_phishing_probability=probability,
+                ml_decision_threshold=0.3736,
+                heuristic_score=0,
+            )
+            self.assertEqual(fused['risk_level'], 'low', probability)
+            self.assertEqual(fused['combined_phishing_score'], round(probability * 100, 1))
+        # Rule evidence still makes it an alert on its own terms.
+        fused = app.fuse_content_risk(ml_phishing_probability=0.35, ml_decision_threshold=0.3736, heuristic_score=5)
+        self.assertEqual(fused['risk_level'], 'medium')
+
     def test_high_model_score_with_independent_evidence_can_be_critical(self):
         fused = app.fuse_content_risk(
             ml_phishing_probability=0.90,

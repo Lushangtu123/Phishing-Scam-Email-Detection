@@ -6550,6 +6550,10 @@ def fuse_content_risk(
     floor_score = max(floor_scores.get(minimum_level, 0.0), 0.10 if heuristic_score > 0 else 0.0)
     combined = max(heuristic_risk, ml_risk, floor_score)
     model_signal = ml_phishing_probability is not None and ml_risk >= ml_decision_threshold
+    # Below its decision threshold the model reads the text as legitimate: the threshold was
+    # chosen within a 20% false-positive budget, so a 30–37% probability lies inside it. It
+    # may make the result Low, never an alert on its own. The combined score still shows it.
+    level_score = combined if model_signal else max(heuristic_risk, floor_score, min(ml_risk, 0.29))
     # A high model score alone is not enough to justify a Critical label.
     independent_support = heuristic_score >= 9 or minimum_level in {"high", "critical"}
     model_only = model_signal and heuristic_score == 0 and minimum_level == "safe"
@@ -6565,9 +6569,9 @@ def fuse_content_risk(
         # 72% of real 2023 account and security notices (docs/evaluation.md), so an
         # uncorroborated score stays an alert for review but not a High verdict.
         level, label = "medium", "Medium Risk — Model Signal Needs Review"
-    elif combined >= 0.30:
+    elif level_score >= 0.30:
         level, label = "medium", "Medium Risk — Suspicious Content"
-    elif combined >= 0.10:
+    elif level_score >= 0.10:
         level, label = "low", "Low Risk — Minor Concerns"
     else:
         level, label = "safe", "No Phishing Indicators Found"

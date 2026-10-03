@@ -1069,7 +1069,10 @@ risk:
 
 Structural/rule evidence and ML evidence are fused conservatively: weak model
 evidence cannot average away a strong authentication or message-structure
-signal.
+signal. A model probability below the decision threshold (0.3736) means the model
+reads the text as legitimate: it can make the verdict Low, never an alert on its
+own, although the combined score still shows it. Probabilities between 30% and the
+threshold used to give a Medium alert.
 
 ## Project structure
 

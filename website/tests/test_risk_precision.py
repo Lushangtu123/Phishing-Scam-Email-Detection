@@ -48,8 +48,9 @@ class RiskPrecisionTests(unittest.TestCase):
                     result = self.analyze([probability], threshold, app.ContentRequest(body=self.body))
                     self.assertEqual(result['ml_prediction'], expected)
                     self.assertEqual(result['total_score'], 0)
-                    # Both sides alert as Medium without rule evidence; the basis shows the crossing.
-                    self.assertEqual(result['risk_level'], 'medium')
+                    # At the threshold the model alone alerts as Medium; just below it the
+                    # model reads the text as legitimate, so the verdict stays Low.
+                    self.assertEqual(result['risk_level'], 'medium' if expected else 'low')
                     self.assertEqual(result['fusion_basis'], 'model_only' if expected else 'other')
                     self.assertEqual(result['ml_phishing_probability'], round(probability * 100, 1))
 

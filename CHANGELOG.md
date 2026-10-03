@@ -20,6 +20,35 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-03 02:30 PT] — A model score below its threshold no longer makes an alert
+
+### Why
+The fusion turned any model probability of 30% or more into a Medium "Suspicious Content" alert. That included probabilities below the model's own 0.3736 decision threshold, which was chosen within a 20% false-positive budget on validation data. Below it the model reads the text as legitimate. The owner chose to align the fusion with the threshold (the trade-off is in the 01:30 entry).
+
+### Files changed
+- `website/app.py`: in `fuse_content_risk`, a model probability below the threshold may raise the verdict to Low, never to an alert on its own. Rule evidence still counts on its own terms. The combined score still shows the probability.
+- `website/tests/test_detection_behavior.py`: probabilities of 30%, 35% and 37.35% stay Low; with five rule points, Medium.
+- `website/tests/test_risk_precision.py`: a probability 0.00002 below the threshold is now Low, not Medium. The unrounded comparison it checks is unchanged.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+Same served model, main (3701d1c) against this change:
+
+| Cohort | Alerts before | After |
+|---|---:|---:|
+| 92 genuine downloads, no mailbox | 27 | 25 |
+| 92 genuine downloads, mailbox chosen | 3 | 3 |
+| 92 genuine downloads, pasted | 45 | 37 |
+| PhishFuzzer legitimate seeds | 72 | 63 |
+| UniqueData legitimate | 42 | 39 |
+| Postmark templates | 4 | 3 |
+| Nazario phishing | 3,445 | 3,445 (no per-message change) |
+| PhishFuzzer phishing seeds | 90 | 88 |
+
+- **DataCon 2023 day 1.** Two Medium messages become Low: a predatory journal's call for papers and an editing-service advertisement. One undetermined message becomes Low.
+- **Public HTML templates.** Four undetermined templates become Low: their renderings now agree.
+- Tests: 1,115 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-03 01:30 PT] — Read plain-text file-sharing lures, and where false alerts come from
 
 ### Why

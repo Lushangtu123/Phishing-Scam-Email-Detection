@@ -1428,10 +1428,10 @@ genuine message's text was read.
   (`accountprotection.microsoft.com`, `notice.aliexpress.com`). Without them the model still
   alerts, and relaxing the keywords costs Nazario alerts, so they are kept.
 - **Below the threshold.** A model probability between 30% and the 37.4% decision threshold
-  still gives a Medium alert through the combined score. Counting the model only at its
-  threshold would remove 23 legitimate alerts across the cohorts and 2 PhishFuzzer phishing
-  alerts, with no Nazario alert lost (see the CHANGELOG entry of 2026-10-03 01:30). It is
-  left to the owner to decide.
+  gave a Medium alert through the combined score. The owner chose to count the model only
+  at its threshold (applied 2026-10-03 02:30). This removed 23 legitimate alerts across the
+  cohorts, including 8 of the genuine pasted and 2 of the genuine `.eml` without a mailbox.
+  It cost 2 PhishFuzzer phishing alerts and no Nazario alert.
 - **One missed lure fixed.** A plain-text "has been sent using Dropbox … to view the
   message" notice with a bare link now reads as a file-sharing lure (Nazario 2016 #342).
 
