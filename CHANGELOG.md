@@ -20,6 +20,49 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-02 22:30 PT] — Fix the review of e02355e: atan2() percentages, clamp() bounds, deep math, checked against two Chromium builds
+
+### Why
+The read-only review of main at e02355e (2026-10-02) found two P1 and one P2 issue in the math typing added there, all reproduced here:
+- **R1 (P1).** `atan2(1deg, 1%)` and `atan2(1deg, calc(1deg + 1%))` were typed as angles. Chromium 154 drops both, yet the gradient was read as solid black: a visible callback scam became Safe.
+- **R2 (P1).** `clamp(none, 10px, none)` and `clamp(0px, 10px, none)` were rejected. Chromium 154 accepts them, so the valid black gradient was dropped and white text on it read as white on the white page, hence hidden: Safe.
+- **S1 (P2).** `calc()` nested 250 deep raised `RecursionError`: both analysis endpoints returned 500 for a 1.8 kB message.
+- **Also found**, comparing every value with Chrome 154 (the user's installed browser, headless, with a scratch profile) and Chromium 148:
+  - Browsers accept a declaration holding `env()` when they parse it, as with `var()`. `background: black env(safe-area-inset-top) 0` was dropped, so white text on it read as hidden.
+  - Units multiply and divide by their powers: `calc(1px * 1px / 1px)` is a length and `calc(10em / 1% * 1vw)` a length-percentage. Both were rejected.
+  - Chrome 154 accepts an angle mixed with a percentage in a conic stop; 148 does not.
+
+R2 shows that dropping a valid background hides text just as accepting an invalid one does. So neither may happen where this reader is unsure.
+
+### Files changed
+- `website/app.py`:
+  - **Types by powers.** `_css_math_type` gives each value powers of length, angle, percentage and other units, which multiply and divide. Sums need equal powers or fold a percentage into the other side's base. A percentage anywhere is remembered: where the value takes none (a direction, a conic `from`), it is invalid.
+  - **atan2() (R1).** An angle or length mixed with a percentage is invalid; two percentages resolve against the place's basis.
+  - **clamp() (R2).** Either bound may be `none`; the value may not.
+  - **Unknown, not invalid**, where this reader cannot be sure. The background is kept, but its colours count as unknown, so it hides nothing:
+    - `sqrt()`, `pow()`, `exp()` and `log()` of a dimension (Chromium accepts `sqrt(1vw)` and rejects `sqrt(4px)`);
+    - a percentage inside a trigonometric function;
+    - functions this reader does not model (`progress()`, `sibling-index()`);
+    - an angle mixed with a percentage in a conic stop.
+  - **Substitution functions.** `var()`, `env()`, `attr()`, `if()` and `inherit()` make a background valid when parsed, with unknown colours (`_CSS_SUBSTITUTION`), in the shorthand and in the clip, size and repeat longhands. `_background_parts` also leaves the colours unknown wherever an untyped math function stands.
+  - **Depth (S1).** Math nested past 32 levels is left unknown (`_CSS_MATH_DEPTH`); a `RecursionError` there is caught the same way.
+- `website/tests/test_review_2026_10_02_fourth.py`: 13 tests. Three of them check every value of `website/tests/fixtures/css/background_browser_verdicts.json` (1,916 values with both builds' `CSS.supports`):
+  - nothing either build accepts is dropped;
+  - whatever a build drops but this reader keeps has unknown colours;
+  - agreement stays above 80% (the fixture holds every generated disagreement).
+- `website/tests/test_review_2026_10_02_third.py`: `calc(10% + 1deg)` in a conic stop leaves the colours unknown instead of being dropped.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Review samples.** `atan-mixed`, `atan-mixed-nested`, `clamp-none` and `clamp-max-none` are High in HTML and EML, like their controls. The 250-deep sample returns a result: 200 from both endpoints, with no exception.
+- **Browsers.** 5,545 values were compared: the 1,045 hand-written ones of the last rounds and this one, and 4,500 generated math expressions in eight positions. The result agrees with Chrome 154 on 94%. Neither build accepts a value this reader drops, and every value a build drops but this reader keeps leaves its colours unknown. On 553 public values the two `-moz-` and `-o-` gradients remain the only disagreements.
+- **Nesting.** 124 deeply nested inputs return a result through both endpoints within 5 seconds each: `calc()` to 3,000 levels, `var()` fallback chains, `:not()`, `@media`, `color-mix()`, 10,000 nested `<div>` elements.
+- **Same served model, main (e02355e) against this change:**
+  - Nazario 3,466: no per-message change (3,445 alerts, 16 undetermined, 5 Safe or Low);
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,099 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 21:30 PT] — Fix the review of 9abbad5: CSS math types, gradient coverage, RDAP queue, link budget, subscription links
 
 ### Why

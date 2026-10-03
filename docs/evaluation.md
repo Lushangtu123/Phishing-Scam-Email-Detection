@@ -1408,6 +1408,35 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of e02355e (2026-10-02)
+
+A read-only review found three issues in the math typing, all reproduced and fixed:
+- **R1, atan2().** `atan2(1deg, 1%)` was typed as an angle. Chromium drops it, yet the gradient hid a visible callback scam: Safe.
+- **R2, clamp().** `clamp(none, 10px, none)` was rejected. Chromium accepts it, so the black gradient was dropped and white text on it read as hidden.
+- **S1, nesting.** `calc()` nested 250 deep made both endpoints return 500.
+
+R2 shows that a valid background misjudged as invalid hides text too. The checks therefore
+now leave a background's colours unknown wherever they cannot be sure, never dropping or
+painting it.
+
+They were compared with `CSS.supports` in Chrome 154 and Chromium 148 on 5,545 values,
+1,045 hand-written and 4,500 generated math expressions, and agree with Chrome 154 on 94%.
+Neither build accepts a value the checks drop. Every value a build drops but the checks
+keep has unknown colours, which hide nothing. A fixture of 1,916 of these verdicts keeps
+both properties under test.
+
+| Cohort (same model) | `e02355e`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,445 / 16 / 5 | 3,445 / 16 / 5 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of Nazario, DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
+**Limit.** The browsers compared are two Chromium builds. Other engines (WebKit in Apple
+Mail, Gecko in Thunderbird) were not compared. A value they treat differently is only
+safe where the checks leave its colours unknown.
+
 ### Review of 9abbad5 (2026-10-02)
 
 A read-only review found four issues, all reproduced and fixed:

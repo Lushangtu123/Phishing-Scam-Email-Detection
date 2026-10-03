@@ -2572,6 +2572,9 @@ _BACKGROUND_REPEATS = frozenset({'repeat', 'space', 'round', 'no-repeat'})
 _BACKGROUND_ATTACHMENTS = frozenset({'scroll', 'fixed', 'local'})
 _BACKGROUND_BOXES = frozenset({'border-box', 'padding-box', 'content-box', 'text'})
 _BACKGROUND_POSITION_AXES = {'left': 'h', 'right': 'h', 'top': 'v', 'bottom': 'v', 'center': 'c'}
+# Substitution functions: browsers accept a declaration holding one when they parse it,
+# and decide when they substitute it (var(), env(safe-area-inset-top), attr(), if()).
+_CSS_SUBSTITUTION = re.compile(r'(?<![\w-])(?:var|env|attr|if|inherit)\(', re.IGNORECASE)
 # A math function (CSS Values 4): its result's type decides where it is valid.
 _CSS_MATH_FUNCTIONS = frozenset('''calc min max clamp round mod rem abs sign sin cos tan asin acos atan atan2 pow sqrt
     hypot log exp'''.split())
@@ -2631,26 +2634,59 @@ def _css_words(value: str) -> list[str]:
     return [word for word in words if word]
 
 
+class _MathTooDeep(Exception):
+    """A math expression nested past _CSS_MATH_DEPTH."""
+
+
+# Math nested deeper than this is left untyped (unknown) rather than parsed further.
+_CSS_MATH_DEPTH = 32
+_MATH_NONE, _MATH_UNKNOWN = 'none', 'unknown'
+
+
+def _css_math_powers(first, second, sign=1):
+    powers = dict(first)
+    for base, exponent in second:
+        powers[base] = powers.get(base, 0) + sign * exponent
+    return tuple(sorted((base, exponent) for base, exponent in powers.items() if exponent))
+
+
 def _css_math_sum(types):
-    """The type of a sum (or of min(), max() and the like) of these types, or None."""
-    result = types[0]
-    for other in types[1:]:
-        if 'unknown' in (result, other):
-            result = 'unknown'
-        elif result != other:
-            pair = {result, other}
-            result = ('length-percentage' if pair <= {'length', 'percentage', 'length-percentage'}
-                      else 'angle-percentage' if pair <= {'angle', 'percentage', 'angle-percentage'} else None)
-            if result is None:
-                return None
-    return result
+    """The type of a sum (or of min(), max() and the like) of typed values, as CSS Values 4
+    adds types: equal powers, or a percentage folded into the other side's base (1px + 10%
+    is a length); None where they cannot be added."""
+    if _MATH_UNKNOWN in types:
+        return _MATH_UNKNOWN
+    if _MATH_NONE in types:
+        return None
+    powers, percent = types[0]
+    for other, other_percent in types[1:]:
+        percent = percent or other_percent
+        if other == powers:
+            continue
+        for base in {base for base, _exponent in powers + other} - {'percent'}:
+            folded = [_css_math_percent_as(side, base) for side in (powers, other)]
+            if folded[0] == folded[1]:
+                powers = folded[0]
+                break
+        else:
+            return None
+    return powers, percent
+
+
+def _css_math_percent_as(powers, base):
+    """The powers with a percentage read as the base it resolves against."""
+    return _css_math_powers((), tuple((base if name == 'percent' else name, exponent) for name, exponent in powers))
 
 
 def _css_math_type(word: str) -> str | None:
     """The type of a math function's result: 'number', 'percentage', 'length', 'angle',
-    'length-percentage', 'angle-percentage' or another dimension; 'unknown' where this
-    reader cannot tell (var(), functions it does not model); None where browsers reject
-    it (calc(banana), calc(1px + 1deg), calc(1px+1px))."""
+    'length-percentage' or 'angle-percentage' (a percentage resolved against the other
+    side), or another dimension; 'unknown' where this reader cannot tell (var(), functions
+    it does not model, nesting past _CSS_MATH_DEPTH); None where every browser rejects it
+    (calc(banana), calc(1px + 1deg), calc(1px+1px), atan2(1deg, 1%)).
+
+    Types multiply and divide by their powers (calc(1px * 1px / 1px) is a length), and a
+    percentage anywhere is remembered: where the value takes no percentage, any is invalid."""
     tokens, index = [], 0
     while index < len(word):
         match = _CSS_MATH_TOKEN.match(word, index)
@@ -2664,16 +2700,17 @@ def _css_math_type(word: str) -> str | None:
         spaced = not tokens or tokens[-1][2]
         if match.group(2) is not None:
             unit = match.group(3)
-            kind = ('number' if unit is None else 'percentage' if unit == '%' else 'length' if unit in _CSS_LENGTH_UNITS
-                    else 'angle' if unit in _CSS_ANGLE_UNITS else _CSS_OTHER_UNITS.get(unit))
+            kind = (() if unit is None else (('percent', 1),) if unit == '%' else (('length', 1),)
+                    if unit in _CSS_LENGTH_UNITS else (('angle', 1),) if unit in _CSS_ANGLE_UNITS
+                    else ((_CSS_OTHER_UNITS[unit], 1),) if unit in _CSS_OTHER_UNITS else None)
             if kind is None:
                 return None
-            tokens.append(('value', kind, False, spaced))
+            tokens.append(('value', (kind, unit == '%'), False, spaced))
         elif match.group(4) is not None:
             tokens.append(('function' if match.group(5) else 'name', match.group(4), False, spaced))
         else:
             tokens.append(('operator', match.group(6), False, spaced))
-    position = [0]
+    position, depth = [0], [0]
 
     def peek():
         return tokens[position[0]] if position[0] < len(tokens) else (None, None, False, False)
@@ -2683,13 +2720,22 @@ def _css_math_type(word: str) -> str | None:
         position[0] += 1
         return token
 
+    def close():
+        if take()[:2] != ('operator', ')'):
+            raise ValueError
+        depth[0] -= 1
+
+    def opened():
+        depth[0] += 1
+        if depth[0] > _CSS_MATH_DEPTH:
+            raise _MathTooDeep
+
     def arguments():
         values = [total()]
         while peek()[:2] == ('operator', ','):
             take()
             values.append(total())
-        if take()[:2] != ('operator', ')'):
-            raise ValueError
+        close()
         return values
 
     def atom():
@@ -2698,24 +2744,28 @@ def _css_math_type(word: str) -> str | None:
             return value
         if kind == 'name':
             if value in _CSS_MATH_CONSTANTS:
-                return 'number'
+                return (), False
+            if value == 'none':
+                return _MATH_NONE  # only clamp() takes it, as a missing bound
             raise ValueError
         if (kind, value) == ('operator', '('):
+            opened()
             result = total()
-            if take()[:2] != ('operator', ')'):
-                raise ValueError
+            close()
             return result
         if kind != 'function':
             raise ValueError
+        opened()
         if value not in _CSS_MATH_FUNCTIONS:
             # var(), env() or a function this reader does not model: skip to its end.
-            depth = 1
-            while depth:
+            level = 1
+            while level:
                 token = take()
                 if token[0] is None:
                     raise ValueError
-                depth += {'(': 1, ')': -1}.get(token[1], 0) if token[0] == 'operator' else token[0] == 'function'
-            return 'unknown'
+                level += {'(': 1, ')': -1}.get(token[1], 0) if token[0] == 'operator' else token[0] == 'function'
+            depth[0] -= 1
+            return _MATH_UNKNOWN
         if value == 'round' and peek()[0] == 'name' and peek()[1] in {'nearest', 'up', 'down', 'to-zero'}:
             take()
             if take()[:2] != ('operator', ','):
@@ -2726,40 +2776,49 @@ def _css_math_type(word: str) -> str | None:
                       'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'exp'} else (1, 32))
         if not counts[0] <= len(values) <= counts[1] or None in values:
             raise ValueError
-        if 'unknown' in values:
-            return 'unknown'
+        if value == 'clamp':
+            # clamp(none, 10px, none): either bound may be missing, never the value.
+            if values[1] == _MATH_NONE:
+                return None
+            values = [value_type for value_type in values if value_type != _MATH_NONE]
+        elif _MATH_NONE in values:
+            return None
+        if _MATH_UNKNOWN in values:
+            return _MATH_UNKNOWN
+        percent = any(value_type[1] for value_type in values)
+        # Where a percentage takes part, a mismatch may still resolve in the browser: unknown.
+        mismatch = _MATH_UNKNOWN if percent else None
         if value in {'sin', 'cos', 'tan'}:
-            return 'number' if values[0] in {'number', 'angle'} else None
+            return ((), percent) if values[0][0] in {(), (('angle', 1),)} else mismatch
         if value in {'asin', 'acos', 'atan'}:
-            return 'angle' if values[0] == 'number' else None
+            return ((('angle', 1),), percent) if values[0][0] == () else mismatch
         if value in {'pow', 'sqrt', 'exp', 'log'}:
-            return 'number' if set(values) == {'number'} else None
-        if value == 'round' and len(values) == 1 and values[0] != 'number':
+            # Browsers accept some dimensions here (sqrt(1vw)): only numbers are typed.
+            return ((), percent) if all(value_type[0] == () for value_type in values) else _MATH_UNKNOWN
+        if value == 'round' and len(values) == 1 and values[0][0] != ():
             return None  # round(1px) needs its interval; round(1.5) does not
         result = _css_math_sum(values)
         if value == 'atan2':
-            return 'angle' if result else None
-        return 'number' if value == 'sign' and result else result
+            # Browsers reject an angle or length mixed with a percentage in atan2();
+            # two percentages resolve against the place's basis, where it has one.
+            if result is None or percent and any(value_type[0] != (('percent', 1),) for value_type in values):
+                return None
+            return (('angle', 1),), percent
+        if value == 'sign':
+            return None if result is None else ((), percent)
+        return result
 
     def product():
         result = atom()
         while peek()[:2] in {('operator', '*'), ('operator', '/')}:
             operator = take()[1]
             other = atom()
-            if None in (result, other):
+            if None in (result, other) or _MATH_NONE in (result, other):
                 return None
-            if 'unknown' in (result, other):
-                result = 'unknown'
-            elif other == 'number':
-                pass
-            elif operator == '*' and result == 'number':
-                result = other
-            elif operator == '/' and result == other and result not in {'percentage', 'length-percentage'}:
-                result = 'number'  # 10px / 2px is a number (typed arithmetic)
-            elif operator == '/' and _css_math_sum([result, other]):
-                result = 'unknown'  # a percentage's share of a length depends on the box
+            if _MATH_UNKNOWN in (result, other):
+                result = _MATH_UNKNOWN
             else:
-                return None
+                result = (_css_math_powers(result[0], other[0], 1 if operator == '*' else -1), result[1] or other[1])
         return result
 
     def total():
@@ -2781,7 +2840,28 @@ def _css_math_type(word: str) -> str | None:
         result = atom()
     except (ValueError, IndexError):
         return None
-    return result if position[0] == len(tokens) else None
+    except (_MathTooDeep, RecursionError):
+        return _MATH_UNKNOWN
+    if position[0] != len(tokens) or result is None or result == _MATH_NONE:
+        return None
+    if result == _MATH_UNKNOWN:
+        return result
+    powers, percent = result
+    if powers == (('percent', 1),):
+        return 'percentage'
+    if any(base == 'percent' for base, _exponent in powers):
+        # A percentage resolves against the place's basis, a length or an angle, also in
+        # products (10em / 1% * 1vw is a length).
+        for base in ('length', 'angle'):
+            if _css_math_percent_as(powers, base) == ((base, 1),):
+                return f'{base}-percentage'
+        return None
+    if not powers:
+        return 'number'
+    if len(powers) == 1 and powers[0][1] == 1:
+        base = powers[0][0]
+        return f'{base}-percentage' if percent and base in {'length', 'angle'} else base
+    return None
 
 
 def _css_quantity(word: str) -> str | None:
@@ -2810,8 +2890,9 @@ def _css_length(word: str) -> bool:
 # The types each place takes; a math function of unknown type is accepted, and leaves a
 # gradient's colours unknown.
 _CSS_LENGTH_PERCENTAGE = frozenset({'length', 'percentage', 'zero', 'length-percentage', 'math-unknown'})
-# Chromium rejects angles and percentages mixed in one conic stop (calc(10% + 1deg)).
-_CSS_ANGLE_PERCENTAGE = frozenset({'angle', 'percentage', 'zero', 'math-unknown'})
+# Angles and percentages mixed in one conic stop (calc(10% + 1deg)): Chromium 154 accepts
+# them, 148 does not, so the gradient's colours are left unknown.
+_CSS_ANGLE_PERCENTAGE = frozenset({'angle', 'percentage', 'zero', 'angle-percentage', 'math-unknown'})
 _CSS_ANGLE = frozenset({'angle', 'zero', 'math-unknown'})
 
 
@@ -2896,7 +2977,8 @@ def _gradient_stops(image: str):
             return []
     stops = [item for item in items if item != '#hint']
     # A math function this reader cannot type may still be invalid: the colours are unknown.
-    if any(_css_quantity(word) == 'math-unknown' for words in arguments for word in words):
+    unknown = {'math-unknown', 'angle-percentage'} if kind == 'conic' else {'math-unknown'}
+    if any(_css_quantity(word) in unknown for words in arguments for word in words):
         stops.append(None)
     return stops
 
@@ -2926,10 +3008,10 @@ def _background_valid(value: str, name: str = 'background') -> bool:
     reader can tell: each layer holds one image at most, a position and size, a repeat,
     an attachment and boxes, each once, and only the shorthand's last layer one colour.
     Browsers drop an invalid declaration whole ("background: banana black" leaves the
-    background as it was), and so a gradient browsers reject. A var() is decided where
-    it is substituted."""
+    background as it was), and so a gradient browsers reject. A var() or env() is decided
+    where it is substituted."""
     value = value.strip()
-    if 'var(' in value or value in _CSS_WIDE_KEYWORDS:
+    if _CSS_SUBSTITUTION.search(value) or value in _CSS_WIDE_KEYWORDS:
         return bool(value)
     layers = _css_top_level(value, ',')
     for index, layer in enumerate(layers):
@@ -2991,7 +3073,7 @@ def _background_valid(value: str, name: str = 'background') -> bool:
 @lru_cache(maxsize=4096)
 def _background_clip_valid(value: str) -> bool:
     """Whether a background-clip value is valid: one box for each layer."""
-    return 'var(' in value or value in _CSS_WIDE_KEYWORDS or all(
+    return bool(_CSS_SUBSTITUTION.search(value)) or value in _CSS_WIDE_KEYWORDS or all(
         len(words) == 1 and words[0] in _BACKGROUND_BOXES
         for words in map(_css_words, _css_top_level(value, ',')))
 
@@ -3004,7 +3086,7 @@ _BACKGROUND_PARTIAL_REPEATS = frozenset({'no-repeat', 'repeat-x', 'repeat-y', 's
 
 def _background_tiling_valid(name: str, value: str) -> bool:
     """Whether a background-size or background-repeat value is valid, layer by layer."""
-    if 'var(' in value or value in _CSS_WIDE_KEYWORDS:
+    if _CSS_SUBSTITUTION.search(value) or value in _CSS_WIDE_KEYWORDS:
         return True
     for words in map(_css_words, _css_top_level(value, ',')):
         if name == 'background-repeat':
@@ -3035,8 +3117,8 @@ def _background_tile_covers(repeat: list[str], size: list[str]) -> bool:
 def _background_covers(image: str, size: str | None = None, repeat: str | None = None) -> bool:
     """Whether every layer of a background covers the box. The size and repeat come from
     the shorthand (image) unless longhands that outrank it set them."""
-    if 'var(' in image or any(value is not None and ('var(' in value or value in _CSS_WIDE_KEYWORDS - {'initial'})
-                              for value in (size, repeat)):
+    if _CSS_SUBSTITUTION.search(image) or any(value is not None and (
+            _CSS_SUBSTITUTION.search(value) or value in _CSS_WIDE_KEYWORDS - {'initial'}) for value in (size, repeat)):
         return False
     shorthand = []
     for layer in _css_top_level(image, ','):
@@ -3058,7 +3140,7 @@ def _background_covers(image: str, size: str | None = None, repeat: str | None =
 def _background_clip(value: str) -> str:
     """Which layers of a background-clip value, or of a background shorthand, clip to the
     text: 'all', 'some' or 'none'; 'unknown' where it is inherited or from var()."""
-    if 'var(' in value or value == 'inherit':
+    if _CSS_SUBSTITUTION.search(value) or value == 'inherit':
         return 'unknown'
     layers = [_css_words(layer) for layer in _css_top_level(value, ',')]
     clipped = sum('text' in words for words in layers)
@@ -3069,12 +3151,17 @@ def _background_clip(value: str) -> str:
 def _background_parts(value: str):
     """The colour token of a background or background-color value (its last layer), or
     None; whether it paints an image; and the colour of gradients whose every stop is one
-    opaque colour (linear-gradient(white, white)), which paint like that colour."""
+    opaque colour (linear-gradient(white, white)), which paint like that colour. A math
+    function this reader cannot type anywhere in it may make the declaration invalid:
+    its colours are then unknown."""
     layers = _css_top_level(value, ',')
-    images = [token for layer in layers for token in _css_top_level(layer, ' \t\n\r\f')
-              if _BACKGROUND_IMAGE.match(token)]
+    if _CSS_SUBSTITUTION.search(value) or any(
+            _css_quantity(word) == 'math-unknown'
+            for layer in layers for piece in _css_top_level(layer, '/') for word in _css_words(piece)):
+        return None, True, None
+    images = [token for layer in layers for token in _css_words(layer) if _BACKGROUND_IMAGE.match(token)]
     colour = None
-    for token in filter(None, _css_top_level(layers[-1], ' \t\n\r\f')):
+    for token in _css_words(layers[-1]):
         if token == 'currentcolor' or (token not in _CSS_WIDE_KEYWORDS
                                        and _color_class(token) in {'visible', 'transparent'}):
             colour = token

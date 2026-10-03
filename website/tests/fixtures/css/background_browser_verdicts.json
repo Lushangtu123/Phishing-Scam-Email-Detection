@@ -1,0 +1,11506 @@
+{
+"about": "CSS.supports(property, value) in two Chromium builds, for background values with gradients, math functions, sizes and repeats: hand-written cases and generated math expressions. No message text.",
+"browsers": {
+"chrome154": "Google Chrome 154.0.8037.97 (headless)",
+"chrome148": "Chrome for Testing 148.0.7778.96 (headless shell)"
+},
+"generated": "2026-10-02",
+"values": [
+[
+"background",
+"linear-gradient(clamp(none, 10px, none), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, 10px, none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(none, 10px, none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(none, 10px, none), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, 10px, none) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(none, 10px, none) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(clamp(0px, 10px, none), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(0px, 10px, none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(0px, 10px, none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(0px, 10px, none), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(0px, 10px, none) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(0px, 10px, none) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(clamp(none, 10px, 20px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, 10px, 20px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(none, 10px, 20px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(none, 10px, 20px), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, 10px, 20px) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(none, 10px, 20px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(clamp(none, none, 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, none, 10px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(none, none, 10px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(none, none, 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, none, 10px) 0",
+false,
+false
+],
+[
+"background-size",
+"clamp(none, none, 10px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(clamp(10px, none, 20px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(10px, none, 20px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(10px, none, 20px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(10px, none, 20px), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(10px, none, 20px) 0",
+false,
+false
+],
+[
+"background-size",
+"clamp(10px, none, 20px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(clamp(none, 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, 10px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(none, 10px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(none, 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, 10px) 0",
+false,
+false
+],
+[
+"background-size",
+"clamp(none, 10px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(clamp(none, 1deg, none), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black clamp(none, 1deg, none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(none, 1deg, none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from clamp(none, 1deg, none), black, black)",
+true,
+true
+],
+[
+"background",
+"black clamp(none, 1deg, none) 0",
+false,
+false
+],
+[
+"background-size",
+"clamp(none, 1deg, none) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(max(none, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black max(none, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black max(none, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from max(none, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black max(none, 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"max(none, 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(min(none, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black min(none, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black min(none, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from min(none, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black min(none, 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"min(none, 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(none), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(none), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(none) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(none) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(none + 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(none + 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(none + 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(none + 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(none + 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(none + 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(clamp(none, 10%, none), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, 10%, none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(none, 10%, none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from clamp(none, 10%, none), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, 10%, none) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(none, 10%, none) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(atan2(1deg, 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black atan2(1deg, 1%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1deg, 1%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from atan2(1deg, 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(1deg, 1%) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1deg, 1%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1%, 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black atan2(1%, 1%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1%, 1%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from atan2(1%, 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(1%, 1%) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1%, 1%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1px, 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black atan2(1px, 1%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1px, 1%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from atan2(1px, 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(1px, 1%) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1px, 1%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1px, 2px), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black atan2(1px, 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1px, 2px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from atan2(1px, 2px), black, black)",
+true,
+true
+],
+[
+"background",
+"black atan2(1px, 2px) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1px, 2px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1, 2), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black atan2(1, 2), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1, 2), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from atan2(1, 2), black, black)",
+true,
+true
+],
+[
+"background",
+"black atan2(1, 2) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1, 2) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1deg, calc(1deg + 1%)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black atan2(1deg, calc(1deg + 1%)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1deg, calc(1deg + 1%)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from atan2(1deg, calc(1deg + 1%)), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(1deg, calc(1deg + 1%)) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1deg, calc(1deg + 1%)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1px, 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black atan2(1px, 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(1px, 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from atan2(1px, 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(1px, 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"atan2(1px, 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sign(10%) * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sign(10%) * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sign(10%) * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(sign(10%) * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(sign(10%) * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(sign(10%) * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sign(10%) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sign(10%) * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(sign(10%) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sign(10%) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(sign(10%) * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(sign(10%) * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(abs(10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black abs(10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black abs(10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from abs(10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black abs(10%) 0",
+true,
+true
+],
+[
+"background-size",
+"abs(10%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(abs(-10%) + 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(abs(-10%) + 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(abs(-10%) + 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(abs(-10%) + 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(abs(-10%) + 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(abs(-10%) + 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(round(10%, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black round(10%, 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black round(10%, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from round(10%, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black round(10%, 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"round(10%, 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(mod(10%, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black mod(10%, 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black mod(10%, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from mod(10%, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black mod(10%, 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"mod(10%, 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(hypot(1px, 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black hypot(1px, 10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black hypot(1px, 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from hypot(1px, 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black hypot(1px, 10%) 0",
+true,
+true
+],
+[
+"background-size",
+"hypot(1px, 10%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(min(1deg, 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black min(1deg, 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black min(1deg, 10%), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from min(1deg, 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black min(1deg, 10%) 0",
+false,
+false
+],
+[
+"background-size",
+"min(1deg, 10%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1deg + 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1deg + 1%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1deg + 1%), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1deg + 1%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1deg + 1%) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1deg + 1%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10%) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(10%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px * 1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * 1px / 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px * 1px / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * 1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px * 1px / 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px * 1px / 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1deg * 1px / 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(1deg * 1px / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1deg * 1px / 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1deg * 1px / 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1deg * 1px / 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1deg * 1px / 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px / 1px * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(1px / 1px * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px / 1px * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1px / 1px * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1px / 1px * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px / 1px * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((1px * 2px) / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((1px * 2px) / 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc((1px * 2px) / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((1px * 2px) / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc((1px * 2px) / 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc((1px * 2px) / 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px * 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px * 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px / 1deg * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px / 1deg * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px / 1deg * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px / 1deg * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px / 1deg * 1deg) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px / 1deg * 1deg) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(10% * 1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10% * 1px / 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(10% * 1px / 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(10% * 1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10% * 1px / 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(10% * 1px / 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(10% / 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10% / 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10% / 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(10% / 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10% / 10%) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(10% / 10%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(10% / 10% * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10% / 10% * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10% / 10% * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(10% / 10% * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10% / 10% * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(10% / 10% * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sin(10%) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sin(10%) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sin(10%) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sin(10%) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(sin(10%) * 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(sin(10%) * 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px / 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px / 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px / 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px / 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px / 10%) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px / 10%) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px * 10% / 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * 10% / 10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px * 10% / 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * 10% / 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px * 10% / 10%) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px * 10% / 10%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(progress(5px, 0px, 10px) * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(progress(5px, 0px, 10px) * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(5px, 0px, 10px) * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(progress(5px, 0px, 10px) * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(progress(5px, 0px, 10px) * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(progress(5px, 0px, 10px) * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sibling-index() * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(sibling-index() * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sibling-index() * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(sibling-index() * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(sibling-index() * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(sibling-index() * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(45deg)))))))))))))))))))))))))))))), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(45deg)))))))))))))))))))))))))))))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(45deg)))))))))))))))))))))))))))))), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(45deg)))))))))))))))))))))))))))))), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(45deg)))))))))))))))))))))))))))))) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(45deg)))))))))))))))))))))))))))))) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(10px)))))))))))))))))))))))))))))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(10px)))))))))))))))))))))))))))))), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(10px)))))))))))))))))))))))))))))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(10px)))))))))))))))))))))))))))))), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(10px)))))))))))))))))))))))))))))) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(calc(10px)))))))))))))))))))))))))))))) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(round(down, 10%, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black round(down, 10%, 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black round(down, 10%, 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from round(down, 10%, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black round(down, 10%, 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"round(down, 10%, 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(sign(1deg) * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(sign(1deg) * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sign(1deg) * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(sign(1deg) * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(sign(1deg) * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(sign(1deg) * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sqrt(4), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sqrt(4), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sqrt(4), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(4), black, black)",
+false,
+false
+],
+[
+"background",
+"black sqrt(4) 0",
+false,
+false
+],
+[
+"background-size",
+"sqrt(4) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sqrt(4px * 4px)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sqrt(4px * 4px)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sqrt(4px * 4px)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sqrt(4px * 4px)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(sqrt(4px * 4px)) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(sqrt(4px * 4px)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px * sqrt(4)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * sqrt(4)), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px * sqrt(4)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * sqrt(4)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px * sqrt(4)) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px * sqrt(4)) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(hypot(3px, 4px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black hypot(3px, 4px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black hypot(3px, 4px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from hypot(3px, 4px), black, black)",
+false,
+false
+],
+[
+"background",
+"black hypot(3px, 4px) 0",
+true,
+true
+],
+[
+"background-size",
+"hypot(3px, 4px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(hypot(3px, 4px) / 1px * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(hypot(3px, 4px) / 1px * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(hypot(3px, 4px) / 1px * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(hypot(3px, 4px) / 1px * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(hypot(3px, 4px) / 1px * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(hypot(3px, 4px) / 1px * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(exp(1) * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(exp(1) * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(exp(1) * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(exp(1) * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(exp(1) * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(exp(1) * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(pow(2px, 2) / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(pow(2px, 2) / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(pow(2px, 2) / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(pow(2px, 2) / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(pow(2px, 2) / 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(pow(2px, 2) / 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(clamp(none, 1px + 2px, none), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, 1px + 2px, none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(none, 1px + 2px, none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(none, 1px + 2px, none), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, 1px + 2px, none) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(none, 1px + 2px, none) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(clamp(none, calc(1px + 2px), none), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(none, calc(1px + 2px), none), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(none, calc(1px + 2px), none), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(none, calc(1px + 2px), none), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(none, calc(1px + 2px), none) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(none, calc(1px + 2px), none) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(banana), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(banana), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(banana), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(banana), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(banana), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(banana) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(banana) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px + 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px + 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px + 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px + 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px + 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px + 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px + 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px+1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px+1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px+1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px+1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px+1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px+1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px+1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px + 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px + 10%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px + 10%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px + 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px + 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px + 10%) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px + 10%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(10% + 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10% + 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10% + 1deg), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from calc(10% + 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(10% + 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10% + 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(10% + 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2 * 3px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(2 * 3px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(2 * 3px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(2 * 3px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(2 * 3px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(2 * 3px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(2 * 3px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px * 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px * 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px * 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px * 2px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px * 2px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px / 2), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px / 2), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px / 2), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px / 2), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px / 2), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1px / 2) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px / 2) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px / 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px / 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px / 1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px / 1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(min(1px, 2px, 3%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black min(1px, 2px, 3%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black min(1px, 2px, 3%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from min(1px, 2px, 3%), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle min(1px, 2px, 3%), black, black)",
+false,
+false
+],
+[
+"background",
+"black min(1px, 2px, 3%) 0",
+true,
+true
+],
+[
+"background-size",
+"min(1px, 2px, 3%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(clamp(1px, 2vw, 3em), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(1px, 2vw, 3em), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black clamp(1px, 2vw, 3em), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(1px, 2vw, 3em), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle clamp(1px, 2vw, 3em), black, black)",
+true,
+true
+],
+[
+"background",
+"black clamp(1px, 2vw, 3em) 0",
+true,
+true
+],
+[
+"background-size",
+"clamp(1px, 2vw, 3em) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(round(up, 1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black round(up, 1px, 2px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black round(up, 1px, 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from round(up, 1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle round(up, 1px, 2px), black, black)",
+true,
+true
+],
+[
+"background",
+"black round(up, 1px, 2px) 0",
+true,
+true
+],
+[
+"background-size",
+"round(up, 1px, 2px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(sin(45deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sin(45deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sin(45deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sin(45deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sin(45deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black sin(45deg) 0",
+false,
+false
+],
+[
+"background-size",
+"sin(45deg) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle atan2(1, 2), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(pi * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(pi * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(pi * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(pi * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(pi * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(pi * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(pi * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((1px + 2px) * 3), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((1px + 2px) * 3), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc((1px + 2px) * 3), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((1px + 2px) * 3), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((1px + 2px) * 3), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc((1px + 2px) * 3) 0",
+true,
+true
+],
+[
+"background-size",
+"calc((1px + 2px) * 3) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(0), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(0) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(0) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(-1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(-1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(-1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(-1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc( 1px ), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc( 1px ), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc( 1px ), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc( 1px ), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc( 1px ), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc( 1px ) 0",
+true,
+true
+],
+[
+"background-size",
+"calc( 1px ) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px - -2px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px - -2px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px - -2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px - -2px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px - -2px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1px - -2px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px - -2px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px -2px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px -2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px -2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px -2px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px -2px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px -2px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px -2px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1s), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1s), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1s), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1s), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1s), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1s) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1s) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px + 1), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px + 1), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1px + 1), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px + 1), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px + 1), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px + 1) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px + 1) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(abs(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black abs(-1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black abs(-1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from abs(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle abs(-1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black abs(-1px) 0",
+true,
+true
+],
+[
+"background-size",
+"abs(-1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(sign(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sign(-1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sign(-1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sign(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sign(-1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black sign(-1px) 0",
+false,
+false
+],
+[
+"background-size",
+"sign(-1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px * (2 + 3)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * (2 + 3)), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px * (2 + 3)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * (2 + 3)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px * (2 + 3)), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1px * (2 + 3)) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px * (2 + 3)) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(100% - 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(100% - 10px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(100% - 10px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(100% - 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(100% - 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(100% - 10px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(100% - 10px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1turn / 2), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(1turn / 2), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1turn / 2), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1turn / 2), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(1turn / 2), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1turn / 2) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1turn / 2) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(infinity * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(infinity * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(infinity * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(infinity * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(infinity * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(infinity * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(infinity * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1deg / 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1deg / 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1deg / 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1deg / 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1deg / 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1deg / 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1deg / 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(10px / 2px * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(10px / 2px * 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10px / 2px * 1deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(10px / 2px * 1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(10px / 2px * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10px / 2px * 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(10px / 2px * 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(max(10%, 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black max(10%, 1deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black max(10%, 1deg), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from max(10%, 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle max(10%, 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black max(10%, 1deg) 0",
+false,
+false
+],
+[
+"background-size",
+"max(10%, 1deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(50%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(50%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(50%), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(50%), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(50%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(50%) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(50%) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1rad + 1grad), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(1rad + 1grad), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1rad + 1grad), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1rad + 1grad), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(1rad + 1grad), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1rad + 1grad) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1rad + 1grad) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(mod(7deg, 2deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black mod(7deg, 2deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black mod(7deg, 2deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from mod(7deg, 2deg), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle mod(7deg, 2deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black mod(7deg, 2deg) 0",
+false,
+false
+],
+[
+"background-size",
+"mod(7deg, 2deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(rem(1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black rem(1px, 2px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black rem(1px, 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from rem(1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle rem(1px, 2px), black, black)",
+true,
+true
+],
+[
+"background",
+"black rem(1px, 2px) 0",
+true,
+true
+],
+[
+"background-size",
+"rem(1px, 2px) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle hypot(3px, 4px), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(sqrt(4) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sqrt(4) * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(sqrt(4) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sqrt(4) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(sqrt(4) * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(sqrt(4) * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(sqrt(4) * 1px) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(exp(1) * 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(log(8, 2) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(8, 2) * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(log(8, 2) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(log(8, 2) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(log(8, 2) * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(log(8, 2) * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(log(8, 2) * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(pow(2, 3) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(pow(2, 3) * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(pow(2, 3) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(pow(2, 3) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(pow(2, 3) * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(pow(2, 3) * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(pow(2, 3) * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(acos(0.5), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black acos(0.5), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black acos(0.5), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from acos(0.5), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle acos(0.5), black, black)",
+false,
+false
+],
+[
+"background",
+"black acos(0.5) 0",
+false,
+false
+],
+[
+"background-size",
+"acos(0.5) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(asin(1), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black asin(1), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black asin(1), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from asin(1), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle asin(1), black, black)",
+false,
+false
+],
+[
+"background",
+"black asin(1) 0",
+false,
+false
+],
+[
+"background-size",
+"asin(1) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan(1), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black atan(1), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan(1), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from atan(1), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle atan(1), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan(1) 0",
+false,
+false
+],
+[
+"background-size",
+"atan(1) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sin(30deg) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sin(30deg) * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(sin(30deg) * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sin(30deg) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(sin(30deg) * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(sin(30deg) * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(sin(30deg) * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(e * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(e * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(e * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(e * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(e * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(e * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(e * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(nan * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(nan * 1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(nan * 1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(nan * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(nan * 1px), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(nan * 1px) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(nan * 1px) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(clamp(1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(1px, 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(1px, 2px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle clamp(1px, 2px), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(1px, 2px) 0",
+false,
+false
+],
+[
+"background-size",
+"clamp(1px, 2px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(round(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black round(1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black round(1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from round(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle round(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black round(1px) 0",
+false,
+false
+],
+[
+"background-size",
+"round(1px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(round(nearest, 15deg, 10deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black round(nearest, 15deg, 10deg), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black round(nearest, 15deg, 10deg), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from round(nearest, 15deg, 10deg), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle round(nearest, 15deg, 10deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black round(nearest, 15deg, 10deg) 0",
+false,
+false
+],
+[
+"background-size",
+"round(nearest, 15deg, 10deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1px * 2 / 3), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px * 2 / 3), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px * 2 / 3), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px * 2 / 3), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px * 2 / 3), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(1px * 2 / 3) 0",
+true,
+true
+],
+[
+"background-size",
+"calc(1px * 2 / 3) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1px)calc(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1px)calc(1px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(1px)calc(1px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1px)calc(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1px)calc(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px)calc(1px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1px)calc(1px) auto",
+false,
+false
+],
+[
+"background-size",
+"0 0",
+true,
+true
+],
+[
+"background-size",
+"-1px",
+false,
+false
+],
+[
+"background-size",
+"1px 2px 3px",
+false,
+false
+],
+[
+"background-size",
+"cover contain",
+false,
+false
+],
+[
+"background-size",
+"auto auto",
+true,
+true
+],
+[
+"background-size",
+"calc(1px)",
+true,
+true
+],
+[
+"background-size",
+"10%",
+true,
+true
+],
+[
+"background-size",
+"banana",
+false,
+false
+],
+[
+"background-size",
+"cover",
+true,
+true
+],
+[
+"background-size",
+"1px, 2px",
+true,
+true
+],
+[
+"background-size",
+"auto 0",
+true,
+true
+],
+[
+"background-size",
+"inherit",
+true,
+true
+],
+[
+"background-size",
+"calc(1px) calc(2px)",
+true,
+true
+],
+[
+"background-size",
+"0",
+true,
+true
+],
+[
+"background-size",
+"contain auto",
+false,
+false
+],
+[
+"background-repeat",
+"no-repeat",
+true,
+true
+],
+[
+"background-repeat",
+"repeat-x repeat",
+false,
+false
+],
+[
+"background-repeat",
+"space round",
+true,
+true
+],
+[
+"background-repeat",
+"repeat repeat repeat",
+false,
+false
+],
+[
+"background-repeat",
+"repeat-x, no-repeat",
+true,
+true
+],
+[
+"background-repeat",
+"repeat-y",
+true,
+true
+],
+[
+"background-repeat",
+"round",
+true,
+true
+],
+[
+"background-repeat",
+"banana",
+false,
+false
+],
+[
+"background-repeat",
+"repeat no-repeat",
+true,
+true
+],
+[
+"background-repeat",
+"initial",
+true,
+true
+],
+[
+"background-repeat",
+"repeat-x repeat-y",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black 10px,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black 1deg,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black 10%,black 20% 30%)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black 1px 2px 3px,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black,10px,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black,10px)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(10px,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black 1px,2px,3px,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black,10%,white 50%)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black 0,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black 1,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(10px),black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(10px black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black 10px 10%,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black,,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black red,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to right,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(to left right,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to top left,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(to left top,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(to center,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to circle,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(45deg,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(0,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(1,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(10px,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(-45deg,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(45deg),black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(0.5turn,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(1rad,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(100grad,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(in oklch,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(in oklch longer hue,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(to right in srgb,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(in srgb to right,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(to right in hsl shorter hue,black,black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(in banana,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(in srgb longer hue,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(in hsl longer,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to top top,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(45deg to right,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to bottom right left,black,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black,black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black 10px,black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black 1deg,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black 10%,black 20% 30%)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black 1px 2px 3px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black,10px,black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black,10px)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(10px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black 1px,2px,3px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black,10%,white 50%)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black 0,black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black 1,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black calc(10px),black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(10px black,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black 10px 10%,black)",
+true,
+true
+],
+[
+"background",
+"repeating-linear-gradient(black,,black)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(black red,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black 10px,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black 1deg,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black 10%,black 20% 30%)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black 1px 2px 3px,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black,10px,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black,10px)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(10px,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black 1px,2px,3px,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black,10%,white 50%)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black 0,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black 1,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black calc(10px),black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(10px black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black 10px 10%,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(black,,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(black red,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(ellipse,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle 10px,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(10px circle,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(ellipse 10px 20px,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(10px 20px,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(10px,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(10%,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(10% 20%,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle 10%,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(ellipse 10px,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle 10px 20px,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(closest-side,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle closest-side,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(farthest-corner ellipse,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(closest-side 10px,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at center,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle at top left,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at 10px 20px,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at left 10px top 5px,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at banana,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle at,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(ellipse at center in oklch,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(in srgb circle,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(-10px,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle -10px,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(to right,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(45deg,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(square,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle circle,black,black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(0,black,black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(0 0,black,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black 10px,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black 1deg,black)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(black 10%,black 20% 30%)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black 1px 2px 3px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(black,10px,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black,10px)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(10px,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black 1px,2px,3px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(black,10%,white 50%)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black 0,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black 1,black)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black calc(10px),black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(10px black,black)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(black 10px 10%,black)",
+true,
+true
+],
+[
+"background",
+"repeating-radial-gradient(black,,black)",
+false,
+false
+],
+[
+"background",
+"repeating-radial-gradient(black red,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black 10px,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black 1deg,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black 10%,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black 0.5turn,black 1turn)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black,10deg,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black,10%,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black,10px,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black 0,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black 1,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black 10deg 20deg,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from 45deg,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from 0,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from 10px,black,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(at center,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from 45deg at 10px 20px,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(at 10px from 45deg,black,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from 1turn in oklch,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(to right,black,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(45deg,black,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from,black,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from 45deg 10deg,black,black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(in srgb from 90deg,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(at top left,black,black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1deg),black,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black 10px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-conic-gradient(black 1deg,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black 10%,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black 0.5turn,black 1turn)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black,10deg,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black,10%,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black,10px,black)",
+false,
+false
+],
+[
+"background",
+"repeating-conic-gradient(black 0,black)",
+true,
+true
+],
+[
+"background",
+"repeating-conic-gradient(black 1,black)",
+false,
+false
+],
+[
+"background",
+"repeating-conic-gradient(black 10deg 20deg,black)",
+true,
+true
+],
+[
+"background",
+"black -1px / -2px",
+false,
+false
+],
+[
+"background",
+"black 0 0 / -2px",
+false,
+false
+],
+[
+"background",
+"black 0 0 / 10px -2px",
+false,
+false
+],
+[
+"background",
+"black -1px -2px",
+true,
+true
+],
+[
+"background",
+"black 0 0 / 0",
+true,
+true
+],
+[
+"background",
+"black 0 0 / calc(-2px)",
+true,
+true
+],
+[
+"background",
+"black text",
+true,
+true
+],
+[
+"background",
+"black text text",
+false,
+false
+],
+[
+"background",
+"black border-box text",
+true,
+true
+],
+[
+"background",
+"black text border-box",
+true,
+true
+],
+[
+"background",
+"black repeat-x repeat",
+false,
+false
+],
+[
+"background",
+"black 0 0 / auto -1%",
+false,
+false
+],
+[
+"background",
+"black 0 0 / 1 2",
+false,
+false
+],
+[
+"background",
+"black 1 2",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black 10px,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black 1deg,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black 10%,black 20% 30%)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black 1px 2px 3px,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black,10px,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black,10px)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(10px,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black 1px,2px,3px,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black,10%,white 50%)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black 0,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black 1,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black calc(10px),black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(10px black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black 10px 10%,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(black,,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(black red,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(to right,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(to left right,black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(to top left,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(to left top,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(to center,black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(to circle,black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(45deg,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(0,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(1,black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(10px,black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(-45deg,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(calc(45deg),black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(0.5turn,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(1rad,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(100grad,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(in oklch,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(in oklch longer hue,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(to right in srgb,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(in srgb to right,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(to right in hsl shorter hue,black,black)",
+true,
+true
+],
+[
+"background-image",
+"linear-gradient(in banana,black,black)",
+false,
+false
+],
+[
+"background-image",
+"linear-gradient(in srgb longer hue,black,black)",
+false,
+false
+],
+[
+"background-clip",
+"text",
+true,
+true
+],
+[
+"background-clip",
+"border-box, text",
+true,
+true
+],
+[
+"background-clip",
+"text text",
+false,
+false
+],
+[
+"background-clip",
+"banana",
+false,
+false
+],
+[
+"background-clip",
+"padding-box",
+true,
+true
+],
+[
+"background-clip",
+"border-box,",
+false,
+false
+],
+[
+"background-clip",
+"inherit",
+true,
+true
+],
+[
+"background",
+"black",
+true,
+true
+],
+[
+"background",
+"white",
+true,
+true
+],
+[
+"background",
+"#fff url(x.png) no-repeat center / cover",
+true,
+true
+],
+[
+"background",
+"url(a.png), url(b.png) red",
+true,
+true
+],
+[
+"background",
+"none",
+true,
+true
+],
+[
+"background",
+"linear-gradient(white, white)",
+true,
+true
+],
+[
+"background",
+"red url(x) 10px 20px",
+true,
+true
+],
+[
+"background",
+"banana black",
+false,
+false
+],
+[
+"background",
+"garbage black",
+false,
+false
+],
+[
+"background",
+"black white",
+false,
+false
+],
+[
+"background",
+"url(x) banana",
+false,
+false
+],
+[
+"background",
+"red, url(x)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black 0%,color-mix(in srgb,white,white) 0%)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(banana,black,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black banana,black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black 0%,canvas 0%)",
+true,
+true
+],
+[
+"background",
+"left left black",
+false,
+false
+],
+[
+"background",
+"repeat repeat repeat black",
+false,
+false
+],
+[
+"background",
+"url(a) url(b) black",
+false,
+false
+],
+[
+"background",
+"none none black",
+false,
+false
+],
+[
+"background",
+"transparent none repeat scroll 0 0",
+true,
+true
+],
+[
+"background",
+"#ffffff url(x) repeat-x 0 0",
+true,
+true
+],
+[
+"background",
+"url(x) 50% 50% no-repeat",
+true,
+true
+],
+[
+"background",
+"url(x) no-repeat center center / 100% auto #fff",
+true,
+true
+],
+[
+"background",
+"url(x) no-repeat right 10px bottom 20px",
+true,
+true
+],
+[
+"background",
+"url(x) no-repeat left 10px top",
+true,
+true
+],
+[
+"background",
+"url(x) center / 50%",
+true,
+true
+],
+[
+"background",
+"url(x) / cover",
+false,
+false
+],
+[
+"background",
+"url(x) top left / contain no-repeat",
+true,
+true
+],
+[
+"background",
+"url(x) 10px left",
+false,
+false
+],
+[
+"background",
+"url(x) left 10px",
+true,
+true
+],
+[
+"background",
+"url(x) top 10px",
+false,
+false
+],
+[
+"background",
+"url(x) center 10px top",
+false,
+false
+],
+[
+"background",
+"url(x) left right",
+false,
+false
+],
+[
+"background",
+"url(x) top bottom",
+false,
+false
+],
+[
+"background",
+"url(x) center center",
+true,
+true
+],
+[
+"background",
+"url(x) 0 0 0 0 0",
+false,
+false
+],
+[
+"background",
+"url(x) repeat-x repeat",
+false,
+false
+],
+[
+"background",
+"url(x) no-repeat no-repeat",
+true,
+true
+],
+[
+"background",
+"url(x) fixed scroll",
+false,
+false
+],
+[
+"background",
+"url(x) border-box padding-box",
+true,
+true
+],
+[
+"background",
+"url(x) border-box padding-box content-box",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to right, #fff 0%, #000 100%)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(45deg, red, blue)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle at center, red 0, blue 100%)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(ellipse farthest-corner at 10px 20px, red, blue)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from 90deg at 50% 50%, red, blue)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(in oklch longer hue, red, blue)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(red, 30%, blue)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(red 10% 20%, blue)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(red 10% 20% 30%, blue)",
+false,
+false
+],
+[
+"background",
+"repeating-linear-gradient(45deg, #000 0 10px, #fff 10px 20px)",
+true,
+true
+],
+[
+"background",
+"-webkit-linear-gradient(top, #fff, #000)",
+true,
+true
+],
+[
+"background",
+"-webkit-gradient(linear, left top, left bottom, from(#fff), to(#000))",
+true,
+true
+],
+[
+"background",
+"linear-gradient(rgba(0,0,0,0.5), transparent), url(x)",
+true,
+true
+],
+[
+"background",
+"url(x), linear-gradient(red, blue) #fff",
+true,
+true
+],
+[
+"background",
+"#fff url(x) no-repeat fixed center",
+true,
+true
+],
+[
+"background",
+"rgb(0 0 0 / 50%)",
+true,
+true
+],
+[
+"background",
+"currentcolor",
+true,
+true
+],
+[
+"background",
+"url(\"x y.png\") no-repeat",
+true,
+true
+],
+[
+"background",
+"url(x) calc(10px + 5%) 0",
+true,
+true
+],
+[
+"background",
+"white padding-box",
+true,
+true
+],
+[
+"background",
+"white text",
+true,
+true
+],
+[
+"background",
+"url(x) 0 0 / auto",
+true,
+true
+],
+[
+"background",
+"url(x) 0 0 / auto auto auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient()",
+false,
+false
+],
+[
+"background",
+"linear-gradient(to right)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(red blue)",
+false,
+false
+],
+[
+"background",
+"image-set(\"a.png\" 1x) no-repeat",
+true,
+true
+],
+[
+"background",
+"url(x) space round",
+true,
+true
+],
+[
+"background",
+"url(x) repeat-y no-repeat",
+false,
+false
+],
+[
+"background",
+"url(x) top",
+true,
+true
+],
+[
+"background",
+"url(x) 10px",
+true,
+true
+],
+[
+"background",
+"url(x) 10px 20px fixed",
+true,
+true
+],
+[
+"background",
+"url(x) 10px fixed 20px",
+false,
+false
+],
+[
+"background",
+"black calc(progress(0, 10turn, banana)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sin(0%*0%), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp(0.5rad), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress(progress(2turn + 45rad, 0deg/0.5vw, sign(infinity)), mod((45rad), (10vw)), (0) + 0)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle asin(0.5vw * -3turn * 45%), black, black)",
+false,
+false
+],
+[
+"background",
+"black sin(45%) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((asin(2%))), black)",
+false,
+false
+],
+[
+"background-size",
+"sin(2%) auto",
+false,
+false
+],
+[
+"background",
+"black pow(1%, abs(-3vw)) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(progress(2vw, 10, 45turn, banana)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((sqrt(2px))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black pow(-3rad, 2%), black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress(45rad, 0em, 45, 45%)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(45rad, 45, 45px)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(asin(min(0.5vw, 0.5)), calc(rem(-3vw, 45vw), 45vw), 1rad+0.5s * 10s)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(progress(-3px, 1%, 0deg)*-3s) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black hypot(log(2rad, 10%)), black)",
+false,
+false
+],
+[
+"background",
+"black pow(10deg, 0px) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((progress(10%, 10deg))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(progress((0%) + 45%, (10%)+1em, 0.5s - 0.5 + 1deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp((45s)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(calc(pow(e, 1), 0rad), 2px, sign(0rad))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0.5rad - exp(1em)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress(2px * -3px, atan2(2s, 10em))) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(pow(0s*2rad/pi, 0.5vw), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((log(1rad))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from log(10s), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(sqrt(0deg) - 0turn * 10%) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp(-3turn), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(45turn*sqrt(10s)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((sin(progress(2turn, 2px, 1em)))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sqrt(0turn / 1em), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(exp(progress(45px, pi))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black pow(-3vw, 0s), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black exp(progress(-3em, 0%, 1px)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from hypot((0.5em), 10%, 10turn*log(10vw, 1vw)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(progress(round(log(0.5, e, 2), (banana), round(0.5)), -3 - 0.5px - max(-3em, 0vw), atan2(2vw, 45)/0.5px)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((cos(abs(2%)))), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(0.5s / exp(0.5px), (clamp(2turn, -3turn, -3deg, 0.5%)), 0.5px+-3 * 1turn)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(abs(45deg, sqrt(0.5deg)), -3turn/hypot(45vw, 45), 0.5, (0rad))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(-3%, pow(-3deg, calc(pi))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(-3px, sqrt(0px, 2), 45turn)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(round(0%, 0.5rad, 10rad)+0.5deg+2s, progress(none, 0vw, 2turn)+rem(banana, 10vw, 0rad), -3)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(-3px, banana, 0.5vw)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black pow(10vw, 2%), black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress((10em), sin(banana, 0.5px), 45px + 1rad)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle pow(45s, 1deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress(cos(banana, 45rad), -3vw - 0s, min(45em, 0.5deg, 1px), 0rad)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(10s), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(1em, 0.5rad / 0rad, min(10%, 1px, 2deg, 0em))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"asin(progress(atan2(10px, infinity), -3% / 45rad)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(45deg * 2%/0.5turn, round(clamp(1turn, 0turn, 0s), 10s, e), atan2(log(1em, 1vw), 1turn*2))), black, black)",
+false,
+false
+],
+[
+"background",
+"black exp(-3rad) 0",
+false,
+false
+],
+[
+"background",
+"black calc((1%) / log(10px)) 0",
+false,
+false
+],
+[
+"background",
+"black exp(2deg) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(infinity, 10em)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(max(0em, -3em, 45s*1turn / progress(45, none, -3deg, 45px)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"sqrt(hypot(2s)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black abs(log(1deg, 45vw)*2vw), black)",
+false,
+false
+],
+[
+"background",
+"black log(0.5turn) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black exp(1px), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(10deg * 1s), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(progress(asin(45%, 10s), 2s, -3+infinity)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(e - 1turn*sqrt(2vw)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(progress(10px, 2px, 10)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from exp((10%)), black, black)",
+false,
+false
+],
+[
+"background",
+"black exp(45rad) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(0.5px), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(e - 45%/2px * progress(10vw*2turn, 2em - 1em, e+45turn)) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle log(10s, 10em), black, black)",
+false,
+false
+],
+[
+"background-size",
+"sqrt(45px) auto",
+false,
+false
+],
+[
+"background-size",
+"hypot(0vw, progress(45vw*2, none * 0.5px, 0px), (-3vw / -3%)) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(2deg), black, black)",
+false,
+false
+],
+[
+"background-size",
+"exp(1em) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(hypot(pi, progress(-3em, 0.5em, -3%), 1%) + 10em), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(45turn/1%, -3vw, 0%+1vw, 1px) - sqrt(-3turn)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(abs(-3%)/e + 1rad), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from calc((progress(1deg, 0.5rad))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sqrt(1rad), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle pow(2deg, -3s), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sqrt(45rad), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(progress(1rad, 0.5em+1deg)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(pow(hypot(1px, 0vw), 2)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(progress(hypot(10vw + e, 1 - 45vw), 45rad, 45s)) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(infinity/2turn + progress(0deg, 0.5px, 10vw)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(pow(-3px, 10s) + 10), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(sin(10px + 45deg, 10turn / -3%), abs(sqrt(0turn)), hypot(e + 0vw))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(cos(log(pi / 1%, pow(2s, 10s))), black, black)",
+false,
+false
+],
+[
+"background",
+"black max(0turn/10deg, -3% / -3, asin(2%)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(1vw, 0deg, 10%)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sqrt(-3rad), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black asin(pow(2deg, 10rad)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(exp(2em) - -3/1) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sqrt(10rad), black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress((45px), 2rad, calc(0.5deg))) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(2px+0.5turn/(2em), 1vw, (pow(2s)))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(1turn), black, black)",
+false,
+false
+],
+[
+"background",
+"black mod(0px, 1em)/exp(45turn) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp((2turn)*-3s/45deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sqrt(1px), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(-3rad, 10s, 2em)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black min(0%, 0rad), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from log(sqrt(-3deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle pow((45vw/2deg), rem(45rad, 0.5%)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(0s, -3vw, -3%) * (45vw)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(max(0px, 0px), progress(0turn, 0s, 0turn), pi + 1s)/0.5%), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle max(0deg + 0turn, sqrt(2deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(exp(2%), -3em + -3%, 10)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sqrt(rem(0.5turn, 0%)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(pow(2s, -3deg) + -3turn*10rad), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(2deg * log(45s, 45em)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(10, 45, 0) * (-3s)*-3% / 45turn - 10deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp(0em), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(progress(-3turn, 0vw, 0.5turn)) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp(sqrt(1deg)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"round(abs(pow(10, 1s))) auto",
+false,
+false
+],
+[
+"background-size",
+"calc((progress(2s, 1s)) - 45deg/0px) auto",
+false,
+false
+],
+[
+"background",
+"black exp(10rad) 0",
+false,
+false
+],
+[
+"background",
+"black pow(10vw, 45% * 1em * 1deg) 0",
+false,
+false
+],
+[
+"background",
+"black calc((-3) + 1s/e / pow(-3turn, 45turn)/-3) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(progress(2, 1deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(progress(0.5px/2turn, progress(0.5s, 2deg), 1rad)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle log((1s), 10turn), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0.5 - sqrt(45turn)), black)",
+false,
+false
+],
+[
+"background-size",
+"pow(2rad, 2em) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black exp(0turn), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(pow(1turn, 45px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(1s + 0.5rad, 0rad/45deg, 10vw / 10s)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(((0.5turn))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(pow((0.5s), 0em*45turn), black, black)",
+false,
+false
+],
+[
+"background",
+"black cos(progress(banana, 0vw)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(45 / 0.5rad)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(min(2rad), 45px / 0px, 0.5px - 0vw)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc((log(1vw, 1))) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sqrt(1rad / 45), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(log(0.5deg, 0em)*2s * 45px) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black log((0.5px*45vw)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(exp(2px) * 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc((log(2px * 0%))) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(1deg, cos(-3deg, 10turn))), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0 - sqrt(45deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from log(0em, 1vw), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black log(10deg, 2em), black)",
+false,
+false
+],
+[
+"background",
+"black calc(progress(exp(-3em, 0.5deg), sqrt(10rad), 2%, round(up, 2rad, 2rad, 0rad, 10em))) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle log(0.5deg, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from pow(45em/0s, 2 / -3), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp(2s), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(progress(-3px, 1deg, 0.5 + banana+0+0em)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(10turn), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(log(1turn), 0rad / 0s) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sin(-3%), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black exp((10%)), black)",
+false,
+false
+],
+[
+"background-size",
+"sqrt(-3s) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1turn / progress((10vw), (0rad), 2em)), black)",
+false,
+false
+],
+[
+"background-size",
+"log(-3s) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(45turn), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(2deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(((pow(2deg, 1em)))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(abs(1turn)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black abs(progress(0.5em, 2turn/1%)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(progress(2rad, -3vw, -3)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(((sqrt(10turn)))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc((pow(0.5vw, e))) auto",
+false,
+false
+],
+[
+"background",
+"black calc((exp(1turn))) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(progress(45deg, 0.5deg)) auto",
+false,
+false
+],
+[
+"background",
+"black calc(0.5turn/log(10px * 10%, -3turn)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black exp(1px + 0%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(progress(max(-3turn, e) * exp(-3vw), 2rad / progress(0rad, 0.5rad), (abs(45)))), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sqrt(0px), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(progress(sign(2em), abs(2s))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"log(0.5 / 10vw) auto",
+false,
+false
+],
+[
+"background",
+"black calc(progress(0, 1rad - asin(45rad, 10%), (45em + 2px))) 0",
+false,
+false
+],
+[
+"background",
+"black exp(-3deg/e) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sqrt(-3deg), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black asin(45%), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(progress(none/0px, 45turn + 45px, progress(0.5turn, 0s, 10), -3%)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black mod(0.5rad, 0%), black)",
+true,
+false
+],
+[
+"background",
+"linear-gradient(black calc(pow(atan2(2turn, 2turn), (-3turn)) * 10deg), black)",
+false,
+false
+],
+[
+"background",
+"black calc(1vw/0s * exp(0.5%)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle log(0deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(pow(0%, 1vw) * -3), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(log((min(10px))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(calc(exp(-3rad)) + 1em), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(tan((log(.5rem))) - 12.5%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient((12.5 + 3ms + .5q/ 1deg - clamp(none, sign(1ms), -2q)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black pow(3%, 1vh), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(log(3grad, .5rem)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc((exp(0x)) / .5deg) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(.5, 12.5rem)), black)",
+false,
+false
+],
+[
+"background-size",
+"sqrt(3px) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle exp(0ms), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient((min(atan2(0px, 3rem))/ 3grad), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sqrt(12.5%) * log(-infinity, .5rem)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(pow(12.5vh, nan)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(e-tan(90px) / -2vh), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(.5px/ e-pow(12.5px, -2vh)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(90% - 12.5grad), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(black calc((log(12.5x *1q * hypot(nan), exp(.5q *3cm)))), black)",
+false,
+false
+],
+[
+"background",
+"black calc(log(3rem)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from exp(abs(3grad)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(pow(90deg, 3ms)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(pow((exp(.5deg)), sign(.5grad * 90grad))) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sqrt(abs(0x)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(hypot(atan(max(1q, 1%)), rem(90q + -2rem, (3px)), (abs(90vh))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(acos(0%) * -2q * 3px), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sqrt(-2cm), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(log((1rem *nan))) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(pow(-2vh, 3grad)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sqrt(90ms)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(3vh, 90x)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(acos(log((90), .5rem - .5q)/ atan(-2% * 3ms))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black exp(90q + 3cm), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sqrt(3ms)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(sqrt(0cm)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sqrt(.5deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(12.5% *90deg + exp(0ms) - atan(-infinity)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(hypot((atan2(-2, 1)), exp(3cm *1%), 1%)) 0",
+false,
+false
+],
+[
+"background",
+"black calc(exp((1cm / .5%) * -2%)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(abs(tan(exp(3rem)))), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(abs(acos(atan(.5ms *1%)))), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(.5px/ exp(0q *90q)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(hypot(0rem, (12.5), log(12.5vh, 0)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(exp(1ms)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(log(.5px)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(mod(1x, max(tan(12.5%)))) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from exp(1grad), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp((0grad)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(exp(-2ms)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(exp(-2grad) * 12.5), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sqrt(0deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((max(sqrt(1px), 90px, 0, 1ms))), black)",
+false,
+false
+],
+[
+"background",
+"black calc(sqrt(12.5q)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(sqrt(90grad)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(12.5rem + 1q, -2rem)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(0q), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(pow((1px), sqrt(90x))) auto",
+false,
+false
+],
+[
+"background-size",
+"calc(-infinity-rem(round(atan(0%), 0, 1deg / 12.5px), hypot(1x))) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at pow(-2deg, 3%) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(log(0vh), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(acos(-2%)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(pow(.5%, -2rem) + 90x + e) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black exp(12.5ms), black)",
+false,
+false
+],
+[
+"background-size",
+"sqrt(1px) auto",
+false,
+false
+],
+[
+"background",
+"black calc(sqrt(-2px)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black min(1grad, 3%), black)",
+true,
+false
+],
+[
+"background",
+"conic-gradient(from calc(exp(1cm)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(-2deg, 90q)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(abs(log(.5ms, 3rem))), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(pow(1deg, -2px)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black acos(0%), black)",
+false,
+false
+],
+[
+"background-size",
+"calc((pow(90, -2ms))) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(12.5vh), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(.5vh + .5grad * 1cm / exp(0x + 12.5x)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black pow(0grad, -2), black)",
+false,
+false
+],
+[
+"background",
+"black sqrt(12.5grad) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(.5cm / pow(.5ms, 12.5vh)/ 12.5vh *-2x + 1grad *0px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(clamp(0cm - 12.5px, 90px + 90cm, exp(90x))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(log(.5ms *.5% * -2x *90rem *0)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(exp(-2rem)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(exp(-2% * 3grad)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(90rem + tan(0%/ 90vh)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(sqrt(-2grad/ e) - 1cm), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(12.5grad-calc(banana - 1x), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(abs(log(3px, .5vh) *(1q))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(exp(3deg), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(acos(max(90grad/ -infinity, -infinity * 90%))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black pow(12.5cm, 90ms), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(exp(.5q)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(pow(.5rem, 3), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc((exp(.5vh - 3px))) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(pow(.5rem, .5vh) - -2ms + 1x), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sqrt((1ms)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(pow(0x, 3vh)) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(atan(sqrt(-2vh)/ 12.5x *-2x) *-infinity) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(3deg *sign(3x) + log(12.5ms)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(log(90vh)) 0",
+false,
+false
+],
+[
+"background",
+"black calc(3rem / banana-(-2ms)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(atan(hypot(1%, 3%, -2vh)) *3grad), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at log(1deg, -2px) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(rem((abs(12.5)), log(round(90), -2deg))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((exp(1px) / .5x)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from pow(.5cm, 12.5x), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(clamp(tan(0grad), exp(3vh) + -2x/ 90rem, (1grad))), black)",
+false,
+false
+],
+[
+"background",
+"black calc(round(12.5px *12.5q, atan(90% + -2x - 90x))) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(min(acos(3%))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sqrt(1deg)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(acos(.5%) * 1px * 0q) auto",
+false,
+false
+],
+[
+"background",
+"black calc(pow(-2q, 3cm)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((sqrt(0cm))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black log(-2, abs(1px) * e *sqrt(exp(12.5%))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan(clamp(0q, 0grad, 3%)) + (12.5q)-sign(90%), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sign(90grad), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1em), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(3cm * 3ms), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black ((-2ms)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(45turn / 2s), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10px), black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(45 / -3em), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sin(10), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(0% *-2vh - (-2ms)) auto",
+false,
+false
+],
+[
+"background-size",
+"calc(min(calc(0q, nan), var(--x), (.5), .5vh / 12.5rem) + mod(clamp(3x, 12.5x, 1deg), 0x/ .5)) auto",
+true,
+true
+],
+[
+"background-size",
+"round(0.5+-3rad, 45vw / 0s, (2vw)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1turn, -3deg) - -3vw * 0/(min(1s)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(calc(sign(1ms) *12.5/ nan *-2q, (-2cm) * 12.5grad - 0vh *.5ms - 12.5cm)) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black tan(hypot(12.5grad, 0q, 12.5vh), (-2%)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc((0turn)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(12.5rem), black, black)",
+false,
+false
+],
+[
+"background-size",
+"mod(10px, 2deg) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0.5vw/0s), black)",
+false,
+false
+],
+[
+"background",
+"black calc(-3s * atan2(-3em, 1s)) 0",
+false,
+false
+],
+[
+"background-size",
+"clamp(12.5rem * env(safe-area-inset-top), (3vh * 12.5vh), 1vh - 12.5deg - 90ms) auto",
+true,
+true
+],
+[
+"background",
+"black rem(0, 90px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(1% * 0px) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1q * 0px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(90vh *3%), black)",
+false,
+false
+],
+[
+"background",
+"black calc((nan - 3rem)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black log(min(2), 1), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1cm), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(mod(0.5rad, 0 + -3s) + 1turn * -3vw+0vw), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(2s/0.5rad), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(clamp(1turn, 10%, 0.5) - 0.5px), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle sign(up), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black rem(round(up, 0turn), sin(1turn)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black pow((0q-12.5px)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(exp(12.5deg, 3cm)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((-2cm/ .5vh)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(log(exp((90%)) *max((.5x)), 90ms * calc(90q + .5px, (banana)), atan2(90 - none * -2, e, 12.5deg/ .5%))), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(log(mod(-infinity, 0cm), exp(3), -2cm - .5px, (0x)) - env(safe-area-inset-top)) 0",
+true,
+true
+],
+[
+"background-size",
+"calc((1cm) + 12.5vh / 1grad) auto",
+false,
+false
+],
+[
+"background-size",
+"min(tan(env(safe-area-inset-top))/ none) auto",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(0turn), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(2s), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc((3q)/ min(-2grad)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(3px * -2), black)",
+true,
+true
+],
+[
+"background-size",
+"calc(10) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan(0px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(round(to-zero, 10em, 1px), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(12.5x - .5cm), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from log(atan2(2em, 0.5s, 45vw), sin(1s)) / abs((0%)), black, black)",
+false,
+false
+],
+[
+"background",
+"black rem(10, 10s) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle atan2(45s), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(e * rem(90rem, 3)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(-3turn+45px) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(-3turn), black, black)",
+true,
+true
+],
+[
+"background-size",
+"atan(.5deg + 90cm)-3vh - (-2x) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black min(.5x *nan, (0x)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(min(-2x, sqrt(sqrt(max(0grad)), round(90px, 90cm) * -2ms * .5vh))), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(clamp(12.5grad, 12.5grad, .5x, 12.5%) - 1q/ up) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(max(90ms - min(.5rem, 0, .5%))) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((0q)), black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle (-2ms/ log(0vh / 12.5q, 3rem/ 1x, 12.5ms/ 3)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0.5% * 10turn), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle asin(round(1%*1turn, (0))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black var(--x), black)",
+true,
+true
+],
+[
+"background",
+"black calc(hypot(45em, e)*2turn + 0.5deg) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(abs(0q)) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at calc(sign(3grad)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc((up)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10s), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1rem), black)",
+true,
+true
+],
+[
+"background",
+"black calc(12.5x) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from max(12.5q), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(0.5deg+0.5 * 0.5%/rem(1)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1em, 2s), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(-3s * 0.5em), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(atan2(.5%, 0grad, 90%)) 0",
+false,
+false
+],
+[
+"background",
+"black calc((pi)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(hypot((0turn) + sign(-3em, 0em), progress(0%, 0.5px * 0, 10turn - -3em), sign(calc(45em), sign(0turn, 1deg))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2px / 0.5turn - max(45em, 0.5, 0.5turn)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"round(0, 10rad) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(round(to-zero, mod(0.5deg, 2turn)) + min(-3vw * 2deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sin(10vw, 0.5vw), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(tan(-2) - (.5grad)) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc((.5rem)) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(2px/10rad + calc(2turn)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(0.5px) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(-3em+0.5s), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(90deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle (0ms) + calc(nan, .5), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc((0%)) 0",
+true,
+true
+],
+[
+"background",
+"black calc(-2deg / 12.5deg) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((.5px)), black)",
+true,
+true
+],
+[
+"background",
+"black calc(-2ms) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(((clamp(.5cm, 0deg, 0rem))/ (up))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0vh * .5), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle hypot(progress((45s), cos(1deg), 0.5s + -3vw), clamp(0.5rad, 1em, 45deg)+-3turn, -3em), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10%/1/pow(10em, 2turn, -3deg)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((.5grad)), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc((1turn + -3em)+((pi))) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(cos(0.5vw)+infinity), black)",
+false,
+false
+],
+[
+"background",
+"black calc(45px * 2px) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(acos(sign(12.5rem *0%)) * var(--x)), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(10vw)+0.5% / 0vw + asin(min(45px, 45px)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(abs(90x)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(hypot(calc(12.5rem-pow(1deg, .5cm), hypot(up, 1deg * none, exp(90px))), log(.5vh))) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(1rad + max(-3em, 0rad, 0.5s)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(hypot((-3vw), 0rad), calc(10 - -3px)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(1%) 0",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(hypot(banana, 2turn)+10rad + 10%), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from abs(cos(0.5turn)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(90%-12.5vh), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(3q * 90% + 90deg-atan2(0%, (pi))/ 0vh) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sign(-3s, 2s)/(0px), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(((90x))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(.5px * 3ms - 0vh - 1rem - 12.5grad *12.5q-sqrt(sqrt(12.5x))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from round(sqrt(0vw), 1%, 45em)*1 / (45px), black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(90, 90px) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((10)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from hypot(0deg*1s, 2deg * 0.5vw), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(12.5q--2rem - 3vh - (12.5grad)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"black atan2(-3deg, 45%) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(log(sign(env(safe-area-inset-top))/ 90q-3%, (.5grad)--2cm--2 * (0grad))), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc((-3turn / 1px)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((0turn / 1)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(pow((1x) + .5q / 3 + -2q)) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(sign(0cm)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-2x * max(0%, 0%, 90%)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(.5deg), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(1), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0turn), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0.5), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(12.5deg - atan2(1grad *0grad *-2, clamp(none, 0% * 0q))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(2vw/banana) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(e), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(90x) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(clamp(90x *1%/ .5ms - 12.5rem, 3q, nan)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle round(nearest, calc(0.5px)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-3px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(var(--x)), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(0.5deg/-3turn/asin(0.5em)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle (90ms), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black abs(12.5rem, .5vh), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0grad/ .5grad / acos(3vh, 12.5vh)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(-3% * 1rad), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(12.5x - 3deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(round(rem(.5vh, .5vh, -2rem))) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(.5px) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(min(-3deg, 2)+1deg/none) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(calc(45)*45rad), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black atan2(e + 2px, none)+(0vw - 0.5rad), black)",
+false,
+false
+],
+[
+"background-size",
+"cos(1deg) auto",
+false,
+false
+],
+[
+"background",
+"black calc(1 * (0.5s) - 0s) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1q *1ms), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc((sign(-3))) auto",
+false,
+false
+],
+[
+"background",
+"black calc((-infinity)-90deg + acos(3deg)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(0q *none-3ms + 3ms) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((10em)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0vh), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(3ms *.5%) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(3 + 0deg), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(tan(90cm) * 0ms), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(90rem), black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black hypot((.5vh), .5deg / var(--x), 1x, rem(env(safe-area-inset-top))), black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc((2rad)), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(sign(10rad + 0em), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(atan2(e, 90vh)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0em), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(0ms - 90cm-log(3x)-12.5q-0ms / ((0%)) - (-2cm - 1q)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(infinity*mod(0deg, 45rad, 10%)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0.5% + clamp(2rad, 10%)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0.5px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black sign(2s*45rad, 1em/45px), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(cos(round(1, 1%)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(sign(round(1x))) auto",
+false,
+false
+],
+[
+"background-size",
+"rem(min(clamp(10s, 2%, 0)), calc(45%) - -3vw*45rad) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1/1rad + e * 10vw), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0%/ (1ms) / 0grad), black)",
+false,
+false
+],
+[
+"background",
+"black calc(0turn / 1) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(2vw) auto",
+true,
+true
+],
+[
+"background",
+"black calc((1deg)) 0",
+false,
+false
+],
+[
+"background",
+"black calc(-3%/rem(2deg, 0vw, -3turn) / 0em+10deg) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(10s / 1vw), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(-3rad / 0.5vw) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0rem), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(12.5cm/ 1q), black)",
+false,
+false
+],
+[
+"background",
+"black calc(abs(10) - 1px) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((0.5px + 0.5px+45)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((.5%) *atan2(-2x)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(10rad+infinity/2vw) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(exp(10turn, 45deg+infinity)*1turn), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(0em) auto",
+true,
+true
+],
+[
+"background-size",
+"calc(2s+-3em) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-2grad-3), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((1%)), black)",
+true,
+true
+],
+[
+"background-size",
+"calc((10px)) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc((45deg*10rad)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(10% * 45turn), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc((0deg/45px)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(12.5q * 12.5ms), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0+sqrt(progress(0em, 2rad, -3deg))), black, black)",
+false,
+false
+],
+[
+"background",
+"black (-2q) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at var(--x) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(0.5), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(abs((12.5ms) *0q / 3q - 1vh)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10turn) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(env(safe-area-inset-top)/ 1q * exp(exp(.5q))), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black max(mod(sign(90grad), round(.5px, 1q)) + 1%/ pow(-2cm), env(safe-area-inset-top), 1q), black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(sqrt(.5%-1rem) *0vh), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((cos(1em))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(45px*infinity) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(-3turn), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at (1px) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black round(12.5x + 12.5deg, hypot(up, 1rem)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(90x-12.5px + .5ms / 0q * .5x), black, black)",
+false,
+false
+],
+[
+"background",
+"black rem(2turn, 1%) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(sqrt(-2)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(asin(10px), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc((0%)) auto",
+true,
+true
+],
+[
+"background",
+"black calc(0.5rad) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(atan(0grad - 0vh / -2x)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(10vw), black)",
+false,
+false
+],
+[
+"background",
+"black exp(1, 45turn) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(atan(0px *-2q) / 1px *env(safe-area-inset-top) + 90x), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(12.5cm), black, black)",
+true,
+true
+],
+[
+"background-size",
+"calc(0s * none) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black log((10em), exp(0rad))/10px * -3rad - progress(2px, 45, 0px), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((45)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"max(45+2em, calc(2%)) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(infinity), black, black)",
+false,
+false
+],
+[
+"background-size",
+"mod(banana-90ms *1q *.5deg)/ max(.5rem - 12.5vh/ 0px/ 3%, 90%) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(sign(tan(1grad, .5rem)-max(1q, 1q))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black hypot(-3s), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(((-2 - 0cm))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp((1turn), none/e), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(0q/ 0x) auto",
+false,
+false
+],
+[
+"background",
+"black calc((banana) / 0.5vw / -3s * clamp(10%, -3deg)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle clamp(0.5 / 45px, pi / -3vw, 10px), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from min(0.5vw, 0deg), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((0rad)), black)",
+true,
+true
+],
+[
+"background",
+"black calc(infinity / 45s) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(mod(10em*0.5turn, pow(0.5s, 2%))+pow(1em+45turn, -3vw*banana, (-3deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(12.5vh), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(1rad*2), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(.5deg), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sqrt(asin(2) - 45deg+1), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((10)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0rem), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(1vw) auto",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black cos(45s), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black mod(2%, e), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0em/sin(1px) / atan2(10rad * pi, 10rad+-3turn)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((.5rem)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((90x)/ 0% * (.5x)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(45deg, 2rad*10turn, 45*2deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc((12.5vh / -2%)) 0",
+false,
+false
+],
+[
+"background",
+"black sign(0s) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at abs(-2) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2rad+1deg), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(env(safe-area-inset-top) / max(1x, atan2(12.5px, 1cm)) - 90px) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle (1x), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(12.5deg) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1rem - .5grad), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(-2%), black, black)",
+false,
+false
+],
+[
+"background",
+"black log(exp(clamp(.5grad, 3px, nan)), acos(0)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(env(safe-area-inset-top) * -infinity), black)",
+true,
+true
+],
+[
+"background-size",
+"calc(10deg) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((3rem)), black, black)",
+true,
+true
+],
+[
+"background-size",
+"rem(45, clamp(-3, -3deg, 1rad), 1) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((0.5%)), black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(0rad), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(max(10%, e), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at hypot(90x/ -2vh)/ ((3)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(-2x/ pi), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black atan2(12.5ms + 90rem), black)",
+false,
+false
+],
+[
+"background",
+"black round(1q) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(.5px / (-2x)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((0)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((10deg)), black)",
+false,
+false
+],
+[
+"background-size",
+"cos(2s) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1ms/ up), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(((90deg) / rem(-2vh, 12.5grad)) * 3deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(3rem - -2%) 0",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc((0px)-round(-2deg, -2q, e)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(acos(rem(-2%, 90%), 90vh * 0rem)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(2px/45) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(clamp(none, 0ms, -2grad, 90) *clamp(none, 12.5cm, .5x, -2cm) *nan + mod(0, .5q)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle clamp(1rad, none), black, black)",
+false,
+false
+],
+[
+"background-size",
+"pow(hypot(90 - 1%, -2%) / acos(0deg *90rem), mod(0vh, (3))) auto",
+false,
+false
+],
+[
+"background-size",
+"calc(2 / 0.5deg) auto",
+false,
+false
+],
+[
+"background-size",
+"calc(1rem) auto",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(3ms/ 12.5grad / rem(3q) *(.5vh)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(log(clamp(90, .5ms, .5%, 1x)) * 3), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(3deg *env(safe-area-inset-top), none, e, up), black)",
+true,
+true
+],
+[
+"background",
+"black calc(1vw/-3px / sign(-3px)) 0",
+false,
+false
+],
+[
+"background-size",
+"abs(0px + 2rad / 10) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((0grad)), black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(10), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-2x), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1em), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((up / 3ms) - clamp(0ms, .5px, 0ms) *3ms), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0s), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(-2grad *max(0ms - 1q)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(90grad-0grad), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle mod(45deg, -3px)*sin(45), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0deg - 0.5px/45+sin(0.5%)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black min(abs(0.5turn*-3px)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(((12.5vh))) 0",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(hypot(-2x, 12.5-.5ms)-90ms), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(10em) auto",
+true,
+true
+],
+[
+"background",
+"black calc(3cm *-2) 0",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(1rad*infinity - -3turn), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle clamp(.5q, 90rem / mod(nan, .5cm), (tan(banana))) + (min(atan2(-infinity, 0px))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from tan(hypot(3q, hypot((3px), clamp(-2deg, 12.5q, none), -2 * pi), calc(log(.5cm, pi, -2deg, 1grad)))), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(-3s) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((sign(90%)) - var(--x)), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from mod(clamp(10px, e, 1deg, -3deg), asin(-3turn))/round(up, cos(45px)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(12.5ms), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0deg * 90cm-(0%)/ pow(12.5cm, 90px)-90cm-12.5x + 90vh), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(-2x), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((1vh)), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(min(1% - (-2ms)/ -2q)), black)",
+false,
+false
+],
+[
+"background",
+"black calc(max(calc(-2deg), pow(90vh, .5x)) *.5rem-12.5cm * -2grad) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(1em), black, black)",
+false,
+false
+],
+[
+"background-size",
+"sqrt(round(up, 1s/0.5em, 1deg, 2vw)) auto",
+false,
+false
+],
+[
+"background",
+"black calc(45) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(var(--x)/ 3x) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(atan2(infinity, 45vw)+calc(0.5turn, -3rad), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0.5%+max(10%)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black abs(sign(up)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10rad / 10deg), black)",
+false,
+false
+],
+[
+"background",
+"black calc((mod(2%))) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(12.5ms), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1px / 0rem) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(-3s+none) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2s * 0.5vw * rem(45s, 2em) - none * 0em), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((45s * 0.5rad)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0x), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(12.5rem) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc((3x) * mod(90q, 90vh, 0px) *(log(-2cm, 0q))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"sin(min(1vw)) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(abs(.5ms * 0vh *atan(90deg, up), .5%-round(up, 12.5grad))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(cos(2, cos(0deg)*abs(45turn)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"acos(-infinity / 0grad) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(2), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(log(1, ((e - -2x)))), black)",
+false,
+false
+],
+[
+"background",
+"black calc(rem(90ms, 3deg)) 0",
+false,
+false
+],
+[
+"background",
+"black atan2(max(2%, pi), 0.5) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at (90cm) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(acos(log(mod(-2)), up - -2x *(12.5%))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(infinity*10rad), black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(.5grad/ 90grad), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(acos(atan2(-infinity, 90grad))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from (atan((90%)/ rem(12.5deg, 0cm))), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(calc(0cm/ -2vh, pow(.5deg, -2x))), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(12.5vh), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc((3vh - -2vh * 1q *0ms *-2grad)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at rem(calc((exp(-infinity, 1grad)))) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(.5q), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(0rad - banana / 0em), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black clamp(e, 0deg), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black hypot(45px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(min(0s, -3turn, 2px)/2s), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black sqrt(banana), black)",
+false,
+false
+],
+[
+"background",
+"black calc(1cm) 0",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(infinity - 2vw), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient((up), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black mod(-2px, 0), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(nan * .5rem *90ms-acos(1) *(.5deg)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(2rad / 2em), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(1q - 90x), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(max((env(safe-area-inset-top)))), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc((mod(0deg)) + infinity/1 / 10%/0), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0.5s), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(12.5) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10deg + 45deg * sign(-3)) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(sqrt((up))) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(1grad *pow(90%, sqrt(mod(-2%, 12.5vh), acos(0rem)))), black)",
+false,
+false
+],
+[
+"background",
+"black calc(log(acos(-2px) *.5, (3ms *.5q))) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(90x), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10s) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle hypot(clamp(-3px, 2vw, pi)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(-infinity), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(10turn*1em * 45px), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(pi), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0deg * min(45%)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2deg*10), black, black)",
+true,
+true
+],
+[
+"background",
+"black calc(banana *12.5grad) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(-3%), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(10rad + infinity * 1%) 0",
+false,
+false
+],
+[
+"background-size",
+"hypot(pi, 2rad) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(abs(3x) *(.5ms)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(-3deg+(-3px)+none), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0.5px+2), black, black)",
+false,
+false
+],
+[
+"background-size",
+"max(10turn, -3rad, -3vw) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(-2x-atan((90x)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(1ms + .5deg) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"black sign(atan(12.5ms * up)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(sign(asin(1px), pow(1turn, 2)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sign(pow(calc(0em), (0.5vw)), (1rad)*10em), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(2), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0%), black)",
+true,
+true
+],
+[
+"background-size",
+"calc(rem(.5% *90rem/ 1vh-90px, 1vh)) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(90px), black)",
+true,
+true
+],
+[
+"background",
+"black calc(90vh) 0",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(0.5px/1deg), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((hypot(3ms/ 12.5, (3x)))), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(2deg*10rad - 2vw), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(e+0deg+asin(e)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(acos(var(--x))) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at calc(12.5q) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"black min(e, 90deg, -2px) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(sign(min(0vh-1grad))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from asin(max(45em, 10vw)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from pow(12.5grad) *0px *0ms/ sqrt((12.5cm), 1grad - .5), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(0% *1deg) 0, black, black)",
+false,
+false
+],
+[
+"background-size",
+"hypot(45s) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(clamp(none, acos(hypot(0%)--2rem-3%), 0% / round(0deg * 90rem, (nan), (3deg)))), black)",
+false,
+false
+],
+[
+"background-size",
+"rem((10em), sign(1s)) / progress(1em, 2em / 0em, 10vw) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black atan2(exp(0q)), black)",
+false,
+false
+],
+[
+"background",
+"black (90deg) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from max(1deg), black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(0.5% - -3%), black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at calc(var(--x) - sqrt(1rem, pi)) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(.5ms * 1rem), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(0q + 3deg), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(pi + infinity), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black tan(-2, 0px) *acos(1ms, .5vh)-.5cm-90q - sqrt(calc(1x), .5q), black)",
+false,
+false
+],
+[
+"background-size",
+"sin(10%) + round(45vw) auto",
+false,
+false
+],
+[
+"background-size",
+"atan2(45vw, sin(1deg, 45)) auto",
+false,
+false
+],
+[
+"background",
+"black calc(-2vh * -2deg) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(0s / 0.5rad * 10rad*none, sqrt(progress(2deg, 10%, 2turn))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from round(nearest, 1em, -3%), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(3grad), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc(-2ms * 90vh / 12.5%), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(.5x-1 + rem(tan(90ms), round(1q, 3deg))) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((0.5px)), black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(-infinity), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(2deg), black, black)",
+true,
+true
+],
+[
+"background",
+"black (.5%) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(max(sqrt(0.5em), (0.5px), (1s))/max(0.5vw, 45turn)/45deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(45px, 0.5turn, 1turn) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from (atan(.5)/ 1% / 90vh), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(10vw+pi) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(-3*-3deg), black, black)",
+true,
+true
+],
+[
+"background-size",
+"mod((none), 12.5cm-1px, 0ms--2) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((1vw)), black, black)",
+false,
+false
+],
+[
+"background",
+"black round(12.5deg, 12.5vh - (0cm), 3cm, ((90rem/ -2cm))) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(12.5q + hypot(-2cm, none, 1grad) / 12.5vh - exp(12.5x, .5q)) auto",
+false,
+false
+],
+[
+"background",
+"black calc(rem((round(3grad, 0grad, -2grad)), .5q) - atan2(((0ms)), atan2(90vh, log(3deg)), .5vh - .5x *-2cm)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0grad), black, black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(-2cm), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(-2vh * 90vh), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(calc(45deg, 1em*45vw)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(acos(atan(.5x)) *env(safe-area-inset-top)), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(black calc(log(-3%)+10s), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc((0turn)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(atan(pi-1rem) * 12.5q), black)",
+false,
+false
+],
+[
+"background",
+"black calc(clamp(sign(nan), mod(90%, .5px), e)-1cm * 90rem / (12.5vh)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((mod(1, 0.5em - 1, 0px))), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle mod(45deg, 0.5%, 0.5%), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((sqrt(none-none, 3rem))), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(12.5q) auto",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(0deg * .5cm), black, black)",
+false,
+false
+],
+[
+"background-size",
+"acos(abs(0px)) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from clamp(1vw, 0, 2rad), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(12.5ms-.5rem/ 3cm-90%), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc((0.5% - -3rad)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((3px)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc((2vw*(0.5turn))) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(3 + atan(up, 1q) *.5ms *(90cm) - 1), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(3grad *1) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0q-90ms), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0deg + var(--x)), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(calc((-3% / 45deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(mod(round((0grad), max(1x, -2ms, 1px), (12.5x), atan2(1deg, 0x)))) 0",
+false,
+false
+],
+[
+"background",
+"black calc((banana) + -2 *pi/ 0deg *atan(sign(90deg)) *(none) + 0ms-.5deg) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(none / -2px), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2deg+10turn), black, black)",
+false,
+false
+],
+[
+"background",
+"black clamp(.5rem, .5q, none) 0",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle calc(sqrt(mod(-2deg, .5x)) - .5grad), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(-3turn*10px + 45s+rem(mod(pi), exp(45vw))) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-3vw + 10turn - 0vw), black)",
+false,
+false
+],
+[
+"background",
+"black calc(2%) 0",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black max(0.5/0.5em, 1%, banana, 2vw + pi), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(calc(-2cm *-2cm) - 0vh + -2rem--2q * banana), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(.5vh) 0",
+true,
+true
+],
+[
+"background",
+"black calc(2px * 0/0px) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(90x) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black pow(atan2(atan2(10px, 1turn, banana), progress(10vw, banana, 45s, 0)), 45turn), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0.5turn), black, black)",
+true,
+true
+],
+[
+"background-size",
+"abs(banana) / abs(0.5vw) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle (0ms), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(calc(-2%)) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"black abs(pi, 0.5deg) 0",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(3ms *.5rem / 1px) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at pow(.5ms, 3q) / var(--x) 0, black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle abs(0px, .5)-max(sqrt(90px - .5ms)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(1rem/ calc(-2vh-1px)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0.5%) / ((10turn)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle clamp(0s*exp(2rad), 45px, cos(-3px), e+0em/-3rad), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black cos(-3), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(12.5ms) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(clamp(1ms-tan(min(-2grad, 0rem, 3%, 0px)), rem(90%, 0q) - round(0deg-up, 0grad), 90x)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle max((-3deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(round(1, 90x, 90%)), black)",
+false,
+false
+],
+[
+"background-size",
+"calc(1deg + round(-infinity) * (0px)-max(hypot(rem(e)), (3x) *1 - -2deg, none / hypot(-2x, .5%))) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black log(((45rad)), round(-3turn/0.5turn, atan2(0.5rad, 1px)), 10px), black)",
+false,
+false
+],
+[
+"background",
+"black calc(infinity * 2turn) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(0turn), black)",
+true,
+true
+],
+[
+"background-size",
+"calc(-2deg - pi) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(0.5deg*0turn), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((sign(45px+45turn))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(12.5vh), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(-2x - -2deg + min(1%)) auto",
+false,
+false
+],
+[
+"background-size",
+"calc(banana*(0.5%)/-3s) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(-3*sqrt(2turn, 10deg) * (10px / 1em)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(atan2(1/-3px, 45px), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(10rad), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(at calc(1ms/ abs(.5px)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(round(to-zero, 0.5deg), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(clamp(90cm/ 1deg-.5x, -2vh - sqrt(0q), none)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((-2cm)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(round((90grad) - 0x - 3x, min((90deg), 0vh))), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(10em/2), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc((-infinity)/ 1% + 1cm / 0px - 0x - (0)) 0, black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(2 - 2) auto",
+false,
+false
+],
+[
+"background",
+"black calc(rem(3%, nan)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((-2% / 12.5%/ 3vh - .5% *acos(12.5rem) + 90deg - -2grad)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((10s)), black, black)",
+false,
+false
+],
+[
+"background",
+"black cos(pi) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(2vw), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(round(log(.5rem + 90deg - 3ms, (90%) / 0x))) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(calc(1grad--2px)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(none * .5%/ up) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(12.5x), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-3), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from max(3x + (.5ms)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at atan(.5rem) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(2/clamp(10%/0.5rad, 1%, -3px*2)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((0cm)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at log(.5ms, .5q, 0%) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(12.5x/ (0x / -2deg)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((-2% * 3cm)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(round(-2ms)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black exp(3x - -2px, atan(90px)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle (90 * 3x), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(3rem - 3rem) 0",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(.5px), black)",
+true,
+true
+],
+[
+"background",
+"conic-gradient(from calc(45em), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from log(-2ms *0vh - (90), .5rem, -2% *pow(e, .5q) * (1rem)), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(3ms) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0rad), black, black)",
+true,
+true
+],
+[
+"background",
+"radial-gradient(circle clamp(exp(mod(90, 1% / 0, -2vh + 90ms)), log(-2vh), 90grad), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(atan(12.5deg) - 1x + -2grad/ 0px/ (90%)) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(calc(-2px/ .5 * -2cm, nan + 3px + 12.5deg)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc((12.5ms)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(-3% * 2em + rem(2rad)*10), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from sqrt(10%)*abs(none) + (10)/max(1em, 45vw), black, black)",
+false,
+false
+],
+[
+"background-size",
+"atan2(-3em, 45rad) auto",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black abs(2em, pi), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(banana *round(banana, tan(0deg), 1 * 12.5x)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(min(1ms/ 1ms / 0x/ -2vh-90vh * 90cm, -2vh)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(12.5px), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(.5x *3q * hypot(0%)), black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(tan(calc(12.5cm - 3)) / acos(90q, exp(env(safe-area-inset-top)))), black)",
+true,
+true
+],
+[
+"background",
+"black log(10turn, 0deg, infinity) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc(12.5%), black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(min(2px*10vw/0.5, 10deg * mod(45deg, 45rad, -3%), abs(max(0em, 2, 10vw))), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((3x *3deg)), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(infinity+45em + 10% / 1), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc((-2deg)), black, black)",
+true,
+true
+],
+[
+"background",
+"linear-gradient(black calc(mod(0vw, 10) + 45vw / 0.5em), black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(10deg/0.5%), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(2turn) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(10vw+45vw - -3em + 1turn), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(sqrt(banana/ max((-2%)))) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((1px/ 12.5vh)), black)",
+false,
+false
+],
+[
+"background",
+"black sin(round(45vw, 10))*sin(rem(-3turn, 10)) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from max(0vw, 1s), black, black)",
+false,
+false
+],
+[
+"background-size",
+"calc(round(1x / .5%, round(90rem), (1%))) auto",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc(tan(.5)), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(abs(rem(.5 / 0px, -2deg-3grad)) - 1rem), black, black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black calc((.5cm)), black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(tan(-2rem, 12.5grad) / 3ms-rem(1, 3px)), black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(1vh / 90%/ -infinity) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black calc(0vw+1vw), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(-3deg*round(down, 0rad+45%, banana / none)), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(abs(3x-3vh)) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"black calc(mod(max(12.5grad, -2, 0q), -2grad) *12.5vh) 0",
+false,
+false
+],
+[
+"background",
+"linear-gradient(black cos(-3rad * asin(0vw)), black)",
+false,
+false
+],
+[
+"background",
+"conic-gradient(black clamp(10turn, 45vw, 45deg, 1s), black)",
+false,
+false
+],
+[
+"background",
+"black calc(0x) 0",
+false,
+false
+],
+[
+"background",
+"conic-gradient(from calc(0s+-3deg), black, black)",
+false,
+false
+],
+[
+"background",
+"radial-gradient(circle calc(var(--x)), black, black)",
+true,
+true
+],
+[
+"background",
+"black mod(0x, 3rem) 0",
+false,
+false
+],
+[
+"background-size",
+"calc(0vw - 0.5turn) auto",
+false,
+false
+],
+[
+"background",
+"radial-gradient(at calc(1ms) 0, black, black)",
+false,
+false
+],
+[
+"background",
+"linear-gradient(calc((sqrt(.5cm)) *rem(var(--x), (.5q), 0q)), black, black)",
+true,
+true
+]
+]
+}

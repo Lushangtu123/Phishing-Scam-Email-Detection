@@ -60,7 +60,7 @@ class CssMathTests(unittest.TestCase):
     def test_gradients_browsers_reject(self):
         for value in ('linear-gradient(calc(1px),black,black)', 'linear-gradient(black calc(1deg),black)',
                       'linear-gradient(black calc(banana),black)', 'conic-gradient(from calc(1px),black,black)',
-                      'conic-gradient(black calc(10% + 1deg),black)', 'radial-gradient(circle calc(10px + 5%),black,black)',
+                      'radial-gradient(circle calc(10px + 5%),black,black)',
                       'linear-gradient(clamp(1px, 2px),black,black)'):
             with self.subTest(value=value):
                 self.assertFalse(app._background_valid(value))
@@ -73,6 +73,11 @@ class CssMathTests(unittest.TestCase):
                 self.assertTrue(app._background_valid(value))
         # A valid one-colour gradient still hides black text.
         self.assertFalse(callback_shown('background:linear-gradient(calc(45deg),black,black)'))
+
+    def test_a_mixed_conic_stop_leaves_the_colours_unknown(self):
+        # Chromium 148 rejects calc(10% + 1deg) in a conic stop; 154 accepts it.
+        self.assertIn(None, app._gradient_stops('conic-gradient(black calc(10% + 1deg),black)'))
+        self.assertTrue(callback_shown('background:conic-gradient(black calc(10% + 1deg),black)'))
 
     def test_an_untyped_function_leaves_the_colours_unknown(self):
         self.assertIn(None, app._gradient_stops('linear-gradient(black calc(env(x)),black)'))

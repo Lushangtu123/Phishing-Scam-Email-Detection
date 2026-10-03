@@ -761,13 +761,26 @@ percentages (angles for conic ones), and a colour hint stands between two stops.
 `linear-gradient(to circle, …)`, `linear-gradient(black 1deg, black)`,
 `conic-gradient(black 10px, black)` and `linear-gradient(black, 10px)` are dropped.
 Math functions (`calc()`, `min()`, `clamp()`, `round()`, trigonometry and the rest) are
-typed as CSS Values 4 types them, so `linear-gradient(calc(1px), …)` (a length where an
-angle belongs) and `calc(banana)` are dropped too. One this reader cannot type
-(`env()`, `var()` inside it) leaves the gradient's colours unknown. A word ends at a
-function's closing bracket, as CSS reads it (`url(a.png)no-repeat`).
-The checks were compared with Chromium's `CSS.supports` on 709 crafted values and 553
-values from public templates and Nazario. They disagree only on two `-moz-` and `-o-`
-gradients, which other engines accept and which are read as images of unknown colour.
+typed as CSS Values 4 types them: units multiply and divide by their powers
+(`calc(1px * 1px / 1px)` is a length), a percentage resolves against the place's length
+or angle and is invalid where the place has none (a gradient's direction), and
+`clamp(none, 10px, none)` leaves a bound out. So `linear-gradient(calc(1px), …)` (a
+length where an angle belongs), `atan2(1deg, 1%)` and `calc(banana)` are dropped too.
+Where this reader cannot be sure, the background is kept but its colours count as
+unknown: a function it does not model (`progress()`), a substitution function (`var()`,
+`env()`, `attr()`, which browsers accept when they parse the declaration), `sqrt()` of a
+dimension, a percentage inside a trigonometric function, nesting past 32 levels, or an
+angle mixed with a percentage in a conic stop (Chromium 154 accepts it, 148 does not).
+Unknown colours hide nothing, and nothing a browser accepts is dropped, so neither a
+misjudged valid background nor a misjudged invalid one can hide visible text. A word
+ends at a function's closing bracket, as CSS reads it (`url(a.png)no-repeat`).
+The checks were compared with `CSS.supports` in Chrome 154 and Chromium 148 on 5,545
+values, hand-written ones and generated math expressions, and agree with Chrome 154 on
+94%. Neither build accepts a value this reader drops, and every value a build drops but
+this reader keeps leaves its colours unknown; `website/tests/fixtures/css/background_browser_verdicts.json`
+keeps 1,916 of them for the tests. On 553 values from public templates and Nazario they
+disagree only on two `-moz-` and `-o-` gradients, which other engines accept and which
+are read as images of unknown colour.
 A background clipped to the text (`background-clip: text`, its `-webkit-` form, or
 `text` in the shorthand) paints only inside the glyphs: it is no backdrop for them,
 and transparent text over it shows it (gradient text). A
