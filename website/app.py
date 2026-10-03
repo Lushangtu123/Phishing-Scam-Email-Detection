@@ -2248,6 +2248,15 @@ _COLOR_SPACES = frozenset({'srgb', 'srgb-linear', 'display-p3', 'a98-rgb', 'prop
                            'xyz', 'xyz-d50', 'xyz-d65'})
 # Values the parser cannot compute: the text they reach stays unresolved.
 _UNCOMPUTED = re.compile(r'(?:calc|clamp|min|max|var|env|attr|color-mix|light-dark|if)\(')
+# Colours this reader cannot compute: a function that makes one from others or from a
+# substitution (color-mix(), light-dark(), var()), a colour function with math or a
+# substitution inside, or relative colour syntax (rgb(from red r g b)). A word that only
+# holds such a function somewhere ("(min(…)) / 3grad") is no colour.
+_UNRESOLVED_COLOR = re.compile(
+    r'(?:color-mix|light-dark|contrast-color|device-cmyk|var|env|attr|if)\('
+    r'|(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\((?=.*(?:calc|clamp|min|max|round|mod|rem|abs|sign|sin|cos|tan'
+    r'|asin|acos|atan|atan2|pow|sqrt|hypot|log|exp|var|env|attr|if)\()'
+    r'|[a-z-]+\(\s*from\s', re.S)
 
 
 def _color_function_alpha(function: str, arguments: str) -> str | None:
@@ -2297,7 +2306,7 @@ def _color_class(color: str) -> str:
     """'transparent', 'visible', 'inherit', 'unresolved' or 'invalid' for one colour value."""
     if not color or color in {'inherit', 'unset', 'revert', 'revert-layer', 'currentcolor'}:
         return 'inherit'
-    if _UNCOMPUTED.search(color) or re.match(r'[a-z-]+\(\s*from\s', color):
+    if _UNRESOLVED_COLOR.match(color):
         return 'unresolved'
     if color == 'transparent':
         return 'transparent'
@@ -3166,21 +3175,27 @@ def _background_clip(value: str) -> str:
 
 @lru_cache(maxsize=4096)
 def _background_uncertain(value: str) -> bool:
-    """Whether browsers may keep or drop a background value: it holds a substitution
-    function, a math function this reader cannot type, or a stop browsers disagree on (an
-    angle mixed with a percentage in a conic stop). Its own colours and the background it
+    """Whether browsers may keep or drop a background value, as far as this reader can
+    tell: it holds a substitution function, a math function this reader cannot type, a
+    colour it cannot compute (as a stop too), a stop browsers disagree on (an angle mixed
+    with a percentage in a conic stop), or an image function whose arguments it does not
+    check (-moz-linear-gradient(), image-set()). Its own colours and the background it
     would replace are then both possible."""
     if _CSS_SUBSTITUTION.search(value):
         return True
     for layer in _css_top_level(value, ','):
         for piece in _css_top_level(layer, '/'):
             for word in _css_words(piece):
-                if _css_quantity(word) == 'math-unknown':
+                if _css_quantity(word) == 'math-unknown' or _color_class(word) == 'unresolved':
+                    return True
+                if not _BACKGROUND_IMAGE.match(word) or word.startswith('url('):
+                    continue
+                stops = _gradient_stops(word)
+                if stops is None or None in stops:
                     return True
                 gradient = re.fullmatch(r'(?:repeating-)?(linear|radial|conic)-gradient\((.*)\)', word, re.S)
-                if gradient and any(
-                        _css_quantity(inner) == 'math-unknown'
-                        or gradient.group(1) == 'conic' and _css_quantity(inner) == 'angle-percentage'
+                if gradient.group(1) == 'conic' and any(
+                        _css_quantity(inner) == 'angle-percentage'
                         for argument in _css_top_level(gradient.group(2), ',') for inner in _css_words(argument)):
                     return True
     return False

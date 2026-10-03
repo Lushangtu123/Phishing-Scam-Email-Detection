@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Recheck of 9162549 (2026-10-03)
+
+An offline recheck found one P1 left from the last fix. A gradient whose first argument is
+no colour at all (`(min(atan2(0px, 3rem))/ 3grad)`) was kept with an unknown stop: any word
+holding a math function counted as an uncomputed colour. Under a `text` clip it then hid
+white text that the black background before it shows; Chromium drops the gradient.
+
+Such words are now invalid. Every colour or image this reader cannot check marks the
+background as one browsers may keep or drop.
+
+A new test replays the stored Chromium verdicts through the cascade. Each value some build
+drops goes behind a background in contrast with the text, with and without a `text` clip,
+and the text must be read:
+- this change hides none of 3,624 such cascades;
+- 9162549 hides the recheck's three.
+
+| Cohort (same model) | `9162549`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,445 / 16 / 5 | 3,445 / 16 / 5 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, no mailbox | 27 / 9 / 56 | 27 / 9 / 56 |
+
+- **No change** for any message of Nazario, DataCon, the genuine downloads or the templates. Pasted cohorts are unchanged.
+
 ### Review of 3351c72 (2026-10-02)
 
 A read-only review found four ways to bring a visible callback scam from High to Safe, all reproduced and fixed:

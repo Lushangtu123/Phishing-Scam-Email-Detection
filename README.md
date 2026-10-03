@@ -777,7 +777,13 @@ misjudged valid background nor a misjudged invalid one can hide visible text. Su
 declaration may also be dropped where this reader keeps it, leaving the background it
 replaced (`background: black; background: linear-gradient(sqrt(4px), …) text`): wherever
 a background, clip, size or repeat may be either, the backdrop counts as unknown, and so
-does a clip this reader cannot resolve (`background-clip: env(…, text)`). A word
+does a clip this reader cannot resolve (`background-clip: env(…, text)`). That covers a
+colour this reader cannot compute (`color-mix()`, `light-dark()`, a colour function with
+math inside), as a background or a gradient stop, and image functions whose arguments it
+does not check (`-moz-linear-gradient()`, `image-set()`). A word that only holds a math
+function somewhere (`(min(…)) / 3grad`) is no colour at all, and its gradient is dropped.
+Tests replay every stored value a Chromium build drops behind a background in contrast with
+the text, through the whole cascade, and require the text to be read. A word
 ends at a function's closing bracket, as CSS reads it (`url(a.png)no-repeat`).
 The checks were compared with `CSS.supports` in Chrome 154 and Chromium 148 on 5,545
 values, hand-written ones and generated math expressions, and agree with Chrome 154 on

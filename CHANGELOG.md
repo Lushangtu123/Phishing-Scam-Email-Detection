@@ -20,6 +20,40 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-03 00:30 PT] — Fix the recheck of 9162549: words that are no colours, uncertainty through the whole cascade
+
+### Why
+An offline recheck of main at 9162549 (2026-10-02) found one P1 left from the last fix. It turned a visible callback scam from High to Safe:
+- **Gradients kept on an unknown stop.** `background: black; background: linear-gradient((min(atan2(0px, 3rem))/ 3grad), black, black) text` hid white text. Two more such values come from the stored verdicts: `(12.5 + 3ms + …)` and `12.5grad-calc(banana - 1x)`. Both Chromium builds drop all three, so the black background stays under the white text.
+- **The cause.** `_color_class` called any word holding `calc(`, `min(` or the like *anywhere* an uncomputed colour, so these words became gradient stops of unknown colour. The gradient was then kept. It was not marked uncertain, and its `text` clip restored the white page as the backdrop.
+- **The same gap elsewhere.** It held for any colour or image this reader cannot check:
+  - a `color-mix()` background or stop;
+  - a `-moz-linear-gradient()` or `image-set()` under a `text` clip.
+
+### Files changed
+- `website/app.py`:
+  - **Colour words.** A colour this reader cannot compute must be one (`_UNRESOLVED_COLOR`):
+    - `color-mix()`, `light-dark()` and substitutions;
+    - a colour function with math inside;
+    - relative colour syntax.
+
+    Any other word that merely holds a math function is invalid.
+  - **Uncertainty.** `_background_uncertain` also holds for an uncomputed colour (as a background or a stop) and for any image function whose arguments are not checked (prefixed gradients, `image-set()`, `cross-fade()`, `element()`). The cascade therefore leaves the backdrop unknown there.
+- `website/tests/test_review_2026_10_02_sixth.py`: 5 tests; on 9162549 they give 11 failures. One replays stored values that a Chromium build drops behind a background in contrast with the text: every tenth value, plus the recheck's three; `PHISHGUARD_FULL_CASCADE=1` checks all 1,208. Each value is tried with and without a `text` clip, and the text must be read.
+- `README.md`, `docs/evaluation.md`.
+
+### Effect
+- **Recheck samples.** `fixture-gap-0`, `-1` and `-2` are High in HTML and EML, like `fallback-control`.
+- **Cascade replay** (offline): 1,208 dropped values × 3 cascades.
+  - This change hides none.
+  - On 9162549, exactly the recheck's three are hidden.
+- **Offline verdicts.** Of 5,977 values tested so far, the recheck's three change from accepted to dropped, and both builds drop them. None changes the other way, and the fixture's checks still hold.
+- **Same served model, main (9162549) against this change:**
+  - Nazario 3,466: no per-message change (3,445 alerts, 16 undetermined, 5 Safe or Low);
+  - no verdict change, per message, on the 92 genuine downloads (with and without a mailbox), DataCon 2023 day 1 or the 87 public HTML templates;
+  - counts identical on the pasted cohorts.
+- Tests: 1,111 passed, 10 skipped; all frontend test files 514 passed.
+
 ## [2026-10-02 23:30 PT] — Fix the review of 3351c72: unknown clips, percentage bases, bracketed none, backgrounds browsers may drop
 
 ### Why
