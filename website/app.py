@@ -63,6 +63,7 @@ from server_messages import (annotate_content, indicator, message as coded_messa
 from visual_evidence import (VisualRequest, VISUAL_PATHS, MAX_VISUAL_REQUEST_BYTES,
                              bound_message_text, merge_visual_findings, merge_visual_sources)
 from enhanced_vision import load_enhanced_vision_settings, recognize_image, enhanced_evidence
+from local_review import load_local_review_settings, review as local_review
 from language_coverage import (has_substantial_han_text as _has_substantial_han_text,
                                non_latin_script_segments)
 from sender_history import (
@@ -77,6 +78,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 BASE_DIR = Path(__file__).parent
 SETTINGS = load_settings()
 ENHANCED_VISION = load_enhanced_vision_settings()
+# A language model on this computer may review model-only alerts (development only; local_review.py).
+LOCAL_REVIEW = load_local_review_settings()
 
 
 def load_content_pipeline_artifact(path: Path, expected_sha256: str) -> dict:
@@ -5926,6 +5929,33 @@ def _apply_requested_answer(result: dict, requested: str) -> None:
         result['extra_indicators'].append(indicator('medium', 'content.unrequested_notice'))
 
 
+async def _apply_local_review(result: dict, subject: str, body: str, hosts) -> None:
+    """Ask the optional language model on this computer about an alert that rests on the
+    text model alone (local_review.py).
+
+    A legitimate reading at the configured confidence lowers the alert to Low. Any other
+    answer, or none, leaves it, and the result says which. With Qwen3.8 27B it lowered 26
+    of the 35 alerts on the owner's pasted genuine mail. Of 3,466 Nazario phishing messages
+    it lowered one, the corpus's own introduction (docs/evaluation.md).
+    """
+    if not (LOCAL_REVIEW.enabled and _rests_on_text_model(result)):
+        return
+    reading = await asyncio.to_thread(local_review, LOCAL_REVIEW, subject, body, hosts)
+    if reading is None:
+        result['extra_indicators'].append(indicator('info', 'content.local_review_unavailable',
+                                                    model=LOCAL_REVIEW.model))
+        return
+    params = {'model': LOCAL_REVIEW.model, 'confidence': reading['confidence']}
+    if reading['verdict'] == 'phishing':
+        result['extra_indicators'].append(indicator('info', 'content.local_review_phishing', **params))
+    elif reading['confidence'] < LOCAL_REVIEW.min_confidence:
+        result['extra_indicators'].append(indicator('info', 'content.local_review_unsure', **params))
+    else:
+        result['risk_level'] = 'low'
+        result['risk_label'] = 'Low Risk — Read as Legitimate by a Local Model'
+        result['extra_indicators'].append(indicator('info', 'content.local_review_legitimate', **params))
+
+
 def _advertising(result: dict, bulk_mail: bool, *, strict: bool = False) -> bool:
     # Scams dressed as deals ("90% OFF", "limited-time offer") carry scam wording too;
     # such mail is never called advertising, whatever its sales terms.
@@ -7028,6 +7058,7 @@ async def _analyze_content(
 
     # Registration dates of the sender's and the links' domains, from the registries'
     # RDAP servers where the deployment enables it. Context only: no points.
+    link_hosts = result.get('link_hosts', [])
     candidates = _registration_candidates(structure['from'] if structure else '', result.pop('link_hosts', []))
     if SETTINGS.rdap_lookups_enabled and candidates:
         dates = await domain_age.lookup_many_async([domain for _role, domain in candidates])
@@ -7038,6 +7069,7 @@ async def _analyze_content(
     result['analysis_warnings'] = list(dict.fromkeys(result['analysis_warnings']
         + (structure['parse_warnings'] if structure else [])))
     result['analysis_complete'] = not bool(result['analysis_warnings'])
+    await _apply_local_review(result, model_view.get('subject', ''), model_view.get('body', ''), link_hosts)
     _apply_requested_answer(result, request.requested)
     # Weak routing/text evidence cannot establish low risk when the main visible
     # content is an uninspected image, or when the model could not score the text

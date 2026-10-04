@@ -1408,6 +1408,69 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Review of model-only alerts by a local language model (2026-10-04)
+
+The owner asked whether the open-source models already on their computer could help. One
+now reviews alerts that rest on the text model alone, the largest source of false alerts
+(see "Where false alerts come from"). The served model is unchanged.
+
+**Setup.**
+- **Model.** Qwen3.8 27B, the 18 GB 4-bit MLX build, through Ollama 0.34 on a 64 GB Mac.
+- **Settings.** Temperature 0, thinking off, a JSON verdict and confidence.
+- **Input.** The email is passed as untrusted data: up to 4,000 characters of visible
+  text, and the link hosts.
+- **Speed.** About 2–5 seconds per message.
+- **Privacy.** The owner's mail went only to Ollama on 127.0.0.1 and is reported as counts.
+
+**Pilot.** It covered every alert of the served pipeline with a model-led basis and a Safe
+or Low floor (827), whether or not a Medium finding stood beside it. Counted: a legitimate
+reading at 70% or more.
+
+| Cohort (alerts reviewed) | Read as legitimate |
+|---|---:|
+| Genuine downloads, pasted (35) | 26 |
+| Genuine downloads, no mailbox (17) | 14 |
+| PhishFuzzer legitimate seeds (63) | 46 |
+| UniqueData legitimate (39) | 17 |
+| Nazario phishing (576) | 11 |
+| PhishFuzzer recent phishing (88) | 4 |
+
+**Shipped rule.** It is narrower than the pilot:
+- only alerts with no Medium finding besides presentation cues are reviewed, the same test
+  (`_rests_on_text_model`) as the "Did you do this yourself?" question;
+- a legitimate reading needs 80%.
+
+End to end, review off against on:
+
+| Cohort | Off: alerts / undetermined / Safe or Low | On |
+|---|---|---|
+| 92 genuine downloads, no mailbox | 24 / 10 / 58 | 11 / 10 / 71 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, pasted | 35 / 1 / 56 | 9 / 1 / 82 |
+| 11 new brand emails, pasted | 3 / 0 / 8 | 0 / 0 / 11 |
+| PhishFuzzer legitimate seeds (102) | 63 / 0 / 39 | 21 / 0 / 81 |
+| UniqueData legitimate (58) | 39 / 0 / 19 | 29 / 0 / 29 |
+| Postmark templates (10) | 3 / 0 / 7 | 0 / 0 / 10 |
+| Nazario phishing (3,466) | 3,445 / 16 / 5 | 3,444 / 16 / 6 |
+| PhishFuzzer recent phishing (103) | 88 / 0 / 15 | 85 / 0 / 18 |
+| DataCon 2023 day 1, unlabelled (611) | 236 / 349 / 26 | 236 / 349 / 26 |
+
+- **Phishing let through.**
+  - Nazario lost one alert, the corpus's own introductory message.
+  - PhishFuzzer lost three: a "free LinkedIn Learning" offer, a supplement advertisement,
+    and a mailbox lure ("Undeliverable: Email Delivery Blocked").
+- **Reviews asked.** The narrower rule asked about 49 Nazario alerts (pilot: 576). It read
+  43 as phishing, and 5 as legitimate below 80%.
+- **Kept on genuine mail.** The model read 9 of the 35 pasted genuine alerts and both
+  reviewed mailbox-chosen alerts as phishing.
+- **Limits.**
+  - Public corpora may be in the model's training data, so their numbers can be
+    optimistic; the owner's mail is private.
+  - A message can address the model in visible text. Hidden text never reaches it, and
+    alerts with any rule finding are never reviewed.
+  - It runs only on a developer's own computer. The public service has no such model,
+    and mail text must not leave the machine.
+
 ### Presentation cues against a legitimate model reading (2026-10-04)
 
 The owner exported 11 recent Gmail messages from registry brands: digests, learning

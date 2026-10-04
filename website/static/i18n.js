@@ -322,6 +322,7 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.low': 'Low Risk — Minor Concerns',
     'content.riskLabel.lowVerified': 'Low Risk — Verified Official Sender',
     'content.riskLabel.lowRequested': 'Low Risk — Confirmed as Your Own Action',
+    'content.riskLabel.lowLocal': 'Low Risk — Read as Legitimate by a Local Model',
     'content.riskLabel.safe': 'No Phishing Indicators Found',
     'content.riskLabel.remoteUnchecked': 'No Indicators in Inspected Text — Remote Image Unchecked',
     'content.riskLabel.incomplete': 'Analysis Incomplete — Risk Undetermined',
@@ -856,6 +857,10 @@ window.PhishGuardI18n = (() => {
     'server.content.subsidy_lure': 'A subsidy, allowance or tax-refund notice pressures you to claim it at once or by scanning a code. Government bodies and employers do not pay out this way by email.',
     'server.content.requested_notice': 'You confirmed this notice is about something you did yourself, so a text-model alert alone is not treated as phishing. Still check that the sender and any link belong to the service, and never share a code with anyone.',
     'server.content.unrequested_notice': 'You did not do what this notice describes, or are not sure. An unexpected code, sign-in, new account, order or application notice can mean someone is using your account, or that the message is phishing: don\'t use its links; open the service\'s own site or app instead.',
+    'server.content.local_review_legitimate': 'A language model on this computer ({model}) read the message as legitimate ({confidence}% sure). The alert rested on the text model alone, so it is lowered to Low. Still check the sender and links before acting.',
+    'server.content.local_review_phishing': 'A language model on this computer ({model}) also read the message as phishing ({confidence}% sure).',
+    'server.content.local_review_unsure': 'A language model on this computer ({model}) read the message as legitimate, but only {confidence}% sure, so the alert stands.',
+    'server.content.local_review_unavailable': 'The language model on this computer ({model}) did not answer, so this alert was not reviewed.',
     'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
     'server.content.sensitive_request.one_time_code': "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
     'server.content.sensitive_request.password_pin': "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
@@ -1330,7 +1335,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=43'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=44'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1455,7 +1460,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'lowRequested', 'safe', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {

@@ -20,6 +20,27 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-04 15:10 PT] — Optional review of model-only alerts by a local language model
+
+### Why
+The owner asked whether the open-source models on their computer could help. Alerts that rest on the text model alone are the main source of false alerts, and a language model reads meaning the TF-IDF model cannot.
+
+### Files changed
+- `website/local_review.py` (new): settings and an Ollama chat client.
+  - Off by default; only `http` on a loopback host, in a development profile.
+  - No proxy and no redirects; an out-of-form answer counts as no answer.
+- `website/app.py`: `_apply_local_review` asks about alerts that rest on the text model alone (`_rests_on_text_model`), before the "Did you do this yourself?" question. A legitimate reading at the minimum confidence lowers the alert to Low.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: four result messages and the new Low label, in English and Chinese; asset versions bumped.
+- `website/tests/test_local_review.py`: settings, the client against a stub server, and the analysis (synthetic).
+- `README.md`, `docs/evaluation.md`: how to turn it on, the pilot and the end-to-end measurement.
+
+### Effect
+- Off by default: no verdict changes unless `LOCAL_LLM_REVIEW_ENABLED=true` in development.
+- With Qwen3.8 27B through Ollama, review off → on:
+  - genuine downloads: alerts 35 → 9 pasted and 24 → 11 without a mailbox; 3 with a mailbox, unchanged;
+  - PhishFuzzer legitimate seeds 63 → 21, UniqueData 39 → 29, Postmark 3 → 0;
+  - Nazario 3,445 → 3,444 (the corpus's own introduction), PhishFuzzer recent phishing 88 → 85, DataCon unchanged.
+
 ## [2026-10-04 12:10 PT] — Presentation cues give way to a legitimate model reading
 
 ### Why

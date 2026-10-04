@@ -1219,6 +1219,10 @@ does not perform live SPF/DKIM/DMARC verification or expand the trust boundary.
 | `CONTENT_MODEL_ENABLED` | `false` | Loads a verified offline email-text artifact |
 | `CONTENT_MODEL_ARTIFACT` | empty | Path to the trusted artifact created by `prebuild_demo_model.py` |
 | `CONTENT_MODEL_ARTIFACT_SHA256` | empty | Required SHA-256 digest for the configured artifact |
+| `LOCAL_LLM_REVIEW_ENABLED` | `false` | Development only: a language model on this computer reviews alerts that rest on the text model alone |
+| `LOCAL_LLM_REVIEW_URL` | `http://127.0.0.1:11434` | Ollama's address: `http` on a loopback host only, and refused in the production and demo profiles |
+| `LOCAL_LLM_REVIEW_MODEL` | empty | Required with the review: a model name as `ollama list` shows it |
+| `LOCAL_LLM_REVIEW_MIN_CONFIDENCE` | `80` | How sure (50–100) a legitimate reading must be to lower the alert |
 | `TRUSTED_AUTHSERV_IDS` | empty | Comma-separated authentication service IDs allowed to affect raw-message risk |
 | `SENDER_HISTORY_ENABLED` | `false` | Enables optional service-retained sender history and distributed API limiting when all secrets are valid |
 | `UPSTASH_REDIS_REST_URL` | empty | HTTPS REST endpoint for an Upstash Redis database (`*.upstash.io`) |
@@ -1960,6 +1964,36 @@ before transmission. Original image/attachment bytes are not retained in cases;
 extracted visual evidence, its provenance and the input digest are retained.
 Submitting a public analysis does not create a case. API callers without a browser
 must provide their own extraction or use the existing text/MIME-only routes.
+
+### Optional review by a local language model
+
+On your own computer, a language model served by [Ollama](https://ollama.com) can give a
+second opinion on alerts that rest on the text model alone. It is off by default and
+development-only: the address must be `http` on a loopback host, and the production and
+demo profiles refuse it, so a deployment never sends mail text anywhere.
+
+- **What it reviews.** Only alerts with no rule, sender, link or structure finding behind
+  them, the same test as the "Did you do this yourself?" question. It reads what the text
+  model read: up to 4,000 characters of visible text, never hidden text, and up to 15
+  hosts the links lead to.
+- **What it changes.** A legitimate reading at the minimum confidence (default 80) lowers
+  the alert to Low, labelled "Read as Legitimate by a Local Model". A phishing reading, a
+  less confident one, or no answer leaves the alert, and the result says which.
+- **Measured** with Qwen3.8 27B ([docs/evaluation.md](docs/evaluation.md)):
+  - the owner's pasted genuine mail went from 35 alerts to 9;
+  - PhishFuzzer's legitimate seeds went from 63 to 21;
+  - of 3,466 Nazario phishing messages one was lowered, the corpus's own introduction;
+  - three of PhishFuzzer's 103 recent phishing seeds were lowered.
+- **Limits.** A language model can be talked round: a message that addresses it in
+  visible text may win a legitimate reading. Hidden text never reaches it, and alerts
+  with any rule finding are never reviewed. Each review takes a few seconds.
+
+To turn it on, start Ollama with the model pulled, then start the app with the content
+model configured and:
+
+```bash
+export APP_ENV=development LOCAL_LLM_REVIEW_ENABLED=true LOCAL_LLM_REVIEW_MODEL=qwen3.8:27b-mlx
+```
 
 ### Experimental Jev auxiliary opinions
 
