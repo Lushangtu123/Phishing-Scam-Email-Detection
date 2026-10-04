@@ -1075,6 +1075,14 @@ reads the text as legitimate: it can make the verdict Low, never an alert on its
 own, although the combined score still shows it. Probabilities between 30% and the
 threshold used to give a Medium alert.
 
+Presentation cues add a point each but give way to the model. They are more than six links,
+three or more exclamation marks, a high share of capitals, two generic calls to action and a
+doubled question mark in the subject.
+- When the model reads every view and rendering of the message as legitimate, the rule score
+  leaves them out, so they cannot make an alert.
+- With no model reading (too little text, no coverage, model off), they count as before.
+- With a model alert, they raise it to High (`model_led`).
+
 ## Project structure
 
 ```text

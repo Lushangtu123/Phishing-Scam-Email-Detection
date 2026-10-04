@@ -1408,6 +1408,47 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Presentation cues against a legitimate model reading (2026-10-04)
+
+The owner exported 11 recent Gmail messages from registry brands: digests, learning
+reminders, onboarding and promotion from Quora, Duolingo, Reddit, Canva, Notion and Zoom.
+Counts only; no message text was read.
+- **As `.eml`.** With or without the mailbox chosen, all 11 were Low, each from a verified
+  official sender.
+- **Pasted as text.** 4 alerted.
+  - Three rest on the model (41–69%).
+  - The fourth scored 6% from the model and reached Medium on rule points. Two keyword
+    categories and a large amount gave 4 points. Exclamation marks and more than six links
+    gave 2 more.
+
+Presentation cues (`_PRESENTATION_CUES`: many links, exclamation marks, capitals, repeated
+calls to action, a doubled question mark) add a point each. They say nothing about the
+sender, the links or the request.
+- **Legitimate reading.** When the model reads every view and rendering of the message as
+  legitimate, the rule score now leaves the cues out, so they cannot make an alert.
+- **No reading.** When the model gives no reading (too little text, no coverage, model off),
+  they count as before.
+- **Phishing reading.** When any reading reaches the threshold, they count as before and
+  raise a model alert to High.
+
+A first version left them out whenever a reading was missing or below the threshold. It
+turned 9 Nazario High alerts into undetermined results. On those messages only a newly scored
+rendering alerted, and without it the rules alerted only through the cues. So the check that
+keeps an earlier abstention took over. Requiring a legitimate reading of the whole message
+kept all 9 unchanged.
+
+| Cohort | `345e325`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| 92 genuine downloads, no mailbox | 25 / 10 / 57 | 24 / 10 / 58 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+| 92 genuine downloads, pasted | 37 / 1 / 54 | 35 / 1 / 56 |
+| 11 new brand emails, pasted | 4 / 0 / 7 | 3 / 0 / 8 |
+| Nazario 2015–25 phishing (3,466) | 3,445 / 16 / 5 | 3,445 / 16 / 5 |
+
+- **Fewer false alerts.** 3 genuine alerts and 1 new one became Low.
+- **No change** for any message of Nazario, DataCon (611), PhishFuzzer's recent seeds
+  (205), UniqueData (58) or Postmark (10), nor for the 11 new emails as `.eml`.
+
 ### Candidate models in the serving pipeline (2026-10-03)
 
 "Adding public data to training" (section 5) found that LLM variants of recent seeds (C2)

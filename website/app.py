@@ -5882,8 +5882,9 @@ _NOT_OWN_ACTION_NOTICE = re.compile("|".join((
 
 # Presentation cues that genuine notices share (many links, exclamation marks, capitals,
 # "click here" twice, a doubled question mark): they add a point to the score but say
-# nothing about the sender, the links or the request. Counting them would stop the
-# question on 10 of the 16 genuine downloads it reaches, and on 2 Nazario messages.
+# nothing about the sender, the links or the request. They make no alert against a model
+# reading below its threshold (fuse_content_risk). Counting them would stop the question
+# on 10 of the 16 genuine downloads it reaches, and on 2 Nazario messages.
 _PRESENTATION_CUES = frozenset({
     'content.url_count', 'content.exclamation_marks', 'content.capitalization',
     'content.generic_cta', 'content.subject_question_marks',
@@ -6004,6 +6005,7 @@ def _text_rule_findings(full_orig: str) -> dict:
     analysis_text = _strip_invisible_format_controls(full_orig)
     full_lower = analysis_text.lower()
     categories, score, floor = [], 0, 'safe'
+    presentation = 0  # the score's points from _PRESENTATION_CUES
     for cat_key, cat_info in CONTENT_RULES.items():
         matched = [
             kw for kw in cat_info["keywords"]
@@ -6053,12 +6055,14 @@ def _text_rule_findings(full_orig: str) -> dict:
     excl = full_orig.count("!")
     if excl >= 3:
         score += 1
+        presentation += 1
         style.append(indicator("medium", "content.exclamation_marks", count=excl))
 
     # 5. Excessive capitalization
     caps_ratio = _excessive_caps_ratio(full_orig)
     if caps_ratio > 0.40 and len(full_orig) > 60:
         score += 1
+        presentation += 1
         style.append(indicator("medium", "content.capitalization",
                                percent=int(f"{caps_ratio:.0%}"[:-1])))
 
@@ -6078,6 +6082,7 @@ def _text_rule_findings(full_orig: str) -> dict:
     cta_count = _count_generic_cta(full_orig)
     if cta_count >= 2:
         score += 1
+        presentation += 1
         wording.append(indicator("medium", "content.generic_cta", count=cta_count))
 
     # 11. Regional/formal English variants are context only. Language variety
@@ -6095,7 +6100,7 @@ def _text_rule_findings(full_orig: str) -> dict:
         wording.append(indicator("high", "content.obfuscation", brands=', '.join(set(obfuscated))))
 
     return {"full_orig": full_orig, "analysis_text": analysis_text, "categories": categories, "score": score,
-            "floor": floor, "requests": requests, "style": style, "wording": wording}
+            "presentation": presentation, "floor": floor, "requests": requests, "style": style, "wording": wording}
 
 
 def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
@@ -6362,6 +6367,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     full_lower = analysis_text.lower()
     category_results = rules['categories']
     total_score = rules['score']
+    presentation_score = rules['presentation']
     risk_floor = rules['floor']
 
     extra_indicators = []
@@ -6457,12 +6463,14 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     subj_q = scored_parts[0].count("?")
     if subj_q >= 2:
         total_score += 1
+        presentation_score += 1
         extra_indicators.append(indicator("medium", "content.subject_question_marks", count=subj_q))
 
     # 7. High URL count
     url_count = _count_urls(links)
     if url_count > 6:
         total_score += 1
+        presentation_score += 1
         extra_indicators.append(indicator("medium", "content.url_count", count=url_count))
 
     extra_indicators.extend(rules['wording'])
@@ -6512,6 +6520,8 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         "risk_level":        risk_level,
         "risk_label":        risk_label,
         "total_score":       total_score,
+        # For the fusion only; removed before the response.
+        "presentation_score": presentation_score,
         "category_results":  category_results,
         "extra_indicators":  extra_indicators,
         "safety_signals":    safety_found,
@@ -6540,13 +6550,22 @@ def fuse_content_risk(
     ml_phishing_probability: float | None,
     ml_decision_threshold: float,
     heuristic_score: int,
+    presentation_score: int = 0,
     minimum_level: str = "safe",
 ) -> dict:
     """Conservatively fuse independent evidence without averaging it away."""
-    heuristic_risk = min(1.0, max(0.0, heuristic_score / 16.0))
     ml_risk = 0.0 if ml_phishing_probability is None else min(
         1.0, max(0.0, ml_phishing_probability)
     )
+    model_signal = ml_phishing_probability is not None and ml_risk >= ml_decision_threshold
+    # Presentation cues (_PRESENTATION_CUES) back a model alert but never outweigh the model's
+    # reading: genuine notices share them, and they say nothing about the sender, the links
+    # or the request. When the model reads the text as legitimate, the rule score leaves them
+    # out; when it gives no reading, they count as before. Callers pass 0 when any other
+    # reading of the message reaches the threshold.
+    model_reads_legitimate = ml_phishing_probability is not None and not model_signal
+    rule_score = heuristic_score - presentation_score if model_reads_legitimate else heuristic_score
+    heuristic_risk = min(1.0, max(0.0, rule_score / 16.0))
     floor_scores = {
         "safe": 0.0,
         "low": 0.10,
@@ -6556,7 +6575,6 @@ def fuse_content_risk(
     }
     floor_score = max(floor_scores.get(minimum_level, 0.0), 0.10 if heuristic_score > 0 else 0.0)
     combined = max(heuristic_risk, ml_risk, floor_score)
-    model_signal = ml_phishing_probability is not None and ml_risk >= ml_decision_threshold
     # Below its decision threshold the model reads the text as legitimate: the threshold was
     # chosen within a 20% false-positive budget, so a 30–37% probability lies inside it. It
     # may make the result Low, never an alert on its own. The combined score still shows it.
@@ -6604,7 +6622,8 @@ def _model_choice(predictions, threshold):
             'ml_prediction': None, 'ml_decision_threshold': round(threshold * 100, 1), 'ml_top_contributors': []}
 
 
-def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heuristic_score, minimum_level):
+def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heuristic_score, minimum_level,
+                          presentation_score=0):
     """Keep the MIME views whose plausible renderings all lead to the same decision.
 
     The decision is whether the fused result alerts (Medium or above). Each kept
@@ -6618,7 +6637,7 @@ def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heur
         probability = prediction['_phishing_probability']
         return None if probability is None else fuse_content_risk(
             ml_phishing_probability=probability, ml_decision_threshold=threshold,
-            heuristic_score=heuristic_score, minimum_level=minimum_level,
+            heuristic_score=heuristic_score, presentation_score=presentation_score, minimum_level=minimum_level,
         )['risk_level'] in {'medium', 'high', 'critical'}
     kept, resolved, hidden_agrees = [], True, True
     for body in bodies:
@@ -6920,14 +6939,21 @@ async def _analyze_content(
                 lambda pipeline, subject, texts: [
                     predict_content(pipeline, subject, text, canonical_text=True) for text in texts],
                 _content_pipeline, model_view['subject'], texts)))
+            # Presentation cues give way only to a model that reads every view and rendering
+            # as legitimate; one reading at the threshold keeps them in the rule score.
+            if any(prediction['_phishing_probability'] is not None and prediction['_phishing_probability'] >= threshold
+                   for prediction in predictions.values()):
+                result['presentation_score'] = 0
             kept, rendering_resolved, hidden_agrees = _agreeing_model_views(
                 bodies, view_readings, predictions, threshold=threshold,
-                heuristic_score=result['total_score'], minimum_level=result['risk_floor'])
+                heuristic_score=result['total_score'], minimum_level=result['risk_floor'],
+                presentation_score=result['presentation_score'])
 
         def alerts(ml):
             return fuse_content_risk(
                 ml_phishing_probability=ml['_phishing_probability'], ml_decision_threshold=threshold,
-                heuristic_score=result['total_score'], minimum_level=result['risk_floor'],
+                heuristic_score=result['total_score'], presentation_score=result['presentation_score'],
+                minimum_level=result['risk_floor'],
             )['risk_level'] in {'medium', 'high', 'critical'}
         ml = _model_choice([prediction for _body, prediction in kept], threshold)
         earlier = [(body, prediction) for body, prediction in kept
@@ -6964,6 +6990,7 @@ async def _analyze_content(
             ml_phishing_probability=ml_probability,
             ml_decision_threshold=float(_content_pipeline.get("decision_threshold", 0.5)),
             heuristic_score=result["total_score"],
+            presentation_score=result["presentation_score"],
             minimum_level=result["risk_floor"],
         ))
     else:
@@ -6971,8 +6998,10 @@ async def _analyze_content(
             ml_phishing_probability=None,
             ml_decision_threshold=0.5,
             heuristic_score=result["total_score"],
+            presentation_score=result["presentation_score"],
             minimum_level=result["risk_floor"],
         ))
+    del result["presentation_score"]
 
     # A verified official sender (trusted DMARC pass on the organization's own domain)
     # cannot be raised above Low by the text model or weak rules alone. Evidence that

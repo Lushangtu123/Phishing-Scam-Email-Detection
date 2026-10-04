@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-04 12:10 PT] — Presentation cues give way to a legitimate model reading
+
+### Why
+The owner's 11 new brand emails were all Low as `.eml`. Pasted, one Quora digest still reached Medium on rule points while the model scored it 6%. Two of its six points came from exclamation marks and the number of links, cues that genuine notices share.
+
+### Files changed
+- `website/app.py`:
+  - the rule findings and the message analysis count points from presentation cues (`_PRESENTATION_CUES`) apart;
+  - `fuse_content_risk` leaves them out when the model reads the text as legitimate;
+  - the content analysis keeps them whenever any view or rendering reaches the threshold.
+- `website/tests/test_presentation_cues.py`: fusion and message tests (synthetic).
+- `README.md`, `docs/evaluation.md`: the rule and the measurements.
+
+### Effect
+- Genuine downloads: alerts fall from 25 to 24 without a mailbox and from 37 to 35 pasted. The 11 new emails, pasted, fall from 4 to 3.
+- No level changes on Nazario (3,466), DataCon (611), PhishFuzzer recent seeds (205), UniqueData (58) or Postmark (10).
+- With the model off, or with no model reading, the rules score as before.
+
 ## [2026-10-03 04:30 PT] — Record candidate models scored in the serving pipeline
 
 ### Why
