@@ -63,7 +63,7 @@ from server_messages import (annotate_content, indicator, message as coded_messa
 from visual_evidence import (VisualRequest, VISUAL_PATHS, MAX_VISUAL_REQUEST_BYTES,
                              bound_message_text, merge_visual_findings, merge_visual_sources)
 from enhanced_vision import load_enhanced_vision_settings, recognize_image, enhanced_evidence
-from local_review import load_local_review_settings, review as local_review
+from local_review import addresses_reviewers, load_local_review_settings, review as local_review
 from language_coverage import (has_substantial_han_text as _has_substantial_han_text,
                                non_latin_script_segments)
 from sender_history import (
@@ -5939,6 +5939,10 @@ async def _apply_local_review(result: dict, subject: str, body: str, hosts) -> N
     it lowered one, the corpus's own introduction (docs/evaluation.md).
     """
     if not (LOCAL_REVIEW.enabled and _rests_on_text_model(result)):
+        return
+    if addresses_reviewers(subject + '\n' + body):
+        # A message that tells reviewers how to label it is never put to the model.
+        result['extra_indicators'].append(indicator('info', 'content.local_review_skipped', model=LOCAL_REVIEW.model))
         return
     reading = await asyncio.to_thread(local_review, LOCAL_REVIEW, subject, body, hosts)
     if reading is None:

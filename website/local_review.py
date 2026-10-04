@@ -26,6 +26,25 @@ SCHEMA = {"type": "object",
 BODY_LIMIT = 4000
 HOST_LIMIT = 15
 _LOOPBACK = {'127.0.0.1', 'localhost', '::1'}
+# Text that speaks to automated reviewers or tells them how to label the message. Such a
+# message is never put to the model: its alert stands. None of about 30,800 legitimate
+# messages measured (the owner's, public sets, 16,440 marketing and 4,864 list messages)
+# matches; 5 phishing messages do ("This E-mail is not SPAM", "mark this email as Not Spam").
+_ADDRESSES_REVIEWERS = re.compile(
+    r"\b(?:ignore|disregard|forget|override)\b[^.\n]{0,40}\b(?:previous|prior|above|earlier|all|any|your|these|those)\b"
+    r"[^.\n]{0,20}\b(?:instructions?|prompts?|rules|guidelines|directives)\b"
+    r"|\b(?:system|developer)\s+(?:prompt|message|instructions?)\b"
+    r"|\b(?:AI|LLM|language\s+models?|chat\s?bots?|assistants?|classifiers?|spam\s+filters?"
+    r"|security\s+(?:scanners?|filters?|systems?|models?)|automated\s+(?:reviewers?|systems?|scanners?))\b"
+    r"[^.\n]{0,60}\b(?:classify|mark|label|treat|consider|flag)\s+(?:this|the)\s+(?:e-?mail|message)\b"
+    r"|\b(?:classify|mark|label|treat|flag|rate)\s+(?:this|the)\s+(?:e-?mail|message)\s+as\s+"
+    r"(?:safe|legitimate|benign|genuine|clean|not\s+(?:phishing|spam|a\s+scam))\b"
+    r"|\bthis\s+(?:e-?mail|message)\s+is\s+(?:safe|legitimate|benign|genuine|not\s+(?:phishing|spam|a\s+scam))\b"
+    r"|[\"']?verdict[\"']?\s*[:=]\s*[\"']?(?:legitimate|safe|benign)"
+    r"|忽略(?:之前|以上|前面|上述|所有)的?(?:指令|提示|说明|规则)"
+    r"|(?:人工智能|AI|大模型|语言模型|模型|助手|过滤器|审核系统)[^。\n]{0,20}(?:判定|标记|分类|认定|视为)为?(?:正常|安全|合法)"
+    r"|(?:这|此)(?:封)?(?:邮件|信)(?:是|为)(?:正常|安全|合法)",
+    re.IGNORECASE)
 _MODEL_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}')
 
 
@@ -61,6 +80,11 @@ def load_local_review_settings(environ=None) -> LocalReviewSettings:
     if not valid:
         raise ValueError('Invalid local language-model review configuration')
     return LocalReviewSettings(url, model, int(confidence))
+
+
+def addresses_reviewers(text: str) -> bool:
+    """Whether the text speaks to automated reviewers or tells them how to label it."""
+    return bool(_ADDRESSES_REVIEWERS.search(text))
 
 
 class _NoRedirect(HTTPRedirectHandler):

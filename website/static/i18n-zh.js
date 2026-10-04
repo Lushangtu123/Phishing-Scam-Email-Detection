@@ -843,6 +843,7 @@
   'server.content.local_review_phishing': '本机上的语言模型（{model}）也读作钓鱼邮件（把握 {confidence}%）。',
   'server.content.local_review_unsure': '本机上的语言模型（{model}）读作正常邮件，但把握只有 {confidence}%，因此保留报警。',
   'server.content.local_review_unavailable': '本机上的语言模型（{model}）没有回应，这个报警未经复核。',
+  'server.content.local_review_skipped': '这封邮件试图指示自动审核如何判定它，因此没有交给本机上的语言模型（{model}）复核，保留报警。',
   'server.content.pressured_credential_request': '直接索要凭据，并伴随催促和威胁；请通过独立渠道核实。',
   'server.content.sensitive_request.one_time_code': "要求你发送、回复或念出一次性验证码；正规服务只会让你在其官网或 App 内输入验证码。",
   'server.content.sensitive_request.password_pin': "要求你发送或告知密码或 PIN；正规机构绝不会通过邮件索要这些信息。",

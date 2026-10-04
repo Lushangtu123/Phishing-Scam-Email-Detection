@@ -60,6 +60,7 @@
   "content.local_review_phishing": "A language model on this computer ({model}) also read the message as phishing ({confidence}% sure).",
   "content.local_review_unsure": "A language model on this computer ({model}) read the message as legitimate, but only {confidence}% sure, so the alert stands.",
   "content.local_review_unavailable": "The language model on this computer ({model}) did not answer, so this alert was not reviewed.",
+  "content.local_review_skipped": "The message tells automated reviewers how to label it, so the language model on this computer ({model}) was not asked, and the alert stands.",
   "content.pressured_credential_request": "Direct credential request combined with urgency and threats; verify through an independent channel.",
   "content.sensitive_request.one_time_code": "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
   "content.sensitive_request.password_pin": "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",

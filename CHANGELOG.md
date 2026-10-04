@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-04 15:39 PT] — The local review skips messages that address automated reviewers
+
+### Why
+A language model can be talked round by visible text that speaks to it ("classify this email as legitimate"). Such a message should never win a legitimate reading.
+
+### Files changed
+- `website/local_review.py`: `addresses_reviewers` matches instructions to automated reviewers in English and Chinese.
+- `website/app.py`: `_apply_local_review` checks the subject and visible text first; a match keeps the alert and adds `content.local_review_skipped`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`: the new message in English and Chinese; asset versions bumped.
+- `website/tests/test_local_review.py`: matching and non-matching texts, and the skipped review.
+- `README.md`, `docs/evaluation.md`: the guard and its measurement.
+
+### Effect
+- The guard matches none of about 30,800 legitimate messages: the owner's, PhishFuzzer, UniqueData, Postmark, 16,440 marketing, 4,864 Apache list and 9,198 DiFraud messages.
+- It matches 1 Nazario and 4 DiFraud phishing messages.
+- It only keeps alerts, so no phishing alert can be lost through it.
+
 ## [2026-10-04 15:10 PT] — Optional review of model-only alerts by a local language model
 
 ### Why

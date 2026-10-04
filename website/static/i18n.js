@@ -861,6 +861,7 @@ window.PhishGuardI18n = (() => {
     'server.content.local_review_phishing': 'A language model on this computer ({model}) also read the message as phishing ({confidence}% sure).',
     'server.content.local_review_unsure': 'A language model on this computer ({model}) read the message as legitimate, but only {confidence}% sure, so the alert stands.',
     'server.content.local_review_unavailable': 'The language model on this computer ({model}) did not answer, so this alert was not reviewed.',
+    'server.content.local_review_skipped': 'The message tells automated reviewers how to label it, so the language model on this computer ({model}) was not asked, and the alert stands.',
     'server.content.pressured_credential_request': 'Direct credential request combined with urgency and threats; verify through an independent channel.',
     'server.content.sensitive_request.one_time_code': "Asks you to send, reply with or read out a one-time or verification code; genuine services only ask you to enter it on their own site or app.",
     'server.content.sensitive_request.password_pin': "Asks you to send or share a password or PIN; legitimate organizations never ask for these by email.",
@@ -1335,7 +1336,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=44'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=45'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
