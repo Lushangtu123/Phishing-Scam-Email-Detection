@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 11:29 PT] — Add YouTube to the official registry
+
+### Why
+A school phishing exercise sent "YouTube" from `youtube.platformsecure.co`. It was flagged on sender-address cues only, because YouTube was not in the registry and its name raised no impersonation finding.
+
+### Files changed
+- `website/data/official_brands_intl.json`: YouTube, with `youtube.com` and `google.com` as its official domains (YouTube Help, read 2026-10-05) and two "never" statements.
+- `website/tests/test_registry_youtube.py`: claims from other domains and its own, other names, the exercise's pattern, and YouTube's own verified mail (synthetic).
+- `README.md`, `docs/evaluation.md`: the registry count and the measurement.
+
+### Effect
+- The exercise now carries `structure.brand_display_name` (YouTube), and its official channels name YouTube.
+- No message in any cohort shows "YouTube" in its display name, and no verdict changed.
+
 ## [2026-10-04 17:02 PT] — Record two uses of the local review that were not adopted
 
 ### Why

@@ -1408,6 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### YouTube added to the official registry (2026-10-05)
+
+The owner received a school phishing exercise:
+- the sender was "YouTube" `<no-reply@youtube.platformsecure.co>`;
+- the account was "temporarily suspended", with a sign-in link to the same domain;
+- the logo was a green YouTube logo.
+
+It was High on sender-address cues alone. No rule saw the YouTube claim, because YouTube
+was not in the registry.
+
+- **Source.** YouTube Help ("Safety tips and resources for YouTube creators") says
+  legitimate YouTube mail comes only from @youtube.com or @google.com. Both are now
+  YouTube's official domains, with two of its "never" statements.
+- **The exercise.** It now carries a `structure.brand_display_name` finding (YouTube). Its
+  official channels name YouTube's own site and statement.
+- **No other change.** No message shows "YouTube" in its display name in:
+  - the genuine downloads or the new brand emails;
+  - Nazario, DataCon or the phishing_pot/easy_ham pilot.
+
+  No verdict changed in any cohort.
+- **The logo.** The logo was a remote image, which PhishGuard never downloads: fetching it
+  would tell the sender the message was opened. Its colour is also a weak cue. Checking
+  the claimed brand against the sender's domain catches a copy with the right logo too.
+
 ### Two more uses of the local review, not adopted (2026-10-04)
 
 **Raising alerts.** The local model was asked about every Safe or Low result without a

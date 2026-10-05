@@ -12,7 +12,8 @@
     "Service entries (display_check: sender_only) were added on 2026-09-30 to verify these services' own senders. They carry no display names, so they add no impersonation matches; sender_names are product names their own mail uses. domain_sources lists the pages read. Shared or customer-controlled domains (atlassian.net, tumblr.zendesk.com) are excluded.",
     "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused.",
     "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message.",
-    "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool. Alibaba.com was added the same day, read in a browser."
+    "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool. Alibaba.com was added the same day, read in a browser.",
+    "YouTube was added on 2026-10-05 from YouTube Help: its mail comes only from @youtube.com or @google.com. A school phishing exercise had shown \"YouTube\" from youtube.platformsecure.co without any impersonation finding."
   ],
   "regulatory_statements": [
     {
@@ -352,6 +353,38 @@
         "comments-noreply@docs.google.com",
         "calendar-notification@google.com"
       ]
+    },
+    {
+      "id": "youtube",
+      "category": "platform",
+      "name": "YouTube",
+      "region": "INTL",
+      "display_names": [
+        "YouTube"
+      ],
+      "official_domains": [
+        "youtube.com",
+        "google.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "YouTube will never ask for your password in an email, message, or phone call.",
+          "source": "https://support.google.com/youtube/answer/2802848?hl=en",
+          "source_type": "official"
+        },
+        {
+          "quote": "YouTube will never send a form asking for personal information such as ID numbers, financial data, or passwords.",
+          "source": "https://support.google.com/youtube/answer/2802848?hl=en",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://support.google.com/youtube/answer/2802848?hl=en"
+      ],
+      "review_note": "YouTube Help, \"Safety tips and resources for YouTube creators\", read through a fetch tool on 2026-10-05: \"Legitimate emails from YouTube will only come from @youtube.com or @google.com email addresses.\" google.com is also Google's own entry, which keeps the protected-brand rule."
     },
     {
       "id": "meta",
