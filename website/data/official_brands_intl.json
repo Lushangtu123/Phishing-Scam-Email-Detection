@@ -13,7 +13,8 @@
     "Cloudflare and Adobe were considered on 2026-09-30 and left out: a user reported fully authenticated phishing sent through notify.cloudflare.com, and Adobe's sending domains were not found on an official page while its share and signature notices are widely abused.",
     "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message.",
     "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool. Alibaba.com was added the same day, read in a browser.",
-    "YouTube was added on 2026-10-05 from YouTube Help: its mail comes only from @youtube.com or @google.com. A school phishing exercise had shown \"YouTube\" from youtube.platformsecure.co without any impersonation finding."
+    "YouTube was added on 2026-10-05 from YouTube Help: its mail comes only from @youtube.com or @google.com. A school phishing exercise had shown \"YouTube\" from youtube.platformsecure.co without any impersonation finding.",
+    "Added on 2026-10-05 from each organization's own pages: WeTransfer, Navy Federal Credit Union, Standard Bank and Absa, the brands Nazario phishing most often shows that the registry lacked; and Epic Games and Twitch as sender_only services, from the owner's genuine mail. OneDrive was left out: Microsoft publishes no list of its sending domains, business sharing notices carry the sharer's name from sharepointonline.com, and onmicrosoft.com tenants are anyone's to create."
   ],
   "regulatory_statements": [
     {
@@ -1734,6 +1735,178 @@
       "unverified_statements": [],
       "official_contact_emails": [],
       "review_note": "Read in a browser on 2026-10-02 on Alibaba.com's own seller site. Alibaba alone is left out: Alibaba Cloud, AliExpress and 1688 send from other domains. Alibaba Trade covers the Alibaba Trade Center/Centre names fake inquiries use."
+    },
+    {
+      "id": "wetransfer",
+      "category": "platform",
+      "name": "WeTransfer",
+      "region": "INTL",
+      "display_names": [
+        "WeTransfer"
+      ],
+      "official_domains": [
+        "wetransfer.com",
+        "we.tl"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Does the download button or link lead somewhere other than wetransfer.com or we.tl? If so, don't click it.",
+          "source": "https://wetransfer.com/help-center/security-privacy/phishing-imitations",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://wetransfer.com/help-center/security-privacy/phishing-imitations"
+      ],
+      "review_note": "Help Center page \"Spam, phishing, and fake WeTransfer emails\", read through a fetch tool on 2026-10-05: genuine mail comes from an address ending in @wetransfer.com. Support replies from wetransfer.zendesk.com are left out, as zendesk.com subdomains are anyone's to register; so are the unnamed \"other verified domains\" of some marketing mail. Transfer notices (\"… sent you some files\") carry the sender's message and are relays by their subject."
+    },
+    {
+      "id": "navy_federal",
+      "category": "bank",
+      "name": "Navy Federal Credit Union",
+      "region": "US",
+      "display_names": [
+        "Navy Federal Credit Union",
+        "Navy Federal"
+      ],
+      "official_domains": [
+        "navyfederal.org"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Navy Federal will never solicit your personal information over the phone or through text, email or social media.",
+          "source": "https://www.navyfederal.org/services/security/phishing-scams.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishalert@navyfederal.org"
+      ],
+      "domain_sources": [
+        "https://www.navyfederal.org/services/security/phishing-scams.html"
+      ],
+      "review_note": "Phishing Scams page, read through a fetch tool on 2026-10-05: phishing goes to phishalert@navyfederal.org, and calls and texts to reportabuse@navyfederal.org."
+    },
+    {
+      "id": "standard_bank",
+      "category": "bank",
+      "name": "Standard Bank",
+      "region": "INTL",
+      "display_names": [
+        "Standard Bank"
+      ],
+      "official_domains": [
+        "standardbank.co.za",
+        "standardbank.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "We will never ask you to confirm personal or financial information in an email.",
+          "source": "https://www.standardbank.co.za/southafrica/personal/products-and-services/security-centre/bank-safely/scams",
+          "source_type": "official"
+        },
+        {
+          "quote": "We will never email you links requesting your bank sign-in details, such as CVV, OTP or ATM PIN.",
+          "source": "https://www.standardbank.co.za/southafrica/personal/products-and-services/security-centre/bank-safely/scams",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@standardbank.co.za"
+      ],
+      "domain_sources": [
+        "https://www.standardbank.co.za/southafrica/personal/products-and-services/security-centre/bank-safely/scams",
+        "https://www.standardbank.com/"
+      ],
+      "review_note": "South African bank. Its \"Bank scams to avoid\" page, read in a browser on 2026-10-05, sends suspicious email to phishing@standardbank.co.za; the address is in its mailto link, hidden from fetch tools. standardbank.com is the group's site (homepage title \"Standard Bank Group: Home | Standard Bank\")."
+    },
+    {
+      "id": "absa",
+      "category": "bank",
+      "name": "Absa",
+      "region": "INTL",
+      "display_names": [
+        "Absa"
+      ],
+      "official_domains": [
+        "absa.co.za",
+        "absa.africa"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Absa will never send you an email with a link or attachment that will redirect you to what looks like a log in page, requesting your username and password, and at times your smartphone and Banking App passcode.",
+          "source": "https://www.absa.co.za/self-service/safety-security/phishing-scams/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "secmon@absa.co.za"
+      ],
+      "domain_sources": [
+        "https://www.absa.co.za/self-service/safety-security/phishing-scams/"
+      ],
+      "review_note": "South African bank. Its phishing page, read in a browser on 2026-10-05: \"Email us at: secmon@absa.co.za\"; Secmon@absa.africa is also given."
+    },
+    {
+      "id": "epic_games",
+      "category": "service",
+      "name": "Epic Games",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "epicgames.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Epic Games will never ask you for your password.",
+          "source": "https://www.epicgames.com/help/account-c-45487929/account-security-c-38978022/how-can-i-check-if-it-is-really-epic-games-contacting-me-a17080747",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.epicgames.com/help/account-c-45487929/account-security-c-38978022/how-can-i-check-if-it-is-really-epic-games-contacting-me-a17080747"
+      ],
+      "review_note": "Help article \"How can I check if it is really Epic Games contacting me?\", read in a browser on 2026-10-05 after a fetch tool was refused. Mail comes from support., email., developers., mail., acct., accts. and acct-auth.epicgames.com, all covered as subdomains of epicgames.com."
+    },
+    {
+      "id": "twitch",
+      "category": "service",
+      "name": "Twitch",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "twitch.tv",
+        "justin.tv",
+        "amazon.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Twitch will never request your password or financial information unsolicited through email, SMS, chat, or whispers on Twitch or other social media platforms.",
+          "source": "https://help.twitch.tv/s/article/how-twitch-contacts-you?language=en_US",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.twitch.tv/s/article/how-twitch-contacts-you?language=en_US"
+      ],
+      "review_note": "\"How Twitch Will Contact You\", read in a browser on 2026-10-05: \"Twitch emails will always come from @twitch.tv, @justin.tv or @amazon.com.\" amazon.com is also Amazon's own entry."
     }
   ]
 }

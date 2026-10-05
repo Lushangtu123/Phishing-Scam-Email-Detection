@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 15:26 PT] — Add six organizations to the official registry
+
+### Why
+The owner asked how to get more official domains. The candidates came from the brands Nazario phishing most often displays that the registry lacked, and from the organizations sending the owner's genuine mail.
+
+### Files changed
+- `website/data/official_brands_intl.json`, each confirmed on the organization's own page:
+  - WeTransfer, Navy Federal Credit Union, Standard Bank and Absa, by name;
+  - Epic Games and Twitch, as `sender_only` services.
+  - OneDrive was left out: no official list of its sending domains.
+- `website/tests/test_registry_additions_2026_10_05.py`: claims, own domains, other names, verified service mail and WeTransfer's transfer relays (synthetic).
+- `README.md`, `docs/evaluation.md`: counts, sources and the measurement.
+
+### Effect
+- 69 Nazario phishing messages now carry an impersonation finding for a new name. 15 rose from High to Critical and 2 from Medium to High.
+- Alert counts are unchanged on every cohort.
+- One genuine message without a mailbox went from Low to Safe.
+
 ## [2026-10-05 11:29 PT] — Add YouTube to the official registry
 
 ### Why

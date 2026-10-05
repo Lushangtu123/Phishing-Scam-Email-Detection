@@ -355,12 +355,13 @@ Raw input enables these checks:
     - the address is a registered relay address (`relay_addresses`):
       `notifications@github.com`, Google Drive/Docs/Groups/Calendar sharing
       addresses, or Docusign envelope senders (`dse*@docusign.net`).
-  - Besides the phishing-target brands, the international registry lists 27
+  - Besides the phishing-target brands, the international registry lists 29
     services (`display_check: sender_only`): GitHub, Dropbox, Crunchyroll, Slack,
     Canva, Duolingo, Asana, Atlassian (`id.atlassian.com` only), Coursera, EA,
     Figma, GitLab, SoundCloud, Tumblr, Ubisoft, Spotify, Bluesky (`bsky.social`),
-    Vimeo, Notion, Box, Netlify, Reddit, Pinterest, Steam, Zoom, Quora and
-    LinkedIn (member messages from `messages-noreply@linkedin.com` are relays).
+    Vimeo, Notion, Box, Netlify, Reddit, Pinterest, Steam, Zoom, Quora,
+    LinkedIn (member messages from `messages-noreply@linkedin.com` are relays),
+    Epic Games and Twitch.
     Cloudflare, Adobe and AliExpress are left out on purpose. A user reported fully
     authenticated phishing sent through `notify.cloudflare.com`. Adobe's sending
     domains are not listed on an official page, and its share and signature
@@ -407,8 +408,8 @@ Raw input enables these checks:
   Wells Fargo, HMRC or DHL Express) sent from a domain outside that
   organization's official domains. The registries are
   `website/data/official_brands_cn.json` (39 Chinese organizations) and
-  `website/data/official_brands_intl.json` (41 US, UK, Canadian, Australian,
-  Japanese and global organizations). Their domains were confirmed on each
+  `website/data/official_brands_intl.json` (45 US, UK, Canadian, Australian,
+  Japanese, South African and global organizations). Their domains were confirmed on each
   organization's own site, and their "we will never ask…" statements are
   source-linked. Government names also accept their country's government
   domains (gov.cn, .gov, gov.uk, gc.ca, gov.au). A matching domain proves

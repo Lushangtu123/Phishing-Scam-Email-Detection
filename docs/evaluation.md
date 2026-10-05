@@ -1408,6 +1408,53 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Six organizations added to the official registry (2026-10-05)
+
+Candidates came from two places:
+- the brands Nazario phishing most often shows in its display names that the registry
+  lacked;
+- the organizations sending the owner's genuine mail that it lacked.
+
+Each was confirmed on the organization's own page before it was added:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| WeTransfer | name | `wetransfer.com`, `we.tl` | Help Center: genuine mail comes from @wetransfer.com; links go to wetransfer.com or we.tl |
+| Navy Federal Credit Union | name | `navyfederal.org` | Phishing page: report to phishalert@navyfederal.org |
+| Standard Bank | name | `standardbank.co.za`, `standardbank.com` | Scams page: report to phishing@standardbank.co.za; the group's home page |
+| Absa | name | `absa.co.za`, `absa.africa` | Phishing page: "Email us at: secmon@absa.co.za" |
+| Epic Games | service | `epicgames.com` | Help article listing seven epicgames.com sending subdomains |
+| Twitch | service | `twitch.tv`, `justin.tv`, `amazon.com` | "Twitch emails will always come from @twitch.tv, @justin.tv or @amazon.com." |
+
+- **WeTransfer's transfer notices** ("… sent you some files") carry the sender's message.
+  They are relays by their subject, so only WeTransfer's own account mail is verified.
+- **Left out.**
+  - OneDrive: Microsoft publishes no list of its sending domains. Business sharing notices
+    come from `sharepointonline.com` under the sharer's name, and anyone can create an
+    `onmicrosoft.com` tenant.
+  - Etsy: its seller messages are relayed, as AliExpress's are.
+  - AliExpress, Cloudflare, Adobe and `atlassian.net` keep their earlier reasons.
+
+| Cohort | `c97ea08`: alerts / undetermined / Safe or Low | After |
+|---|---|---|
+| Nazario 2015–25 phishing (3,466) | 3,445 / 16 / 5 | 3,445 / 16 / 5 |
+| 92 genuine downloads, no mailbox | 24 / 10 / 58 | 24 / 10 / 58 |
+| 92 genuine downloads, mailbox chosen | 3 / 6 / 83 | 3 / 6 / 83 |
+
+- **Nazario.** 69 messages now carry an impersonation finding for a new name:
+  - WeTransfer 32;
+  - Navy Federal 30;
+  - Absa 4;
+  - Standard Bank 3.
+
+  15 rose from High to Critical and 2 from Medium to High; none fell.
+- **Fewer than the display-name counts.** Many Standard Bank and Absa lures write the
+  bank's real domain in From. Only authentication can tell those apart.
+- **Genuine mail.** One message without a mailbox went from Low to Safe: the service now
+  names its own sender, so address-shape findings stop scoring.
+- **No change** for any message of DataCon, PhishFuzzer, UniqueData, Postmark or the 11 new
+  brand emails.
+
 ### YouTube added to the official registry (2026-10-05)
 
 The owner received a school phishing exercise:
