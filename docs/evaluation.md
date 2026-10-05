@@ -1408,6 +1408,42 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Two more uses of the local review, not adopted (2026-10-04)
+
+**Raising alerts.** The local model was asked about every Safe or Low result without a
+verified official sender. Results read as phishing at 90% or more:
+
+| Cohort (results asked) | Read as phishing |
+|---|---:|
+| 92 genuine downloads, pasted (56) | 17 |
+| 92 genuine downloads, no mailbox (13) | 3 |
+| 92 genuine downloads, mailbox chosen (6) | 1 |
+| 11 new brand emails, pasted (8) | 0 |
+| PhishFuzzer legitimate seeds (39) | 9 |
+| UniqueData legitimate (19) | 3 |
+| Postmark templates (7) | 1 |
+| Nazario phishing (5) | 4 |
+| PhishFuzzer recent phishing (15) | 10 |
+| DataCon 2023 day 1, unlabelled (26) | 10, mostly journal and editing solicitations |
+
+- **Cost.** It would catch 14 labelled phishing messages. It would also add 21 alerts on the
+  owner's genuine mail and 13 on the public legitimate sets. Examples: "Did you just log in
+  near Oslo on a new device?", Postmark's password reset.
+- **No separation.** The text model's score does not separate the two groups.
+- Not adopted.
+
+**A score cap on lowering.** In this run the model lowered four PhishFuzzer phishing
+alerts; the end-to-end run above lowered three, as readings vary slightly between runs.
+Their text-model scores were 59, 64, 94 and 97%. Refusing to lower above 90% would stop
+the two highest, a "free LinkedIn Learning" offer and a supplement advertisement. It would
+also keep 8 legitimate alerts:
+- 1 genuine pasted;
+- 2 genuine without a mailbox;
+- 3 PhishFuzzer;
+- 2 UniqueData.
+
+Not adopted.
+
 ### Messages that address automated reviewers (2026-10-04)
 
 The local review can be talked round by text that speaks to it. A message whose subject or

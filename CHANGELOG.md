@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-04 17:02 PT] — Record two uses of the local review that were not adopted
+
+### Why
+Asked to lower the error rate without giving up safety, two more uses of the local language model were measured and rejected.
+
+### Files changed
+- `docs/evaluation.md`: both experiments and their numbers. No code changes.
+
+### Effect
+- **Raising Safe or Low results the model reads as phishing.** It would catch 14 labelled phishing messages but add 21 alerts on the owner's genuine mail and 13 on public legitimate sets.
+- **Not lowering alerts above a 90% text-model score.** It would stop two promotional "phishing" seeds and keep 8 legitimate alerts.
+
 ## [2026-10-04 15:39 PT] — The local review skips messages that address automated reviewers
 
 ### Why
