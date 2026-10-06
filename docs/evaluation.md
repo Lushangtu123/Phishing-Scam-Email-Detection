@@ -1408,6 +1408,40 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Model-only signals become a note, not an alert (2026-10-05)
+
+After the 2026-10-05 project review the owner chose to stop alerting on a text-model
+score that no rule, sender, link or structure evidence supports (`fusion_basis=model_only`)
+until a consented, independent holdout supports more.
+
+- **Change.** Such a result is **Low Risk — Text Model Signal Only**, not a Medium alert.
+  On its own the model counts at most 29% in `combined_phishing_score`;
+  `ml_phishing_probability` keeps its reading. Model-led alerts (the model with keyword
+  categories or presentation cues) still alert. Rendering views must still agree on the
+  model's decision, alert or note, so hidden text cannot add or remove one.
+- **Measured** with `evaluate_public_corpus.py` on the repository's git-ignored local
+  copies of public corpora, pasted as subject and body (no headers): 9,263 messages after
+  deduplication, committed artifact. Every corpus but PhishFuzzer is in the model's
+  training pool, so both columns overstate real performance. The owner's own mail was not
+  available to this run.
+
+| Cohort, pasted text | Alerts before | Alerts after |
+|---|---:|---:|
+| Nazario phishing (1,561) | 1,506 (96.5%) | 1,112 (71.2%) |
+| PhishNChips core phishing (1,000) | 993 (99.3%) | 435 (43.5%) |
+| PhishFuzzer LLM variants, test split, phishing (1,344) | 1,308 (97.3%) | 1,258 (93.6%) |
+| PhishFuzzer LLM variants, test split, legitimate (1,392) | 194 (13.9%) | 122 (8.8%) |
+| CEAS-08 legitimate, seeded sample (1,496) | 27 (1.8%) | 19 (1.3%) |
+| Phishing_Email legitimate, seeded sample (1,470) | 22 (1.5%) | 8 (0.5%) |
+| PhishNChips legitimate (1,000) | 31 (3.1%) | 19 (1.9%) |
+
+- **Reading the table.** Without headers nothing can corroborate the model, so pasted
+  phishing loses far more alerts than the raw Nazario 2023–25 messages measured on
+  2026-09-29 (91.8% → 89.0%). The cost depends on the input path. Undetermined counts did
+  not change.
+- **Before deploying**, run `evaluate_serving_pipeline.py` on the owner's genuine downloads
+  (pasted and `.eml`) and the Nazario `.eml` cohorts, and decide with those numbers.
+
 ### Six organizations added to the official registry (2026-10-05)
 
 Candidates came from two places:

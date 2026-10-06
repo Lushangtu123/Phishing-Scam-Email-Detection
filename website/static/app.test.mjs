@@ -331,14 +331,16 @@ test('unresolved image coverage explains that referenced image content was not i
   assert.match(elements.get('crb-sub').textContent, /unresolved image references were not inspected/i);
 });
 
-test('model-only high result explains that independent evidence is absent', () => {
+test('a model-only result explains that it is a note without independent evidence', () => {
   const { context, elements } = loadFrontend();
   context.renderContentResult({ total_score: 0, category_results: [], extra_indicators: [], safety_signals: [],
-    analysis_complete: true, risk_level: 'high', risk_label: 'High Risk — Model Signal Needs Review',
-    combined_phishing_score: 84.2, fusion_basis: 'model_only',
+    analysis_complete: true, risk_level: 'low', risk_label: 'Low Risk — Text Model Signal Only',
+    combined_phishing_score: 29, fusion_basis: 'model_only',
     ml_status: 'available', ml_label: 'Likely Phishing', ml_phishing_probability: 84.2,
     ml_legitimate_probability: 15.8, ml_prediction: 1, ml_top_contributors: [], ml_metrics: {} });
-  assert.match(elements.get('crb-sub').textContent, /model-only.*no independent/i);
+  // The model's own reading stays visible beside the note.
+  assert.match(elements.get('crb-sub').textContent, /84\.2%.*Text-model signal only: with no rule, sender, or link evidence it is a note, not an alert/);
+  assert.equal(elements.get('crb-score').textContent, '29%');
 });
 
 test('model-led high result distinguishes weak rules from strong corroboration', () => {
@@ -2085,8 +2087,8 @@ test('an alerting result suggests the original .eml, or rerunning with the detec
 });
 
 test('a model-driven alert says the text model raised it, without changing the verdict', async () => {
-  let result = { ...contentResult('Medium Risk — Model Signal Needs Review'), risk_level: 'medium',
-    combined_phishing_score: 72, fusion_basis: 'model_only' };
+  let result = { ...contentResult('High Risk — Model Signal Needs Review'), risk_level: 'high',
+    combined_phishing_score: 72, fusion_basis: 'model_led' };
   const { context, elements } = loadFrontend({ fetch: async () => response(result) });
   context.setupInputEvents();
   elements.get('content-body').value = 'Your security code is 123456.';
@@ -2096,10 +2098,9 @@ test('a model-driven alert says the text model raised it, without changing the v
   assert.match(pasted, /^This alert comes mainly from the text model/);
   assert.match(pasted, /original email \(\.eml\)/);
   assert.equal(elements.get('content-accuracy-guide').hidden, false);
-  assert.equal(elements.get('crb-title').textContent, 'Medium Risk — Model Signal Needs Review');
+  assert.equal(elements.get('crb-title').textContent, 'High Risk — Model Signal Needs Review');
 
   // An .eml topped by Outlook.com's check: the rerun offer, with the model reason.
-  result = { ...result, risk_level: 'high', risk_label: 'High Risk — Model Signal Needs Review', fusion_basis: 'model_led' };
   const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
     + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
   await elements.get('raw-email-file').listeners.change({ target: { files: [{ name: 'mail.eml', arrayBuffer: async () => raw }] } });
@@ -2122,6 +2123,20 @@ test('a model-driven alert says the text model raised it, without changing the v
   result = { ...result, risk_label: 'High Risk — Likely Phishing', fusion_basis: 'corroborated' };
   await context.runContentAnalysis();
   assert.equal(elements.get('content-accuracy-tip').hidden, true);
+});
+
+test('a text-model signal alone is a Low note, not an alert', async () => {
+  const result = { ...contentResult('Low Risk — Text Model Signal Only'), risk_level: 'low',
+    combined_phishing_score: 29, fusion_basis: 'model_only', ml_phishing_probability: 91, ml_label: 'Likely Phishing' };
+  const { context, elements } = loadFrontend({ fetch: async () => response(result) });
+  context.setupInputEvents();
+  elements.get('content-body').value = 'Your security code is 123456.';
+  await context.runContentAnalysis();
+  assert.equal(elements.get('crb-title').textContent, 'Low Risk — Text Model Signal Only');
+  assert.match(elements.get('crb-sub').textContent, /Text-model signal only: .* a note, not an alert/);
+  // Nothing to settle: no accuracy tip and no "did you do this yourself?" question.
+  assert.equal(elements.get('content-accuracy-tip').hidden, true);
+  assert.equal(elements.get('content-requested').hidden, true);
 });
 
 test('a clean result shows no accuracy tip', async () => {

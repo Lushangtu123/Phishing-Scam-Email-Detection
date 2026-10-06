@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 16:59 PT] — Show a text-model signal alone as a note, not an alert
+
+### Why
+- After the 2026-10-05 project review, the owner chose to stop alerting on a text-model score that no rule, sender, link or structure evidence supports (`fusion_basis=model_only`) until a consented, independent holdout supports more. Uncorroborated model scores were about half of the false alerts on real account notices (2026-09-29).
+
+### Files changed
+- `website/app.py` — `fuse_content_risk`: `model_only` is **Low Risk — Text Model Signal Only** instead of a Medium alert; on its own the model counts at most 29% in `combined_phishing_score`, while `ml_phishing_probability` keeps its reading. `_fused_decision` keeps the rendering-view and earlier-abstention checks keyed on "alert or note", so hidden text still cannot add or remove a model signal. A verified official sender keeps its own Low label.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — `content.riskLabel.lowModel` replaces `mediumModel`; the model-only line says it is a note, not an alert. Asset versions bumped (`website/tools/asset-versions/manifest.json` and the page references).
+- `website/static/app.test.mjs`, `website/tests/fixtures/i18n/scenarios.mjs`, `website/tests/fixtures/i18n/en-snapshot.json` — the note in the page; the snapshot was regenerated with `capture.mjs` and only the model-only scenario changed.
+- `website/tests/test_detection_behavior.py`, `test_presentation_cues.py`, `test_risk_precision.py`, `test_html_input_coverage.py`, `test_rendering_views.py`, `test_local_review.py`, `test_requested_notice.py` — expectations for the note; the local-review and "did you do this yourself?" tests now use model-led alerts, which still reach them.
+- `README.md`, `docs/evaluation.md` — the rule and its measurement.
+
+### Effect
+- A model-only result no longer alerts, asks whether the reader did it, or goes to the local review. Model-led alerts (the model with keyword categories or presentation cues) are unchanged.
+- Local public corpora, pasted subject and body, committed artifact (table in `docs/evaluation.md`): phishing alerts Nazario 1,506 → 1,112 of 1,561, PhishNChips 993 → 435 of 1,000, PhishFuzzer LLM variants 1,308 → 1,258 of 1,344; false alerts PhishFuzzer legitimate 194 → 122 of 1,392, CEAS-08 27 → 19 of 1,496, Phishing_Email 22 → 8 of 1,470, PhishNChips 31 → 19 of 1,000.
+- Caution: pasted text loses far more phishing alerts than the 2026-09-29 `.eml` measurement (Nazario 2023–25, 91.8% → 89.0%), because nothing in it can corroborate the model. Most of these corpora are in the model's training pool. Measure the owner's genuine and Nazario `.eml` cohorts with `evaluate_serving_pipeline.py` before deploying.
+
 ## [2026-10-05 15:26 PT] — Add six organizations to the official registry
 
 ### Why

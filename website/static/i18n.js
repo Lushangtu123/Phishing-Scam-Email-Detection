@@ -318,7 +318,7 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.high': 'High Risk — Likely Phishing',
     'content.riskLabel.highModel': 'High Risk — Model Signal Needs Review',
     'content.riskLabel.medium': 'Medium Risk — Suspicious Content',
-    'content.riskLabel.mediumModel': 'Medium Risk — Model Signal Needs Review',
+    'content.riskLabel.lowModel': 'Low Risk — Text Model Signal Only',
     'content.riskLabel.low': 'Low Risk — Minor Concerns',
     'content.riskLabel.lowVerified': 'Low Risk — Verified Official Sender',
     'content.riskLabel.lowRequested': 'Low Risk — Confirmed as Your Own Action',
@@ -351,7 +351,7 @@ window.PhishGuardI18n = (() => {
     'content.sub.ml': 'ML risk score: {score}% — {label}',
     'content.mlLabel.phishing': 'Likely Phishing',
     'content.mlLabel.legit': 'Likely Legitimate',
-    'content.sub.modelOnly': 'Model-only risk signal; no independent rule, sender, or link evidence was found.',
+    'content.sub.modelOnly': 'Text-model signal only: with no rule, sender, or link evidence it is a note, not an alert. Check the sender and links yourself.',
     'content.sub.modelLed': 'Model-led risk signal; no strong independent rule, sender, or link evidence was found.',
     'content.requested.question': 'This notice is about something you would have done yourself (a code, sign-in, new account, order, job application or request), and only the text model flagged it. Are you sure you did this yourself just now?',
     'content.requested.yes': 'Yes, it was me',
@@ -1336,7 +1336,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=45'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=46'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1461,7 +1461,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'low', 'lowModel', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {

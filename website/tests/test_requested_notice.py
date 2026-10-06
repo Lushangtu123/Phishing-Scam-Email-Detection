@@ -42,12 +42,23 @@ class RequestedNoticeTests(unittest.TestCase):
         return [item.get('code') for item in result['extra_indicators']]
 
     def test_model_driven_account_notices_ask_and_keep_their_alert_until_answered(self):
-        for subject, body in NOTICES:
+        # Keyword categories stand beside the model here, so the alert is model-led.
+        for subject, body in (NOTICES[0], NOTICES[2]):
             with self.subTest(subject=subject):
                 result = self.analyze(subject, body)
                 self.assertIn(result['risk_level'], {'medium', 'high'})
-                self.assertIn(result['fusion_basis'], {'model_only', 'model_led'})
+                self.assertEqual(result['fusion_basis'], 'model_led')
                 self.assertTrue(result['requested_question'])
+                self.assertNotIn('account_notice', result)
+
+    def test_model_only_notices_are_a_low_note_with_nothing_to_ask(self):
+        # Since 2026-10-05 the text model alone is a Low note, not an alert to settle.
+        for subject, body in (NOTICES[1], NOTICES[3]):
+            with self.subTest(subject=subject):
+                result = self.analyze(subject, body)
+                self.assertEqual((result['risk_level'], result['risk_label'], result['fusion_basis']),
+                                 ('low', 'Low Risk — Text Model Signal Only', 'model_only'))
+                self.assertFalse(result['requested_question'])
                 self.assertNotIn('account_notice', result)
 
     def test_yes_lowers_to_low_and_no_keeps_the_alert_with_a_reason(self):

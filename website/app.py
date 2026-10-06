@@ -6608,15 +6608,19 @@ def fuse_content_risk(
         "critical": 0.80,
     }
     floor_score = max(floor_scores.get(minimum_level, 0.0), 0.10 if heuristic_score > 0 else 0.0)
-    combined = max(heuristic_risk, ml_risk, floor_score)
-    # Below its decision threshold the model reads the text as legitimate: the threshold was
-    # chosen within a 20% false-positive budget, so a 30–37% probability lies inside it. It
-    # may make the result Low, never an alert on its own. The combined score still shows it.
-    level_score = combined if model_signal else max(heuristic_risk, floor_score, min(ml_risk, 0.29))
     # A high model score alone is not enough to justify a Critical label.
     independent_support = heuristic_score >= 9 or minimum_level in {"high", "critical"}
     model_only = model_signal and heuristic_score == 0 and minimum_level == "safe"
     model_led = model_signal and not independent_support and not model_only
+    # On its own the text model counts at most as Low (29%). Below its decision threshold it
+    # reads the text as legitimate: the threshold was chosen within a 20% false-positive
+    # budget, so a 30–37% probability lies inside it. Above it, with no rule, sender, link or
+    # structure evidence, it flags 72% of real 2023 account and security notices; not alerting
+    # on it halved UniqueData's false alerts (41 → 20) for 2.8 points of Nazario 2023–25 recall
+    # (docs/evaluation.md). The owner chose (2026-10-05) to show it as a note, not an alert,
+    # until a consented holdout supports more. ml_phishing_probability keeps the model's reading.
+    model_counted = ml_risk if model_signal and not model_only else min(ml_risk, 0.29)
+    combined = max(heuristic_risk, model_counted, floor_score)
 
     if minimum_level == "critical" or heuristic_risk >= 0.80 or (ml_risk >= 0.80 and independent_support):
         level, label = "critical", "Critical Risk — Very Likely Phishing"
@@ -6624,13 +6628,10 @@ def fuse_content_risk(
         level = "high"
         label = "High Risk — Model Signal Needs Review" if model_led else "High Risk — Likely Phishing"
     elif model_only:
-        # With no rule, sender, link or structure evidence the text model alone flags
-        # 72% of real 2023 account and security notices (docs/evaluation.md), so an
-        # uncorroborated score stays an alert for review but not a High verdict.
-        level, label = "medium", "Medium Risk — Model Signal Needs Review"
-    elif level_score >= 0.30:
+        level, label = "low", "Low Risk — Text Model Signal Only"
+    elif combined >= 0.30:
         level, label = "medium", "Medium Risk — Suspicious Content"
-    elif level_score >= 0.10:
+    elif combined >= 0.10:
         level, label = "low", "Low Risk — Minor Concerns"
     else:
         level, label = "safe", "No Phishing Indicators Found"
@@ -6642,6 +6643,13 @@ def fuse_content_risk(
         "fusion_basis": ("model_only" if model_only else "model_led" if model_led else
                          "corroborated" if model_signal and independent_support else "other"),
     }
+
+
+def _fused_decision(fused: dict) -> bool:
+    """Whether a fused result alerts or carries a text-model note: the decision that
+    plausible renderings must agree on. A model-only note counts (it was a Medium alert
+    until 2026-10-05), so text that may be hidden can neither add one nor take one away."""
+    return fused['risk_level'] in {'medium', 'high', 'critical'} or fused['fusion_basis'] == 'model_only'
 
 
 def _model_choice(predictions, threshold):
@@ -6660,8 +6668,9 @@ def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heur
                           presentation_score=0):
     """Keep the MIME views whose plausible renderings all lead to the same decision.
 
-    The decision is whether the fused result alerts (Medium or above). Each kept
-    (body, prediction) is scored at its highest-risk rendering. A view whose renderings disagree is
+    The decision is whether the fused result alerts (Medium or above) or carries a
+    text-model note (_fused_decision). Each kept (body, prediction) is scored at its
+    highest-risk rendering. A view whose renderings disagree is
     dropped, so text that may be hidden can neither dilute a phishing message nor
     pad a benign one into an alert. Returns the kept predictions, whether every view
     was checked this way, and whether adding definitely hidden text (excluded from
@@ -6669,10 +6678,10 @@ def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heur
     """
     def level(prediction):
         probability = prediction['_phishing_probability']
-        return None if probability is None else fuse_content_risk(
+        return None if probability is None else _fused_decision(fuse_content_risk(
             ml_phishing_probability=probability, ml_decision_threshold=threshold,
             heuristic_score=heuristic_score, presentation_score=presentation_score, minimum_level=minimum_level,
-        )['risk_level'] in {'medium', 'high', 'critical'}
+        ))
     kept, resolved, hidden_agrees = [], True, True
     for body in bodies:
         base = predictions[body]
@@ -6984,11 +6993,11 @@ async def _analyze_content(
                 presentation_score=result['presentation_score'])
 
         def alerts(ml):
-            return fuse_content_risk(
+            return _fused_decision(fuse_content_risk(
                 ml_phishing_probability=ml['_phishing_probability'], ml_decision_threshold=threshold,
                 heuristic_score=result['total_score'], presentation_score=result['presentation_score'],
                 minimum_level=result['risk_floor'],
-            )['risk_level'] in {'medium', 'high', 'critical'}
+            ))
         ml = _model_choice([prediction for _body, prediction in kept], threshold)
         earlier = [(body, prediction) for body, prediction in kept
                    if body not in model_view.get('resolved_views', set())]
@@ -7050,7 +7059,8 @@ async def _analyze_content(
     result['official_channels'] = _official_channels(
         [*from_names, structure['subject'] if structure else request.subject],
         first=verified_sender['organization'] if verified_sender else None)
-    if verified_sender and result['risk_floor'] in {'safe', 'low'} and result['risk_level'] in {'medium', 'high'}:
+    if verified_sender and result['risk_floor'] in {'safe', 'low'} and (
+            result['risk_level'] in {'medium', 'high'} or result.get('fusion_basis') == 'model_only'):
         result['risk_level'] = 'low'
         result['risk_label'] = 'Low Risk — Verified Official Sender'
 

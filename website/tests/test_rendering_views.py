@@ -160,7 +160,7 @@ class RenderingDecisionTests(unittest.TestCase):
         self.assertEqual(result['risk_level'], 'unknown')
         self.assertNotIn('content.rendering_views_agree', [item['code'] for item in result['extra_indicators']])
 
-    def test_an_alert_the_earlier_scoring_already_had_is_kept(self):
+    def test_a_model_signal_the_earlier_scoring_already_had_is_kept(self):
         message = EmailMessage()
         message['Subject'] = 'Update'
         message.set_content('Please confirm the payout details today.')
@@ -171,7 +171,8 @@ class RenderingDecisionTests(unittest.TestCase):
             result = json.loads(asyncio.run(app.analyze_content_endpoint(
                 app.ContentRequest(raw_email=message.as_string()))).body)
         self.assertEqual(result['ml_status'], 'available')
-        self.assertIn(result['risk_level'], {'medium', 'high', 'critical'})
+        # The model alone: a Low note since 2026-10-05, no longer an alert.
+        self.assertEqual((result['risk_level'], result['fusion_basis']), ('low', 'model_only'))
 
     def test_without_a_model_nothing_is_resolved(self):
         html = '<p>Thanks for your order.</p><!--[if mso]><p>Order table</p><![endif]-->'

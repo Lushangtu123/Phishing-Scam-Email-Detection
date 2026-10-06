@@ -307,7 +307,8 @@ Raw input enables these checks:
   result": for pasted text or screenshots, a pointer to the original `.eml` and
   the download guide; for an `.eml` with a recognized service but no choice, a
   "Choose … and analyze again" button. When the alert rests mainly on the text
-  model (`fusion_basis` `model_only` or `model_led`), the tip says so first: the
+  model (`fusion_basis` `model_led`; a `model_only` result is a Low note, not an
+  alert), the tip says so first: the
   model often misjudges genuine modern account and notification mail. On an
   `.eml` with nothing left to choose it still shows, asking the reader to check
   the sender and links. The tip never changes the verdict or score.
@@ -961,14 +962,18 @@ Model classification, MIME-view selection, and final risk fusion use the origina
 unrounded model score. API display scores remain rounded to one decimal place;
 rounding cannot change a threshold decision or select a lower-scoring MIME view.
 A model score above the threshold with no rule, sender, link or structure
-evidence (`fusion_basis=model_only`) is an alert labelled **Medium Risk — Model
-Signal Needs Review**. Real 2023 account and security notices reach this state
-often (see [docs/evaluation.md](docs/evaluation.md)). With weak rule evidence
-(`model_led`) the model score raises the message to High for review. The model
-cannot produce Critical by itself: Critical requires corroborating rule,
-sender or structure evidence, or a sufficiently strong heuristic score. This
-changes severity only. Medium still counts as an alert, the model's score is not
-lowered, and it is not a validated reduction in Gmail/Outlook false positives.
+evidence (`fusion_basis=model_only`) is a **note, not an alert**: **Low Risk —
+Text Model Signal Only**. Real 2023 account and security notices reach this state
+often (see [docs/evaluation.md](docs/evaluation.md)); the owner chose on 2026-10-05
+to stop alerting on it until a consented, independent holdout supports more. On
+2026-09-29 this choice cut UniqueData false alerts from 41 to 20 and Nazario
+2023–25 phishing recall from 91.8% to 89.0%. Until then it was a Medium alert. On
+its own the model counts at most 29% in `combined_phishing_score`;
+`ml_phishing_probability` keeps its reading, and the page shows both. With weak
+rule evidence (`model_led`) the model score still raises the message to High for
+review. The model cannot produce Critical by itself: Critical requires
+corroborating rule, sender or structure evidence, or a sufficiently strong
+heuristic score.
 
 Safety-footer phrases such as “unsubscribe” and “privacy policy” are reported
 as context but never subtract risk: an attacker can copy them. Regional English
@@ -986,7 +991,8 @@ both, and nothing changes until the reader answers:
   A new file is asked about again. Outlook.com downloads need this, because their
   ARC seals do not survive "Download as EML".
 - **Whether a notice is about the reader's own action.** When a result alerts on the
-  text model alone (`fusion_basis` `model_only` or `model_led`, risk floor Safe or Low),
+  text model alone (`fusion_basis` `model_led`, risk floor Safe or Low; a `model_only`
+  result is already a Low note and is not asked about),
   the page may ask about the notice. It does when the text describes something the
   reader would have done themselves, in English or Chinese: a one-time code, password
   reset, sign-in, email confirmation, new account, order or purchase, job application
@@ -1073,8 +1079,10 @@ Structural/rule evidence and ML evidence are fused conservatively: weak model
 evidence cannot average away a strong authentication or message-structure
 signal. A model probability below the decision threshold (0.3736) means the model
 reads the text as legitimate: it can make the verdict Low, never an alert on its
-own, although the combined score still shows it. Probabilities between 30% and the
-threshold used to give a Medium alert.
+own. Above the threshold, alone, it is a Low note (see above). Either way the model
+alone counts at most 29% in the combined score, while `ml_phishing_probability`
+keeps its reading. Probabilities between 30% and the threshold used to give a
+Medium alert.
 
 Presentation cues add a point each but give way to the model. They are more than six links,
 three or more exclamation marks, a high share of capitals, two generic calls to action and a

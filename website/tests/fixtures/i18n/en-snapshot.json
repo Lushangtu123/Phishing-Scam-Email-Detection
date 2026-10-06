@@ -216,9 +216,9 @@
    "markdown": "# PhishGuard content check\n\n- **Input:** Email file\n- **Verdict:** High Risk — Likely Phishing (72% risk)\n- **Text model:** Text model — 72.4% model risk score\n- **Generated:** 2026-09-28T20:05:09.000Z\n\n## Categories\n\n- Credential Harvesting (high, 1 signal)\n\n## Technical indicators\n\n- **low** — x\n\n## Analysis warnings\n\n- Attachment content was not inspected; only metadata was checked.\n\n---\n\n_Heuristic result from PhishGuard; it does not prove a message is safe or malicious._\n"
   },
   "content.modelOnly": {
-   "crb-title": "High Risk — Model Signal Needs Review",
-   "crb-sub": "ML risk score: 72.4% — Likely Phishing • Model-only risk signal; no independent rule, sender, or link evidence was found.",
-   "crb-score": "72%",
+   "crb-title": "Low Risk — Text Model Signal Only",
+   "crb-sub": "ML risk score: 72.4% — Likely Phishing • Text-model signal only: with no rule, sender, or link evidence it is a note, not an alert. Check the sender and links yourself.",
+   "crb-score": "29%",
    "content-ml-title": "TF-IDF + Logistic Regression",
    "content-ml-sub": "Likely phishing — model risk score 72.4%",
    "content-phish-pct": "72.4%",
@@ -230,10 +230,10 @@
    "content-category-grid": "<div class=\"cat-empty\">No suspicious keyword categories matched in this email.</div>",
    "content-extra-list": "",
    "content-safety-list": "\n      <div class=\"safety-item\">\n        <span class=\"safety-dot\"><svg class=\"ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m8.5 12.2 2.4 2.4 4.6-5\"/></svg></span>\n        <span class=\"safety-msg\">Unsubscribe link present</span>\n      </div>\n    \n      <div class=\"safety-item\">\n        <span class=\"safety-dot\"><svg class=\"ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m8.5 12.2 2.4 2.4 4.6-5\"/></svg></span>\n        <span class=\"safety-msg\">Physical address present</span>\n      </div>\n    ",
-   "crb-icon": "<svg class=\"ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6.5 9a5.5 5.5 0 0 1 11 0v4.5l1.8 2.7H4.7l1.8-2.7z\"/><path d=\"M10 19.5a2 2 0 0 0 4 0\"/></svg>",
-   "bannerClass": "content-risk-banner crb-high",
-   "summary": "PhishGuard content check\nVerdict: High Risk — Model Signal Needs Review (72% risk)\nCategories: none matched\n\nHeuristic result from PhishGuard; it does not prove a message is safe or malicious.",
-   "markdown": "# PhishGuard content check\n\n- **Input:** Content\n- **Verdict:** High Risk — Model Signal Needs Review (72% risk)\n- **Text model:** TF-IDF + Logistic Regression — 72.4% model risk score\n- **Generated:** 2026-09-28T20:05:09.000Z\n\n## Categories\n\nNone matched.\n\n## Analysis warnings\n\n- Attachment content was not inspected; only metadata was checked.\n\n---\n\n_Heuristic result from PhishGuard; it does not prove a message is safe or malicious._\n"
+   "crb-icon": "<svg class=\"ico\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 11v5.2\"/><path d=\"M12 7.8h.01\"/></svg>",
+   "bannerClass": "content-risk-banner crb-low",
+   "summary": "PhishGuard content check\nVerdict: Low Risk — Text Model Signal Only (29% risk)\nCategories: none matched\n\nHeuristic result from PhishGuard; it does not prove a message is safe or malicious.",
+   "markdown": "# PhishGuard content check\n\n- **Input:** Content\n- **Verdict:** Low Risk — Text Model Signal Only (29% risk)\n- **Text model:** TF-IDF + Logistic Regression — 72.4% model risk score\n- **Generated:** 2026-09-28T20:05:09.000Z\n\n## Categories\n\nNone matched.\n\n## Analysis warnings\n\n- Attachment content was not inspected; only metadata was checked.\n\n---\n\n_Heuristic result from PhishGuard; it does not prove a message is safe or malicious._\n"
   },
   "content.modelLed": {
    "crb-title": "High Risk — Model Signal Needs Review",

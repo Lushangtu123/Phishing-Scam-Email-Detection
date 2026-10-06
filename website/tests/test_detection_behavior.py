@@ -1006,17 +1006,26 @@ class ContentRuleRobustnessTests(unittest.TestCase):
         self.assertEqual(fused["risk_level"], "critical")
         self.assertGreaterEqual(fused["combined_phishing_score"], 80)
 
-    def test_model_only_score_is_a_medium_alert_for_review(self):
+    def test_model_only_score_is_a_low_note_not_an_alert(self):
+        # The owner's decision (2026-10-05): with no rule, sender, link or structure evidence
+        # the text model alone is a Low note, counted at most 29%. Its reading stays visible.
         for probability in (0.40, 0.842, 0.99):
             fused = app.fuse_content_risk(
                 ml_phishing_probability=probability,
                 ml_decision_threshold=0.3736,
                 heuristic_score=0,
             )
-            self.assertEqual(fused['risk_level'], 'medium')
-            self.assertEqual(fused['risk_label'], 'Medium Risk — Model Signal Needs Review')
+            self.assertEqual(fused['risk_level'], 'low')
+            self.assertEqual(fused['risk_label'], 'Low Risk — Text Model Signal Only')
             self.assertEqual(fused['fusion_basis'], 'model_only')
-            self.assertEqual(fused['combined_phishing_score'], round(probability * 100, 1))
+            self.assertEqual(fused['combined_phishing_score'], 29.0)
+
+    def test_the_model_alone_never_lowers_the_combined_score_as_it_rises(self):
+        scores = [app.fuse_content_risk(ml_phishing_probability=probability, ml_decision_threshold=0.3736,
+                                        heuristic_score=0)['combined_phishing_score']
+                  for probability in (0.05, 0.2, 0.29, 0.3, 0.3735, 0.3736, 0.9)]
+        self.assertEqual(scores, sorted(scores))
+        self.assertEqual(scores, [5.0, 20.0, 29.0, 29.0, 29.0, 29.0, 29.0])
 
     def test_model_signal_with_any_independent_floor_is_not_model_only(self):
         for floor, expected in (('low', 'high'), ('medium', 'high'), ('high', 'critical'), ('critical', 'critical')):
@@ -1047,7 +1056,8 @@ class ContentRuleRobustnessTests(unittest.TestCase):
                 heuristic_score=0,
             )
             self.assertEqual(fused['risk_level'], 'low', probability)
-            self.assertEqual(fused['combined_phishing_score'], round(probability * 100, 1))
+            # On its own the model counts at most 29%, the top of the Low band.
+            self.assertEqual(fused['combined_phishing_score'], 29.0)
         # Rule evidence still makes it an alert on its own terms.
         fused = app.fuse_content_risk(ml_phishing_probability=0.35, ml_decision_threshold=0.3736, heuristic_score=5)
         self.assertEqual(fused['risk_level'], 'medium')

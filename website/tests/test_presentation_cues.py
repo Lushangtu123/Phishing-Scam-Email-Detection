@@ -67,8 +67,9 @@ class FusionTests(unittest.TestCase):
     def test_cues_back_a_model_alert(self):
         result = fuse(ml_phishing_probability=0.45, heuristic_score=1, presentation_score=1)
         self.assertEqual((result['risk_level'], result['fusion_basis']), ('high', 'model_led'))
+        # Without them the model alone is a Low note, not an alert (2026-10-05).
         result = fuse(ml_phishing_probability=0.45, heuristic_score=0)
-        self.assertEqual((result['risk_level'], result['fusion_basis']), ('medium', 'model_only'))
+        self.assertEqual((result['risk_level'], result['fusion_basis']), ('low', 'model_only'))
 
 
 class MessageTests(unittest.TestCase):
