@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 17:15 PT] — Review checklist and evidence gate for the official-brand registry
+
+### Why
+- A trusted DMARC pass on a registry domain makes a verified official sender, which the text model and weak rules cannot raise above Low, so each official domain is a trust anchor. The registry's own notes say some domains came "from prior knowledge" and still need confirmation (`jpmorganchase.com`, `square.com`, `squareup.com`), and entries are often added after a single incident.
+
+### Files changed
+- `docs/official-registry.md` (new) — what an entry does, the evidence a domain needs, relay and shared-domain checks, display names, measurement and a six-monthly recheck.
+- `website/tests/test_registry_evidence.py` (new) — every official domain needs recorded evidence (`domain_sources`, a statement page on the domain, or an official contact address there); the 79 domains without any are listed and the list may only shrink; `domain_sources` must be HTTPS pages.
+- `README.md` — links the checklist.
+
+### Effect
+- No verdict changes. Adding a domain without evidence now fails CI, and so does confirming a listed domain without taking it off the list.
+- 79 official domains in 48 entries are pending confirmation (36 international, 43 Chinese).
+
 ## [2026-10-05 17:13 PT] — Read hidden text with the strongest request and lure rules
 
 ### Why

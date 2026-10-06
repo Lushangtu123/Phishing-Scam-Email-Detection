@@ -376,6 +376,9 @@ Raw input enables these checks:
     abstaining in that case: scams sent through their genuine invoices and money
     requests are verified too. Customer-controlled or
     shared domains such as `atlassian.net` and `tumblr.zendesk.com` are excluded.
+    Changes to either registry follow the [review checklist](docs/official-registry.md);
+    `test_registry_evidence.py` lists the official domains whose evidence is not yet
+    recorded (79 on 2026-10-05) and fails if an unsourced domain is added.
 - **authenticated senders** that are not in the registries. With a mailbox named,
   the From domain needs a trusted, aligned DMARC pass and a passing DKIM signature
   from the same organizational domain. It must not be a consumer mailbox domain
