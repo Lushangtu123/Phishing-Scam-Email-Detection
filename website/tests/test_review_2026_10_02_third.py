@@ -15,6 +15,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import domain_age  # noqa: E402
 import email_structure as es  # noqa: E402
@@ -193,7 +194,7 @@ class LinkBudgetTests(unittest.TestCase):
                 self.assertIn('content.mailbox_lure', codes(analyze(self.body(before))))
 
     def test_past_the_budget(self):
-        with patch.object(app, '_MAX_VIEW_ANCHORS', 5):
+        with patch.object(html_visibility, '_MAX_VIEW_ANCHORS', 5):
             # The lure's label was read before the budget ran out.
             self.assertIn('content.mailbox_lure', codes(analyze(self.body(2, after=10))))
             # Past it, the rendering is unresolved: never Safe or Low.

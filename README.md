@@ -1122,6 +1122,7 @@ CS-166-Final-Project/
 │   └── src/
 ├── website/
 │   ├── app.py                   # API and explainable content rules
+│   ├── html_visibility.py       # HTML parsing, CSS cascade and the text each rendering shows
 │   ├── sender_features.py       # sender-address features and domain registries
 │   ├── content_model.py         # group-isolated optional text model
 │   ├── content_inference.py     # runtime-only verified artifact loader

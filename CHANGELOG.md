@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 17:21 PT] — Move the HTML/CSS visibility reader out of app.py
+
+### Why
+- `website/app.py` held 7,866 lines, about 40% of them a hand-written CSS cascade, colour and visibility reader that eleven reviews in three days kept patching. Separating it lets that code be read, reviewed and tested on its own, and leaves `app.py` with the API, rules and fusion.
+
+### Files changed
+- `website/html_visibility.py` (new) — 3,178 lines moved verbatim from `app.py`, in their original order: the HTML parser base and Outlook conditional comments, the CSS cascade, colour, gradient and math readers, `_visible_content_text`, and three pure helpers it needs (`_strip_invisible_format_controls`, `_parse_link_target`, `_unescape_css`).
+- `website/app.py` — imports what it uses from the new module, and re-exports, marked as such, the internals tests reach through `app.`; unused imports removed. 7,866 → 4,691 lines.
+- `website/tests/test_review_2026_10_02_third.py` — patches `_MAX_VIEW_ANCHORS` where it now lives; a patch on `app` would no longer reach it.
+- `README.md` — the module in the project tree.
+
+### Effect
+- No behavior change: every line removed from `app.py` is in the new module unchanged, all 1,163 Python and 515 frontend tests pass, and the full analysis JSON of 9,263 local corpus messages and 371 HTML inputs taken from the test suite is byte-identical before and after (with `PYTHONHASHSEED` fixed: `content.obfuscation` joins a set of brand names, so its order already varied between processes).
+
 ## [2026-10-05 17:15 PT] — Say plainly that the text model does not read Chinese mail
 
 ### Why
