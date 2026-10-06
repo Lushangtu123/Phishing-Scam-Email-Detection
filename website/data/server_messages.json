@@ -127,6 +127,7 @@
   "prefix.attached_message": "Attached message: {text}",
   "prefix.image": "Image ({name}): {text}",
   "prefix.image_recognition": "Image recognition: {text}",
+  "prefix.hidden_text": "In text the message may hide: {text}",
 
   "warning.mso_conditional": "MSO conditional content has client-dependent rendering; analysis is incomplete.",
   "warning.malformed_html": "Malformed HTML required recovery; analysis is incomplete.",

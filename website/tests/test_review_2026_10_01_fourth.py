@@ -11,8 +11,10 @@ from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
@@ -97,11 +99,13 @@ class MailboxLureLabelTests(unittest.TestCase):
             with self.subTest(styled=html.startswith('<style>')):
                 result = analyze(html, '邮箱系统升级')
                 self.assertEqual(result['risk_level'], 'high')
-                self.assertIn('content.mailbox_lure', {item.get('code') for item in result['extra_indicators']})
-        # A label the stylesheet hides is not read.
+                self.assertIn('content.mailbox_lure', shown_codes(result))
+        # A label the stylesheet hides is not read as shown, only as text the message may hide.
         hidden = ('<style>.x{display:none}</style><p>为了提高邮件系统的安全性，用户需登录新邮件系统进行升级。</p>'
                   '<a class="x" href="https://account-review.example.org/x">点此登录</a>')
-        self.assertNotIn('content.mailbox_lure', {item.get('code') for item in analyze(hidden, '通知')['extra_indicators']})
+        result = analyze(hidden, '通知')
+        self.assertNotIn('content.mailbox_lure', shown_codes(result))
+        self.assertIn('content.mailbox_lure', hidden_codes(result))
 
 
 class ColourBoundaryTests(CallbackTestCase):

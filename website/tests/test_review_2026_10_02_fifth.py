@@ -10,20 +10,25 @@ from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 
 CALLBACK = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
             'call 1-888-555-0199 immediately.')
 PADDING = 'Please review the project notes before our meeting tomorrow. ' * 30
 
 
-def callback_shown(declarations):
+def callback_result(declarations):
     with patch.object(app, '_content_pipeline', None):
-        result = json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(
+        return json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(
             subject='Project update', body=f'<style>.unused{{display:none}}.attack{{{declarations}}}</style>'
                                            f'<p class="attack">{CALLBACK}</p><p>{PADDING}</p>'))).body)
-    return 'content.callback_request' in {item.get('code') for item in result['extra_indicators']}
+
+
+def callback_shown(declarations):
+    return 'content.callback_request' in shown_codes(callback_result(declarations))
 
 
 class VisibleTextTests(unittest.TestCase):
@@ -79,6 +84,8 @@ class HiddenTextTests(unittest.TestCase):
                 'color:white;background:linear-gradient(atan2(sign(1%),sign(1%)),black,black)'):
             with self.subTest(declarations=declarations):
                 self.assertFalse(callback_shown(declarations))
+                # Still read as text the message may hide (2026-10-05).
+                self.assertIn('content.callback_request', hidden_codes(callback_result(declarations)))
 
 
 class PercentBasisTests(unittest.TestCase):

@@ -928,6 +928,7 @@ window.PhishGuardI18n = (() => {
     'server.prefix.attached_message': 'Attached message: {text}',
     'server.prefix.image': 'Image ({name}): {text}',
     'server.prefix.image_recognition': 'Image recognition: {text}',
+    'server.prefix.hidden_text': 'In text the message may hide: {text}',
 
     'server.warning.mso_conditional': 'MSO conditional content has client-dependent rendering; analysis is incomplete.',
     'server.warning.malformed_html': 'Malformed HTML required recovery; analysis is incomplete.',
@@ -1336,7 +1337,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=46'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=47'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

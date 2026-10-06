@@ -1408,6 +1408,25 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Hidden text read by the request and lure rules (2026-10-05)
+
+Eleven reviews from 2026-10-01 to 10-03 each found a style the CSS reader misjudged, so
+that a visible callback scam read as hidden text and came out Safe or Low. The request
+rules (credential, callback, subsidy, sensitive requests) and the lure rules now also read
+all of the text, whatever styles may hide. A finding only that reading makes is marked
+"In text the message may hide" and sets a Medium floor, after the model's renderings are
+chosen. Keyword categories and the model still never read hidden text.
+
+- **Tests.** No tested style clears a callback request: the reviews' declarations and the
+  common hiding methods (zero size, transparency, `display:none`, off-screen), in a
+  stylesheet, inline and print-only (`test_hidden_text_rules.py`).
+- **Local public corpora** (the 9,263 pasted messages of the section below): no alert count
+  changed and no message had a hidden-text finding; with RDAP lookups off the run took
+  2 min 43 s.
+- **Not measured.** These corpora are plain text. Run the owner's genuine downloads and the
+  Nazario `.eml` cohorts before deploying: genuine HTML mail with hidden preheaders or
+  responsive duplicates is where a new false alert would come from.
+
 ### Model-only signals become a note, not an alert (2026-10-05)
 
 After the 2026-10-05 project review the owner chose to stop alerting on a text-model

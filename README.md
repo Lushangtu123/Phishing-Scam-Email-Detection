@@ -637,8 +637,9 @@ whitespace independently of destination analysis. Script/style/comment text is
 not treated as visible prose. The content model now receives this same
 MIME-aware visible text rather than raw HTML. Text under the HTML `hidden`
 attribute or inline `display:none` / `visibility:hidden` / `opacity:0` is also excluded from
-text rules and model input; a warning marks the result incomplete when such
-text is present. Literal `opacity:calc(0)` is handled the same way. Inline
+keyword scoring and model input; a warning marks the result incomplete when such
+text is present. The request and lure rules that set a floor read it too, as text the
+message may hide (see below). Literal `opacity:calc(0)` is handled the same way. Inline
 `visibility:visible` can restore a child of a
 `visibility:hidden` element, but not a child of `display:none` or `opacity:0`.
 Stylesheet rules containing `display:none`, `visibility:hidden`/`collapse`, or
@@ -862,6 +863,17 @@ them. Otherwise, prose from only the CSS-uncertain HTML
 part is withheld from text rules, including bare URLs and displayed link labels;
 unambiguous MIME parts still contribute text rules. Explicit link destinations,
 forms, sender, and message-structure checks still run.
+
+**Hidden text and the strongest rules (2026-10-05).** The request rules (credential,
+callback, subsidy and sensitive requests) and the lure rules that read buttons also read
+all of the text, whatever styles may hide, with every link's whole label. A finding only
+that reading makes is listed as "In text the message may hide: …" (`prefix.hidden_text`),
+at Medium level, and sets a Medium floor. It is applied after the model's renderings are
+chosen, so it never lets the model score hidden text. The CSS reader can misjudge a style
+(eleven reviews from 2026-10-01 to 10-03 each found one that turned a visible callback scam
+Safe or Low), and a hidden request for a code, password, payment or callback is a sign of a
+scam either way. Keyword categories, presentation cues and the model still never read
+hidden text.
 This is not a browser renderer: external CSS and other visual-hiding methods
 are not fully resolved, so even a complete result does not establish pixel-level
 visibility. MIME `text/plain` remains literal. HTML

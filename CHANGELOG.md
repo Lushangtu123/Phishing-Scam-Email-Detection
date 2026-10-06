@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 17:13 PT] — Read hidden text with the strongest request and lure rules
+
+### Why
+- Eleven reviews from 2026-10-01 to 10-03 each found a style the CSS reader misjudged (a gradient, `calc()`, `clamp()`, `atan2()`, `color-mix()`, a custom property's case, print-only CSS), so that a visible callback scam read as hidden text and came out Safe or Low. Matching every browser and mail client has no end; the rules should not depend on it.
+
+### Files changed
+- `website/app.py` — `_visible_content_text` adds an `all_text` reading (never a model rendering) where styles may hide text. `analyze_email_content` runs the request rules (credential, callback, subsidy, sensitive requests) and the lure rules on it, with each link's whole label (`_extract_links(hidden_labels=True)`); a finding only that reading makes is listed as "In text the message may hide: …" at Medium level. `_analyze_content` adds its Medium floor (3 points) after the model's renderings are chosen, so it never lets the model score hidden text. The lure checks share one helper, `lure_findings`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `prefix.hidden_text` in English and Chinese; asset versions bumped.
+- `website/tests/test_hidden_text_rules.py` (new) — no tested style (the reviews' and the common hiding methods, in a stylesheet, inline and print-only) clears a callback request; marking, severity, no duplicates, keyword score and the model unchanged. `website/tests/hidden_findings.py` (new) — shown and hidden finding codes for tests.
+- `website/tests/test_review_2026_10_01_fourth.py`, `test_review_2026_10_02.py`, `test_review_2026_10_02_second.py`, `test_review_2026_10_02_third.py`, `test_review_2026_10_02_fifth.py` — visibility controls compare the findings in what the message shows, and the hidden ones now also expect the marked finding.
+- `website/tests/test_html_input_coverage.py` — hidden phishing padding is a Medium hidden-text finding; the model still abstains.
+- `README.md`, `docs/evaluation.md` — the rule and its measurement.
+
+### Effect
+- A scam request or lure in text the reader may not see is now a Medium alert instead of Safe, Low or Unknown; what the message shows keeps its High findings.
+- Local public corpora (9,263 pasted messages): no alert count changed, and no message had a hidden-text finding. These corpora are plain text; the effect on real HTML mail, including false alerts on genuine HTML newsletters, is unmeasured until the owner's `.eml` cohorts are run.
+
 ## [2026-10-05 16:59 PT] — Show a text-model signal alone as a note, not an alert
 
 ### Why

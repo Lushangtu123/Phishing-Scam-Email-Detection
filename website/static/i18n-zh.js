@@ -910,6 +910,7 @@
   'server.prefix.attached_message': '附件中的邮件：{text}',
   'server.prefix.image': '图片（{name}）：{text}',
   'server.prefix.image_recognition': '图片识别：{text}',
+  'server.prefix.hidden_text': '邮件中可能被隐藏的文字：{text}',
 
   'server.warning.mso_conditional': 'MSO 条件注释内容的渲染因邮件客户端而异；分析未完成。',
   'server.warning.malformed_html': 'HTML 格式错误，已进行恢复处理；分析未完成。',
