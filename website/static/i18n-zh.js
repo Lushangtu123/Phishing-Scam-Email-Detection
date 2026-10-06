@@ -842,6 +842,7 @@
   'server.content.requested_notice': '你确认这封通知说的是你本人做过的事，因此仅凭文本模型的报警不再视为钓鱼。仍请核对发件人和链接是否属于该服务，并且不要把任何验证码告诉别人。',
   'server.content.unrequested_notice': '你没有做过这封通知所说的事，或者不确定。意料之外的验证码、登录、注册、订单或申请通知，可能意味着有人在使用你的账户，也可能是钓鱼邮件：不要点邮件里的链接，直接打开该服务的官网或 App 查看。',
   'server.content.local_review_legitimate': '本机上的语言模型（{model}）读作正常邮件（把握 {confidence}%）。这个报警只来自文本模型，因此降为低风险。行动前仍请核对发件人和链接。',
+  'server.content.local_review_shadow': '本机上的语言模型（{model}）读作正常邮件（把握 {confidence}%）。影子模式下保留报警；正式启用时会降为低风险。',
   'server.content.local_review_phishing': '本机上的语言模型（{model}）也读作钓鱼邮件（把握 {confidence}%）。',
   'server.content.local_review_unsure': '本机上的语言模型（{model}）读作正常邮件，但把握只有 {confidence}%，因此保留报警。',
   'server.content.local_review_unavailable': '本机上的语言模型（{model}）没有回应，这个报警未经复核。',

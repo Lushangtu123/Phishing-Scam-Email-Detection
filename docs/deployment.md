@@ -18,6 +18,7 @@
 | `LOCAL_LLM_REVIEW_URL` | `http://127.0.0.1:11434` | Ollama's address: `http` on a loopback host only, and refused in the production and demo profiles |
 | `LOCAL_LLM_REVIEW_MODEL` | empty | Required with the review: a model name as `ollama list` shows it |
 | `LOCAL_LLM_REVIEW_MIN_CONFIDENCE` | `80` | How sure (50–100) a legitimate reading must be to lower the alert |
+| `LOCAL_LLM_REVIEW_SHADOW` | `false` | Record the review's reading without changing the verdict ([rollout plan](llm-review-rollout.md)) |
 | `TRUSTED_AUTHSERV_IDS` | empty | Comma-separated authentication service IDs allowed to affect raw-message risk |
 | `SENDER_HISTORY_ENABLED` | `false` | Enables optional service-retained sender history and distributed API limiting when all secrets are valid |
 | `UPSTASH_REDIS_REST_URL` | empty | HTTPS REST endpoint for an Upstash Redis database (`*.upstash.io`) |

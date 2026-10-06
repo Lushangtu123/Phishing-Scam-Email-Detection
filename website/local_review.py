@@ -3,7 +3,8 @@
 Off by default. Only a loopback address in a development profile is accepted, so a
 deployment never sends mail text anywhere. It is asked only about alerts that rest on the
 text model alone, and it reads only what that model read: the visible text, plus the
-hosts the links lead to.
+hosts the links lead to. In shadow mode (LOCAL_LLM_REVIEW_SHADOW) its reading is recorded
+and the verdict is left as it is, so a model can be measured before it changes anything.
 """
 from dataclasses import dataclass
 import json
@@ -54,6 +55,8 @@ class LocalReviewSettings:
     model: str | None = None
     min_confidence: int = 80
     timeout: float = 60.0
+    # Record the reading without changing the verdict (docs/llm-review-rollout.md).
+    shadow: bool = False
 
     @property
     def enabled(self):
@@ -67,6 +70,7 @@ def load_local_review_settings(environ=None) -> LocalReviewSettings:
     url = source.get('LOCAL_LLM_REVIEW_URL', 'http://127.0.0.1:11434').strip().rstrip('/')
     model = source.get('LOCAL_LLM_REVIEW_MODEL', '').strip()
     confidence = source.get('LOCAL_LLM_REVIEW_MIN_CONFIDENCE', '80').strip()
+    shadow = source.get('LOCAL_LLM_REVIEW_SHADOW', 'false').strip().lower()
     try:
         parsed = urlsplit(url)
         valid = (parsed.scheme == 'http' and parsed.hostname in _LOOPBACK and parsed.port != 0
@@ -74,12 +78,13 @@ def load_local_review_settings(environ=None) -> LocalReviewSettings:
                  and parsed.path == '' and not parsed.query and not parsed.fragment
                  and source.get('APP_ENV', 'production').lower() not in {'production', 'demo'}
                  and _MODEL_NAME.fullmatch(model) is not None
-                 and confidence.isdigit() and 50 <= int(confidence) <= 100)
+                 and confidence.isdigit() and 50 <= int(confidence) <= 100
+                 and shadow in {'true', '1', 'false', '0'})
     except ValueError:
         valid = False
     if not valid:
         raise ValueError('Invalid local language-model review configuration')
-    return LocalReviewSettings(url, model, int(confidence))
+    return LocalReviewSettings(url, model, int(confidence), shadow=shadow in {'true', '1'})
 
 
 def addresses_reviewers(text: str) -> bool:

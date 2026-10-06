@@ -2768,8 +2768,9 @@ async def _apply_local_review(result: dict, subject: str, body: str, hosts) -> N
     """Ask the optional language model on this computer about an alert that rests on the
     text model alone (local_review.py).
 
-    A legitimate reading at the configured confidence lowers the alert to Low. Any other
-    answer, or none, leaves it, and the result says which. With Qwen3.8 27B it lowered 26
+    A legitimate reading at the configured confidence lowers the alert to Low, or in shadow
+    mode only says that it would. Any other answer, or none, leaves it, and the result says
+    which. With Qwen3.8 27B it lowered 26
     of the 35 alerts on the owner's pasted genuine mail. Of 3,466 Nazario phishing messages
     it lowered one, the corpus's own introduction (docs/evaluation.md).
     """
@@ -2789,6 +2790,8 @@ async def _apply_local_review(result: dict, subject: str, body: str, hosts) -> N
         result['extra_indicators'].append(indicator('info', 'content.local_review_phishing', **params))
     elif reading['confidence'] < LOCAL_REVIEW.min_confidence:
         result['extra_indicators'].append(indicator('info', 'content.local_review_unsure', **params))
+    elif LOCAL_REVIEW.shadow:
+        result['extra_indicators'].append(indicator('info', 'content.local_review_shadow', **params))
     else:
         result['risk_level'] = 'low'
         result['risk_label'] = 'Low Risk — Read as Legitimate by a Local Model'

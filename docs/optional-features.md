@@ -207,6 +207,12 @@ model configured and:
 export APP_ENV=development LOCAL_LLM_REVIEW_ENABLED=true LOCAL_LLM_REVIEW_MODEL=qwen3.8:27b-mlx
 ```
 
+Add `LOCAL_LLM_REVIEW_SHADOW=true` to record its readings without changing any verdict: a
+legitimate reading then says that it would lower the alert (`content.local_review_shadow`).
+`website/tools/evaluate_local_review.py` compares models this way on consented cohorts and
+writes counts only. What it would take to offer the review on the served page, and in what
+order, is in [the rollout plan](llm-review-rollout.md).
+
 ## Experimental Jev auxiliary opinions
 
 The authenticated case workspace can request a separate TypeSafe Jev text opinion.

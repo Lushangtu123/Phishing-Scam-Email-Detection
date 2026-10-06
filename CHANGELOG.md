@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 21:04 PT] — Shadow mode and a comparison tool for the local language-model review
+
+### Why
+- After the 2026-10-05 compromise, pasted text keeps its model-only alerts, which the local Qwen review lowered from 35 to 9 on the owner's genuine mail. The owner asked to prepare the review for the served page without changing the privacy promise yet: measure first, in shadow mode, and compare smaller models that a modest host could serve.
+
+### Files changed
+- `website/local_review.py`, `website/app.py` — `LOCAL_LLM_REVIEW_SHADOW=true` runs the review as usual, but a legitimate reading only records that it would lower the alert (`content.local_review_shadow`); the verdict is unchanged. Still development-only and loopback-only.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the shadow message in English and Chinese; asset versions bumped.
+- `website/tools/evaluate_local_review.py` (new) — runs the serving pipeline over consented cohorts once per Ollama model, in shadow mode, with `--paste` for the pasted path, and writes counts only (alerts, would lower, kept, unavailable, skipped, response times), with model and prompt digests.
+- `website/tests/test_local_review.py`, `website/tests/test_evaluate_local_review.py` (new) — the setting, shadow readings, per-cohort counts with a stub server, and loopback-only URLs.
+- `docs/llm-review-rollout.md` (new) — the gates before the review runs for visitors (independent holdout, a servable model, privacy, prompt injection), the steps, rollback and the comparison procedure; `docs/optional-features.md`, `docs/deployment.md`, `README.md` link it.
+
+### Effect
+- No verdict changes: the review stays off by default, and shadow mode never changes a result.
+
 ## [2026-10-05 17:52 PT] — Keep model-only alerts on pasted text; a note only in original messages
 
 ### Why

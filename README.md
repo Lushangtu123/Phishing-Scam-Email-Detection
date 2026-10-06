@@ -155,6 +155,8 @@ Phishing-Scam-Email-Detection/
 - [Testing](docs/testing.md)
 - [Optional features](docs/optional-features.md): the case workspace, image and QR
   recognition, enhanced OCR, the local language-model review and Jev opinions.
+- [Language-model review rollout plan](docs/llm-review-rollout.md): what must hold before a
+  Qwen review of model-driven alerts runs on the served page, and how models are compared.
 - [Evaluation log](docs/evaluation.md), [case workflow](docs/case-workflow.md) and the
   [official-brand registry checklist](docs/official-registry.md)
 

@@ -36,6 +36,13 @@ class SettingsTests(unittest.TestCase):
             with self.subTest(url=url):
                 self.assertTrue(lr.load_local_review_settings({**DEVELOPMENT, 'LOCAL_LLM_REVIEW_URL': url}).enabled)
 
+    def test_shadow_mode(self):
+        self.assertFalse(lr.load_local_review_settings(DEVELOPMENT).shadow)
+        for value in ('true', 'TRUE', '1'):
+            with self.subTest(value=value):
+                self.assertTrue(lr.load_local_review_settings({**DEVELOPMENT, 'LOCAL_LLM_REVIEW_SHADOW': value}).shadow)
+        self.assertFalse(lr.load_local_review_settings({**DEVELOPMENT, 'LOCAL_LLM_REVIEW_SHADOW': 'false'}).shadow)
+
     def test_rejected(self):
         for change in ({'APP_ENV': 'production'}, {'APP_ENV': 'demo'}, {'APP_ENV': ''},
                        {'LOCAL_LLM_REVIEW_URL': 'http://example.com:11434'},
@@ -47,7 +54,7 @@ class SettingsTests(unittest.TestCase):
                        {'LOCAL_LLM_REVIEW_URL': 'http://127.0.0.1:99999'},
                        {'LOCAL_LLM_REVIEW_MODEL': ''}, {'LOCAL_LLM_REVIEW_MODEL': 'qwen 3'},
                        {'LOCAL_LLM_REVIEW_MIN_CONFIDENCE': '49'}, {'LOCAL_LLM_REVIEW_MIN_CONFIDENCE': '101'},
-                       {'LOCAL_LLM_REVIEW_MIN_CONFIDENCE': 'high'}):
+                       {'LOCAL_LLM_REVIEW_MIN_CONFIDENCE': 'high'}, {'LOCAL_LLM_REVIEW_SHADOW': 'maybe'}):
             environ = {**DEVELOPMENT, **change}
             if change.get('APP_ENV') == '':
                 del environ['APP_ENV']  # the profile defaults to production
@@ -143,7 +150,7 @@ BODY = ('Please review the regular project planning notes for our meeting tomorr
 
 
 class AnalysisTests(unittest.TestCase):
-    def analyze(self, readings, body=BODY, subject='Planning notes', probability=0.6, raw=False):
+    def analyze(self, readings, body=BODY, subject='Planning notes', probability=0.6, raw=False, shadow=False):
         pipeline = {'vectorizer': TfidfVectorizer().fit([subject + ' ' + body]), 'clf': ConstantClassifier(probability),
                     'decision_threshold': 0.3736, 'metrics': {}}
         request = app.ContentRequest(subject=subject, body=body) if not raw else app.ContentRequest(raw_email=(
@@ -154,7 +161,7 @@ class AnalysisTests(unittest.TestCase):
         def stub(settings, subject, body, hosts):
             calls.append((subject, body, list(hosts)))
             return readings
-        settings = lr.LocalReviewSettings('http://127.0.0.1:11434', 'stub-model', 80)
+        settings = lr.LocalReviewSettings('http://127.0.0.1:11434', 'stub-model', 80, shadow=shadow)
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'LOCAL_REVIEW', settings), \
                 patch.object(app, 'local_review', stub):
             result = json.loads(asyncio.run(app._analyze_content(request, observe_sender_history=False)).body)
@@ -193,6 +200,21 @@ class AnalysisTests(unittest.TestCase):
         result, calls = self.analyze({'verdict': 'legitimate', 'confidence': 99}, body=lure)
         self.assertIn(result['risk_level'], {'medium', 'high', 'critical'})
         self.assertEqual(calls, [])
+
+    def test_shadow_mode_records_the_reading_and_keeps_the_verdict(self):
+        result, calls = self.analyze({'verdict': 'legitimate', 'confidence': 90}, shadow=True)
+        self.assertEqual((result['risk_level'], result['risk_label']), ('medium', 'Medium Risk — Model Signal Needs Review'))
+        self.assertEqual(self.review_codes(result),
+                         [('content.local_review_shadow', {'model': 'stub-model', 'confidence': 90})])
+        self.assertEqual(len(calls), 1)
+        # Readings that never lower an alert read the same in both modes.
+        for readings, code in (({'verdict': 'phishing', 'confidence': 95}, 'content.local_review_phishing'),
+                               ({'verdict': 'legitimate', 'confidence': 79}, 'content.local_review_unsure'),
+                               (None, 'content.local_review_unavailable')):
+            with self.subTest(readings=readings):
+                result, _calls = self.analyze(readings, shadow=True)
+                self.assertEqual(result['risk_level'], 'medium')
+                self.assertEqual([found for found, _params in self.review_codes(result)], [code])
 
     def test_an_original_messages_model_only_note_is_not_reviewed(self):
         # Since 2026-10-05 the text model alone is a Low note in an original message (.eml):
