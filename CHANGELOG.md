@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 17:35 PT] — Short README; details moved to docs/
+
+### Why
+- The README had grown to 2,068 lines that mixed a user guide, the API, design reasoning and evaluation logs; its project tree still used the old `CS-166-Final-Project/` name and listed 8 of 30 modules, and five sections sat after the footer.
+
+### Files changed
+- `README.md` — rewritten (167 lines): what PhishGuard checks, how a verdict is made (diagram), measured results by input path with their caveats, limitations, quick start, testing, the full project tree and a documentation index.
+- `docs/detection-design.md`, `docs/api.md`, `docs/deployment.md`, `docs/data-and-model.md`, `docs/testing.md`, `docs/optional-features.md` (new) — the former README sections, moved verbatim: headings shift one level where a section became a page, relative links were rewritten to resolve from `docs/`, and the three sections that sat at the wrong level after the footer were fixed.
+- `docs/evaluation.md`, `website/tools/evaluate_source_holdout.py` — references to README sections now name the new pages.
+- `progress_report.md`, `phishing-detection/README.md` — a note that they are the historical report and the archived course benchmark.
+
+### Effect
+- Documentation only. Every non-blank line of the old README is in the new pages except the old introduction and project tree, which the new README replaces; every relative link and anchor in README and `docs/` resolves. The quick-start commands were run: the rules-only and model-enabled servers both answered `/health`.
+
 ## [2026-10-05 17:21 PT] — Move the HTML/CSS visibility reader out of app.py
 
 ### Why

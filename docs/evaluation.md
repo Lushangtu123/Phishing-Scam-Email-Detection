@@ -792,7 +792,7 @@ making errors visible over displaying an unsupported accuracy percentage.
 
 ## 4. Leave-one-source-out model evaluation
 
-The README's mixed-corpus figures come from a grouped split of pooled corpora, so
+The mixed-corpus figures in [data-and-model.md](data-and-model.md) come from a grouped split of pooled corpora, so
 every test message has training neighbours from the same corpus. This check asks a
 harder question: how does the content-model **training recipe** do on a corpus it
 has never seen? For each corpus it trains the deployed configuration (the same
@@ -3702,7 +3702,7 @@ impossible even when every plausible reading was clearly benign.
 
 **Change.** Uncertain HTML views are scored as rendering views: visible, strict
 non-Outlook, and strict Outlook. A view is scored only if all readings lead to
-the same alert decision (see README). Disagreeing views keep abstaining.
+the same alert decision (see [detection-design.md](detection-design.md)). Disagreeing views keep abstaining.
 
 **Measured.** Old code (main) against new code; Medium and above count as alerts:
 
