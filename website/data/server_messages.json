@@ -142,7 +142,7 @@
   "warning.inline_images": "Embedded image content was not inspected; analysis is incomplete.",
   "warning.remote_images": "Remote image content was not inspected; analysis is incomplete.",
   "warning.unresolved_images": "Unresolved image references were not inspected; analysis is incomplete.",
-  "warning.han_text": "Substantial Han-script text detected; language-specific phishing checks are limited and this content may not be fully evaluated.",
+  "warning.han_text": "Substantial Han-script (Chinese) text: the text model was not trained on Chinese mail, so only the rule checks are reliable here; coverage is limited and this content may not be fully evaluated.",
   "warning.model_insufficient_context": "The message contains too little text for reliable model scoring; ML classification was not applied.",
   "warning.model_insufficient_coverage": "Text model feature coverage is insufficient; ML classification was not applied.",
   "warning.attachment_unreadable": "A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.",

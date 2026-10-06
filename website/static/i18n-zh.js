@@ -925,7 +925,7 @@
   'server.warning.inline_images': '未检查内嵌图片内容；分析未完成。',
   'server.warning.remote_images': '未检查远程图片内容；分析未完成。',
   'server.warning.unresolved_images': '未检查无法解析的图片引用；分析未完成。',
-  'server.warning.han_text': '检测到大量汉字文本；针对特定语言的钓鱼检查有限，此内容可能未得到充分评估。',
+  'server.warning.han_text': '检测到大量汉字（中文）文本：文本模型没有用中文邮件训练过，这里只有规则检查可靠；覆盖有限，此内容可能未得到充分评估。',
   'server.warning.model_insufficient_context': '邮件文字过少，模型无法可靠评分；未应用机器学习分类。',
   'server.warning.model_insufficient_coverage': '文本模型的特征覆盖不足；未应用机器学习分类。',
   'server.warning.attachment_unreadable': '无法读取一个 PDF 或 Word 附件，其中的文字和链接未被检查。分析未完成。',

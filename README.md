@@ -939,8 +939,13 @@ credential lures can still be missed. Do not interpret passing regression tests
 or a zero score as universal measured phishing recall.
 Substantial visible Han-script text, including supplementary-plane ideographs,
 now adds a language-coverage warning and prevents an unqualified complete Safe
-result. It does not add phishing points or
-pretend that an English-oriented model has learned Chinese phishing patterns.
+result. The warning says plainly that the text model was not trained on Chinese mail,
+so only the rule checks are reliable for it (the Chinese brand registry, Chinese lure
+and request rules, links, sender and structure). It does not add phishing points or
+pretend that an English-oriented model has learned Chinese phishing patterns. On 611
+unlabelled DataCon 2023 Chinese messages, 349 (57%) end undetermined
+(docs/evaluation.md); Chinese detection quality is unmeasured until a labelled Chinese
+cohort exists.
 When a substantial body produces no fitted vectorizer features, the model
 abstains even if an English subject has features. It also checks a substantial
 non-Latin-script segment in both subject and body separately, so English

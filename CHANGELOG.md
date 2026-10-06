@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 17:15 PT] — Say plainly that the text model does not read Chinese mail
+
+### Why
+- The page is bilingual and the registry lists 39 Chinese organizations, but the text model was trained without Chinese mail: on 611 unlabelled DataCon 2023 Chinese messages, 349 (57%) end undetermined. The old warning ("language-specific phishing checks are limited") did not tell a reader why, or which checks still apply.
+
+### Files changed
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `warning.han_text` now says the text model was not trained on Chinese mail, so only the rule checks are reliable, in English and Chinese; asset versions bumped.
+- `README.md` — which checks still read Chinese mail, and that its detection quality is unmeasured.
+
+### Effect
+- Wording only: verdicts, scores and the warning's code are unchanged.
+
 ## [2026-10-05 17:15 PT] — Review checklist and evidence gate for the official-brand registry
 
 ### Why

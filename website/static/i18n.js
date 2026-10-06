@@ -943,7 +943,7 @@ window.PhishGuardI18n = (() => {
     'server.warning.inline_images': 'Embedded image content was not inspected; analysis is incomplete.',
     'server.warning.remote_images': 'Remote image content was not inspected; analysis is incomplete.',
     'server.warning.unresolved_images': 'Unresolved image references were not inspected; analysis is incomplete.',
-    'server.warning.han_text': 'Substantial Han-script text detected; language-specific phishing checks are limited and this content may not be fully evaluated.',
+    'server.warning.han_text': 'Substantial Han-script (Chinese) text: the text model was not trained on Chinese mail, so only the rule checks are reliable here; coverage is limited and this content may not be fully evaluated.',
     'server.warning.model_insufficient_context': 'The message contains too little text for reliable model scoring; ML classification was not applied.',
     'server.warning.model_insufficient_coverage': 'Text model feature coverage is insufficient; ML classification was not applied.',
     'server.warning.attachment_unreadable': 'A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.',
@@ -1337,7 +1337,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=47'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=48'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
