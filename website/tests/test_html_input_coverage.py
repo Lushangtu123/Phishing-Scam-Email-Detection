@@ -1480,8 +1480,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
         self.assertEqual(result['ml_status'], 'available')
         self.assertEqual(result['total_score'], 0)
         self.assertEqual(result['fusion_basis'], 'model_only')
-        # A model-only score is a Low note, not an alert (2026-10-05), however high it is.
-        self.assertEqual((result['risk_level'], result['risk_label']), ('low', 'Low Risk — Text Model Signal Only'))
+        self.assertEqual(result['risk_level'], 'medium')
         self.assertGreaterEqual(result['ml_phishing_probability'], 80)
 
     def test_committed_model_payment_change_still_triggers_review(self):

@@ -3449,8 +3449,13 @@ def fuse_content_risk(
     heuristic_score: int,
     presentation_score: int = 0,
     minimum_level: str = "safe",
+    raw_message: bool = False,
 ) -> dict:
-    """Conservatively fuse independent evidence without averaging it away."""
+    """Conservatively fuse independent evidence without averaging it away.
+
+    raw_message: the text came with an original message (an .eml or raw headers), whose
+    sender, authentication and structure were read too.
+    """
     ml_risk = 0.0 if ml_phishing_probability is None else min(
         1.0, max(0.0, ml_phishing_probability)
     )
@@ -3475,14 +3480,16 @@ def fuse_content_risk(
     independent_support = heuristic_score >= 9 or minimum_level in {"high", "critical"}
     model_only = model_signal and heuristic_score == 0 and minimum_level == "safe"
     model_led = model_signal and not independent_support and not model_only
-    # On its own the text model counts at most as Low (29%). Below its decision threshold it
-    # reads the text as legitimate: the threshold was chosen within a 20% false-positive
-    # budget, so a 30–37% probability lies inside it. Above it, with no rule, sender, link or
-    # structure evidence, it flags 72% of real 2023 account and security notices; not alerting
-    # on it halved UniqueData's false alerts (41 → 20) for 2.8 points of Nazario 2023–25 recall
-    # (docs/evaluation.md). The owner chose (2026-10-05) to show it as a note, not an alert,
-    # until a consented holdout supports more. ml_phishing_probability keeps the model's reading.
-    model_counted = ml_risk if model_signal and not model_only else min(ml_risk, 0.29)
+    # Below its decision threshold the model reads the text as legitimate (the threshold was
+    # chosen within a 20% false-positive budget, so a 30–37% probability lies inside it): it
+    # counts at most as Low (29%). Above it, with no rule, sender, link or structure evidence,
+    # an original message's reading is a note, not an alert, counted the same way: its sender,
+    # authentication and structure were read and showed nothing. Pasted text and screenshots
+    # carry none of that, so there it stays an alert for review. The owner chose this on
+    # 2026-10-05: a note everywhere cost 25 to 56 points of recall on pasted public corpora
+    # (docs/evaluation.md). ml_phishing_probability keeps the model's reading either way.
+    model_note = model_only and raw_message
+    model_counted = ml_risk if model_signal and not model_note else min(ml_risk, 0.29)
     combined = max(heuristic_risk, model_counted, floor_score)
 
     if minimum_level == "critical" or heuristic_risk >= 0.80 or (ml_risk >= 0.80 and independent_support):
@@ -3490,8 +3497,13 @@ def fuse_content_risk(
     elif minimum_level == "high" or heuristic_risk >= 0.55 or (model_signal and not model_only):
         level = "high"
         label = "High Risk — Model Signal Needs Review" if model_led else "High Risk — Likely Phishing"
-    elif model_only:
+    elif model_note:
         level, label = "low", "Low Risk — Text Model Signal Only"
+    elif model_only:
+        # With no rule, sender, link or structure evidence the text model alone flags
+        # 72% of real 2023 account and security notices (docs/evaluation.md), so an
+        # uncorroborated score stays an alert for review but not a High verdict.
+        level, label = "medium", "Medium Risk — Model Signal Needs Review"
     elif combined >= 0.30:
         level, label = "medium", "Medium Risk — Suspicious Content"
     elif combined >= 0.10:
@@ -3600,6 +3612,7 @@ async def _analyze_content(
     observe_sender_history: bool = True,
     plain_text: bool = False,
     allow_empty: bool = False,
+    raw_message: bool | None = None,
 ):
     subject = request.subject.strip()
     body    = request.body.strip()
@@ -3613,6 +3626,9 @@ async def _analyze_content(
         # manual input must not replace evidence from the uploaded message.
         subject = structure["subject"]
         body = structure["body"]
+    # Whether the text came with an original message (fuse_content_risk); text extracted
+    # from an uploaded .eml's images is part of that message.
+    raw_message = structure is not None if raw_message is None else raw_message
     has_structure = structure and (
         structure["attachments"] or structure["from"] or structure["reply_to"]
         or structure["return_path"] or structure["auth_results"]
@@ -3906,6 +3922,7 @@ async def _analyze_content(
         heuristic_score=result["total_score"],
         presentation_score=result["presentation_score"],
         minimum_level=result["risk_floor"],
+        raw_message=raw_message,
     ))
     del result["presentation_score"]
 
@@ -4031,7 +4048,7 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
         for text in texts or ['']:
             source_findings.append(json.loads((await _analyze_content(
                 ContentRequest(body=text), observe_sender_history=False,
-                plain_text=True, allow_empty=True,
+                plain_text=True, allow_empty=True, raw_message=raw is not None,
             )).body))
         findings.append(merge_visual_sources(source_findings, source_count=len(texts)))
     base['input_mode'] = 'raw-email' if raw else 'image-evidence'

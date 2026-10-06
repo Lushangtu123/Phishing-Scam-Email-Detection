@@ -1408,6 +1408,37 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Model-only note limited to original messages (2026-10-05)
+
+The note made earlier the same day (below) cost 25 to 56 points of phishing recall on
+pasted public corpora. The owner chose to keep it only where headers were read:
+
+- **Pasted text and screenshots:** a model-only score is again **Medium Risk — Model
+  Signal Needs Review**, asked about and open to the local review, as before.
+- **Original messages** (`.eml` uploads, `/api/analyze-eml`, `raw_email`, and text read
+  from that message's images): **Low Risk — Text Model Signal Only**, counted at most 29%.
+- Below the threshold the model alone counts at most 29% on every path.
+
+Measured with the committed artifact, RDAP lookups off and `PYTHONHASHSEED=0`, original
+code (`29334ee`) against this change; alerts / undetermined / other:
+
+| Cohort | Original | Now |
+|---|---|---|
+| Nazario phishing, pasted (1,561) | 1,506 / 47 / 8 | 1,506 / 47 / 8 |
+| PhishNChips core phishing, pasted (1,000) | 993 / 0 / 7 | 993 / 0 / 7 |
+| PhishFuzzer LLM variants, pasted (1,344 phishing; 1,392 legitimate) | 1,308 / 6 / 30; 194 / 2 / 1,196 | unchanged |
+| CEAS-08, Phishing_Email and PhishNChips legitimate, pasted | 27 / 1 / 1,468; 22 / 4 / 1,444; 31 / 0 / 969 | unchanged |
+| Nazario phishing, rebuilt as raw messages (1,563) | 1,544 / 15 / 4 | 1,529 / 15 / 19 |
+| CEAS-08 legitimate sample, rebuilt as raw messages (1,497) | 85 / 23 / 1,389 | 83 / 23 / 1,391 |
+
+- **Pasted text** is back to the original on every source.
+- **Raw messages** were rebuilt from the CSVs' sender, recipient, date, subject and body,
+  without authentication or Received headers, so they only approximate downloads. Sender
+  analysis adds points to most of them and few stay model-only: the note cost 15 Nazario
+  alerts (98.8% → 97.8%) and removed 2 of 85 CEAS false alerts.
+- **Not measured:** the owner's genuine `.eml` downloads, where the false alerts the note
+  targets are (24 alerts without a mailbox chosen, on 2026-10-05).
+
 ### Hidden text read by the request and lure rules (2026-10-05)
 
 Eleven reviews from 2026-10-01 to 10-03 each found a style the CSS reader misjudged, so

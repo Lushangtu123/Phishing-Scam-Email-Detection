@@ -38,28 +38,33 @@ class RequestedNoticeTests(unittest.TestCase):
             return json.loads(asyncio.run(app.analyze_content_endpoint(
                 app.ContentRequest(subject=subject, body=body, requested=requested))).body)
 
+    def analyze_raw(self, raw):
+        with patch.object(app, '_content_pipeline', deployment_pipeline(self)):
+            return json.loads(asyncio.run(app.analyze_content_endpoint(app.ContentRequest(raw_email=raw))).body)
+
     def codes(self, result):
         return [item.get('code') for item in result['extra_indicators']]
 
     def test_model_driven_account_notices_ask_and_keep_their_alert_until_answered(self):
-        # Keyword categories stand beside the model here, so the alert is model-led.
-        for subject, body in (NOTICES[0], NOTICES[2]):
+        for subject, body in NOTICES:
             with self.subTest(subject=subject):
                 result = self.analyze(subject, body)
                 self.assertIn(result['risk_level'], {'medium', 'high'})
-                self.assertEqual(result['fusion_basis'], 'model_led')
+                self.assertIn(result['fusion_basis'], {'model_only', 'model_led'})
                 self.assertTrue(result['requested_question'])
                 self.assertNotIn('account_notice', result)
 
-    def test_model_only_notices_are_a_low_note_with_nothing_to_ask(self):
-        # Since 2026-10-05 the text model alone is a Low note, not an alert to settle.
+    def test_an_original_messages_model_only_notice_is_a_low_note_with_nothing_to_ask(self):
+        # Since 2026-10-05 the text model alone is a note in an original message (.eml), not an
+        # alert to settle; the same notices pasted as text still ask (above).
         for subject, body in (NOTICES[1], NOTICES[3]):
             with self.subTest(subject=subject):
-                result = self.analyze(subject, body)
+                raw = (f'From: Alex Chen <alex.chen@gmail.com>\nTo: sam@example.org\nSubject: {subject}\n'
+                       f'Content-Type: text/plain; charset=utf-8\n\n{body}\n')
+                result = self.analyze_raw(raw)
                 self.assertEqual((result['risk_level'], result['risk_label'], result['fusion_basis']),
                                  ('low', 'Low Risk — Text Model Signal Only', 'model_only'))
                 self.assertFalse(result['requested_question'])
-                self.assertNotIn('account_notice', result)
 
     def test_yes_lowers_to_low_and_no_keeps_the_alert_with_a_reason(self):
         subject, body = NOTICES[2]

@@ -42,8 +42,10 @@ flowchart LR
 
 - Rule, sender, link and structure findings set a minimum level, and weak evidence cannot
   average a strong finding away.
-- The text model alone is a **note, not an alert** ("Low Risk — Text Model Signal Only").
-  With weak rule evidence beside it, it raises the message to High for review.
+- The text model alone is an alert for review on pasted text and screenshots ("Medium
+  Risk — Model Signal Needs Review"), but only a **note** in an uploaded `.eml`, whose
+  sender, authentication and structure showed nothing ("Low Risk — Text Model Signal
+  Only"). With weak rule evidence beside it, it raises the message to High for review.
 - A request or lure found only in text that styles may hide is marked as such and alerts
   at Medium; the model never scores hidden text.
 - A trusted DMARC pass from a registered official domain keeps text-model and weak-rule
@@ -69,10 +71,10 @@ Measured with the full serving pipeline on 2026-10-04 and 10-05, before this bra
 - Most false alerts come from the text model. It was trained on public corpora whose
   genuine mail is mostly from 2002–2008, and it transfers poorly to corpora it has not
   seen ([leave-one-source-out](docs/evaluation.md#4-leave-one-source-out-model-evaluation)).
-- Making a model-only score a note costs far more recall on pasted text than on `.eml`
-  files: on local public corpora, Nazario alerts fell from 96.5% to 71.2% and PhishNChips
-  from 99.3% to 43.5%, while false alerts fell too. It is not yet measured on the cohorts
-  above.
+- A model-only score is a note only in `.eml` uploads: making it a note on pasted text
+  too would have cut Nazario alerts on local public corpora from 96.5% to 71.2% and
+  PhishNChips from 99.3% to 43.5%. The `.eml` note is not yet measured on the cohorts
+  above; see the [evaluation log](docs/evaluation.md) for its estimate.
 - The rules are tuned on the same cohorts they are measured on, and no independent holdout
   has been run yet. Read these as development measurements, not production accuracy.
 

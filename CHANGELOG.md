@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 17:52 PT] — Keep model-only alerts on pasted text; a note only in original messages
+
+### Why
+- Making every model-only score a note (entry "Show a text-model signal alone as a note, not an alert", above) cost 25 to 56 points of phishing recall on pasted public corpora, far more than the 2026-09-29 `.eml` figure. The owner chose a compromise: a note only where the message's headers were read.
+
+### Files changed
+- `website/app.py` — `fuse_content_risk(raw_message=)`: a model-only score is a Low note in an original message and a Medium alert ("Model Signal Needs Review") otherwise; `_analyze_content` decides from the parsed message (after `raw_email` is parsed), and `_analyze_visual` passes it to the text read from an uploaded `.eml`'s images.
+- `website/static/i18n.js`, `website/static/i18n-zh.js`, `website/static/app-content-render.js` — both labels again; the model-only line explains an alert or a note by the result's level; asset versions bumped.
+- `website/static/app.test.mjs`, `website/tests/fixtures/i18n/scenarios.mjs`, `website/tests/fixtures/i18n/en-snapshot.json` — the original model-only tests and snapshot are back, with an added `.eml` note scenario (20 snapshot lines added, none changed).
+- `website/tests/test_local_review.py`, `test_requested_notice.py`, `test_presentation_cues.py` — the original files, plus tests that an original message's note is neither asked about nor reviewed; `test_detection_behavior.py`, `test_risk_precision.py`, `test_html_input_coverage.py` — pasted expectations restored, the note tested for raw messages.
+- `README.md`, `docs/detection-design.md`, `docs/evaluation.md` — the rule by input path and its measurement.
+
+### Effect
+- Pasted public corpora (9,263 messages): every alert, undetermined and other count equals the original code's.
+- Raw messages rebuilt from the CSVs: Nazario alerts 1,544 → 1,529 of 1,563; CEAS-08 legitimate false alerts 85 → 83 of 1,497. The owner's genuine `.eml` cohort is not measured.
+
 ## [2026-10-05 17:35 PT] — Short README; details moved to docs/
 
 ### Why
