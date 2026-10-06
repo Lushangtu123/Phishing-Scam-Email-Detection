@@ -64,7 +64,7 @@ labelled: 11 marketing or service notices, 5 community digests and 2 learning re
 teacher read all 18 as legitimate at 90 or more, including the community digest Gmail had
 filed in Spam (95). That is why provider spam now goes to a person whatever the teacher
 reads; this export has no `X-Gmail-Labels` header, so the message was listed with `--review`.
-17 rows are labelled and 1 waits for the owner.
+The owner labelled it legitimate, as the teacher had: all 18 are training rows, all legitimate.
 
 That is far too few to move a model trained on about 30,000 messages; a useful pilot needs
 thousands of recent messages, for example a mailbox with a longer history or the Outlook.com

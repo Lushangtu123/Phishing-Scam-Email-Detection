@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-06 14:01 PT] — The owner's review of the first teacher queue
+
+### Why
+- The first labelling run queued one message for the owner: a community digest Gmail had filed in Spam, which the teacher read as legitimate (95).
+
+### Files changed
+- `docs/llm-teacher.md`, `docs/evaluation.md` — the owner's label.
+
+### Effect
+- The owner labelled it legitimate, as the teacher had. All 18 new messages of the Gmail export are training rows, all legitimate; the training loader reads all 18. They stay outside the repository.
+- Provider spam still goes to a person: one message does not show that Gmail's Spam label can be skipped.
+
 ## [2026-10-06 11:00 PT] — A local language model as a labelling teacher
 
 ### Why

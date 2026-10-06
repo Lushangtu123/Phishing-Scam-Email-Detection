@@ -1447,7 +1447,8 @@ Labels accepted at each confidence floor, all cohorts together:
 - **The owner's Gmail export** (87 messages, 2026-10-06): the 69 evaluation messages among
   them were skipped. The teacher read the other 18 as legitimate at 90 or more, including a
   community digest Gmail had filed in Spam (95). Spam now goes to a person whatever the
-  teacher reads, so 17 rows are labelled and 1 waits for review.
+  teacher reads; the owner labelled that digest legitimate, as the teacher had, so all 18
+  are training rows.
 
 Public corpora may be in the model's training data; the owner's mail is the trustworthy part,
 and 92 messages give wide intervals.
