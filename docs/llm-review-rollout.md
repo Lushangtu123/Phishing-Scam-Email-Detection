@@ -28,6 +28,21 @@ Mac), before the 2026-10-05 changes; alerts with the review off, then on
 - Public corpora may be in the language model's training data; the owner's own mail is the
   trustworthy part of these numbers.
 
+**Four models compared (2026-10-05, shadow mode, same cohorts;
+[details](evaluation.md#local-review-four-qwen-models-compared-2026-10-05)).** Alerts on the
+owner's pasted genuine mail, before → after, and pasted Nazario phishing alerts lost:
+
+| Model | Size | Owner's pasted genuine (35) | Pasted Nazario alerts lost (of 752) | Mean / max seconds |
+|---|---:|---:|---:|---:|
+| qwen3.5:4b-mlx | 4.0 GB | 19 | 87 | 0.8 / 4.2 |
+| qwen3.5:9b | 6.6 GB | 24 | 17 | 1.7 / 7.1 |
+| qwen3.8:27b-mlx | 18 GB | 10 | 14 | 3.6 / 26.4 |
+| qwen3.8:27b-mxfp8 | 32 GB | 3 | 9 | 4.2 / 27.5 |
+
+Small models do not hold up: the 4B one lowers many phishing alerts and the 9B one removes
+few false alerts. The candidate for gate 2 is the 27B model at 8 bits, which needs about
+32 GB of memory and a deadline below the 30-second request limit.
+
 ## Gates before it runs for visitors
 
 ### 1. An independent holdout
@@ -43,9 +58,9 @@ phishing messages, with Wilson intervals reported.
 ### 2. A model that can be served
 
 Vercel functions have no GPU and a bundle-size limit, and a request here has 30 seconds. The
-27B model measured above is 18 GB even at 4 bits, so it would need a GPU host of its own.
-Measure smaller models first (below): if one meets gate 1, a modest host is enough. The
-options:
+27B model measured above is 18 GB even at 4 bits and 32 GB at 8 bits, so it would need a
+host of its own: the 4B and 9B models that a modest host could serve did not hold up
+(above). The options:
 
 - **A self-hosted endpoint** (Ollama or vLLM) behind a private HTTPS gateway and a
   server-side token, the pattern of the optional

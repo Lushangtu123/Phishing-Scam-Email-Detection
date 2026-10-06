@@ -31,6 +31,9 @@ if str(WEBSITE_DIR) not in sys.path:
 from tools import evaluate_serving_pipeline as serving  # noqa: E402
 import local_review as lr  # noqa: E402
 
+# A pasted message has no upload limit of its own (the paste box caps the text it keeps), so a
+# pasted cohort reads source files up to the browser's 3 MiB request limit, not the .eml 60,000.
+MAX_PASTE_SOURCE_BYTES = 3 * 1024 * 1024
 # What each review indicator says about an alert (app._apply_local_review in shadow mode).
 REVIEW_OUTCOMES = {
     'content.local_review_shadow': 'would_lower',
@@ -68,7 +71,14 @@ def load_cohort(path: Path, *, paste: bool, limit: int | None = None) -> list[di
     for index, row in enumerate(serving._jsonl_records(path), 1):
         if limit is not None and len(rows) >= limit:
             break
-        prepared, _digest = serving._prepare_record(serving._validated_record(row, index))
+        row = serving._validated_record(row, index)
+        if paste and 'eml_path' in row:
+            raw = Path(row['eml_path']).read_bytes()
+            if not raw.strip() or len(raw) > MAX_PASTE_SOURCE_BYTES:
+                raise ValueError(f'Row {index}: email file must contain 1 byte to 3 MiB')
+            rows.append(pasted({**row, '_eml_bytes': raw}))
+            continue
+        prepared, _digest = serving._prepare_record(row)
         rows.append(pasted(prepared) if paste else prepared)
     return rows
 

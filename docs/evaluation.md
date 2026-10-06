@@ -1408,6 +1408,46 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Local review: four Qwen models compared (2026-10-05)
+
+`evaluate_local_review.py` ran the serving pipeline over the same cohorts once per model, in
+shadow mode, so each count says how many alerts a model **would** lower if applied (a
+legitimate reading at 80% or more). Committed artifact `a0a503a0…`, RDAP lookups off,
+`git` `a36aacc` (plus the pasted-file change of this entry), an Apple M2 Max with 64 GB,
+Ollama 0.34. Alerts before → after:
+
+| Cohort | qwen3.5:4b-mlx (4.0 GB) | qwen3.5:9b (6.6 GB) | qwen3.8:27b-mlx (18 GB) | qwen3.8:27b-mxfp8 (32 GB) |
+|---|---:|---:|---:|---:|
+| Owner's genuine mail, pasted (92) | 35 → 19 | 35 → 24 | 35 → 10 | 35 → 3 |
+| Owner's genuine mail, `.eml` (79) | 18 → 13 | 18 → 14 | 18 → 8 | 18 → 7 |
+| New brand emails, pasted (11) | 3 → 1 | 3 → 1 | 3 → 0 | 3 → 0 |
+| PhishFuzzer recent legitimate seeds (102) | 63 → 19 | 63 → 36 | 63 → 22 | 63 → 26 |
+| PhishFuzzer recent phishing seeds (103) | 88 → 79 | 88 → 87 | 88 → 84 | 88 → 87 |
+| Nazario 2023–24 phishing, pasted (787) | 752 → 665 | 752 → 735 | 752 → 738 | 752 → 743 |
+| Nazario 2023–24 phishing, `.eml` (787) | 780 → 780 | 780 → 780 | 780 → 780 | 780 → 780 |
+| Seconds per review, mean / median / max | 0.76 / 0.60 / 4.2 | 1.69 / 1.43 / 7.1 | 3.57 / 2.50 / 26.4 | 4.18 / 3.17 / 27.5 |
+
+- **Small models do not hold up.** The 4B model would lower 87 pasted Nazario alerts (11.6%)
+  and 9 PhishFuzzer phishing alerts, while removing only 16 of the owner's 35 pasted false
+  alerts. The 9B model is cautious (17 Nazario alerts lowered, 40 readings below 80%) but
+  removes only 11 of those 35.
+- **The 8-bit 27B build is the best reviewer here:** 32 of the 35 pasted false alerts, 9 of
+  752 pasted Nazario alerts (1.2%) and 1 of 88 PhishFuzzer phishing alerts. The 4-bit build
+  reproduces the 2026-10-04 pilot (35 → 9 then, 35 → 10 now; 63 → 21 then, 63 → 22 now).
+- **`.eml` phishing is untouched by every model:** of 787 Nazario messages, 5 alerts rest on
+  the text model and none was read as legitimate. The cost sits in pasted text.
+- **Latency.** The slowest 27B reviews took 26–28 s, close to the 30-second request limit; a
+  served review would need a deadline below it, with a timeout keeping the alert.
+- `qwq:32b` was tried on 4 reviews and dropped: 3 timed out at 60 s.
+
+Cohorts: the owner's 92 genuine downloads (`phishguard-original-mail-2026-09-30`), 13 of
+them over the 60,000-byte `.eml` limit and so only in the pasted cohort; the 11 new brand
+emails of 2026-10-04 (pasted); PhishFuzzer's 205 `Source: Manual` seeds as text; Nazario
+2023 and 2024 `.eml` files (409 + 378). A pasted cohort is each message's subject and visible
+text without headers. Public sets carry placeholder providers and dates, which the analysis
+does not read. Public corpora may be in the models' training data; the owner's mail is the
+trustworthy part, and 92 messages give wide intervals.
+
 ### Model-only note limited to original messages (2026-10-05)
 
 The note made earlier the same day (below) cost 25 to 56 points of phishing recall on

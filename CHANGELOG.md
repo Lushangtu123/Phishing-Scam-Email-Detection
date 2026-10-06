@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-05 23:46 PT] — Compare four Qwen models as local reviewers
+
+### Why
+- The rollout plan asks whether a smaller model, which a modest host could serve, reviews model-driven alerts as well as the 27B one measured on 2026-10-04.
+
+### Files changed
+- `website/tools/evaluate_local_review.py` — a pasted cohort reads source files up to the browser's 3 MiB limit, not the 60,000-byte `.eml` limit, since pasting has no upload limit of its own.
+- `website/tests/test_evaluate_local_review.py` — that limit, both ways.
+- `docs/evaluation.md`, `docs/llm-review-rollout.md` — the comparison and what it means for serving the review.
+
+### Effect
+- Shadow mode, same cohorts, alerts that each model would lower (owner's 35 pasted false alerts / pasted Nazario phishing alerts of 752 / mean seconds): `qwen3.5:4b-mlx` 16 / 87 / 0.8; `qwen3.5:9b` 11 / 17 / 1.7; `qwen3.8:27b-mlx` 25 / 14 / 3.6; `qwen3.8:27b-mxfp8` 32 / 9 / 4.2. No model lowered a Nazario `.eml` alert. `qwq:32b` timed out on 3 of 4 reviews.
+- The small models do not hold up; the 8-bit 27B build is the candidate reviewer, at 32 GB and up to 27.5 s per review.
+- No verdict changes: the review stays off by default.
+
 ## [2026-10-05 21:04 PT] — Shadow mode and a comparison tool for the local language-model review
 
 ### Why

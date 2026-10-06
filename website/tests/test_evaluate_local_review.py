@@ -102,6 +102,20 @@ class ComparisonToolTests(unittest.TestCase):
             self.assertNotIn(body[:40], text)
         self.assertNotIn('alex.chen', text)
 
+    def test_a_pasted_cohort_is_not_bound_by_the_upload_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            eml = Path(directory) / 'large.eml'
+            eml.write_bytes(b'From: Alex Chen <alex.chen@gmail.com>\r\nSubject: Long notes\r\n'
+                            b'Content-Type: text/plain; charset=utf-8\r\n\r\n' + b'Team notes for the week. ' * 4000)
+            cohort = Path(directory) / 'cohort.jsonl'
+            cohort.write_text(json.dumps({'provider': 'gmail', 'received_at': '2026-10-01', 'label': 'legitimate',
+                                          'eml_path': str(eml)}) + '\n', encoding='utf-8')
+            report = json.loads(self.run_tool(directory, '--paste', f'big={cohort}'))
+            self.assertEqual(report['models']['stub-model']['cohorts']['big']['legitimate']['messages'], 1)
+            # As an upload the same file is over the 60,000-byte .eml limit.
+            with self.assertRaises(ValueError):
+                self.run_tool(directory, '--input', f'big={cohort}')
+
     def test_mail_text_never_leaves_this_computer(self):
         with tempfile.TemporaryDirectory() as directory:
             cohort = Path(directory) / 'cohort.jsonl'
