@@ -52,6 +52,7 @@ class ComparisonToolTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
+        cls.server.server_close()
 
     def run_tool(self, directory, *args):
         output = Path(directory) / 'report.json'

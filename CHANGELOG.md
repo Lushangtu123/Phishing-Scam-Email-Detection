@@ -20,6 +20,25 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-06 11:00 PT] — A local language model as a labelling teacher
+
+### Why
+- The text model's genuine training mail is mostly from 2002–2008, and the owner's recent mail is the missing ingredient. Labelling thousands of messages by hand is the obstacle, so a local model could propose labels for a person to check before a candidate model is trained on them.
+
+### Files changed
+- `website/tools/evaluate_llm_labeler.py` — new: asks a local model (loopback only) about each labelled message of consented cohorts and reports, counts only, its readings by confidence band and the precision, recall and coverage of labels accepted at floors 50, 80 and 90.
+- `website/tools/label_with_llm.py` — new: labels an mbox or a directory of `.eml` files into a directory outside the repository. Legitimate readings at or above the floor become training rows in the CEAS_08/Nazario column layout. Every phishing reading, reading below the floor, unanswered message, Takeout message labelled Spam and message a `--review` manifest lists goes to a review queue. `merge` rebuilds the training file with the person's labels, `label` refuses a queue a person has started, and `--exclude` keeps evaluation messages out.
+- `website/tests/test_evaluate_llm_labeler.py`, `website/tests/test_label_with_llm.py` — both tools against a stub model: counts and floors, no message text in the report, loopback only, the queue, the merge, spam and listed messages, evaluation messages and the output location.
+- `website/tests/test_artifact_provenance.py` — new: fails if the committed text model names a training source outside the public corpora, since a TF-IDF vocabulary keeps words from its training mail.
+- `website/tests/test_evaluate_local_review.py` — closes the stub server's socket.
+- `docs/llm-teacher.md` — new: the rules (a person decides every phishing label; the teacher never labels evaluation messages; private mail and models trained on it stay out of Git; replace the served model only on a measured gain; the licence), the steps, the owner's mailbox and the measurement.
+- `docs/evaluation.md` — the measurement. `README.md` — links the new page.
+
+### Effect
+- `qwen3.8:27b-mxfp8` on 1,095 labelled messages: 10 of the owner's 92 genuine messages read as phishing, all at 90 or more, so phishing labels must come from a person. Legitimate readings at 90 or more missed 9 of 890 phishing messages (1.0%). 97% of readings are at 90 or more, so the floor is no safeguard. 5.1 s a message on an M2 Max.
+- The owner's Gmail export of 87 messages: 69 are evaluation messages and were skipped. 17 messages are labelled legitimate and 1, which Gmail had filed in Spam and the teacher read as legitimate, waits for the owner. The outputs are outside the repository.
+- No change to the served page or model.
+
 ## [2026-10-05 23:46 PT] — Compare four Qwen models as local reviewers
 
 ### Why

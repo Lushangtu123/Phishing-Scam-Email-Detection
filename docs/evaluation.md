@@ -1408,6 +1408,50 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### A local language model as a labelling teacher (2026-10-06)
+
+`evaluate_llm_labeler.py` asked `qwen3.8:27b-mxfp8`, with the local review's prompt, about
+each message of the cohorts of the four-model comparison (below), reading what the text model
+reads: the subject, the visible text and the link hosts, from the original message where there
+is one. It compares the readings with the human labels, to see whether the model can label the
+owner's mail as a [teacher](llm-teacher.md). Committed artifact `a0a503a0…`, `git` `9323365`
+with the new tools, an Apple M2 Max with 64 GB, Ollama 0.35.1:
+
+| Cohort | Messages | Read as phishing, 90+ / below | Read as legitimate, 90+ / below |
+|---|---:|---:|---:|
+| Owner's genuine downloads | 92 | 10 / 0 | 82 / 0 |
+| New brand emails (genuine) | 11 | 1 / 0 | 10 / 0 |
+| PhishFuzzer recent legitimate seeds | 102 | 29 / 2 | 70 / 1 |
+| PhishFuzzer recent phishing seeds | 103 | 83 / 16 | 1 / 3 |
+| Nazario 2023–24 phishing | 787 | 771 / 7 | 8 / 1 |
+
+Labels accepted at each confidence floor, all cohorts together:
+
+| Floor | Labelled | Phishing precision / recall | Legitimate precision | False phishing / missed |
+|---|---:|---:|---:|---:|
+| 50 | 1,095 (100%) | 95.4% / 98.5% | 92.6% | 42 / 13 |
+| 80 | 1,069 (97.6%) | 95.5% / 99.0% | 94.8% | 40 / 9 |
+| 90 | 1,065 (97.3%) | 95.5% / 99.0% | 94.7% | 40 / 9 |
+
+- **Phishing readings need a person.** 10 of the owner's 92 genuine messages (10.9%, 95%
+  interval 6.0–18.9%) and 31 of PhishFuzzer's 102 legitimate seeds were read as phishing.
+- **Legitimate readings at 90 or more missed 9 of 890 phishing messages** (1.0%, 0.5–1.9%).
+  The precision in the table reflects these phishing-heavy cohorts: in a mailbox where 2% of
+  mail is phishing, about 0.02% of the accepted rows would be phishing.
+- **The floor barely matters.** 97% of readings are at 90 or more, and so are 40 of the 42
+  false phishing readings.
+- **Against the served pipeline** on the same owner's messages (2026-10-05, below): 18 alerts
+  of the 79 within the `.eml` limit and 35 of the 92 pasted, against 10 phishing readings of 92.
+- **Time:** 5.08 s per message on average, 3.54 s median, 31.2 s at most, 1 h 34 min in all.
+  Every message got an answer.
+- **The owner's Gmail export** (87 messages, 2026-10-06): the 69 evaluation messages among
+  them were skipped. The teacher read the other 18 as legitimate at 90 or more, including a
+  community digest Gmail had filed in Spam (95). Spam now goes to a person whatever the
+  teacher reads, so 17 rows are labelled and 1 waits for review.
+
+Public corpora may be in the model's training data; the owner's mail is the trustworthy part,
+and 92 messages give wide intervals.
+
 ### Local review: four Qwen models compared (2026-10-05)
 
 `evaluate_local_review.py` ran the serving pipeline over the same cohorts once per model, in

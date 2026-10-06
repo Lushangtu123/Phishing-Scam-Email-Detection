@@ -157,6 +157,8 @@ Phishing-Scam-Email-Detection/
   recognition, enhanced OCR, the local language-model review and Jev opinions.
 - [Language-model review rollout plan](docs/llm-review-rollout.md): what must hold before a
   Qwen review of model-driven alerts runs on the served page, and how models are compared.
+- [A language model as teacher](docs/llm-teacher.md): labelling a consented mailbox with
+  Qwen, checked by a person, to retrain the served text model on recent mail.
 - [Evaluation log](docs/evaluation.md), [case workflow](docs/case-workflow.md) and the
   [official-brand registry checklist](docs/official-registry.md)
 
