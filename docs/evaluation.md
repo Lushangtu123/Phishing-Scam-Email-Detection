@@ -1408,6 +1408,66 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Fifteen organizations added to the official registry (2026-10-06)
+
+The owner supplied a list of 460 common sites with their official website domains and privacy
+policies. A website domain is not a sending domain, so the list was not imported: 82 of the
+registry's 113 organizations are on it, and 373 of its sites are not. It supplied candidates in
+the four groups the owner chose (banks and insurers, delivery and shopping, travel, subscriptions
+and games). Each was confirmed on the organization's own page, read in a browser:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| RBC Royal Bank | name | `rbc.com` | Fraud pages: phishing emails go to phishing@rbc.com |
+| TD Bank Group | name (TD Canada Trust) | `td.com` | Canadian and US fraud pages: phishing@td.com |
+| Scotiabank | name | `scotiabank.com` | Help Centre: forward to phishing@scotiabank.com |
+| CIBC | name | `cibc.com` | Report Fraud page: fraud@cibc.com |
+| BMO | name | `bmo.com` | Report Fraud page: phishing@bmo.com |
+| DPD UK | name (DPD UK, DPD Local) | `dpd.co.uk`, `dpdlocal.co.uk`, `dpdgroup.co.uk`, `dpd.uk` | "A genuine DPD email will always end in" these four |
+| Evri | name | `evri.com`, `hermes-europe.co.uk`, `myhermes.co.uk` | Fraud page: emails come from these three |
+| Air Canada | name (Air Canada, Aeroplan) | `aircanada.com`, `aircanada.ca`, `aeroplan.com`, `aeroplan.ca`, `vacv.com` | Anti-fraud guide's list of safe domains |
+| Delta Air Lines | name | `delta.com` | Ticket-fraud page: DLTravelAgencyCCFraud@delta.com |
+| Blizzard Entertainment | name (with Battle.net) | `blizzard.com`, `battle.net`, `overwatchleague.com` | "Report Phishing": official mail domains, hacks@blizzard.com |
+| Roblox | name | `roblox.com` | Staff post: Security Alert emails come only from no-reply@roblox.com |
+| American Airlines | service | `aa.com` | Email security page: aa.it.security@aa.com |
+| OpenAI | service | `openai.com`, `c-openai.com` | Help: authentic email domains |
+| Nintendo | service | `nintendo.com`, `nintendo.net`, `email.nintendo-news.com` | Support: "The email domain names Nintendo uses" |
+| Riot Games | service | `riotgames.com`, `leagueoflegends.com` | Support: domains valid worldwide |
+
+- **Names kept narrow.** "RBC", "TD", "BMO", "DPD", "Delta" and "Blizzard" alone are left out,
+  as other senders use them (RBC Bearings, BMO Stadium, DPD companies in other countries,
+  Delta Faucet, the weather). "TD Bank" is left out too: no TD page names the domains TD Bank
+  (US) sends from, so its genuine mail could show an impersonation finding.
+- **Four services, not names.** They only verify their own mail, as other mail carries their
+  names from other domains: American Airlines Vacations, the American Airlines credit union and
+  the American Airlines Center; Nintendo of Europe's country domains, which no page lists;
+  OpenAI receipts that may come through a shared payment service; Riot's support replies from
+  zendesk.com. OpenAI's invites (noreply@tm.openai.com) carry another user's names and are relays.
+- **Shared senders left out:** Air Canada's survey, payment and gift-card senders (Qualtrics,
+  Interac, Buyatab); Evri's custhelp.com (Oracle's shared support domain) and two domains no
+  page explains; Riot's zendesk.com and stellaconnect.net addresses.
+- **Left out entirely.**
+  - U.S. Bank: its pages now give only a phone number.
+  - Walmart, Best Buy and eBay: seller or member messages reach customers through them
+    (Walmart creates a relay address for each seller).
+  - Marriott and PlayStation: no page names their sending domains.
+
+Committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`; alerts / undetermined / not alerted:
+
+| Cohort | Before | After |
+|---|---|---|
+| Owner's genuine `.eml` (79), no mailbox | 18 / 7 / 54 | 18 / 7 / 54 |
+| Owner's genuine `.eml` (79), mailbox chosen | 1 / 5 / 73 | 1 / 5 / 73 |
+| New brand emails, `.eml` (4) | 0 / 0 / 4 | 0 / 0 / 4 |
+| Nazario 2023–24 phishing (787) | 780 / 4 / 3 | 780 / 4 / 3 |
+| PhishFuzzer recent seeds, legitimate / phishing | 63 / 0 / 39; 87 / 0 / 14 | unchanged |
+
+- **No change, signal by signal.** None of these messages comes from or names the 15
+  organizations, and neither does any of the owner's 87 exported Gmail messages. The effect is
+  on mail that does; `test_registry_additions_2026_10_06.py` shows it on constructed messages.
+- Nazario 2015–22 and 2025 were not on this computer, so the usual 3,466-message cohort was not
+  run.
+
 ### A local language model as a labelling teacher (2026-10-06)
 
 `evaluate_llm_labeler.py` asked `qwen3.8:27b-mxfp8`, with the local review's prompt, about

@@ -24,10 +24,15 @@ three things:
    subdomains, `onmicrosoft.com`) are never official.
 4. **Display names.** No common words, first names or ambiguous acronyms (`Chase`, `Apple`,
    `UPS`, `BOC`); `test_registry_entries_are_complete_and_sourced` rejects the known ones.
+   When other organizations' own mail carries the name (American Airlines Vacations, BMO
+   Stadium), use a narrower name or register a `sender_only` service.
 5. **Statements.** Quote `verified_statements` from the page itself, with its URL and
    `source_type`.
 6. **Measure** before and after on the usual cohorts (`evaluate_serving_pipeline.py`,
    `evaluate_public_corpus.py`) and record the change in `docs/evaluation.md`.
+
+A list of official websites, such as the owner's list of 460 common sites (2026-10-06), suggests
+organizations to check. Its domains still need step 1.
 
 ## Recheck
 

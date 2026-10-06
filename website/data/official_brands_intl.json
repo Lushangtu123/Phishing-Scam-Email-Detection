@@ -14,7 +14,8 @@
     "relay_addresses (2026-10-01) are sender addresses that only carry other users' content: GitHub discussion notifications (notifications@github.com, per GitHub's email-notification docs), Google Drive/Docs/Groups/Calendar sharing addresses and Docusign envelope senders (dse*@docusign.net), all seen in Nazario phishing. Mail from them is never an official message.",
     "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool. Alibaba.com was added the same day, read in a browser.",
     "YouTube was added on 2026-10-05 from YouTube Help: its mail comes only from @youtube.com or @google.com. A school phishing exercise had shown \"YouTube\" from youtube.platformsecure.co without any impersonation finding.",
-    "Added on 2026-10-05 from each organization's own pages: WeTransfer, Navy Federal Credit Union, Standard Bank and Absa, the brands Nazario phishing most often shows that the registry lacked; and Epic Games and Twitch as sender_only services, from the owner's genuine mail. OneDrive was left out: Microsoft publishes no list of its sending domains, business sharing notices carry the sharer's name from sharepointonline.com, and onmicrosoft.com tenants are anyone's to create."
+    "Added on 2026-10-05 from each organization's own pages: WeTransfer, Navy Federal Credit Union, Standard Bank and Absa, the brands Nazario phishing most often shows that the registry lacked; and Epic Games and Twitch as sender_only services, from the owner's genuine mail. OneDrive was left out: Microsoft publishes no list of its sending domains, business sharing notices carry the sharer's name from sharepointonline.com, and onmicrosoft.com tenants are anyone's to create.",
+    "Added on 2026-10-06 from the owner's list of 460 common sites, each from the organization's own pages: RBC, TD, Scotiabank, CIBC, BMO, DPD UK, Evri, Air Canada, Delta, Blizzard and Roblox by name; American Airlines, OpenAI, Nintendo and Riot Games as sender_only services, as other organizations or regions send under their names. Left out: U.S. Bank (its pages now give only a phone number), Walmart, Best Buy and eBay (seller or member messages are relayed), Marriott and PlayStation (no page names their sending domains)."
   ],
   "regulatory_statements": [
     {
@@ -1907,6 +1908,448 @@
         "https://help.twitch.tv/s/article/how-twitch-contacts-you?language=en_US"
       ],
       "review_note": "\"How Twitch Will Contact You\", read in a browser on 2026-10-05: \"Twitch emails will always come from @twitch.tv, @justin.tv or @amazon.com.\" amazon.com is also Amazon's own entry."
+    },
+    {
+      "id": "rbc",
+      "category": "bank",
+      "name": "RBC Royal Bank",
+      "region": "CA",
+      "display_names": [
+        "RBC Royal Bank",
+        "Royal Bank of Canada"
+      ],
+      "official_domains": [
+        "rbc.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "RBC will never contact you by regular email or text messaging regarding problems with your accounts or services.",
+          "source": "https://www.rbcroyalbank.com/onlinebanking/bankingusertips/notices/important_notice_phishing.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "We'll never ask you to provide or confirm personal details or confidential information by clicking on a link, completing a form, or calling a phone number included in an email or text.",
+          "source": "https://www.rbcroyalbank.com/onlinebanking/bankingusertips/notices/important_notice_phishing.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@rbc.com"
+      ],
+      "domain_sources": [
+        "https://www.rbc.com/cyber-security/how-to-contact-us/index.html",
+        "https://www.rbcroyalbank.com/onlinebanking/bankingusertips/notices/important_notice_phishing.html"
+      ],
+      "review_note": "\"Report Fraud\" (rbc.com) and \"Important Notice\" (rbcroyalbank.com), read in a browser on 2026-10-06: phishing emails go to phishing@rbc.com. No page names rbcroyalbank.com as a sending domain, so it is not listed. \"RBC\" alone is left out: RBC Bearings and others share the acronym."
+    },
+    {
+      "id": "td",
+      "category": "bank",
+      "name": "TD Bank Group",
+      "region": "CA",
+      "display_names": [
+        "TD Canada Trust"
+      ],
+      "official_domains": [
+        "td.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "TD Bank Group(TD) will not ask you to provide personal information, or login information such as usernames, passwords, PINs, IdentificationPlus security questions and answers, or account numbers, through unsolicited email.",
+          "source": "https://www.td.com/ca/en/about-td/privacy-and-security/how-we-protect-you/online-security/onlinepolicy",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@td.com"
+      ],
+      "domain_sources": [
+        "https://www.td.com/ca/en/about-td/privacy-and-security/fraud-protection",
+        "https://www.td.com/us/en/personal-banking/security-center/scam-phishing"
+      ],
+      "review_note": "TD Canada Trust's \"Fraud and scam prevention\" and TD Bank's US phishing page, read in a browser on 2026-10-06: both send phishing reports to phishing@td.com. \"TD Bank\" and \"TD\" are left out: no TD page names the domains TD Bank (US) sends from, so its genuine mail could otherwise show an impersonation finding."
+    },
+    {
+      "id": "scotiabank",
+      "category": "bank",
+      "name": "Scotiabank",
+      "region": "CA",
+      "display_names": [
+        "Scotiabank"
+      ],
+      "official_domains": [
+        "scotiabank.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Scotiabank will never send you unsolicited emails asking for your password, Personal Identification Number (PIN), credit card, account numbers, or any other personal or banking information.",
+          "source": "https://help.scotiabank.com/article/how-can-i-tell-if-a-scotiabank-email-is-legitimate",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@scotiabank.com"
+      ],
+      "domain_sources": [
+        "https://help.scotiabank.com/article/how-can-i-tell-if-a-scotiabank-email-is-legitimate",
+        "https://help.scotiabank.com/article/how-can-i-report-fraudulent-or-suspicious-emails"
+      ],
+      "review_note": "Scotiabank Help Centre articles on legitimate and suspicious emails, read in a browser on 2026-10-06: suspicious emails go to phishing@scotiabank.com."
+    },
+    {
+      "id": "cibc",
+      "category": "bank",
+      "name": "CIBC",
+      "region": "CA",
+      "display_names": [
+        "CIBC",
+        "Canadian Imperial Bank of Commerce"
+      ],
+      "official_domains": [
+        "cibc.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Email us if you have received a fraudulent email or text message with a phishing link or spyware.",
+          "source": "https://www.cibc.com/en/privacy-security/banking-fraud/report-fraud.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "fraud@cibc.com"
+      ],
+      "domain_sources": [
+        "https://www.cibc.com/en/privacy-security/banking-fraud/report-fraud.html"
+      ],
+      "review_note": "\"Contact Us To Report Fraud and Suspicious Activity\", read in a browser on 2026-10-06: fraudulent emails and texts go to fraud@cibc.com. CIBC Mellon (cibcmellon.com), a joint venture, would show \"CIBC\" from another domain."
+    },
+    {
+      "id": "bmo",
+      "category": "bank",
+      "name": "BMO",
+      "region": "CA",
+      "display_names": [
+        "Bank of Montreal",
+        "BMO Bank",
+        "BMO Financial Group"
+      ],
+      "official_domains": [
+        "bmo.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "BMO will never contact you via unsolicited phone call, email, text, or social media message to ask for sensitive information, passwords, PINs, or verification codes.",
+          "source": "https://www.bmo.com/en-ca/main/personal/security-centre/report-fraud/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@bmo.com"
+      ],
+      "domain_sources": [
+        "https://www.bmo.com/en-ca/main/personal/security-centre/report-fraud/"
+      ],
+      "review_note": "BMO Canada's \"Learn How to Report Fraud\", read in a browser on 2026-10-06 after a fetch tool timed out: suspicious emails go to phishing@bmo.com. \"BMO\" alone is left out: BMO Stadium and BMO Field are named after the bank but mail from their own domains."
+    },
+    {
+      "id": "dpd_uk",
+      "category": "logistics",
+      "name": "DPD UK",
+      "region": "GB",
+      "display_names": [
+        "DPD UK",
+        "DPD Local"
+      ],
+      "official_domains": [
+        "dpd.co.uk",
+        "dpdlocal.co.uk",
+        "dpdgroup.co.uk",
+        "dpd.uk"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "DPD will never ask you to pay a \"redelivery fee\" via a link in an email, text or iMessage.",
+          "source": "https://www.dpd.co.uk/content/about_dpd/phishing.jsp",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://www.dpd.co.uk/content/about_dpd/phishing.jsp"
+      ],
+      "review_note": "\"Cyber Security\" (dpd.co.uk), read in a browser on 2026-10-06: \"A genuine DPD email will always end in: @dpd.co.uk @dpdlocal.co.uk @dpdgroup.co.uk @dpd.uk\". \"DPD\" alone is left out: DPD companies in other countries send from their own domains (dpd.de, dpd.fr), and police departments use the acronym."
+    },
+    {
+      "id": "evri",
+      "category": "logistics",
+      "name": "Evri",
+      "region": "GB",
+      "display_names": [
+        "Evri"
+      ],
+      "official_domains": [
+        "evri.com",
+        "hermes-europe.co.uk",
+        "myhermes.co.uk"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Our text messages: Will NEVER ask you to reschedule a delivery or ask for payment to do so.",
+          "source": "https://www.evri.com/cyber-security",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://www.evri.com/cyber-security",
+        "https://www.evri.com/faqs/receiving-a-parcel/is-this-evri-text-email-genuine"
+      ],
+      "review_note": "\"How to spot and report fraud\" and the FAQ \"Is this Evri Text/Email Genuine?\", read in a browser on 2026-10-06: emails come from @evri.com, @hermes-europe.co.uk or @myhermes.co.uk. The FAQ's longer list also names custhelp.com, Oracle's shared support domain, and globalco.uk and globaleco.app, which no page explains; all three are left out. \"Hermes\" is left out too (Hermès)."
+    },
+    {
+      "id": "air_canada",
+      "category": "airline",
+      "name": "Air Canada",
+      "region": "CA",
+      "display_names": [
+        "Air Canada",
+        "Aeroplan"
+      ],
+      "official_domains": [
+        "aircanada.com",
+        "aircanada.ca",
+        "aeroplan.com",
+        "aeroplan.ca",
+        "vacv.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "If you get a suspicious message claiming to be from Air Canada or Aeroplan, don't respond, click on links, or open attachments.",
+          "source": "https://www.aircanada.com/us/en/aco/home/book/travel-news-and-updates/telephone-and-email-scams.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing.hameconnage@aircanada.ca"
+      ],
+      "domain_sources": [
+        "https://www.aircanada.com/us/en/aco/home/book/travel-news-and-updates/telephone-and-email-scams.html"
+      ],
+      "review_note": "\"Anti Fraud Information Guide\", read in a browser on 2026-10-06: its \"safe domains\" are mail., communications. and info.aircanada.com, aircanada.com, aircanada.ca, communications.aeroplan.com, aeroplan.com, aeroplan.ca and vacv.com (Air Canada Vacations); reports go to phishing.hameconnage@aircanada.ca. The third parties it names (qemailserver.com, qualtrics-research.com, payments.interac.ca, buyatab.com, econciliadormail.com) are shared services and are left out."
+    },
+    {
+      "id": "delta",
+      "category": "airline",
+      "name": "Delta Air Lines",
+      "region": "US",
+      "display_names": [
+        "Delta Air Lines"
+      ],
+      "official_domains": [
+        "delta.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Delta Air Lines will never ask you for your password in an email, over the phone, or via a social media platform.",
+          "source": "https://www.delta.com/us/en/legal/privacy-and-security/protect-your-data",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "DLTravelAgencyCCFraud@delta.com"
+      ],
+      "domain_sources": [
+        "https://www.delta.com/us/en/legal/privacy-and-security/protect-your-data",
+        "https://pro.delta.com/content/agency/ca/en/policy-library/distribution-and-revenue-recovery/reporting-ticket-fraud-and-abuse.html"
+      ],
+      "review_note": "\"Protect Your Data\" (delta.com) and Delta Professional's ticket-fraud page, read in a browser on 2026-10-06: ticket fraud goes to DLTravelAgencyCCFraud@delta.com. \"Delta\" alone is a common word and is left out; \"Delta Air Lines\" also matches \"Delta Airlines\"."
+    },
+    {
+      "id": "blizzard",
+      "category": "service",
+      "name": "Blizzard Entertainment",
+      "region": "INTL",
+      "display_names": [
+        "Blizzard Entertainment",
+        "Battle.net"
+      ],
+      "official_domains": [
+        "blizzard.com",
+        "battle.net",
+        "overwatchleague.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Blizzard will only confirm account details through email if you're talking to a Game Master about a ticket.",
+          "source": "https://us.support.blizzard.com/en/help/article/269000",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "hacks@blizzard.com"
+      ],
+      "domain_sources": [
+        "https://us.support.blizzard.com/en/help/article/269000"
+      ],
+      "review_note": "Blizzard Support \"Report Phishing\", read in a browser on 2026-10-06 after a fetch tool got only the loading page: official mail comes from @blizzard.com, @email., @em., @e. and @gear.blizzard.com, @te.battle.net, @battle.net, @e.battle.net, @overwatchleague.com and @em.overwatchleague.com; phishing goes to hacks@blizzard.com. \"Blizzard\" alone is left out (weather, a dessert)."
+    },
+    {
+      "id": "roblox",
+      "category": "service",
+      "name": "Roblox",
+      "region": "INTL",
+      "display_names": [
+        "Roblox"
+      ],
+      "official_domains": [
+        "roblox.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Roblox’s official Security Alert emails are sent only from no-reply@roblox.com.",
+          "source": "https://devforum.roblox.com/t/reports-of-a-%E2%80%9Csecurity-alert%E2%80%9D-phishing-scam/3609995",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://devforum.roblox.com/t/reports-of-a-%E2%80%9Csecurity-alert%E2%80%9D-phishing-scam/3609995"
+      ],
+      "review_note": "Post by the Roblox staff account in the Developer Forum's News & Alerts (April 2025), read in a browser on 2026-10-06. Usernames in Roblox notifications are short and cannot carry links."
+    },
+    {
+      "id": "american_airlines",
+      "category": "airline",
+      "name": "American Airlines",
+      "region": "US",
+      "display_names": [],
+      "official_domains": [
+        "aa.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "American will never ask you to make security-related changes, or collect personal or financial information in unsolicited emails or phones calls, postal mailings or faxes.",
+          "source": "https://www.aa.com/i18n/customer-service/support/communication-and-email-security.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "aa.it.security@aa.com"
+      ],
+      "display_check": "sender_only",
+      "sender_names": [
+        "American Airlines",
+        "AAdvantage"
+      ],
+      "domain_sources": [
+        "https://www.aa.com/i18n/customer-service/support/communication-and-email-security.html"
+      ],
+      "review_note": "\"Communication and email security\", read in a browser on 2026-10-06 after a fetch tool was refused: suspicious emails go to aa.com security (aa.it.security@aa.com). Registered only to verify its own mail: American Airlines Vacations (aavacations.com), the American Airlines Federal Credit Union and the American Airlines Center send under the name from their own domains."
+    },
+    {
+      "id": "openai",
+      "category": "service",
+      "name": "OpenAI",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "openai.com",
+        "c-openai.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "OpenAI",
+        "ChatGPT"
+      ],
+      "relay_addresses": [
+        "noreply@tm.openai.com"
+      ],
+      "domain_sources": [
+        "https://help.openai.com/en/articles/11725090-verifying-communications-from-openai"
+      ],
+      "review_note": "OpenAI Help \"Verifying Communications from OpenAI\", read in a browser on 2026-10-06 after a fetch tool was refused: customers may receive email from @ads., @email., @mail., @sales. and @tm.openai.com, @openai.com and @c-openai.com. noreply@tm.openai.com sends workspace and GPT invites, which carry another user's names, so it is a relay. Registered only to verify its own mail, as some of its receipts may come through a shared payment service."
+    },
+    {
+      "id": "nintendo",
+      "category": "service",
+      "name": "Nintendo",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "nintendo.com",
+        "nintendo.net",
+        "email.nintendo-news.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "Nintendo"
+      ],
+      "domain_sources": [
+        "https://en-americas-support.nintendo.com/app/answers/detail/a_id/2237/~/did-not-receive-an-email-from-nintendo-(order-confirmation,-account"
+      ],
+      "review_note": "Nintendo Support (Americas) \"Did Not Receive an Email from Nintendo\", read in a browser on 2026-10-06: \"The email domain names Nintendo uses are: accounts.nintendo.com noa.nintendo.com nintendo.com email.nintendo-news.com nintendo.net\". Registered only to verify its own mail: Nintendo of Europe sends from country domains (nintendo.XX) that no page lists."
+    },
+    {
+      "id": "riot_games",
+      "category": "service",
+      "name": "Riot Games",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "riotgames.com",
+        "leagueoflegends.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Never log in with your Riot credentials to any website other than authenticate.riotgames.com",
+          "source": "https://support.riotgames.com/en-us/league-of-legends/account/emails-from-riot-games",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "Riot Games",
+        "League of Legends"
+      ],
+      "domain_sources": [
+        "https://support.riotgames.com/en-us/league-of-legends/account/emails-from-riot-games"
+      ],
+      "review_note": "Riot Support \"Emails from Riot Games\", read in a browser on 2026-10-06: the domains valid worldwide are leagueoflegends.com and riotgames.com with their subdomains, two zendesk.com subdomains and riotgames@stellaconnect.net. The zendesk.com and stellaconnect.net addresses are shared services and are left out."
     }
   ]
 }

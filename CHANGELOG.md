@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-06 14:35 PT] — Fifteen organizations added to the official registry
+
+### Why
+- The owner supplied a list of 460 common sites with their official website domains. A website domain is not a sending domain (`docs/official-registry.md`), so the list was not imported; it supplied candidates in the four groups the owner chose: banks and insurers, delivery and shopping, travel, and subscriptions and games.
+
+### Files changed
+- `website/data/official_brands_intl.json` — RBC, TD (as TD Canada Trust), Scotiabank, CIBC, BMO, DPD UK, Evri, Air Canada, Delta, Blizzard and Roblox by name, and American Airlines, OpenAI, Nintendo and Riot Games as `sender_only` services. Each domain is named as a sending domain or a report address on the organization's own page, read in a browser on 2026-10-06. OpenAI's invite address is a relay.
+- `website/tests/test_registry_additions_2026_10_06.py` — new: the names from other domains, their own domains, the names left out (RBC Bearings, BMO Stadium, TD Bank, the American Airlines credit union), verified own mail, OpenAI's invites as relays, shared senders kept unofficial, and the official channels.
+- `docs/official-registry.md` — narrower names or a `sender_only` entry when other organizations' mail carries a name, and a website list as a source of candidates only.
+- `docs/evaluation.md` — the additions, what was left out and why, and the measurement.
+
+### Effect
+- No alert, undetermined or signal count changed in the owner's 79 genuine `.eml` messages (with and without a mailbox), the new brand emails, Nazario 2023–24 or PhishFuzzer's recent seeds. None of them, and none of the owner's 87 exported Gmail messages, comes from or names these organizations.
+- Mail that shows these names from other domains now carries an impersonation finding, and their own authenticated mail is a verified official sender.
+- Left out: U.S. Bank (its pages now give only a phone number), Walmart, Best Buy and eBay (they relay seller or member messages), Marriott and PlayStation (no page names their sending domains).
+
 ## [2026-10-06 14:01 PT] — The owner's review of the first teacher queue
 
 ### Why
