@@ -1408,6 +1408,51 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Thirteen more organizations from the same list (2026-10-06)
+
+A second batch from the owner's list, in the same four groups and by the same method as the
+first (below). Each was confirmed on the organization's own page, read in a browser:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| Fidelity Investments | name | `fidelity.com` | Scams page: phishing@fidelity.com |
+| Discover | name (Discover Card, Discover Bank) | `discover.com` | Scams page: emailwatch@discover.com |
+| 1Password | name | `1password.com`, `.ca`, `.eu`, `agilebits.com`, `1password.partners`, `passage.id`, `1password.community` | "1Password email and marketing domains" |
+| Bitwarden | name | `bitwarden.com`, `bitwarden.eu` | "Identify Legitimate Emails from Bitwarden" |
+| Hilton | name (Hilton Honors) | `hilton.com` | Help Center: two-step codes from noreply@h6.hilton.com |
+| Emirates | name (Emirates Skywards, Emirates Airline, Fly Emirates) | `emirates.com`, `emirates.email` | Security page: abuse@emirates.com; Skywards FAQ: mail "via the domain emirates.email" |
+| State Farm | service | `statefarm.com`, `sfdividend.com` | Security page: abuse@statefarm.com; dividend mail from donotreply@e.sfdividend.com |
+| Chime | service | `chime.com` | Help: messages come "from trusted sources like @chime.com" |
+| Uber | service | `uber.com` | Help: emails should come "from an @uber.com domain" |
+| Lyft | service | `lyft.com`, `lyftmail.com` | Help: mail comes from @lyftmail.com, @lyft.com or @lyft.zendesk.com |
+| Qatar Airways | service | `qatarairways.com.qa`, `qr.qatarairways.com` | Fraud page: official mail comes from these "or similar country-specific domains" |
+| British Airways | service | `email.ba.com` | "Website security": phishing@email.ba.com |
+| Target | service | `target.com` | "Security & Fraud": abuse@target.com |
+
+- **Names kept narrow.** "Fidelity" (Fidelity Bank), "Discover" (Spotify's Discover Weekly),
+  "Hilton" (a surname) and "Emirates" (Emirates NBD, Emirates Post) alone are left out.
+- **Services.** State Farm's agents write under its name from their own domains. "Chime",
+  "Uber" and "Target" are common words. Lyft's support replies come from zendesk.com. Qatar
+  Airways' country domains and British Airways' other domains are not listed.
+- **Relays:** 1Password's community notifications and custom invitations, and Bitwarden's
+  no-reply address, which also sends invitations to an organization the inviter names.
+- **Shared senders left out:** lyft.zendesk.com, and the Ada chatbot and Reachdesk gifting
+  services that 1Password lists.
+- **Left out entirely.**
+  - Wise: it offers only a report form.
+  - Temu: buyers and merchants message each other through it, and whether its mail carries
+    merchants' words was not confirmed.
+  - DoorDash, HBO Max, Disney+, Hulu, SHEIN, Samsung, United Airlines, Southwest, Ryanair,
+    Home Depot, Costco, Instacart, Starbucks and Nike: no page names their sending domains or
+    a report address.
+
+On the cohorts of the first batch, no alert, undetermined or not-alerted count changed.
+- **One Nazario 2023–24 message** shows "Fidelity Investments" from another domain. It now
+  carries an impersonation finding, so its alert rests on the message's structure as well as
+  the model (fusion model-led to corroborated, risk floor Safe to High).
+- **The owner's mail.** None of the owner's 87 exported Gmail messages comes from or names
+  these organizations.
+
 ### Fifteen organizations added to the official registry (2026-10-06)
 
 The owner supplied a list of 460 common sites with their official website domains and privacy

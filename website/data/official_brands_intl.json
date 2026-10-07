@@ -15,7 +15,8 @@
     "Entries added on 2026-10-02 (USAA, Fifth Third Bank, PNC Bank, Charles Schwab, MetaMask, Tinder, 三井住友銀行) were read on their source pages in a browser that day, except Tinder, read through a fetch tool. Alibaba.com was added the same day, read in a browser.",
     "YouTube was added on 2026-10-05 from YouTube Help: its mail comes only from @youtube.com or @google.com. A school phishing exercise had shown \"YouTube\" from youtube.platformsecure.co without any impersonation finding.",
     "Added on 2026-10-05 from each organization's own pages: WeTransfer, Navy Federal Credit Union, Standard Bank and Absa, the brands Nazario phishing most often shows that the registry lacked; and Epic Games and Twitch as sender_only services, from the owner's genuine mail. OneDrive was left out: Microsoft publishes no list of its sending domains, business sharing notices carry the sharer's name from sharepointonline.com, and onmicrosoft.com tenants are anyone's to create.",
-    "Added on 2026-10-06 from the owner's list of 460 common sites, each from the organization's own pages: RBC, TD, Scotiabank, CIBC, BMO, DPD UK, Evri, Air Canada, Delta, Blizzard and Roblox by name; American Airlines, OpenAI, Nintendo and Riot Games as sender_only services, as other organizations or regions send under their names. Left out: U.S. Bank (its pages now give only a phone number), Walmart, Best Buy and eBay (seller or member messages are relayed), Marriott and PlayStation (no page names their sending domains)."
+    "Added on 2026-10-06 from the owner's list of 460 common sites, each from the organization's own pages: RBC, TD, Scotiabank, CIBC, BMO, DPD UK, Evri, Air Canada, Delta, Blizzard and Roblox by name; American Airlines, OpenAI, Nintendo and Riot Games as sender_only services, as other organizations or regions send under their names. Left out: U.S. Bank (its pages now give only a phone number), Walmart, Best Buy and eBay (seller or member messages are relayed), Marriott and PlayStation (no page names their sending domains).",
+    "A second batch from the same list was added on 2026-10-06: Fidelity Investments, Discover, 1Password, Bitwarden, Hilton Honors and Emirates by name; State Farm, Chime, Uber, Lyft, Qatar Airways, British Airways and Target as sender_only services. Left out: Wise (only a report form), Temu (buyers and merchants message each other through it), DoorDash, HBO Max, Disney+, Hulu, SHEIN, Samsung, United Airlines, Southwest, Ryanair, Home Depot, Costco, Instacart, Starbucks and Nike (no page names their sending domains or a report address)."
   ],
   "regulatory_statements": [
     {
@@ -2350,6 +2351,344 @@
         "https://support.riotgames.com/en-us/league-of-legends/account/emails-from-riot-games"
       ],
       "review_note": "Riot Support \"Emails from Riot Games\", read in a browser on 2026-10-06: the domains valid worldwide are leagueoflegends.com and riotgames.com with their subdomains, two zendesk.com subdomains and riotgames@stellaconnect.net. The zendesk.com and stellaconnect.net addresses are shared services and are left out."
+    },
+    {
+      "id": "fidelity",
+      "category": "bank",
+      "name": "Fidelity Investments",
+      "region": "US",
+      "display_names": [
+        "Fidelity Investments"
+      ],
+      "official_domains": [
+        "fidelity.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@fidelity.com"
+      ],
+      "domain_sources": [
+        "https://www.fidelity.com/security/identify-fraud-and-phishing-scams"
+      ],
+      "review_note": "\"How to identify phishing, fraud, and other scams\", read in a browser on 2026-10-06: impersonation goes to phishing@fidelity.com. \"Fidelity\" alone is left out: Fidelity Bank, Fidelity National Financial and others share the word."
+    },
+    {
+      "id": "discover",
+      "category": "bank",
+      "name": "Discover",
+      "region": "US",
+      "display_names": [
+        "Discover Card",
+        "Discover Bank"
+      ],
+      "official_domains": [
+        "discover.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "emailwatch@discover.com"
+      ],
+      "domain_sources": [
+        "https://www.discover.com/credit-cards/member-benefits/security/scam-protection/"
+      ],
+      "review_note": "\"Protect Yourself Against Financial Scams\", read in a browser on 2026-10-06: suspicious email goes to emailwatch@discover.com. \"Discover\" alone is left out: it is a common word (Spotify's \"Discover Weekly\")."
+    },
+    {
+      "id": "onepassword",
+      "category": "service",
+      "name": "1Password",
+      "region": "INTL",
+      "display_names": [
+        "1Password"
+      ],
+      "official_domains": [
+        "1password.com",
+        "1password.ca",
+        "1password.eu",
+        "agilebits.com",
+        "1password.partners",
+        "passage.id",
+        "1password.community"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "relay_addresses": [
+        "*@1password.community",
+        "*@custommail.1password.com",
+        "*@custommail.1password.ca",
+        "*@custommail.1password.eu"
+      ],
+      "domain_sources": [
+        "https://support.1password.com/email-domains/"
+      ],
+      "review_note": "\"1Password email and marketing domains\", read in a browser on 2026-10-06. Custom invitation emails (custommail.1password.*) and Support Community reply notifications (1password.community) carry other users' words and are relays. 1password.email.ada.support (Ada's shared chatbot service) and reachdesk.com and reachdesk-mail.com (a shared gifting platform) are left out."
+    },
+    {
+      "id": "bitwarden",
+      "category": "service",
+      "name": "Bitwarden",
+      "region": "INTL",
+      "display_names": [
+        "Bitwarden"
+      ],
+      "official_domains": [
+        "bitwarden.com",
+        "bitwarden.eu"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "These emails will never contain attachments.",
+          "source": "https://bitwarden.com/help/emails-from-bitwarden/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "relay_addresses": [
+        "no-reply@bitwarden.com",
+        "no-reply@bitwarden.eu"
+      ],
+      "domain_sources": [
+        "https://bitwarden.com/help/emails-from-bitwarden/"
+      ],
+      "review_note": "\"Identify Legitimate Emails from Bitwarden\", read in a browser on 2026-10-06: automated mail comes from no-reply@bitwarden.com or .eu and billing mail from named @bitwarden.com addresses; the team writes from @bitwarden.com. no-reply@ also sends invitations to join an organization, whose name the inviter writes, so it is a relay, as OpenAI's invite address is."
+    },
+    {
+      "id": "hilton",
+      "category": "hotel",
+      "name": "Hilton",
+      "region": "INTL",
+      "display_names": [
+        "Hilton Honors"
+      ],
+      "official_domains": [
+        "hilton.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "domain_sources": [
+        "https://www.hilton.com/en/help-center/your-account/enhanced-security-authentication/"
+      ],
+      "review_note": "Hilton Help Center \"Enhanced Security authentication\", read in a browser on 2026-10-06: two-step codes come from noreply@h6.hilton.com. \"Hilton\" alone is left out: it is a surname."
+    },
+    {
+      "id": "emirates",
+      "category": "airline",
+      "name": "Emirates",
+      "region": "AE",
+      "display_names": [
+        "Emirates Skywards",
+        "Emirates Airline",
+        "Fly Emirates"
+      ],
+      "official_domains": [
+        "emirates.com",
+        "emirates.email"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Never share your Skywards ID password with anyone. Emirates will never ask you for this as part of our validation process or when providing support.",
+          "source": "https://www.emirates.com/us/english/information/cybersecurity/",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "abuse@emirates.com"
+      ],
+      "domain_sources": [
+        "https://www.emirates.com/us/english/information/cybersecurity/",
+        "https://www.emirates.com/us/english/help/faq-topics/emirates-skywards/"
+      ],
+      "review_note": "\"Contact Emirates About Security Issues\" and the Skywards FAQ, read in a browser on 2026-10-06: suspicious email goes to abuse@emirates.com, and Skywards verification mail comes \"via the domain emirates.email\". \"Emirates\" alone is left out: Emirates NBD, Emirates Post and Emirates Islamic are other organizations."
+    },
+    {
+      "id": "state_farm",
+      "category": "insurance",
+      "name": "State Farm",
+      "region": "US",
+      "display_names": [],
+      "official_domains": [
+        "statefarm.com",
+        "sfdividend.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "State Farm will not ask you for your personal email password, banking password, digital-wallet password or any other personal password.",
+          "source": "https://www.statefarm.com/customer-care/privacy-security/security",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "abuse@statefarm.com"
+      ],
+      "display_check": "sender_only",
+      "sender_names": [
+        "State Farm"
+      ],
+      "domain_sources": [
+        "https://www.statefarm.com/customer-care/privacy-security/security"
+      ],
+      "review_note": "State Farm \"Security\", read in a browser on 2026-10-06: suspicious email goes to abuse@statefarm.com, and \"The State Farm dividend payment selection email will come from donotreply@e.sfdividend.com\". Registered only to verify its own mail: its agents write under the name from their own domains."
+    },
+    {
+      "id": "chime",
+      "category": "bank",
+      "name": "Chime",
+      "region": "US",
+      "display_names": [],
+      "official_domains": [
+        "chime.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "We never ask for personal details like your full SSN, card number, or login credentials.",
+          "source": "https://help.chime.com/is-this-communication-from-chime-fd81c96b",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.chime.com/is-this-communication-from-chime-fd81c96b"
+      ],
+      "review_note": "Chime Help \"Is this communication from Chime?\", read in a browser on 2026-10-06: messages come \"from trusted sources like @chime.com\". Registered only to verify its own mail, as \"chime\" is a common word."
+    },
+    {
+      "id": "uber",
+      "category": "service",
+      "name": "Uber",
+      "region": "INTL",
+      "display_names": [],
+      "official_domains": [
+        "uber.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Uber will never call, text, or email you to request your password, verification code, or banking details.",
+          "source": "https://help.uber.com/merchants-and-restaurants/article/how-to-spot-phishing-scams?nodeId=5c00922e-c152-4768-88e4-18308645b369",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.uber.com/merchants-and-restaurants/article/how-to-spot-phishing-scams?nodeId=5c00922e-c152-4768-88e4-18308645b369"
+      ],
+      "review_note": "Uber Help \"How to spot phishing scams\" (merchants), read in a browser on 2026-10-06: confirm emails \"are coming from an @uber.com domain\". Registered only to verify its own mail (Uber and Uber Eats), as \"uber\" is a common word."
+    },
+    {
+      "id": "lyft",
+      "category": "service",
+      "name": "Lyft",
+      "region": "US",
+      "display_names": [],
+      "official_domains": [
+        "lyft.com",
+        "lyftmail.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://help.lyft.com/hc/en-us/all/articles/115012925627-Lyft-emails-and-receipts"
+      ],
+      "review_note": "Lyft Help \"Lyft emails and receipts\", read in a browser on 2026-10-06: \"Lyft emails will come from an address ending with @lyftmail.com, @lyft.com, or @lyft.zendesk.com\". The zendesk.com address is a shared service and is left out; registered only to verify its own mail, so support replies from it show no impersonation finding."
+    },
+    {
+      "id": "qatar_airways",
+      "category": "airline",
+      "name": "Qatar Airways",
+      "region": "QA",
+      "display_names": [],
+      "official_domains": [
+        "qatarairways.com.qa",
+        "qr.qatarairways.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "Privilege Club will not ask for your confidential Privilege Club credentials such as membership number and password on emails or otherwise.",
+          "source": "https://www.qatarairways.com/en-us/online-fraud.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://www.qatarairways.com/en-us/online-fraud.html"
+      ],
+      "review_note": "\"Online fraud prevention\", read in a browser on 2026-10-06: \"All official communications from the airline are always sent from @qatarairways.com.qa/@qr.qatarairways.com domains, or similar country-specific domains.\" Registered only to verify its own mail, as the country domains are not listed."
+    },
+    {
+      "id": "british_airways",
+      "category": "airline",
+      "name": "British Airways",
+      "region": "GB",
+      "display_names": [],
+      "official_domains": [
+        "email.ba.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [
+        {
+          "quote": "we will never request money payments through a third party or promise you any kind of cash prize",
+          "source": "https://www.britishairways.com/content/information/legal/website-terms-conditions/website-security",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "phishing@email.ba.com"
+      ],
+      "display_check": "sender_only",
+      "sender_names": [
+        "British Airways"
+      ],
+      "domain_sources": [
+        "https://www.britishairways.com/content/information/legal/website-terms-conditions/website-security"
+      ],
+      "review_note": "\"Website security\", read in a browser on 2026-10-06: suspicious email goes to phishing@email.ba.com. No page lists the other domains British Airways sends from, so it is registered only to verify mail from email.ba.com."
+    },
+    {
+      "id": "target",
+      "category": "retail",
+      "name": "Target",
+      "region": "US",
+      "display_names": [],
+      "official_domains": [
+        "target.com"
+      ],
+      "gov_suffixes": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "abuse@target.com"
+      ],
+      "display_check": "sender_only",
+      "domain_sources": [
+        "https://security.target.com/popular-fraud-tactics/"
+      ],
+      "review_note": "Target \"Security & Fraud\", read in a browser on 2026-10-06: suspicious messages go to abuse@target.com. Registered only to verify its own mail, as \"target\" is a common word."
     }
   ]
 }

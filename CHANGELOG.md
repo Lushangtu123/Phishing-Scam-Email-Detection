@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-06 21:32 PT] — Thirteen more organizations added to the official registry
+
+### Why
+- A second batch from the owner's list of 460 common sites, in the same four groups (banks and insurers, delivery and shopping, travel, subscriptions and software).
+
+### Files changed
+- `website/data/official_brands_intl.json` — Fidelity Investments, Discover, 1Password, Bitwarden, Hilton Honors and Emirates by name, and State Farm, Chime, Uber, Lyft, Qatar Airways, British Airways and Target as `sender_only` services. Each domain is named as a sending domain or a report address on the organization's own page, read in a browser on 2026-10-06. 1Password's community and custom invitation mail and Bitwarden's no-reply address are relays.
+- `website/tests/test_registry_additions_2026_10_06.py` — the second batch: names from other domains, their own domains, the names left out (Fidelity Bank, Discover Weekly, Paris Hilton, Emirates NBD), verified own mail, the relays, and shared or unlisted domains kept unofficial.
+- `docs/evaluation.md` — the batch, what was left out and why, and the measurement.
+
+### Effect
+- No alert, undetermined or not-alerted count changed in the owner's 79 genuine `.eml` messages, the new brand emails, Nazario 2023–24 or PhishFuzzer's recent seeds. One Nazario message showing "Fidelity Investments" from another domain now carries an impersonation finding (fusion model-led to corroborated). None of the owner's 87 exported Gmail messages comes from or names these organizations.
+- Left out: Wise (a report form only), Temu (merchant messages go through it), and DoorDash, HBO Max, Disney+, Hulu, SHEIN, Samsung, United Airlines, Southwest, Ryanair, Home Depot, Costco, Instacart, Starbucks and Nike (no page names their sending domains or a report address).
+
 ## [2026-10-06 14:35 PT] — Fifteen organizations added to the official registry
 
 ### Why
