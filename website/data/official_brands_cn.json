@@ -10,7 +10,8 @@
     "Every verified_statements quote was checked word for word on its source page on 2026-09-29. One search summary had attributed a statement to the wrong Agricultural Bank page; it was removed.",
     "Domains and service numbers were confirmed on each organization's own site (homepage title, contact page or site-restricted search) on 2026-09-29.",
     "source_type media means a news page quoting police or the organization; the issuer field names who is quoted. scope marks statements limited to one region.",
-    "display_names are the only names matched against a From display name: specific brand names, without ambiguous acronyms (ABC, BOC, EMS, QQ) or words that also name other entities (中通, 南航, 社保, 海关). Government entries list gov.cn in gov_suffixes, because local offices send from their own gov.cn subdomains."
+    "display_names are the only names matched against a From display name: specific brand names, without ambiguous acronyms (ABC, BOC, EMS, QQ) or words that also name other entities (中通, 南航, 社保, 海关). Government entries list gov.cn in gov_suffixes, because local offices send from their own gov.cn subdomains.",
+    "2026-10-07 从业主的常用网站清单补入：携程、去哪儿网、同程旅行、美团、抖音、哔哩哔哩、爱奇艺、小米账号按名称匹配；滴滴出行与唯品会只核验自己域名的邮件（sender_only），因为它们面向用户的发件域名没有页面说明。每个域名都有官方页面写明的服务、投诉或举报邮箱。饿了么没有找到任何官方邮箱，未列入。"
   ],
   "brands": [
     {
@@ -1172,6 +1173,328 @@
         "中国高等教育学生信息网"
       ],
       "gov_suffixes": []
+    },
+    {
+      "id": "ctrip",
+      "category": "travel",
+      "name": "携程旅行",
+      "claim_names": [
+        "携程",
+        "携程旅行",
+        "携程旅行网",
+        "Trip.com"
+      ],
+      "official_domains": [
+        "ctrip.com",
+        "trip.com"
+      ],
+      "service_numbers": [
+        "95010"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "service@ctrip.com",
+        "a_rsv@trip.com"
+      ],
+      "display_names": [
+        "携程",
+        "Trip.com"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://pages.ctrip.com/public/contact.htm"
+      ],
+      "review_note": "携程“联系我们”页面（2026-10-07 用浏览器阅读）：服务邮箱为客服 service@ctrip.com，酒店、机票、度假等业务邮箱在 @trip.com；境内服务热线 95010。"
+    },
+    {
+      "id": "qunar",
+      "category": "travel",
+      "name": "去哪儿网",
+      "claim_names": [
+        "去哪儿",
+        "去哪儿网",
+        "去哪儿旅行",
+        "Qunar"
+      ],
+      "official_domains": [
+        "qunar.com"
+      ],
+      "service_numbers": [
+        "95117"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "tousu@qunar.com"
+      ],
+      "display_names": [
+        "去哪儿网",
+        "去哪儿旅行",
+        "Qunar"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.qunar.com/site/zh/fanzhapian/fzp00.shtml"
+      ],
+      "review_note": "去哪儿网“反网络诈骗专栏”（2026-10-07 用浏览器阅读）：投诉、咨询热线 95117，举报、投诉邮箱 tousu@qunar.com。“去哪儿”是常用短语（如“周末去哪儿”），不单独匹配。"
+    },
+    {
+      "id": "tongcheng",
+      "category": "travel",
+      "name": "同程旅行",
+      "claim_names": [
+        "同程",
+        "同程旅行",
+        "同程艺龙"
+      ],
+      "official_domains": [
+        "ly.com"
+      ],
+      "service_numbers": [
+        "95711"
+      ],
+      "verified_statements": [
+        {
+          "quote": "同程禁止以任何内部员工的名义与外部有任何的合作，并且除合作合同约定之外，不会收取任何费用，请合作方知晓",
+          "source": "https://www.ly.com/public/about17u/contactus",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "tcfwfxbz@ly.com"
+      ],
+      "display_names": [
+        "同程旅行"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.ly.com/public/about17u/contactus"
+      ],
+      "review_note": "同程旅行“联系我们”（2026-10-07 用浏览器阅读）：同程投诉受理电话 95711，投诉受理邮箱 tcfwfxbz@ly.com。“同程艺龙”不匹配：艺龙的邮件可能来自未列出的 elong.com。"
+    },
+    {
+      "id": "meituan",
+      "category": "local_services",
+      "name": "美团",
+      "claim_names": [
+        "美团",
+        "美团外卖"
+      ],
+      "official_domains": [
+        "meituan.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "tousu@meituan.com"
+      ],
+      "display_names": [
+        "美团"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.meituan.com/hotline"
+      ],
+      "review_note": "美团“服务热线”页面（2026-10-07 用浏览器阅读）：违法和不良信息投诉邮箱 tousu@meituan.com。大众点评（dianping.com）是另一个品牌；美团公司的其他域名（如 sankuai.com）没有页面说明，从那里发出、显示“美团”的邮件会有冒充提示。"
+    },
+    {
+      "id": "douyin",
+      "category": "platform",
+      "name": "抖音",
+      "claim_names": [
+        "抖音",
+        "抖音电商"
+      ],
+      "official_domains": [
+        "douyin.com",
+        "bytedance.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "feedback@douyin.com",
+        "qinquan@bytedance.com"
+      ],
+      "display_names": [
+        "抖音"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.douyin.com/draft/douyin_agreement/infringement_guide.html"
+      ],
+      "review_note": "《“抖音”侵权举报指引》（2026-10-07 用浏览器阅读）：直播侵权材料发至 feedback@douyin.com，“抖音侵权举报邮箱（邮箱地址为qinquan@bytedance.com）”。"
+    },
+    {
+      "id": "bilibili",
+      "category": "platform",
+      "name": "哔哩哔哩",
+      "claim_names": [
+        "哔哩哔哩",
+        "B站",
+        "bilibili"
+      ],
+      "official_domains": [
+        "bilibili.com"
+      ],
+      "service_numbers": [
+        "400-178-2233"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "copyright@bilibili.com",
+        "pr@bilibili.com"
+      ],
+      "display_names": [
+        "哔哩哔哩",
+        "bilibili"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.bilibili.com/blackboard/contact.html"
+      ],
+      "review_note": "哔哩哔哩“联系我们”（2026-10-07 用浏览器阅读）：商务、游戏、媒体等联系邮箱均在 @bilibili.com，游戏客服热线 400-178-2233。游戏业务的 biligame.com 没有页面说明，未列入。"
+    },
+    {
+      "id": "iqiyi",
+      "category": "platform",
+      "name": "爱奇艺",
+      "claim_names": [
+        "爱奇艺",
+        "iQIYI"
+      ],
+      "official_domains": [
+        "qiyi.com"
+      ],
+      "service_numbers": [
+        "400-923-7171"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "vipservice@qiyi.com"
+      ],
+      "display_names": [
+        "爱奇艺"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.iqiyi.com/common/contactush5.html"
+      ],
+      "review_note": "爱奇艺“联系方式”（2026-10-07 用浏览器阅读）：VIP客服专线 400-923-7171，VIP客服邮箱 vipservice@qiyi.com。网站域名 iqiyi.com 没有被写成邮件域名，未列入。"
+    },
+    {
+      "id": "xiaomi",
+      "category": "device",
+      "name": "小米",
+      "claim_names": [
+        "小米",
+        "小米账号",
+        "小米商城",
+        "Xiaomi"
+      ],
+      "official_domains": [
+        "xiaomi.com"
+      ],
+      "service_numbers": [
+        "400-100-5678"
+      ],
+      "verified_statements": [
+        {
+          "quote": "如订单有任何问题，小米不会通过短信/QQ给您发送链接，且无需您提供个人银行卡信息（请尤其注意银行卡密码及验证码）。",
+          "source": "https://www.mi.com/c/service/help_center/fraud/index.html",
+          "source_type": "official"
+        },
+        {
+          "quote": "1、小米官方客服热线为400-100-5678，任何业务问题小米客服绝不会通过私人手机联系会员。",
+          "source": "https://www.mi.com/c/service/help_center/fraud/index.html",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "account-service@xiaomi.com"
+      ],
+      "display_names": [
+        "小米账号"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://account.xiaomi.com/helpcenter/faq/zh_CN/02.faqs/05.sms-and-email-verification-code/faq-2",
+        "https://www.mi.com/c/service/help_center/fraud/index.html"
+      ],
+      "review_note": "小米账号帮助“为什么收不到验证邮件”（2026-10-07 用浏览器阅读）：“小米账号”的邮件地址为 account-service@xiaomi.com；小米商城“防诈骗提示”给出官方热线和网站 www.mi.com。mi.com 没有被写成邮件域名，所以只匹配“小米账号”，“小米”（也是常用词和昵称）与“小米商城”不单独匹配。"
+    },
+    {
+      "id": "didi",
+      "category": "travel",
+      "name": "滴滴出行",
+      "claim_names": [
+        "滴滴",
+        "滴滴出行"
+      ],
+      "official_domains": [
+        "didiglobal.com",
+        "didichuxing.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "globalpr@didiglobal.com",
+        "bd@didichuxing.com"
+      ],
+      "display_names": [],
+      "gov_suffixes": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "滴滴出行"
+      ],
+      "domain_sources": [
+        "https://www.didiglobal.com/contact/contact-us"
+      ],
+      "review_note": "滴滴官网“联系我们”（2026-10-07 用浏览器阅读）：商务、媒体等邮箱在 @didiglobal.com 与 @didichuxing.com。滴滴会把电子发票发到用户邮箱，但没有页面说明发件域名，所以只核验自己域名的邮件，不按名称判断冒充。"
+    },
+    {
+      "id": "vipshop",
+      "category": "ecommerce",
+      "name": "唯品会",
+      "claim_names": [
+        "唯品会"
+      ],
+      "official_domains": [
+        "vipshop.com"
+      ],
+      "service_numbers": [
+        "400-6789-888"
+      ],
+      "verified_statements": [
+        {
+          "quote": "唯品会统一客服热线为400-6789-888，任何业务问题唯品会客服仅通过400-6789-888联系会员处理，绝不会通过私人手机或座机号码联系会员。",
+          "source": "https://help.vip.com/themelist.php?type=notice&id=400",
+          "source_type": "official"
+        }
+      ],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "jubao@vipshop.com",
+        "infosec@vipshop.com"
+      ],
+      "display_names": [],
+      "gov_suffixes": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "唯品会"
+      ],
+      "domain_sources": [
+        "https://www.vip.com/contact-us",
+        "https://help.vip.com/themelist.php?type=notice&id=400"
+      ],
+      "review_note": "唯品会“联系我们”与防骗公告（2026-10-07 用浏览器阅读）：举报邮箱 jubao@vipshop.com、信息安全应急响应邮箱 infosec@vipshop.com，统一客服热线 400-6789-888。面向会员的网站 vip.com 没有被写成邮件域名，所以只核验自己域名的邮件，不按名称判断冒充。"
     }
   ]
 }

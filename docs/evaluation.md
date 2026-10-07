@@ -1408,6 +1408,44 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Ten Chinese services added to the official registry (2026-10-07)
+
+The owner's list names about 40 Chinese services the registry lacked. Chinese services rarely
+publish their sending domains, so the evidence here is the service, complaint or report
+mailbox each names on its own site, read in a browser:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| 携程旅行 | name (携程, Trip.com) | `ctrip.com`, `trip.com` | Contact page: service@ctrip.com, business mailboxes at @trip.com; 95010 |
+| 去哪儿网 | name (去哪儿网, 去哪儿旅行, Qunar) | `qunar.com` | Anti-fraud page: tousu@qunar.com; 95117 |
+| 同程旅行 | name | `ly.com` | Contact page: complaints to tcfwfxbz@ly.com; 95711 |
+| 美团 | name | `meituan.com` | Hotline page: complaints to tousu@meituan.com |
+| 抖音 | name | `douyin.com`, `bytedance.com` | Infringement guide: feedback@douyin.com, qinquan@bytedance.com |
+| 哔哩哔哩 | name (哔哩哔哩, bilibili) | `bilibili.com` | Contact page: mailboxes at @bilibili.com; 400-178-2233 |
+| 爱奇艺 | name | `qiyi.com` | Contact page: VIP service at vipservice@qiyi.com; 400-923-7171 |
+| 小米 | name (小米账号) | `xiaomi.com` | Account help: its mail comes from account-service@xiaomi.com; 400-100-5678 |
+| 滴滴出行 | service | `didiglobal.com`, `didichuxing.com` | Contact page: mailboxes at both domains |
+| 唯品会 | service | `vipshop.com` | Contact page: jubao@ and infosec@vipshop.com; 400-6789-888 |
+
+- **Chinese names match as substrings**, so common words are left out: "去哪儿" (周末去哪儿),
+  "小米" (a word and a nickname) and "滴滴" (a sound).
+- **Names only where the users' mail domain is named.** 小米 matches only 小米账号, as its store
+  site mi.com is not named as a mail domain. 滴滴 mails invoices from a domain no page names,
+  and 唯品会's members' site vip.com is not named as a mail domain, so both only verify their
+  own mail. 同程艺龙 is left out, as 艺龙 may send from elong.com.
+- **Official numbers.** The seven hotlines join the published numbers, so a message asking the
+  reader to call 95010 is not taken for a callback lure.
+- **Known gaps.** 美团's company domains (sankuai.com), 哔哩哔哩's game domain (biligame.com)
+  and 爱奇艺's site domain (iqiyi.com) are not named as mail domains, so genuine mail from them
+  that shows the name would carry an impersonation finding. Electronic invoices sent through
+  invoicing platforms usually show the company's legal name rather than the brand.
+- **Not added:** 饿了么 (no official mailbox found) and 华为 (no page names its account mail
+  domain). The list's other Chinese services were not checked yet.
+
+On the cohorts of the batches below, no count or signal changed, and none of the owner's 92
+downloads or 87 exported Gmail messages comes from or names these services. Those cohorts are
+English, so mail that shows these names from other domains is covered by the tests only.
+
 ### Thirteen more organizations from the same list (2026-10-06)
 
 A second batch from the owner's list, in the same four groups and by the same method as the

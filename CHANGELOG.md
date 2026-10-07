@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-07 11:33 PT] — Ten Chinese services added to the official registry
+
+### Why
+- The owner asked to continue with the Chinese services on the list of 460 common sites, about 40 of which the registry lacked.
+
+### Files changed
+- `website/data/official_brands_cn.json` — 携程, 去哪儿网, 同程旅行, 美团, 抖音, 哔哩哔哩, 爱奇艺 and 小米账号 by name, and 滴滴出行 and 唯品会 as `sender_only` services, with seven official hotlines. Each domain is named by a service, complaint or report mailbox on the organization's own page, read in a browser.
+- `website/tests/test_registry_additions_2026_10_07.py` — new: the Chinese names from other domains, their own domains, the words left out (周末去哪儿, 小米, 滴滴出行), verified own mail, the official channels and the hotlines.
+- `docs/evaluation.md` — the services, the gaps and the measurement.
+
+### Effect
+- No count or signal changed on the usual cohorts, and none of the owner's mail comes from or names these services; the cohorts are English, so the tests show the new findings.
+- A message asking the reader to call one of the seven hotlines (95010, 95117, 95711 and four 400 numbers) is no longer taken for a callback lure.
+- Not added: 饿了么 (no official mailbox found) and 华为 (no page names its account mail domain); the list's other Chinese services are not checked yet.
+
 ## [2026-10-06 21:32 PT] — Thirteen more organizations added to the official registry
 
 ### Why
