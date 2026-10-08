@@ -11,7 +11,8 @@
     "Domains and service numbers were confirmed on each organization's own site (homepage title, contact page or site-restricted search) on 2026-09-29.",
     "source_type media means a news page quoting police or the organization; the issuer field names who is quoted. scope marks statements limited to one region.",
     "display_names are the only names matched against a From display name: specific brand names, without ambiguous acronyms (ABC, BOC, EMS, QQ) or words that also name other entities (中通, 南航, 社保, 海关). Government entries list gov.cn in gov_suffixes, because local offices send from their own gov.cn subdomains.",
-    "2026-10-07 从业主的常用网站清单补入：携程、去哪儿网、同程旅行、美团、抖音、哔哩哔哩、爱奇艺、小米账号按名称匹配；滴滴出行与唯品会只核验自己域名的邮件（sender_only），因为它们面向用户的发件域名没有页面说明。每个域名都有官方页面写明的服务、投诉或举报邮箱。饿了么没有找到任何官方邮箱，未列入。"
+    "2026-10-07 从业主的常用网站清单补入：携程、去哪儿网、同程旅行、美团、抖音、哔哩哔哩、爱奇艺、小米账号按名称匹配；滴滴出行与唯品会只核验自己域名的邮件（sender_only），因为它们面向用户的发件域名没有页面说明。每个域名都有官方页面写明的服务、投诉或举报邮箱。饿了么没有找到任何官方邮箱，未列入。",
+    "2026-10-07 补入清单中其余的中国服务：快手、小红书、菜鸟、百度、货拉拉、德邦快递、芒果TV、酷狗音乐、蜜雪冰城、叮咚买菜、瑞幸咖啡按名称匹配；微博、知乎只核验自己域名的邮件。未列入：哈啰（官网无法从此处访问）、得物（访问被跳转到国际版）、喜马拉雅、豆瓣、高德（现行页面只有电话）、大众点评（邮件域名没有页面说明）、优酷与盒马（举报邮箱在阿里巴巴的共享域名）、网易云音乐（客服使用免费 163 邮箱）、钉钉、飞书、闲鱼、BOSS直聘（转发他人的内容）、肯德基中国、饿了么、华为、苏宁易购（未找到或未能核对官方邮箱）。"
   ],
   "brands": [
     {
@@ -1495,6 +1496,388 @@
         "https://help.vip.com/themelist.php?type=notice&id=400"
       ],
       "review_note": "唯品会“联系我们”与防骗公告（2026-10-07 用浏览器阅读）：举报邮箱 jubao@vipshop.com、信息安全应急响应邮箱 infosec@vipshop.com，统一客服热线 400-6789-888。面向会员的网站 vip.com 没有被写成邮件域名，所以只核验自己域名的邮件，不按名称判断冒充。"
+    },
+    {
+      "id": "kuaishou",
+      "category": "platform",
+      "name": "快手",
+      "claim_names": [
+        "快手",
+        "快手极速版",
+        "快手小店"
+      ],
+      "official_domains": [
+        "kuaishou.com"
+      ],
+      "service_numbers": [
+        "400-006-6666",
+        "400-126-0088"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "support@kuaishou.com"
+      ],
+      "display_names": [
+        "快手官方",
+        "快手客服",
+        "快手科技",
+        "快手小店"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.kuaishou.com/about/contact"
+      ],
+      "review_note": "快手“联系我们”（2026-10-07 用浏览器阅读）：“投诉举报：support@kuaishou.com”，另有媒体、商务等 @kuaishou.com 邮箱和热线。“快手”本身是常用词，只匹配“快手官方”“快手客服”等。"
+    },
+    {
+      "id": "xiaohongshu",
+      "category": "platform",
+      "name": "小红书",
+      "claim_names": [
+        "小红书"
+      ],
+      "official_domains": [
+        "xiaohongshu.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "service@xiaohongshu.com",
+        "app_feedback@xiaohongshu.com"
+      ],
+      "display_names": [
+        "小红书"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.xiaohongshu.com/protocols/about"
+      ],
+      "review_note": "小红书“关于我们”（2026-10-07 用浏览器阅读）：列出 service@、app_feedback@、community@、lianzheng@ 等 @xiaohongshu.com 邮箱。"
+    },
+    {
+      "id": "cainiao",
+      "category": "logistics",
+      "name": "菜鸟",
+      "claim_names": [
+        "菜鸟",
+        "菜鸟裹裹",
+        "菜鸟驿站",
+        "Cainiao"
+      ],
+      "official_domains": [
+        "cainiao.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "cainiaoglobalcs@service.cainiao.com"
+      ],
+      "display_names": [
+        "菜鸟裹裹",
+        "菜鸟驿站",
+        "菜鸟集团",
+        "Cainiao"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.cainiao.com/en/about-us-contact-us.html"
+      ],
+      "review_note": "菜鸟“Contact Cainiao”（2026-10-07 用浏览器阅读）：“Email Customer Service cainiaoglobalcs@service.cainiao.com”。“菜鸟”本身是常用词（新手），只匹配菜鸟裹裹、菜鸟驿站等名称。"
+    },
+    {
+      "id": "baidu",
+      "category": "platform",
+      "name": "百度",
+      "claim_names": [
+        "百度",
+        "百度网盘",
+        "百度地图",
+        "百度推广"
+      ],
+      "official_domains": [
+        "baidu.com"
+      ],
+      "service_numbers": [
+        "400-800-8888"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "bdjb@baidu.com"
+      ],
+      "display_names": [
+        "百度"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://home.baidu.com/home/index/contact_us"
+      ],
+      "review_note": "“联系百度”（2026-10-07 用浏览器阅读）：合作、业务联系邮箱在 @baidu.com，“职业道德举报邮箱：bdjb@baidu.com”，百度推广销售热线 400-800-8888。百度智能云等业务可能使用的其他域名（如 baidubce.com）没有页面说明，未列入。"
+    },
+    {
+      "id": "huolala",
+      "category": "logistics",
+      "name": "货拉拉",
+      "claim_names": [
+        "货拉拉"
+      ],
+      "official_domains": [
+        "huolala.cn"
+      ],
+      "service_numbers": [
+        "95036"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "tu-cao@huolala.cn"
+      ],
+      "display_names": [
+        "货拉拉"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.huolala.cn/contact_us.html"
+      ],
+      "review_note": "货拉拉“联系我们”（2026-10-07 用浏览器阅读）：客服热线 95036，吐槽邮箱 tu-cao@huolala.cn，举报邮箱 icac@huolala.cn。"
+    },
+    {
+      "id": "deppon",
+      "category": "logistics",
+      "name": "德邦快递",
+      "claim_names": [
+        "德邦",
+        "德邦快递",
+        "德邦物流"
+      ],
+      "official_domains": [
+        "deppon.com"
+      ],
+      "service_numbers": [
+        "95353"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "deppon315@deppon.com"
+      ],
+      "display_names": [
+        "德邦快递",
+        "德邦物流"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.deppon.com/newwebsite/aboutus/contactus"
+      ],
+      "review_note": "德邦“联系我们”（2026-10-07 用浏览器阅读）：业务投诉 deppon315@deppon.com，客服热线 95353。“德邦”本身不匹配：德邦证券是另一家公司。"
+    },
+    {
+      "id": "mgtv",
+      "category": "platform",
+      "name": "芒果TV",
+      "claim_names": [
+        "芒果TV",
+        "芒果tv"
+      ],
+      "official_domains": [
+        "mgtv.com"
+      ],
+      "service_numbers": [
+        "4009770707"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "copyright@mgtv.com",
+        "web@mgtv.com"
+      ],
+      "display_names": [
+        "芒果TV"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.mgtv.com/pages/000090.html"
+      ],
+      "review_note": "芒果TV页面页脚（2026-10-07 用浏览器阅读）：联系电话 4009770707，侵权视频举报邮箱 copyright@mgtv.com，从业人员违法举报邮箱 web@mgtv.com。"
+    },
+    {
+      "id": "kugou",
+      "category": "platform",
+      "name": "酷狗音乐",
+      "claim_names": [
+        "酷狗",
+        "酷狗音乐"
+      ],
+      "official_domains": [
+        "kugou.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "service@kugou.com"
+      ],
+      "display_names": [
+        "酷狗音乐"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.kugou.com/shop/help/serviceCenter"
+      ],
+      "review_note": "酷狗“客服中心”（2026-10-07 用浏览器阅读）：“投诉建议 service@kugou.com”。同页的举报邮箱在腾讯音乐的 tencentmusic.com，它也属于QQ音乐等，未列入。"
+    },
+    {
+      "id": "mxbc",
+      "category": "food",
+      "name": "蜜雪冰城",
+      "claim_names": [
+        "蜜雪冰城",
+        "雪王"
+      ],
+      "official_domains": [
+        "mxbc.com"
+      ],
+      "service_numbers": [
+        "400-060-8888",
+        "400-700-6146"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "mxjc@mxbc.com",
+        "beg@mxbc.com"
+      ],
+      "display_names": [
+        "蜜雪冰城"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.mxbc.com/about.html"
+      ],
+      "review_note": "蜜雪冰城“关于蜜雪”（2026-10-07 用浏览器阅读）：监察反腐投诉邮箱 mxjc@mxbc.com，商业行为准则投诉邮箱 beg@mxbc.com，“官方唯一加盟热线 400-060-8888”，服务监督热线 400-700-6146。"
+    },
+    {
+      "id": "dingdong",
+      "category": "ecommerce",
+      "name": "叮咚买菜",
+      "claim_names": [
+        "叮咚买菜"
+      ],
+      "official_domains": [
+        "100.me"
+      ],
+      "service_numbers": [
+        "10103365"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "ir@100.me"
+      ],
+      "display_names": [
+        "叮咚买菜"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://ir.100.me/",
+        "https://www.100.me/"
+      ],
+      "review_note": "叮咚买菜官网与投资者关系网站（2026-10-07 用浏览器阅读）：客服热线 10103365，投资者关系邮箱 ir@100.me。"
+    },
+    {
+      "id": "luckin",
+      "category": "food",
+      "name": "瑞幸咖啡",
+      "claim_names": [
+        "瑞幸",
+        "瑞幸咖啡",
+        "luckin coffee"
+      ],
+      "official_domains": [
+        "lkcoffee.com",
+        "luckincoffee.com"
+      ],
+      "service_numbers": [
+        "4000-100-100"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "privacy@lkcoffee.com",
+        "customer.service@luckincoffee.com"
+      ],
+      "display_names": [
+        "瑞幸咖啡",
+        "luckin coffee"
+      ],
+      "gov_suffixes": [],
+      "domain_sources": [
+        "https://www.luckincoffee.co/about",
+        "https://www.luckincoffee.com/about"
+      ],
+      "review_note": "瑞幸国内官网“关于我们”（2026-10-07 至 10-08 用浏览器阅读）：联系邮箱均在 @lkcoffee.com，“电子邮件：privacy@lkcoffee.com 客服电话：4000-100-100”；国际官网 luckincoffee.com 的客服邮箱为 customer.service@luckincoffee.com。国内网站域名 luckincoffee.co 没有被写成邮件域名，未列入。"
+    },
+    {
+      "id": "weibo",
+      "category": "platform",
+      "name": "微博",
+      "claim_names": [
+        "微博",
+        "新浪微博"
+      ],
+      "official_domains": [
+        "weibo.com"
+      ],
+      "service_numbers": [
+        "4000-960-960"
+      ],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "tousu@staff.weibo.com"
+      ],
+      "display_names": [],
+      "gov_suffixes": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "微博",
+        "新浪微博"
+      ],
+      "domain_sources": [
+        "https://service.account.weibo.com/ecourt/media",
+        "https://weibo.com/us"
+      ],
+      "review_note": "微博“自媒体乱象举报专区”与“微博北美站”（2026-10-07 用浏览器阅读）：举报邮箱 tousu@staff.weibo.com，客服热线 4000-960-960。社交平台的通知可能带有他人的内容，而“XX官方微博”是常见写法，所以只核验自己域名的邮件。"
+    },
+    {
+      "id": "zhihu",
+      "category": "platform",
+      "name": "知乎",
+      "claim_names": [
+        "知乎"
+      ],
+      "official_domains": [
+        "zhihu.com"
+      ],
+      "service_numbers": [],
+      "verified_statements": [],
+      "unverified_statements": [],
+      "official_contact_emails": [
+        "jubao@zhihu.com"
+      ],
+      "display_names": [],
+      "gov_suffixes": [],
+      "display_check": "sender_only",
+      "sender_names": [
+        "知乎"
+      ],
+      "domain_sources": [
+        "https://www.zhihu.com/jubao"
+      ],
+      "review_note": "知乎“举报”页面（2026-10-07 用浏览器阅读）：“违法和不良信息举报邮箱：jubao@zhihu.com”。社交平台的通知可能带有他人的回答，所以只核验自己域名的邮件。"
     }
   ]
 }

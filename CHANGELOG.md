@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 08:52 PT] — Thirteen more Chinese services added to the official registry
+
+### Why
+- The owner asked to continue with the remaining Chinese services on the list of common sites.
+
+### Files changed
+- `website/data/official_brands_cn.json` — 快手, 小红书, 菜鸟, 百度, 货拉拉, 德邦快递, 芒果TV, 酷狗音乐, 蜜雪冰城, 叮咚买菜 and 瑞幸咖啡 by name, and 微博 and 知乎 as `sender_only` services, with their published hotlines. Each domain is named by a service, complaint or report mailbox on the organization's own page, read in a browser on 2026-10-07.
+- `website/tests/test_registry_additions_2026_10_07.py` — the second Chinese batch: names from other domains, their own domains, the words and services left out (装修快手, 菜鸟教程, 德邦证券, 某某官方微博), verified own mail and the hotlines.
+- `docs/evaluation.md` — the services, what was left out and why, and the measurement.
+
+### Effect
+- No count or signal changed on the usual cohorts, and none of the owner's mail comes from or names these services; the tests show the new findings.
+- Not added: 哈啰 and 得物 (their pages could not be read from here), 喜马拉雅, 豆瓣 and 高德 (phone numbers or forms only), 大众点评, 优酷, 盒马 and 网易云音乐 (mailboxes on another or a shared domain), 钉钉, 飞书, 闲鱼 and BOSS直聘 (they relay other users' messages), 网易163邮箱 and 189.cn (public mailbox services), and 肯德基中国, 饿了么, 华为 and 苏宁易购 (no official mailbox found or read).
+
 ## [2026-10-07 11:33 PT] — Ten Chinese services added to the official registry
 
 ### Why

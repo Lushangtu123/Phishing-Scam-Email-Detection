@@ -1,6 +1,9 @@
-"""Chinese services added on 2026-10-07 from the owner's list of common sites (synthetic inputs):
-携程, 去哪儿网, 同程旅行, 美团, 抖音, 哔哩哔哩, 爱奇艺 and 小米账号 by name, and 滴滴出行 and 唯品会 as
-services that verify their own mail."""
+"""Chinese services added on 2026-10-07 from the owner's list of common sites (synthetic inputs).
+
+First batch: 携程, 去哪儿网, 同程旅行, 美团, 抖音, 哔哩哔哩, 爱奇艺 and 小米账号 by name, and 滴滴出行
+and 唯品会 as services that verify their own mail. Second batch: 快手, 小红书, 菜鸟, 百度, 货拉拉,
+德邦快递, 芒果TV, 酷狗音乐, 蜜雪冰城, 叮咚买菜 and 瑞幸咖啡 by name, and 微博 and 知乎 as services.
+"""
 import sys
 import unittest
 from pathlib import Path
@@ -67,6 +70,50 @@ class ChineseServiceTests(unittest.TestCase):
         self.assertLessEqual({'95010', '95117', '95711', '4001005678', '4009237171', '4006789888', '4001782233'},
                              es.OFFICIAL_SERVICE_NUMBERS)
 
+
+
+
+class SecondChineseBatchTests(unittest.TestCase):
+    def test_names_shown_from_other_domains(self):
+        for display, domain, claimed in (
+                ('快手官方', 'kuaishou-kefu.cn', '快手官方'), ('小红书商家服务', 'xhs-shop.cn', '小红书'),
+                ('菜鸟驿站', 'cainiao-post.cn', '菜鸟驿站'), ('百度网盘', 'baidu-pan.net', '百度'),
+                ('货拉拉客服', 'hll-kefu.cn', '货拉拉'), ('德邦快递', 'deppon-ex.cn', '德邦快递'),
+                ('芒果TV会员', 'mgtv-vip.cn', '芒果TV'), ('酷狗音乐', 'kugou-vip.cn', '酷狗音乐'),
+                ('蜜雪冰城加盟', 'mxbc-jiameng.com', '蜜雪冰城'), ('叮咚买菜', 'ddmc.cn', '叮咚买菜'),
+                ('瑞幸咖啡', 'luckin-coupon.cn', '瑞幸咖啡'), ('luckin coffee', 'example.net', 'luckin coffee')):
+            with self.subTest(display=display, domain=domain):
+                self.assertEqual(es._registry_brand_claim(display, domain), claimed)
+
+    def test_their_own_domains(self):
+        for display, domain in (
+                ('快手官方', 'kuaishou.com'), ('小红书', 'xiaohongshu.com'), ('菜鸟裹裹', 'service.cainiao.com'),
+                ('百度', 'baidu.com'), ('货拉拉', 'huolala.cn'), ('德邦快递', 'deppon.com'), ('芒果TV', 'mgtv.com'),
+                ('酷狗音乐', 'kugou.com'), ('蜜雪冰城', 'mxbc.com'), ('叮咚买菜', '100.me'),
+                ('瑞幸咖啡', 'lkcoffee.com'), ('luckin coffee', 'luckincoffee.com')):
+            with self.subTest(display=display, domain=domain):
+                self.assertIsNone(es._registry_brand_claim(display, domain))
+
+    def test_names_left_out(self):
+        # Common words, other companies, social platforms that only verify their own mail, and the
+        # services not added.
+        for display in ('快手', '装修快手', '菜鸟', '菜鸟教程', '德邦证券', '酷狗宠物', '微博', '某某官方微博', '知乎',
+                        '哈啰出行', '得物', '喜马拉雅', '豆瓣', '高德地图', '大众点评', '优酷', '盒马', '网易云音乐',
+                        '钉钉', '飞书', '闲鱼', 'BOSS直聘'):
+            with self.subTest(display=display):
+                self.assertIsNone(es._registry_brand_claim(display, 'example.com'))
+
+    def test_their_own_mail_is_verified(self):
+        for sender, name, organization in (
+                ('notice@service.weibo.com', '微博', '微博'), ('noreply@zhihu.com', '知乎', '知乎'),
+                ('service@kugou.com', '酷狗音乐', '酷狗音乐'), ('privacy@lkcoffee.com', '瑞幸咖啡', '瑞幸咖啡')):
+            with self.subTest(sender=sender):
+                structure = received(sender, name, '您的验证码')
+                self.assertEqual(structure['verified_official_sender']['organization'], organization)
+
+    def test_official_numbers(self):
+        self.assertLessEqual({'4000066666', '4001260088', '4008008888', '95036', '95353', '4009770707', '4000608888',
+                              '4007006146', '10103365', '4000100100', '4000960960'}, es.OFFICIAL_SERVICE_NUMBERS)
 
 
 if __name__ == '__main__':

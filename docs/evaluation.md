@@ -1408,6 +1408,47 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Thirteen more Chinese services (2026-10-07)
+
+The rest of the list's Chinese services, by the same method: a service, complaint or report
+mailbox on the organization's own page, read in a browser.
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| 快手 | name (快手官方, 快手客服, 快手科技, 快手小店) | `kuaishou.com` | Contact page: complaints to support@kuaishou.com |
+| 小红书 | name | `xiaohongshu.com` | About page: service@ and other mailboxes at @xiaohongshu.com |
+| 菜鸟 | name (菜鸟裹裹, 菜鸟驿站, 菜鸟集团, Cainiao) | `cainiao.com` | Contact page: cainiaoglobalcs@service.cainiao.com |
+| 百度 | name | `baidu.com` | Contact page: mailboxes at @baidu.com, bdjb@baidu.com; 400-800-8888 |
+| 货拉拉 | name | `huolala.cn` | Contact page: tu-cao@huolala.cn; 95036 |
+| 德邦快递 | name (德邦快递, 德邦物流) | `deppon.com` | Contact page: complaints to deppon315@deppon.com; 95353 |
+| 芒果TV | name | `mgtv.com` | Page footer: copyright@ and web@mgtv.com; 4009770707 |
+| 酷狗音乐 | name | `kugou.com` | Service centre: service@kugou.com |
+| 蜜雪冰城 | name | `mxbc.com` | About page: mxjc@ and beg@mxbc.com; franchise line 400-060-8888 |
+| 叮咚买菜 | name | `100.me` | Investor site: ir@100.me; 10103365 |
+| 瑞幸咖啡 | name (瑞幸咖啡, luckin coffee) | `lkcoffee.com`, `luckincoffee.com` | About pages: privacy@lkcoffee.com with 4000-100-100; customer.service@luckincoffee.com |
+| 微博 | service | `weibo.com` | Report page: tousu@staff.weibo.com; 4000-960-960 |
+| 知乎 | service | `zhihu.com` | Report page: jubao@zhihu.com |
+
+- **Names kept narrow.** "快手" and "菜鸟" are common words (a skilled hand; a beginner, as in
+  菜鸟教程). "德邦" also names 德邦证券, and "酷狗" alone is not matched.
+- **Services.** 微博 and 知乎 only verify their own mail: their notifications can carry other
+  users' posts, and "XX官方微博" is a common phrase.
+- **Not added.**
+  - 哈啰: its site could not be reached from here. 得物: requests from outside China are
+    redirected to its international site.
+  - 喜马拉雅, 豆瓣 and 高德: their live pages give only phone numbers or forms.
+  - 大众点评: its report mailbox is at meituan.com, and no page names dianping.com as a mail
+    domain. 优酷 and 盒马: their report mailboxes are at Alibaba's shared service.alibaba.com.
+    网易云音乐: its customer service uses a free 163.com mailbox.
+  - 钉钉, 飞书, 闲鱼 and BOSS直聘: they carry other users' messages and list no relay addresses.
+  - 网易163邮箱 and 中国电信's 189.cn: mailbox services anyone can use.
+  - 肯德基中国, 饿了么, 华为 and 苏宁易购: no official mailbox was found or read.
+- **Known gaps.** 百度's other business domains (such as baidubce.com) and 瑞幸's mainland site
+  domain luckincoffee.co are not named as mail domains.
+
+No count or signal changed on the usual cohorts, and none of the owner's mail comes from or
+names these services.
+
 ### Ten Chinese services added to the official registry (2026-10-07)
 
 The owner's list names about 40 Chinese services the registry lacked. Chinese services rarely
