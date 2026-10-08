@@ -1293,8 +1293,10 @@ every CDN cache miss (a cold first visit took 0.8–2.2 s per file, 2026-10-08).
 files skip the middleware, so `vercel.json` `headers` repeats its `/static` headers:
 the security headers, the vision worker's Content-Security-Policy and the
 versioned-asset Cache-Control. `website/tests/test_vercel_static_headers.py` fails
-when the two disagree or two rules would set one header. Dependencies stay in
-`requirements.txt`; `pyproject.toml` holds Vercel settings only.
+when the two disagree or two rules would set one header. Once a `pyproject.toml`
+exists, Vercel installs dependencies from its `[project]` table with uv, so that table
+lists the serving pins of `requirements.txt` (which local and CI installs read); the same
+test fails when the two lists differ.
 
 Model explanations cache their immutable 80,000-feature name/coefficient arrays
 and calculate contributors directly from the sparse request vector. This keeps
