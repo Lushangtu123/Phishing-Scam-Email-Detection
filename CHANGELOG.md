@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 16:12 PT] — The homepage revalidates by content
+
+### Why
+- Testing a preview deployment, a browser that had visited before kept the previous deployment's homepage. It loaded `i18n.js?v=111` while the new page names `?v=115`, so it showed raw dictionary keys and untranslated messages.
+- Starlette's `FileResponse` derives its ETag from the file's modification time and size, and Vercel gives every deployed file the same time (`Last-Modified: Sat, 20 Oct 2018 01:46:40 GMT`). A deployment that changes only `?v=` numbers of the same length keeps the ETag, and the browser's revalidation is answered 304. This defeats the `?v=` asset versioning for returning visitors, in production too.
+
+### Files changed
+- `website/app.py` — `_revalidated_file`: the homepage and the favicon get an ETag from the SHA-256 of their bytes and `Cache-Control: no-cache`, with no `Last-Modified`. A matching `If-None-Match` (weak or strong) gets 304. `/cases` is unchanged: it is `no-store` and never reused.
+- `website/tests/test_html_etag.py` — new: the ETag is the page's hash; revalidation; two pages of the same size and time, which `FileResponse` gives one ETag, get different ones, and a browser holding the old one receives the new page; the favicon.
+
+### Effect
+- After each deployment, returning visitors revalidate the homepage and get the new page with its new asset versions. An unchanged page still costs only a 304.
+- Checked on a local server: 200 with the hash ETag, 304 with it, 200 and the full page with a stale one.
+
 ## [2026-10-08 09:45 PT] — Vercel installs dependencies from pyproject.toml
 
 ### Why
