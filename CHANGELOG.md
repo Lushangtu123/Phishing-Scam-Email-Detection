@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:03 PT] — Implementation plan for SMS scam detection
+
+### Why
+- The owner approved the SMS design and asked for its implementation plan.
+
+### Files changed
+- `docs/superpowers/plans/2026-10-08-sms-scam-detection.md` — new: ten tasks from the branch and baseline through shared scoring, the SMS module, edge cases, the endpoint and flag, messages, the tab, the evaluation tool, calibration and the held-out launch decision.
+
+### Effect
+- No code changes.
+
 ## [2026-10-08 14:59 PT] — Design for SMS scam detection
 
 ### Why
