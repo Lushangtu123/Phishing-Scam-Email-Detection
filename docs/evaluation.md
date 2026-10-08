@@ -1408,6 +1408,88 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: premium-rate numbers from libphonenumber (2026-10-08)
+
+`phonenumberslite==9.0.40` (Apache-2.0; Google's libphonenumber metadata, offline, no carrier or
+geocoder data) now classifies international and North American senders. That adds a
+`premium_rate` kind and replaces a hard-coded toll-free list. A new rule,
+**`sms.premium_callback`** (+4, at least Medium), fires when a text asks the reader to call or
+text a number that some numbering plan lists as premium rate. Numbers without a country code
+are tried in the US, UK and Chinese plans. Premium rate is a fact of each plan, not a pattern of
+this dataset, unlike the "09…/087…" prefixes left out before.
+
+On the same split, the test half was scored once more, for this change only. No rule was
+adjusted after seeing it.
+
+| Medium or above | Development half | Test half |
+|---|---:|---:|
+| Normal texts | 0 / 2,417 | 0 / 2,417 |
+| Smishing | 127 → 168 / 281 (59.8%) | 136 → 156 / 281 (55.5%) |
+| Spam | 17 → 42 / 234 | 21 → 43 / 235 |
+
+**Limits.** libphonenumber cannot tell a VoIP number from an ordinary one where a country gives
+VoIP no separate range (the US). Line-type services that can tell (Twilio Lookup,
+IPQualityScore) would receive the reader's numbers and are not used. Premium short codes are
+not checked.
+
+
+The Mishra and Soni texts of the baseline below were split 50/50 per cohort (seed 166). Rules
+were written from the development half only. The test half was set aside, with its SHA-256s
+recorded (`222c99a478ff…`, `e1ae05793da0…`, `e3a8fcd02d06…`), and scored once, before and after.
+
+Three changes:
+- **`sms.prize_callback`** (+4, at least Medium): prize or award wording ("won", not "won't";
+  "claim", "selected to receive", "gift card", "awaits collection", "entitled to"…) together
+  with a request to call, text or dial a number of at least five digits. A premium-rate number
+  alone (09…, 087…) was left out: it marks old British texts, not today's US or Chinese ones.
+- **Links to an IP address** (`http://23.254.215.52`) are extracted, so the existing IP-link rule
+  reads them. The extractor had required a letter top-level domain.
+- **The organisation a text signs as** is no impersonation keyword: its claim is judged by the
+  sender rules. Other brands it names still count. This affects texts that open with or sign
+  as a brand, which this dataset hardly has.
+
+| Test half (scored once) | Before | After |
+|---|---:|---:|
+| Normal texts at Medium or above | 0 / 2,417 | 0 / 2,417 |
+| Smishing at Medium or above | 2 / 281 (0.7%) | 136 / 281 (48.4%) |
+| Spam at Medium or above | 0 / 235 | 21 / 235 (8.9%) |
+
+On the development half smishing went from 2 to 127 of 281 (45.2%), and normal texts stayed
+at 0 of 2,417.
+
+**Limits.**
+- One public dataset, old and mostly British; the owner's texts decide the launch.
+- Genuine loyalty texts ("You've earned 500 reward points, call 1-800-…") would match the new
+  rule, and this dataset has none to measure.
+- Chinese wording is untested: the dataset has no Chinese texts.
+
+### SMS mode: public-data baseline (2026-10-08)
+
+`website/tools/evaluate_sms.py` scored the SMS analysis (branch `sms-scam-detection`; its flag is
+off in production) on the SMS phishing dataset of Mishra and Soni
+([Mendeley Data](https://data.mendeley.com/datasets/f45bkkt8pr/1), DOI 10.17632/f45bkkt8pr.1,
+CC BY 4.0; `Dataset_5971.zip`, SHA-256 `9bbf3188…3cc3`, as Mendeley publishes it). The set has no
+senders, so the sender rules cannot fire. Exact duplicates within a label were removed. A 2026
+systematic review reports that 4,753 of its texts also appear in the UCI SMS Spam Collection,
+which was therefore not downloaded.
+
+| Cohort | Texts | Medium or above | Low | No known signs |
+|---|---:|---:|---:|---:|
+| Normal (ham) | 4,834 | 0 (0.0%) | 171 | 4,663 |
+| Smishing | 562 | 4 (0.7%) | 207 | 351 |
+| Spam | 469 | 0 | 46 | 423 |
+
+- **No false alerts on 4,834 normal texts.** The 171 Low come mostly from capital letters (57) and
+  exclamation marks (56).
+- **Recall is the gap: 4 of 562 smishing texts alert.** The missed texts are older prize scams:
+  80% carry a phone number and 47% a premium-rate number (09…, 087…), 49% prize wording, and only
+  17% a link. Normal texts almost never carry a phone number (6 of 4,834).
+- **The email rules do not cover them.** The callback rule needs refund or cancellation wording,
+  and the lures need a link.
+- **These texts are old and mostly British**, unlike today's toll, parcel and Chinese bank texts.
+  Rules written for them are judged on the owner's texts, as the launch gate fixed in the design
+  requires.
+
 ### Free development and storage addresses (2026-10-08)
 
 The section below left out a signal for any link to a free hosting service, for lack of

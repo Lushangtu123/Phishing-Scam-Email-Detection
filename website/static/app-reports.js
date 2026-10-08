@@ -228,7 +228,8 @@ function downloadReport(kind, format) {
 // level code at display time (recentLabel), so storage is language-neutral.
 const RECENT_KEY = 'phishguard-recent-checks';
 const RECENT_LIMIT = 10;
-const RECENT_MODES = { sender: 'recent.mode.sender', content: 'recent.mode.content', eml: 'recent.mode.eml', image: 'recent.mode.image' };
+const RECENT_MODES = { sender: 'recent.mode.sender', content: 'recent.mode.content', eml: 'recent.mode.eml', image: 'recent.mode.image',
+  sms: 'recent.mode.sms' };
 const RECENT_LEVELS = new Set(['safe', 'low', 'medium', 'high', 'critical', 'unknown']);
 let _recentStorageOk = true;
 

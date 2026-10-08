@@ -39,7 +39,7 @@ class FakeElement {
 // i18n.js loads before them (see the script-order test) and provides t().
 const APP_SCRIPTS = [
   'app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js',
-  'app-verify.js', 'app-content.js', 'app-content-render.js', 'app-reports.js',
+  'app-verify.js', 'app-content.js', 'app-content-render.js', 'app-sms.js', 'app-reports.js',
   'app-metrics.js', 'app.js',
 ];
 const appSource = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
@@ -635,7 +635,7 @@ test('every declared page action calls the handler its inline attribute used to 
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const declared = [...html.matchAll(/data-action="([^"]+)"(?:[^>]*?data-arg="([^"]*)")?/g)]
     .map(([, action, arg]) => ({ action, arg }));
-  assert.equal(declared.length, 34);
+  assert.equal(declared.length, 40);
   const controls = declared.map(({ action, arg }) =>
     Object.assign(new FakeElement(), { dataset: arg === undefined ? { action } : { action, arg } }));
   const elements = new Map();
@@ -650,7 +650,7 @@ test('every declared page action calls the handler its inline attribute used to 
   const calls = [];
   for (const name of ['cycleTheme', 'switchDemoTab', 'clearEmail', 'runEmailAnalysis', 'cancelEmailAnalysis', 'setExample', 'copySummary',
     'openFeedback', 'runVerification', 'clearContent', 'runContentAnalysis', 'setContentExample',
-    'downloadReport', 'clearRecentChecks']) {
+    'clearSms', 'runSmsAnalysis', 'setSmsExample', 'downloadReport', 'clearRecentChecks']) {
     context[name] = (...args) => calls.push([name, ...args]);
   }
   context.setupPageActions();
@@ -668,6 +668,9 @@ test('every declared page action calls the handler its inline attribute used to 
     'clear-content': () => ['clearContent'],
     'analyze-content': () => ['runContentAnalysis'],
     'set-content-example': arg => ['setContentExample', arg],
+    'clear-sms': () => ['clearSms'],
+    'analyze-sms': () => ['runSmsAnalysis'],
+    'set-sms-example': arg => ['setSmsExample', arg],
     'download-report': arg => ['downloadReport', ...arg.split(':')],
     'clear-recent': () => ['clearRecentChecks'],
   };
@@ -694,7 +697,7 @@ test('every declared page action calls the handler its inline attribute used to 
 test('demo tabs expose tab semantics and keep aria-selected in sync', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /<div class="demo-tabs" role="tablist" aria-label="[^"]+"[^>]*>/);
-  for (const name of ['email-address', 'email-content']) {
+  for (const name of ['email-address', 'email-content', 'sms']) {
     assert.match(html, new RegExp(`id="tab-${name}"[^>]*role="tab"[^>]*aria-controls="panel-${name}"`));
     assert.match(html, new RegExp(`id="panel-${name}" role="tabpanel" aria-labelledby="tab-${name}"`));
   }
@@ -715,6 +718,34 @@ test('demo tabs expose tab semantics and keep aria-selected in sync', () => {
   assert.equal('tabindex' in tabs['email-content'].attributes, false);
   assert.equal(tabs['email-address'].attributes['aria-selected'], 'false');
   assert.equal(tabs['email-address'].attributes.tabindex, '-1');
+});
+
+test('the SMS tab appears only when enabled, and renders the sender kind, claim and findings', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="tab-sms"[^>]*\bhidden>/);
+  const { context, elements } = loadFrontend();
+  context.applySmsConfig({ sms_analysis_enabled: false });
+  assert.equal(elements.get('tab-sms').hidden, true);
+  context.applySmsConfig({ sms_analysis_enabled: true });
+  assert.equal(elements.get('tab-sms').hidden, false);
+
+  context.renderSmsResult({ risk_level: 'high', risk_label: 'High Risk — Likely a Scam Text', sender_kind: 'email',
+    claimed_brand: 'United States Postal Service', category_results: [], official_channels: [],
+    extra_indicators: [{ level: 'high', code: 'sms.sender_mismatch', params: { brand: 'United States Postal Service' },
+      msg: 'The text says it is from United States Postal Service, but it was sent from a personal or foreign number or an email address, not from the organisation\'s own service numbers. Check through its official app or website.' }] });
+  assert.equal(elements.get('sms-sender-kind').textContent, 'Sender: an email address');
+  assert.equal(elements.get('sms-claimed').textContent, 'Says it is from: United States Postal Service');
+  assert.match(elements.get('sms-extra-list').innerHTML, /sent from a personal or foreign number/);
+  assert.equal(elements.get('sms-result-area').classList.contains('hidden'), false);
+
+  context.renderSmsResult({ risk_level: 'unknown', risk_label: 'No Known Scam Signs Found', sender_kind: 'short_code',
+    claimed_brand: null, category_results: [], official_channels: [], extra_indicators: [] });
+  assert.equal(elements.get('sms-banner-sub').textContent,
+    'No rule found a known scam sign. This does not show that the text is safe.');
+  assert.equal(elements.get('sms-claimed').hidden, true);
+  assert.equal(elements.get('sms-extra-card').hidden, true);
+  assert.deepEqual({ ...context.smsRecentEntry({ risk_level: 'unknown', risk_label: 'x' }), at: 0 },
+    { mode: 'sms', label: 'x', level: 'unknown', score: null, at: 0 });
 });
 
 test('homepage has a skip link, a main landmark, a named sender input and ordered headings', () => {

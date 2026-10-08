@@ -51,6 +51,7 @@ from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from config import load_settings
 import domain_age
+import sms_analysis
 from case_api import build_case_service, make_case_router, public_jev_status
 from feedback_api import make_feedback_router
 from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE  # noqa: F401 -- used by tests via app._REGISTRY_DOMAIN_RE
@@ -434,7 +435,7 @@ allowed_hosts = _build_allowed_hosts(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BYTES,
                    path_limits={**{path: MAX_VISUAL_REQUEST_BYTES for path in VISUAL_PATHS},
-                                '/api/feedback': 100_000})
+                                '/api/feedback': 100_000, '/api/analyze-sms': 16_000})
 
 _rate_limit_lock = threading.Lock()
 _rate_limit_buckets: dict[str, deque[float]] = {}
@@ -448,7 +449,7 @@ class _RateLimitBucket(deque):
 
 _RATE_LIMIT_PATHS = frozenset({
     '/api/analyze-email', '/api/analyze-content', '/api/analyze-eml',
-    '/api/analyze-visual', '/api/verify-email', '/api/feedback',
+    '/api/analyze-visual', '/api/verify-email', '/api/feedback', '/api/analyze-sms',
 })
 
 
@@ -819,6 +820,7 @@ async def get_public_config():
         "domain_verification_enabled": SETTINGS.domain_verification_enabled,
         "smtp_verification_enabled": SETTINGS.smtp_verification_enabled,
         "content_model_enabled": SETTINGS.content_model_enabled,
+        "sms_analysis_enabled": SETTINGS.sms_analysis_enabled,
         "sender_history_enabled": SETTINGS.sender_history_enabled,
         "sender_history_configured": SETTINGS.sender_history_ready,
         "sender_history_available": SETTINGS.sender_history_ready,
@@ -2608,17 +2610,39 @@ def _fine_lure(text: str, links, sender_domain: str = '') -> str | None:
     return None
 
 
+def _lure_points(item: dict) -> int:
+    """The points of a lure finding (fine, delivery, account hold, file share), which also
+    sets its level as the floor. Email and SMS (sms_analysis.py) score lures alike."""
+    return 4 if item['level'] == 'high' else 3
+
+
+def _delivery_wording(text: str) -> bool:
+    """A parcel, and a fee to pay or an address to correct."""
+    text = re.sub(r'\s+', ' ', text or '')
+    return bool(_DELIVERY_PARCEL.search(text) and (
+        _DELIVERY_FEE.search(text) or (_DELIVERY_ADDRESS.search(text) and _DELIVERY_ADDRESS_FIX.search(text))))
+
+
 def _delivery_lure(text: str, links, sender_domain: str = '') -> str | None:
     """The host a delivery-fee or wrong-address lure's button leads to, off the sender's domain."""
-    text = re.sub(r'\s+', ' ', text or '')
-    if not (_DELIVERY_PARCEL.search(text) and (
-            _DELIVERY_FEE.search(text) or (_DELIVERY_ADDRESS.search(text) and _DELIVERY_ADDRESS_FIX.search(text)))):
+    if not _delivery_wording(text):
         return None
     for label, destination in links or ():
         if _DELIVERY_ACTION.search(label or ''):
             host = _unlisted_off_sender_host(destination, sender_domain)
             if host and _organizational_domain(host) not in _DELIVERY_TRACKING_DOMAINS:
                 return host
+    return None
+
+
+def _sms_delivery_lure(text: str, links) -> str | None:
+    """_delivery_lure for a text message, whose links are bare, with no button to read."""
+    if not _delivery_wording(text):
+        return None
+    for _label, destination in links or ():
+        host = _unlisted_off_sender_host(destination, '')
+        if host and _organizational_domain(host) not in _DELIVERY_TRACKING_DOMAINS:
+            return host
     return None
 
 
@@ -3408,7 +3432,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         return found
 
     for item in lure_findings(lure_readings):
-        total_score += 4 if item['level'] == 'high' else 3
+        total_score += _lure_points(item)
         risk_floor = max((risk_floor, item['level']), key=floor_rank.get)
         extra_indicators.append(item)
 
@@ -3529,6 +3553,69 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         # For registration-date lookups only; removed before the response.
         "link_hosts":        _link_hosts(links),
     }
+
+
+def _discount_claimed_brand(rules: dict, names) -> None:
+    """A text names the organisation it signs as, and the sender rules judge that claim: its own
+    name is no impersonation keyword there (a genuine USPS text names USPS). Other brands count."""
+    names = {name.casefold() for name in names}
+    for index, category in enumerate(rules['categories'] if names else ()):
+        if category['key'] != 'impersonation':
+            continue
+        lowered = rules['analysis_text'].lower()
+        matched = [keyword for keyword in CONTENT_RULES['impersonation']['keywords']
+                   if keyword.casefold() not in names and _keyword_matches(lowered, keyword)]
+        rules['score'] -= category['score'] - min(len(matched), 5)
+        if matched:
+            rules['categories'][index] = {**category, 'matched': matched[:6], 'count': len(matched),
+                                          'score': min(len(matched), 5)}
+        else:
+            del rules['categories'][index]
+        return
+
+
+def analyze_sms(sender: str, text: str) -> dict:
+    """A text message: the SMS rules (sms_analysis.py) beside the plain-text rules texts share
+    with email, scored as email is. No text model: it was trained on email. With no finding
+    the verdict is unknown, never safe: a text's sender cannot be verified."""
+    floor_rank = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+    sms = sms_analysis.sms_findings(sender, text)
+    text, links = sms_analysis.clean_text(text), sms['links']
+    rules = _text_rule_findings(text)
+    _discount_claimed_brand(rules, sms['claimed_names'])
+    score, floor = rules['score'] + sms['score'], max((rules['floor'], sms['floor']), key=floor_rank.get)
+    indicators = [*rules['requests'], *rules['style'], *rules['wording'], *sms['indicators']]
+    if _has_shortener_url(text, links=links):
+        score += 2
+        indicators.append(indicator('high', 'content.shortened_urls'))
+    link_score, link_findings, link_floor = _analyze_link_destinations(text, links=links)
+    score += link_score
+    floor = max((floor, link_floor), key=floor_rank.get)
+    indicators.extend(link_findings)
+    for code, host in (('sms.fine_lure', _fine_lure(text, links)), ('sms.delivery_lure', _sms_delivery_lure(text, links))):
+        if host:
+            item = indicator('high', code, host=host)
+            score += _lure_points(item)
+            floor = max((floor, item['level']), key=floor_rank.get)
+            indicators.append(item)
+    fused = fuse_content_risk(ml_phishing_probability=None, ml_decision_threshold=1.0, heuristic_score=score,
+                              minimum_level=floor)
+    result = {
+        'risk_level': fused['risk_level'], 'risk_label': fused['risk_label'], 'total_score': score,
+        'category_results': rules['categories'], 'extra_indicators': indicators,
+        'sender_kind': sms['sender_kind'], 'claimed_brand': sms['claimed_brand'],
+        'link_hosts': _link_hosts(links),
+        'official_channels': _official_channels((), first=sms['claimed_brand'], limit=1) if sms['claimed_brand'] else [],
+    }
+    if score == 0 and floor == 'safe':
+        result['risk_level'] = 'unknown'
+        result['risk_label'] = 'No Known Scam Signs Found'
+    # The email labels for these levels name email ("钓鱼邮件" in Chinese).
+    elif result['risk_level'] == 'critical':
+        result['risk_label'] = 'Critical Risk — Very Likely a Scam Text'
+    elif result['risk_level'] == 'high':
+        result['risk_label'] = 'High Risk — Likely a Scam Text'
+    return result
 
 
 class ContentRequest(BaseModel):
@@ -3675,6 +3762,29 @@ def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heur
 @app.post("/api/analyze-content")
 async def analyze_content_endpoint(request: ContentRequest):
     return await _analyze_content(request)
+
+
+class SmsRequest(BaseModel):
+    sender: str = Field(default="", max_length=64)
+    text: str = Field(default="", max_length=2_000)
+
+
+@app.post("/api/analyze-sms")
+async def analyze_sms_endpoint(request: SmsRequest):
+    """A pasted text message and, optionally, its sender. Off until the launch gate passes."""
+    if not SETTINGS.sms_analysis_enabled:
+        raise HTTPException(status_code=404, detail='Not Found')
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail='Text message is required')
+    result = await _run_analysis(analyze_sms, request.sender, request.text)
+    # Registration dates of the links' domains, as for email: context only, no points.
+    candidates = _registration_candidates('', result.pop('link_hosts'))
+    if SETTINGS.rdap_lookups_enabled and candidates:
+        dates = await domain_age.lookup_many_async([domain for _role, domain in candidates])
+        result['domain_registrations'] = {domain: date.date().isoformat() if date else None
+                                          for domain, date in dates.items()}
+        result['extra_indicators'].extend(_registration_findings(candidates, dates))
+    return JSONResponse(annotate_content(result))
 
 
 @app.post("/api/analyze-eml")

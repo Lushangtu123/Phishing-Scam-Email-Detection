@@ -31,6 +31,8 @@ class Settings:
     app_env: str
     enable_email_verification: bool
     content_model_enabled: bool = False
+    # The SMS tab and /api/analyze-sms, off until the launch gate passes (docs/evaluation.md).
+    sms_analysis_enabled: bool = False
     trusted_authserv_ids: frozenset[str] = frozenset()
     content_model_artifact: str | None = None
     content_model_artifact_sha256: str | None = None
@@ -173,6 +175,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         app_env=app_env,
         enable_email_verification=verification_mode != "off",
         content_model_enabled=_parse_bool(source, "CONTENT_MODEL_ENABLED", False),
+        sms_analysis_enabled=_parse_bool(source, "SMS_ANALYSIS_ENABLED", False),
         trusted_authserv_ids=frozenset(
             item.strip().lower()
             for item in source.get("TRUSTED_AUTHSERV_IDS", "").split(",")
