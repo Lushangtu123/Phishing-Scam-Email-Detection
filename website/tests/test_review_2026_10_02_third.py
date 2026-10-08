@@ -12,8 +12,11 @@ from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
+from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import domain_age  # noqa: E402
 import email_structure as es  # noqa: E402
 
@@ -34,11 +37,19 @@ def analyze_eml(raw: bytes):
 
 
 def codes(result):
-    return {item.get('code') for item in result['extra_indicators']}
+    # Findings in what the message shows; hidden_codes lists those only text it may hide makes.
+    return shown_codes(result)
 
 
 def callback_shown(declarations):
     return 'content.callback_request' in codes(analyze(
+        f'<style>.unused{{display:none}}.attack{{color:black;{declarations}}}</style>'
+        f'<p class="attack">{CALLBACK}</p><p>{PADDING}</p>'))
+
+
+def callback_hidden(declarations):
+    """Whether the callback is read only as text the message may hide."""
+    return 'content.callback_request' in hidden_codes(analyze(
         f'<style>.unused{{display:none}}.attack{{color:black;{declarations}}}</style>'
         f'<p class="attack">{CALLBACK}</p><p>{PADDING}</p>'))
 
@@ -71,8 +82,9 @@ class CssMathTests(unittest.TestCase):
                       'conic-gradient(from calc(10px / 2px * 1deg),black,black)', 'linear-gradient(black calc(1px)calc(2px),black)'):
             with self.subTest(value=value):
                 self.assertTrue(app._background_valid(value))
-        # A valid one-colour gradient still hides black text.
+        # A valid one-colour gradient still hides black text, which is read as hidden text.
         self.assertFalse(callback_shown('background:linear-gradient(calc(45deg),black,black)'))
+        self.assertTrue(callback_hidden('background:linear-gradient(calc(45deg),black,black)'))
 
     def test_a_mixed_conic_stop_leaves_the_colours_unknown(self):
         # Chromium 148 rejects calc(10% + 1deg) in a conic stop; 154 accepts it.
@@ -109,6 +121,7 @@ class CoverageTests(unittest.TestCase):
                              'background-repeat:no-repeat;background:linear-gradient(black,black)'):
             with self.subTest(declarations=declarations):
                 self.assertFalse(callback_shown(declarations))
+                self.assertTrue(callback_hidden(declarations))
 
     def test_longhand_validity(self):
         for name, value, valid in (('background-size', '0 0', True), ('background-size', '-1px', False),
@@ -181,7 +194,7 @@ class LinkBudgetTests(unittest.TestCase):
                 self.assertIn('content.mailbox_lure', codes(analyze(self.body(before))))
 
     def test_past_the_budget(self):
-        with patch.object(app, '_MAX_VIEW_ANCHORS', 5):
+        with patch.object(html_visibility, '_MAX_VIEW_ANCHORS', 5):
             # The lure's label was read before the budget ran out.
             self.assertIn('content.mailbox_lure', codes(analyze(self.body(2, after=10))))
             # Past it, the rendering is unresolved: never Safe or Low.

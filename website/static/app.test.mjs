@@ -341,6 +341,19 @@ test('model-only high result explains that independent evidence is absent', () =
   assert.match(elements.get('crb-sub').textContent, /model-only.*no independent/i);
 });
 
+test('an original email whose text model alone flags it shows a note, not an alert', () => {
+  const { context, elements } = loadFrontend();
+  context.renderContentResult({ total_score: 0, category_results: [], extra_indicators: [], safety_signals: [],
+    analysis_complete: true, risk_level: 'low', risk_label: 'Low Risk — Text Model Signal Only',
+    combined_phishing_score: 29, fusion_basis: 'model_only', input_mode: 'raw-email',
+    ml_status: 'available', ml_label: 'Likely Phishing', ml_phishing_probability: 84.2,
+    ml_legitimate_probability: 15.8, ml_prediction: 1, ml_top_contributors: [], ml_metrics: {} });
+  // The model's own reading stays visible beside the note.
+  assert.match(elements.get('crb-sub').textContent,
+    /84\.2%.*Text-model signal only: with no rule, sender, or link evidence in the original email it is a note, not an alert/);
+  assert.equal(elements.get('crb-score').textContent, '29%');
+});
+
 test('model-led high result distinguishes weak rules from strong corroboration', () => {
   const { context, elements } = loadFrontend();
   context.renderContentResult({ total_score: 1, category_results: [], extra_indicators: [], safety_signals: [],
@@ -2122,6 +2135,20 @@ test('a model-driven alert says the text model raised it, without changing the v
   result = { ...result, risk_label: 'High Risk — Likely Phishing', fusion_basis: 'corroborated' };
   await context.runContentAnalysis();
   assert.equal(elements.get('content-accuracy-tip').hidden, true);
+});
+
+test('an original email with only a text-model note has nothing to settle', async () => {
+  const result = { ...contentResult('Low Risk — Text Model Signal Only'), risk_level: 'low', input_mode: 'raw-email',
+    combined_phishing_score: 29, fusion_basis: 'model_only', ml_phishing_probability: 91, ml_label: 'Likely Phishing' };
+  const { context, elements } = loadFrontend({ fetch: async () => response(result) });
+  context.setupInputEvents();
+  elements.get('content-body').value = 'Your security code is 123456.';
+  await context.runContentAnalysis();
+  assert.equal(elements.get('crb-title').textContent, 'Low Risk — Text Model Signal Only');
+  assert.match(elements.get('crb-sub').textContent, /a note, not an alert/);
+  // No accuracy tip and no "did you do this yourself?" question.
+  assert.equal(elements.get('content-accuracy-tip').hidden, true);
+  assert.equal(elements.get('content-requested').hidden, true);
 });
 
 test('a clean result shows no accuracy tip', async () => {

@@ -319,6 +319,7 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.highModel': 'High Risk — Model Signal Needs Review',
     'content.riskLabel.medium': 'Medium Risk — Suspicious Content',
     'content.riskLabel.mediumModel': 'Medium Risk — Model Signal Needs Review',
+    'content.riskLabel.lowModel': 'Low Risk — Text Model Signal Only',
     'content.riskLabel.low': 'Low Risk — Minor Concerns',
     'content.riskLabel.lowVerified': 'Low Risk — Verified Official Sender',
     'content.riskLabel.lowRequested': 'Low Risk — Confirmed as Your Own Action',
@@ -352,6 +353,7 @@ window.PhishGuardI18n = (() => {
     'content.mlLabel.phishing': 'Likely Phishing',
     'content.mlLabel.legit': 'Likely Legitimate',
     'content.sub.modelOnly': 'Model-only risk signal; no independent rule, sender, or link evidence was found.',
+    'content.sub.modelOnlyNote': 'Text-model signal only: with no rule, sender, or link evidence in the original email it is a note, not an alert. Check the sender and links yourself.',
     'content.sub.modelLed': 'Model-led risk signal; no strong independent rule, sender, or link evidence was found.',
     'content.requested.question': 'This notice is about something you would have done yourself (a code, sign-in, new account, order, job application or request), and only the text model flagged it. Are you sure you did this yourself just now?',
     'content.requested.yes': 'Yes, it was me',
@@ -858,6 +860,7 @@ window.PhishGuardI18n = (() => {
     'server.content.requested_notice': 'You confirmed this notice is about something you did yourself, so a text-model alert alone is not treated as phishing. Still check that the sender and any link belong to the service, and never share a code with anyone.',
     'server.content.unrequested_notice': 'You did not do what this notice describes, or are not sure. An unexpected code, sign-in, new account, order or application notice can mean someone is using your account, or that the message is phishing: don\'t use its links; open the service\'s own site or app instead.',
     'server.content.local_review_legitimate': 'A language model on this computer ({model}) read the message as legitimate ({confidence}% sure). The alert rested on the text model alone, so it is lowered to Low. Still check the sender and links before acting.',
+    'server.content.local_review_shadow': 'A language model on this computer ({model}) read the message as legitimate ({confidence}% sure). In shadow mode the alert stands; in use it would be lowered to Low.',
     'server.content.local_review_phishing': 'A language model on this computer ({model}) also read the message as phishing ({confidence}% sure).',
     'server.content.local_review_unsure': 'A language model on this computer ({model}) read the message as legitimate, but only {confidence}% sure, so the alert stands.',
     'server.content.local_review_unavailable': 'The language model on this computer ({model}) did not answer, so this alert was not reviewed.',
@@ -892,6 +895,8 @@ window.PhishGuardI18n = (() => {
     'server.link.display_mismatch': 'Link display domain ({display_host}) does not match the actual destination ({host}).',
     'server.link.idn_confusable': 'Link destination ({host}) is an IDN/confusable lookalike for {brand}.',
     'server.link.brand_lookalike': 'Link destination ({host}) is a noncanonical lookalike for {brand}.',
+    'server.link.dev_hosting': 'Link destination ({host}) is on {service}, a free development, storage or tunnel address anyone can create in minutes. Organisations send customers to their own domains, not to addresses like this.',
+    'server.link.brand_on_free_host': 'Link destination ({host}) is a site on {service}, a free hosting service anyone can use, named after {brand}. Organisations do not run their own account pages there.',
     'server.link.file_share_elsewhere': "The message says files were shared with you through {service}, but its download or open button leads to another site, {host}. Open shared files from the service's own website or app.",
     'server.sender.recently_registered': "The sender's domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing often uses newly registered domains; established organisations send from long-held ones.",
     'server.link.recently_registered': "The link domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing pages are often hosted on newly registered domains.",
@@ -928,6 +933,7 @@ window.PhishGuardI18n = (() => {
     'server.prefix.attached_message': 'Attached message: {text}',
     'server.prefix.image': 'Image ({name}): {text}',
     'server.prefix.image_recognition': 'Image recognition: {text}',
+    'server.prefix.hidden_text': 'In text the message may hide: {text}',
 
     'server.warning.mso_conditional': 'MSO conditional content has client-dependent rendering; analysis is incomplete.',
     'server.warning.malformed_html': 'Malformed HTML required recovery; analysis is incomplete.',
@@ -942,7 +948,7 @@ window.PhishGuardI18n = (() => {
     'server.warning.inline_images': 'Embedded image content was not inspected; analysis is incomplete.',
     'server.warning.remote_images': 'Remote image content was not inspected; analysis is incomplete.',
     'server.warning.unresolved_images': 'Unresolved image references were not inspected; analysis is incomplete.',
-    'server.warning.han_text': 'Substantial Han-script text detected; language-specific phishing checks are limited and this content may not be fully evaluated.',
+    'server.warning.han_text': 'Substantial Han-script (Chinese) text: the text model was not trained on Chinese mail, so only the rule checks are reliable here; coverage is limited and this content may not be fully evaluated.',
     'server.warning.model_insufficient_context': 'The message contains too little text for reliable model scoring; ML classification was not applied.',
     'server.warning.model_insufficient_coverage': 'Text model feature coverage is insufficient; ML classification was not applied.',
     'server.warning.attachment_unreadable': 'A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.',
@@ -1336,7 +1342,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=45'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=52'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1461,7 +1467,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowModel', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {

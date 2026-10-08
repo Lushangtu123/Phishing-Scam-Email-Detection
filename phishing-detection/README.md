@@ -1,5 +1,9 @@
 # Phishing Website Detection – ML Pipeline
 
+> Archived CS 166 course benchmark. It classifies websites, not email; the email detector
+> lives in `website/` (see the [main README](../README.md)). The `data/` email corpora listed
+> below are the text model's local training and evaluation inputs.
+
 A reproducible machine-learning benchmark comparing four classifiers on the
 **UCI Phishing Websites Dataset** (~11 000 samples, 30 tabular features).
 

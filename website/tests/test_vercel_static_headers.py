@@ -1,6 +1,6 @@
 """On Vercel the CDN serves /static without the app's middleware, so vercel.json "headers" must
 give each static file the headers the middleware gives it, and pyproject.toml must keep the
-CDN on (README, "Vercel Hobby deployment")."""
+CDN on (docs/deployment.md, "Vercel Hobby deployment")."""
 import asyncio
 import json
 import re

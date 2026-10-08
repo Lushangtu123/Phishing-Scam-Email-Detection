@@ -34,6 +34,20 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - After each deployment, returning visitors revalidate the homepage and get the new page with its new asset versions. An unchanged page still costs only a 304.
 - Checked on a local server: 200 with the hash ETag, 304 with it, 200 and the full page with a stale one.
 
+## [2026-10-08 10:02 PT] — Merge main into the review follow-ups: CDN notes in docs/deployment.md
+
+### Why
+- Main gained the two static-file entries below while this branch had shortened the README and moved its deployment section to `docs/deployment.md` (2026-10-05 17:35 PT), so the merge conflicted in `README.md` and here.
+
+### Files changed
+- `docs/deployment.md` — main's paragraph on CDN-served static files and the `pyproject.toml` dependencies, unchanged, where it stood in the old README's "Vercel Hobby deployment" section.
+- `README.md` — the short README, with `pyproject.toml` in the project structure.
+- `website/tests/test_vercel_static_headers.py` — the docstring points to `docs/deployment.md`.
+- `CHANGELOG.md` — the entries of both sides, newest first.
+
+### Effect
+- No behaviour change. The two entries below that name `README.md` describe text that now lives in `docs/deployment.md`.
+
 ## [2026-10-08 09:45 PT] — Vercel installs dependencies from pyproject.toml
 
 ### Why
@@ -63,6 +77,265 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - On Vercel, static files no longer wake the Function. The homepage and API requests still run in it, as do static files missing from the build.
 - Browser caching is unchanged (one day for versioned files): with the CDN serving them, expiry no longer reaches the Function, and the short lifetime keeps the margin against a missed `?v=` bump.
 - To be confirmed on the preview deployment before merging: the build installs dependencies as before, `/static` responses come from the CDN with these headers, and the page and analysis work.
+
+## [2026-10-08 09:26 PT] — Links to free development and storage addresses
+
+### Why
+- The previous entry left out a signal for any link to a free hosting service until it was measured on recent legitimate mail. The owner chose public developer lists: 24,264 messages of 15 `lists.apache.org` archives from 2026-07 to 2026-09 had no such link, nor did any of 60,601 legitimate messages in all, while 99 of 787 Nazario 2023–24 phishing messages did, 83 of them on development, storage or tunnel addresses.
+
+### Files changed
+- `website/app.py` — `link.dev_hosting`: a link to Cloudflare R2 or Workers dev URLs, Glitch, Cyclic, Replit, Cloudflare or ngrok tunnels, 000webhost or Azure storage web endpoints adds 4 points and a Medium floor. Site builders and app hosting (Wix, Vercel, Netlify, Cloudflare Pages, Firebase) stay out of it; there only a site named after a registered organization counts.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the message in English and Chinese; asset versions bumped.
+- `website/tools/evidence_attribution.py` — the rule is a recognized signal.
+- `website/tests/test_link_brand_free_host.py` — the services flagged, site builders and app hosting not flagged alone, one finding per message, and a brand on a development address.
+- `website/tests/test_file_share_elsewhere.py` — the fake WeTransfer notice whose button leads to a `workers.dev` address is now Critical (High before), with the new finding.
+- `docs/detection-design.md`, `docs/evaluation.md` — the rule and the measurement.
+
+### Effect
+- No count changed on `.eml` cohorts; 83 Nazario 2023–24 messages carry the finding, and 21 of their alerts are now corroborated by it rather than led by the model.
+- Nazario 2023–24 pasted as text: 752 → 753 alerts of 787. No legitimate cohort changed.
+- Recent consumer and small-business mail was not measured.
+
+## [2026-10-08 09:12 PT] — Links to a site named after an organization on a free hosting service
+
+### Why
+- Asked whether Cloudflare's Clef models help with phishing domains: Clef classifies a domain by fetching and rendering the site, which PhishGuard never does, so the useful change was in the link rules. `link.brand_lookalike` covers only five brands, and extending it to every registered organization would have flagged 9 of the owner's 92 genuine messages (the organizations' own other domains) for few new catches. The real lookalikes sat on free hosting services.
+
+### Files changed
+- `website/email_structure.py` — `BRAND_SITE_LABELS`: the domain labels of organizations matched by display name, without common words, the five protected brands or shared-service subdomains.
+- `website/app.py` — `link.brand_on_free_host`: a link to a site on one of 35 free hosting or site-builder services (Cloudflare Pages, Workers and R2, Vercel, Netlify, Glitch, Firebase, Wix and others) whose name is built on such a label; 4 points, no floor, once per message. Code and blog hosts (`github.io`, `blogspot.com`) and names with "clone" are left out. The finding counts as impersonation evidence.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the message in English and Chinese; asset versions bumped (`index.html`, `cases.html`, `404.html`, `lang-init.js`, manifest).
+- `website/tools/evidence_attribution.py` — the rule is a recognized signal.
+- `website/tests/test_link_brand_free_host.py` — new: lookalike sites from real phishing, digit-for-letter and pinyin names, the weight, and the sites not flagged.
+- `docs/detection-design.md`, `docs/evaluation.md` — the rule, the rejected extension and the data.
+
+### Effect
+- No alert, undetermined or not-alerted count changed on the owner's genuine mail, the new brand emails, Nazario 2023–24 or PhishFuzzer's recent seeds. Three Nazario 2023–24 phishing messages (Wells Fargo on cyclic.app, Docusign on glitch.me) now carry the finding; all were already alerts.
+- Not added: a link to any free hosting service as a signal. 99 of 787 Nazario 2023–24 messages had one and none of 36,337 legitimate messages in the local corpora did, but those corpora are mostly from 2008 or earlier, and small businesses and developers use these services.
+
+## [2026-10-08 08:52 PT] — Thirteen more Chinese services added to the official registry
+
+### Why
+- The owner asked to continue with the remaining Chinese services on the list of common sites.
+
+### Files changed
+- `website/data/official_brands_cn.json` — 快手, 小红书, 菜鸟, 百度, 货拉拉, 德邦快递, 芒果TV, 酷狗音乐, 蜜雪冰城, 叮咚买菜 and 瑞幸咖啡 by name, and 微博 and 知乎 as `sender_only` services, with their published hotlines. Each domain is named by a service, complaint or report mailbox on the organization's own page, read in a browser on 2026-10-07.
+- `website/tests/test_registry_additions_2026_10_07.py` — the second Chinese batch: names from other domains, their own domains, the words and services left out (装修快手, 菜鸟教程, 德邦证券, 某某官方微博), verified own mail and the hotlines.
+- `docs/evaluation.md` — the services, what was left out and why, and the measurement.
+
+### Effect
+- No count or signal changed on the usual cohorts, and none of the owner's mail comes from or names these services; the tests show the new findings.
+- Not added: 哈啰 and 得物 (their pages could not be read from here), 喜马拉雅, 豆瓣 and 高德 (phone numbers or forms only), 大众点评, 优酷, 盒马 and 网易云音乐 (mailboxes on another or a shared domain), 钉钉, 飞书, 闲鱼 and BOSS直聘 (they relay other users' messages), 网易163邮箱 and 189.cn (public mailbox services), and 肯德基中国, 饿了么, 华为 and 苏宁易购 (no official mailbox found or read).
+
+## [2026-10-07 11:33 PT] — Ten Chinese services added to the official registry
+
+### Why
+- The owner asked to continue with the Chinese services on the list of 460 common sites, about 40 of which the registry lacked.
+
+### Files changed
+- `website/data/official_brands_cn.json` — 携程, 去哪儿网, 同程旅行, 美团, 抖音, 哔哩哔哩, 爱奇艺 and 小米账号 by name, and 滴滴出行 and 唯品会 as `sender_only` services, with seven official hotlines. Each domain is named by a service, complaint or report mailbox on the organization's own page, read in a browser.
+- `website/tests/test_registry_additions_2026_10_07.py` — new: the Chinese names from other domains, their own domains, the words left out (周末去哪儿, 小米, 滴滴出行), verified own mail, the official channels and the hotlines.
+- `docs/evaluation.md` — the services, the gaps and the measurement.
+
+### Effect
+- No count or signal changed on the usual cohorts, and none of the owner's mail comes from or names these services; the cohorts are English, so the tests show the new findings.
+- A message asking the reader to call one of the seven hotlines (95010, 95117, 95711 and four 400 numbers) is no longer taken for a callback lure.
+- Not added: 饿了么 (no official mailbox found) and 华为 (no page names its account mail domain); the list's other Chinese services are not checked yet.
+
+## [2026-10-06 21:32 PT] — Thirteen more organizations added to the official registry
+
+### Why
+- A second batch from the owner's list of 460 common sites, in the same four groups (banks and insurers, delivery and shopping, travel, subscriptions and software).
+
+### Files changed
+- `website/data/official_brands_intl.json` — Fidelity Investments, Discover, 1Password, Bitwarden, Hilton Honors and Emirates by name, and State Farm, Chime, Uber, Lyft, Qatar Airways, British Airways and Target as `sender_only` services. Each domain is named as a sending domain or a report address on the organization's own page, read in a browser on 2026-10-06. 1Password's community and custom invitation mail and Bitwarden's no-reply address are relays.
+- `website/tests/test_registry_additions_2026_10_06.py` — the second batch: names from other domains, their own domains, the names left out (Fidelity Bank, Discover Weekly, Paris Hilton, Emirates NBD), verified own mail, the relays, and shared or unlisted domains kept unofficial.
+- `docs/evaluation.md` — the batch, what was left out and why, and the measurement.
+
+### Effect
+- No alert, undetermined or not-alerted count changed in the owner's 79 genuine `.eml` messages, the new brand emails, Nazario 2023–24 or PhishFuzzer's recent seeds. One Nazario message showing "Fidelity Investments" from another domain now carries an impersonation finding (fusion model-led to corroborated). None of the owner's 87 exported Gmail messages comes from or names these organizations.
+- Left out: Wise (a report form only), Temu (merchant messages go through it), and DoorDash, HBO Max, Disney+, Hulu, SHEIN, Samsung, United Airlines, Southwest, Ryanair, Home Depot, Costco, Instacart, Starbucks and Nike (no page names their sending domains or a report address).
+
+## [2026-10-06 14:35 PT] — Fifteen organizations added to the official registry
+
+### Why
+- The owner supplied a list of 460 common sites with their official website domains. A website domain is not a sending domain (`docs/official-registry.md`), so the list was not imported; it supplied candidates in the four groups the owner chose: banks and insurers, delivery and shopping, travel, and subscriptions and games.
+
+### Files changed
+- `website/data/official_brands_intl.json` — RBC, TD (as TD Canada Trust), Scotiabank, CIBC, BMO, DPD UK, Evri, Air Canada, Delta, Blizzard and Roblox by name, and American Airlines, OpenAI, Nintendo and Riot Games as `sender_only` services. Each domain is named as a sending domain or a report address on the organization's own page, read in a browser on 2026-10-06. OpenAI's invite address is a relay.
+- `website/tests/test_registry_additions_2026_10_06.py` — new: the names from other domains, their own domains, the names left out (RBC Bearings, BMO Stadium, TD Bank, the American Airlines credit union), verified own mail, OpenAI's invites as relays, shared senders kept unofficial, and the official channels.
+- `docs/official-registry.md` — narrower names or a `sender_only` entry when other organizations' mail carries a name, and a website list as a source of candidates only.
+- `docs/evaluation.md` — the additions, what was left out and why, and the measurement.
+
+### Effect
+- No alert, undetermined or signal count changed in the owner's 79 genuine `.eml` messages (with and without a mailbox), the new brand emails, Nazario 2023–24 or PhishFuzzer's recent seeds. None of them, and none of the owner's 87 exported Gmail messages, comes from or names these organizations.
+- Mail that shows these names from other domains now carries an impersonation finding, and their own authenticated mail is a verified official sender.
+- Left out: U.S. Bank (its pages now give only a phone number), Walmart, Best Buy and eBay (they relay seller or member messages), Marriott and PlayStation (no page names their sending domains).
+
+## [2026-10-06 14:01 PT] — The owner's review of the first teacher queue
+
+### Why
+- The first labelling run queued one message for the owner: a community digest Gmail had filed in Spam, which the teacher read as legitimate (95).
+
+### Files changed
+- `docs/llm-teacher.md`, `docs/evaluation.md` — the owner's label.
+
+### Effect
+- The owner labelled it legitimate, as the teacher had. All 18 new messages of the Gmail export are training rows, all legitimate; the training loader reads all 18. They stay outside the repository.
+- Provider spam still goes to a person: one message does not show that Gmail's Spam label can be skipped.
+
+## [2026-10-06 11:00 PT] — A local language model as a labelling teacher
+
+### Why
+- The text model's genuine training mail is mostly from 2002–2008, and the owner's recent mail is the missing ingredient. Labelling thousands of messages by hand is the obstacle, so a local model could propose labels for a person to check before a candidate model is trained on them.
+
+### Files changed
+- `website/tools/evaluate_llm_labeler.py` — new: asks a local model (loopback only) about each labelled message of consented cohorts and reports, counts only, its readings by confidence band and the precision, recall and coverage of labels accepted at floors 50, 80 and 90.
+- `website/tools/label_with_llm.py` — new: labels an mbox or a directory of `.eml` files into a directory outside the repository. Legitimate readings at or above the floor become training rows in the CEAS_08/Nazario column layout. Every phishing reading, reading below the floor, unanswered message, Takeout message labelled Spam and message a `--review` manifest lists goes to a review queue. `merge` rebuilds the training file with the person's labels, `label` refuses a queue a person has started, and `--exclude` keeps evaluation messages out.
+- `website/tests/test_evaluate_llm_labeler.py`, `website/tests/test_label_with_llm.py` — both tools against a stub model: counts and floors, no message text in the report, loopback only, the queue, the merge, spam and listed messages, evaluation messages and the output location.
+- `website/tests/test_artifact_provenance.py` — new: fails if the committed text model names a training source outside the public corpora, since a TF-IDF vocabulary keeps words from its training mail.
+- `website/tests/test_evaluate_local_review.py` — closes the stub server's socket.
+- `docs/llm-teacher.md` — new: the rules (a person decides every phishing label; the teacher never labels evaluation messages; private mail and models trained on it stay out of Git; replace the served model only on a measured gain; the licence), the steps, the owner's mailbox and the measurement.
+- `docs/evaluation.md` — the measurement. `README.md` — links the new page.
+
+### Effect
+- `qwen3.8:27b-mxfp8` on 1,095 labelled messages: 10 of the owner's 92 genuine messages read as phishing, all at 90 or more, so phishing labels must come from a person. Legitimate readings at 90 or more missed 9 of 890 phishing messages (1.0%). 97% of readings are at 90 or more, so the floor is no safeguard. 5.1 s a message on an M2 Max.
+- The owner's Gmail export of 87 messages: 69 are evaluation messages and were skipped. 17 messages are labelled legitimate and 1, which Gmail had filed in Spam and the teacher read as legitimate, waits for the owner. The outputs are outside the repository.
+- No change to the served page or model.
+
+## [2026-10-05 23:46 PT] — Compare four Qwen models as local reviewers
+
+### Why
+- The rollout plan asks whether a smaller model, which a modest host could serve, reviews model-driven alerts as well as the 27B one measured on 2026-10-04.
+
+### Files changed
+- `website/tools/evaluate_local_review.py` — a pasted cohort reads source files up to the browser's 3 MiB limit, not the 60,000-byte `.eml` limit, since pasting has no upload limit of its own.
+- `website/tests/test_evaluate_local_review.py` — that limit, both ways.
+- `docs/evaluation.md`, `docs/llm-review-rollout.md` — the comparison and what it means for serving the review.
+
+### Effect
+- Shadow mode, same cohorts, alerts that each model would lower (owner's 35 pasted false alerts / pasted Nazario phishing alerts of 752 / mean seconds): `qwen3.5:4b-mlx` 16 / 87 / 0.8; `qwen3.5:9b` 11 / 17 / 1.7; `qwen3.8:27b-mlx` 25 / 14 / 3.6; `qwen3.8:27b-mxfp8` 32 / 9 / 4.2. No model lowered a Nazario `.eml` alert. `qwq:32b` timed out on 3 of 4 reviews.
+- The small models do not hold up; the 8-bit 27B build is the candidate reviewer, at 32 GB and up to 27.5 s per review.
+- No verdict changes: the review stays off by default.
+
+## [2026-10-05 21:04 PT] — Shadow mode and a comparison tool for the local language-model review
+
+### Why
+- After the 2026-10-05 compromise, pasted text keeps its model-only alerts, which the local Qwen review lowered from 35 to 9 on the owner's genuine mail. The owner asked to prepare the review for the served page without changing the privacy promise yet: measure first, in shadow mode, and compare smaller models that a modest host could serve.
+
+### Files changed
+- `website/local_review.py`, `website/app.py` — `LOCAL_LLM_REVIEW_SHADOW=true` runs the review as usual, but a legitimate reading only records that it would lower the alert (`content.local_review_shadow`); the verdict is unchanged. Still development-only and loopback-only.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the shadow message in English and Chinese; asset versions bumped.
+- `website/tools/evaluate_local_review.py` (new) — runs the serving pipeline over consented cohorts once per Ollama model, in shadow mode, with `--paste` for the pasted path, and writes counts only (alerts, would lower, kept, unavailable, skipped, response times), with model and prompt digests.
+- `website/tests/test_local_review.py`, `website/tests/test_evaluate_local_review.py` (new) — the setting, shadow readings, per-cohort counts with a stub server, and loopback-only URLs.
+- `docs/llm-review-rollout.md` (new) — the gates before the review runs for visitors (independent holdout, a servable model, privacy, prompt injection), the steps, rollback and the comparison procedure; `docs/optional-features.md`, `docs/deployment.md`, `README.md` link it.
+
+### Effect
+- No verdict changes: the review stays off by default, and shadow mode never changes a result.
+
+## [2026-10-05 17:52 PT] — Keep model-only alerts on pasted text; a note only in original messages
+
+### Why
+- Making every model-only score a note (entry "Show a text-model signal alone as a note, not an alert", above) cost 25 to 56 points of phishing recall on pasted public corpora, far more than the 2026-09-29 `.eml` figure. The owner chose a compromise: a note only where the message's headers were read.
+
+### Files changed
+- `website/app.py` — `fuse_content_risk(raw_message=)`: a model-only score is a Low note in an original message and a Medium alert ("Model Signal Needs Review") otherwise; `_analyze_content` decides from the parsed message (after `raw_email` is parsed), and `_analyze_visual` passes it to the text read from an uploaded `.eml`'s images.
+- `website/static/i18n.js`, `website/static/i18n-zh.js`, `website/static/app-content-render.js` — both labels again; the model-only line explains an alert or a note by the result's level; asset versions bumped.
+- `website/static/app.test.mjs`, `website/tests/fixtures/i18n/scenarios.mjs`, `website/tests/fixtures/i18n/en-snapshot.json` — the original model-only tests and snapshot are back, with an added `.eml` note scenario (20 snapshot lines added, none changed).
+- `website/tests/test_local_review.py`, `test_requested_notice.py`, `test_presentation_cues.py` — the original files, plus tests that an original message's note is neither asked about nor reviewed; `test_detection_behavior.py`, `test_risk_precision.py`, `test_html_input_coverage.py` — pasted expectations restored, the note tested for raw messages.
+- `README.md`, `docs/detection-design.md`, `docs/evaluation.md` — the rule by input path and its measurement.
+
+### Effect
+- Pasted public corpora (9,263 messages): every alert, undetermined and other count equals the original code's.
+- Raw messages rebuilt from the CSVs: Nazario alerts 1,544 → 1,529 of 1,563; CEAS-08 legitimate false alerts 85 → 83 of 1,497. The owner's genuine `.eml` cohort is not measured.
+
+## [2026-10-05 17:35 PT] — Short README; details moved to docs/
+
+### Why
+- The README had grown to 2,068 lines that mixed a user guide, the API, design reasoning and evaluation logs; its project tree still used the old `CS-166-Final-Project/` name and listed 8 of 30 modules, and five sections sat after the footer.
+
+### Files changed
+- `README.md` — rewritten (167 lines): what PhishGuard checks, how a verdict is made (diagram), measured results by input path with their caveats, limitations, quick start, testing, the full project tree and a documentation index.
+- `docs/detection-design.md`, `docs/api.md`, `docs/deployment.md`, `docs/data-and-model.md`, `docs/testing.md`, `docs/optional-features.md` (new) — the former README sections, moved verbatim: headings shift one level where a section became a page, relative links were rewritten to resolve from `docs/`, and the three sections that sat at the wrong level after the footer were fixed.
+- `docs/evaluation.md`, `website/tools/evaluate_source_holdout.py` — references to README sections now name the new pages.
+- `progress_report.md`, `phishing-detection/README.md` — a note that they are the historical report and the archived course benchmark.
+
+### Effect
+- Documentation only. Every non-blank line of the old README is in the new pages except the old introduction and project tree, which the new README replaces; every relative link and anchor in README and `docs/` resolves. The quick-start commands were run: the rules-only and model-enabled servers both answered `/health`.
+
+## [2026-10-05 17:21 PT] — Move the HTML/CSS visibility reader out of app.py
+
+### Why
+- `website/app.py` held 7,866 lines, about 40% of them a hand-written CSS cascade, colour and visibility reader that eleven reviews in three days kept patching. Separating it lets that code be read, reviewed and tested on its own, and leaves `app.py` with the API, rules and fusion.
+
+### Files changed
+- `website/html_visibility.py` (new) — 3,178 lines moved verbatim from `app.py`, in their original order: the HTML parser base and Outlook conditional comments, the CSS cascade, colour, gradient and math readers, `_visible_content_text`, and three pure helpers it needs (`_strip_invisible_format_controls`, `_parse_link_target`, `_unescape_css`).
+- `website/app.py` — imports what it uses from the new module, and re-exports, marked as such, the internals tests reach through `app.`; unused imports removed. 7,866 → 4,691 lines.
+- `website/tests/test_review_2026_10_02_third.py` — patches `_MAX_VIEW_ANCHORS` where it now lives; a patch on `app` would no longer reach it.
+- `README.md` — the module in the project tree.
+
+### Effect
+- No behavior change: every line removed from `app.py` is in the new module unchanged, all 1,163 Python and 515 frontend tests pass, and the full analysis JSON of 9,263 local corpus messages and 371 HTML inputs taken from the test suite is byte-identical before and after (with `PYTHONHASHSEED` fixed: `content.obfuscation` joins a set of brand names, so its order already varied between processes).
+
+## [2026-10-05 17:15 PT] — Say plainly that the text model does not read Chinese mail
+
+### Why
+- The page is bilingual and the registry lists 39 Chinese organizations, but the text model was trained without Chinese mail: on 611 unlabelled DataCon 2023 Chinese messages, 349 (57%) end undetermined. The old warning ("language-specific phishing checks are limited") did not tell a reader why, or which checks still apply.
+
+### Files changed
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `warning.han_text` now says the text model was not trained on Chinese mail, so only the rule checks are reliable, in English and Chinese; asset versions bumped.
+- `README.md` — which checks still read Chinese mail, and that its detection quality is unmeasured.
+
+### Effect
+- Wording only: verdicts, scores and the warning's code are unchanged.
+
+## [2026-10-05 17:15 PT] — Review checklist and evidence gate for the official-brand registry
+
+### Why
+- A trusted DMARC pass on a registry domain makes a verified official sender, which the text model and weak rules cannot raise above Low, so each official domain is a trust anchor. The registry's own notes say some domains came "from prior knowledge" and still need confirmation (`jpmorganchase.com`, `square.com`, `squareup.com`), and entries are often added after a single incident.
+
+### Files changed
+- `docs/official-registry.md` (new) — what an entry does, the evidence a domain needs, relay and shared-domain checks, display names, measurement and a six-monthly recheck.
+- `website/tests/test_registry_evidence.py` (new) — every official domain needs recorded evidence (`domain_sources`, a statement page on the domain, or an official contact address there); the 79 domains without any are listed and the list may only shrink; `domain_sources` must be HTTPS pages.
+- `README.md` — links the checklist.
+
+### Effect
+- No verdict changes. Adding a domain without evidence now fails CI, and so does confirming a listed domain without taking it off the list.
+- 79 official domains in 48 entries are pending confirmation (36 international, 43 Chinese).
+
+## [2026-10-05 17:13 PT] — Read hidden text with the strongest request and lure rules
+
+### Why
+- Eleven reviews from 2026-10-01 to 10-03 each found a style the CSS reader misjudged (a gradient, `calc()`, `clamp()`, `atan2()`, `color-mix()`, a custom property's case, print-only CSS), so that a visible callback scam read as hidden text and came out Safe or Low. Matching every browser and mail client has no end; the rules should not depend on it.
+
+### Files changed
+- `website/app.py` — `_visible_content_text` adds an `all_text` reading (never a model rendering) where styles may hide text. `analyze_email_content` runs the request rules (credential, callback, subsidy, sensitive requests) and the lure rules on it, with each link's whole label (`_extract_links(hidden_labels=True)`); a finding only that reading makes is listed as "In text the message may hide: …" at Medium level. `_analyze_content` adds its Medium floor (3 points) after the model's renderings are chosen, so it never lets the model score hidden text. The lure checks share one helper, `lure_findings`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — `prefix.hidden_text` in English and Chinese; asset versions bumped.
+- `website/tests/test_hidden_text_rules.py` (new) — no tested style (the reviews' and the common hiding methods, in a stylesheet, inline and print-only) clears a callback request; marking, severity, no duplicates, keyword score and the model unchanged. `website/tests/hidden_findings.py` (new) — shown and hidden finding codes for tests.
+- `website/tests/test_review_2026_10_01_fourth.py`, `test_review_2026_10_02.py`, `test_review_2026_10_02_second.py`, `test_review_2026_10_02_third.py`, `test_review_2026_10_02_fifth.py` — visibility controls compare the findings in what the message shows, and the hidden ones now also expect the marked finding.
+- `website/tests/test_html_input_coverage.py` — hidden phishing padding is a Medium hidden-text finding; the model still abstains.
+- `README.md`, `docs/evaluation.md` — the rule and its measurement.
+
+### Effect
+- A scam request or lure in text the reader may not see is now a Medium alert instead of Safe, Low or Unknown; what the message shows keeps its High findings.
+- Local public corpora (9,263 pasted messages): no alert count changed, and no message had a hidden-text finding. These corpora are plain text; the effect on real HTML mail, including false alerts on genuine HTML newsletters, is unmeasured until the owner's `.eml` cohorts are run.
+
+## [2026-10-05 16:59 PT] — Show a text-model signal alone as a note, not an alert
+
+### Why
+- After the 2026-10-05 project review, the owner chose to stop alerting on a text-model score that no rule, sender, link or structure evidence supports (`fusion_basis=model_only`) until a consented, independent holdout supports more. Uncorroborated model scores were about half of the false alerts on real account notices (2026-09-29).
+
+### Files changed
+- `website/app.py` — `fuse_content_risk`: `model_only` is **Low Risk — Text Model Signal Only** instead of a Medium alert; on its own the model counts at most 29% in `combined_phishing_score`, while `ml_phishing_probability` keeps its reading. `_fused_decision` keeps the rendering-view and earlier-abstention checks keyed on "alert or note", so hidden text still cannot add or remove a model signal. A verified official sender keeps its own Low label.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — `content.riskLabel.lowModel` replaces `mediumModel`; the model-only line says it is a note, not an alert. Asset versions bumped (`website/tools/asset-versions/manifest.json` and the page references).
+- `website/static/app.test.mjs`, `website/tests/fixtures/i18n/scenarios.mjs`, `website/tests/fixtures/i18n/en-snapshot.json` — the note in the page; the snapshot was regenerated with `capture.mjs` and only the model-only scenario changed.
+- `website/tests/test_detection_behavior.py`, `test_presentation_cues.py`, `test_risk_precision.py`, `test_html_input_coverage.py`, `test_rendering_views.py`, `test_local_review.py`, `test_requested_notice.py` — expectations for the note; the local-review and "did you do this yourself?" tests now use model-led alerts, which still reach them.
+- `README.md`, `docs/evaluation.md` — the rule and its measurement.
+
+### Effect
+- A model-only result no longer alerts, asks whether the reader did it, or goes to the local review. Model-led alerts (the model with keyword categories or presentation cues) are unchanged.
+- Local public corpora, pasted subject and body, committed artifact (table in `docs/evaluation.md`): phishing alerts Nazario 1,506 → 1,112 of 1,561, PhishNChips 993 → 435 of 1,000, PhishFuzzer LLM variants 1,308 → 1,258 of 1,344; false alerts PhishFuzzer legitimate 194 → 122 of 1,392, CEAS-08 27 → 19 of 1,496, Phishing_Email 22 → 8 of 1,470, PhishNChips 31 → 19 of 1,000.
+- Caution: pasted text loses far more phishing alerts than the 2026-09-29 `.eml` measurement (Nazario 2023–25, 91.8% → 89.0%), because nothing in it can corroborate the model. Most of these corpora are in the model's training pool. Measure the owner's genuine and Nazario `.eml` cohorts with `evaluate_serving_pipeline.py` before deploying.
 
 ## [2026-10-05 15:26 PT] — Add six organizations to the official registry
 

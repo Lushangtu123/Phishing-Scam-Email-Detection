@@ -48,8 +48,8 @@ class RiskPrecisionTests(unittest.TestCase):
                     result = self.analyze([probability], threshold, app.ContentRequest(body=self.body))
                     self.assertEqual(result['ml_prediction'], expected)
                     self.assertEqual(result['total_score'], 0)
-                    # At the threshold the model alone alerts as Medium; just below it the
-                    # model reads the text as legitimate, so the verdict stays Low.
+                    # At the threshold the model alone alerts as Medium on pasted text; just
+                    # below it the model reads the text as legitimate, so the verdict stays Low.
                     self.assertEqual(result['risk_level'], 'medium' if expected else 'low')
                     self.assertEqual(result['fusion_basis'], 'model_only' if expected else 'other')
                     self.assertEqual(result['ml_phishing_probability'], round(probability * 100, 1))
@@ -65,7 +65,8 @@ class RiskPrecisionTests(unittest.TestCase):
         )
         self.assertEqual(result['ml_prediction'], 1)
         self.assertEqual(result['fusion_basis'], 'model_only')
-        self.assertEqual(result['risk_level'], 'medium')
+        # An original message: the model alone is a Low note (2026-10-05).
+        self.assertEqual(result['risk_level'], 'low')
 
     def test_rounding_does_not_promote_supported_high_risk_to_critical(self):
         request = app.ContentRequest(

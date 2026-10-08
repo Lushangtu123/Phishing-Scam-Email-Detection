@@ -1,5 +1,9 @@
 # CS 166 Final Project – Progress Report
 
+> Historical report from April 2026, kept as submitted. The repository has since been renamed
+> Phishing-Scam-Email-Detection and the project moved from website to email detection; see
+> [README.md](README.md). The UCI benchmark it describes is archived in `phishing-detection/`.
+
 ---
 
 **Project Title:** Phishing Website Detection Using Machine Learning  

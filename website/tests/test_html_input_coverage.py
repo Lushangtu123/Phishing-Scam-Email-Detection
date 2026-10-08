@@ -10,8 +10,10 @@ from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app
+from hidden_findings import hidden_codes, shown_codes
 
 
 class HTMLInputCoverageTests(unittest.TestCase):
@@ -1091,7 +1093,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
         self.assertIn(result['risk_level'], {'high', 'critical'})
         self.assertFalse(result['analysis_complete'])
 
-    def test_stylesheet_hidden_phishing_padding_does_not_create_false_high_risk(self):
+    def test_stylesheet_hidden_phishing_padding_is_a_medium_hidden_text_finding(self):
         pipeline = self.deployment_pipeline()
         padding = ('Urgent security alert: your account will be suspended immediately unless '
                    'you enter your password now. Final warning: verify your password or lose '
@@ -1102,9 +1104,15 @@ class HTMLInputCoverageTests(unittest.TestCase):
                 '<p>Hello everyone, please review the normal project agenda.</p>'
                 f'<div class="pad">{padding}</div>'
             ))
+        # The model still never scores the hidden padding, and keyword categories never read it.
         self.assertEqual(result['ml_status'], 'unverified_rendering')
-        self.assertEqual(result['risk_level'], 'unknown')
-        self.assertEqual(result['total_score'], 0)
+        self.assertEqual(result['category_results'], [])
+        # Since 2026-10-05 the request rules read it as text the message may hide: a Medium
+        # alert, not the unsupported High verdict the padding could once produce.
+        self.assertEqual((result['risk_level'], result['risk_label']), ('medium', 'Medium Risk — Suspicious Content'))
+        self.assertEqual(hidden_codes(result), {'content.pressured_credential_request'})
+        self.assertNotIn('content.pressured_credential_request', shown_codes(result))
+        self.assertEqual(result['total_score'], 3)
         self.assertFalse(result['analysis_complete'])
 
     def test_uncertain_html_part_does_not_suppress_plain_mime_evidence(self):

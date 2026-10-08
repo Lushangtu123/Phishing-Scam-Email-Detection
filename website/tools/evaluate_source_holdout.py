@@ -3,7 +3,7 @@
 For each corpus, train the deployed model configuration (same TF-IDF features and
 Logistic Regression settings) on every *other* corpus and score the held-out one.
 Compare it with an in-distribution baseline: grouped K-fold over all corpora
-pooled, which is how the README's mixed-corpus figures were produced. A large gap
+pooled, which is how the mixed-corpus figures in docs/data-and-model.md were produced. A large gap
 for a corpus means the model relies on features that identify where a message
 came from rather than whether it is phishing.
 
@@ -36,8 +36,8 @@ if str(WEBSITE_DIR) not in sys.path:
 import content_model  # noqa: E402
 from tools.model_text import normalize_texts  # noqa: E402
 
-# The committed artifact's decision threshold (README, "Observed email-text
-# evaluation"); a test checks it against the artifact.
+# The committed artifact's decision threshold (docs/data-and-model.md, "Observed
+# email-text evaluation"); a test checks it against the artifact.
 DEPLOYED_THRESHOLD = 0.3736
 DEFAULT_THRESHOLDS = (0.5, DEPLOYED_THRESHOLD)
 HARD_NEGATIVE_SOURCE = "synthetic_hard_negatives"

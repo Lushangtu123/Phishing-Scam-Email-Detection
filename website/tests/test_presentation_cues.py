@@ -69,6 +69,11 @@ class FusionTests(unittest.TestCase):
         self.assertEqual((result['risk_level'], result['fusion_basis']), ('high', 'model_led'))
         result = fuse(ml_phishing_probability=0.45, heuristic_score=0)
         self.assertEqual((result['risk_level'], result['fusion_basis']), ('medium', 'model_only'))
+        # In an original message the model alone is a Low note (2026-10-05); the cues still back it.
+        result = fuse(ml_phishing_probability=0.45, heuristic_score=0, raw_message=True)
+        self.assertEqual((result['risk_level'], result['fusion_basis']), ('low', 'model_only'))
+        result = fuse(ml_phishing_probability=0.45, heuristic_score=1, presentation_score=1, raw_message=True)
+        self.assertEqual((result['risk_level'], result['fusion_basis']), ('high', 'model_led'))
 
 
 class MessageTests(unittest.TestCase):

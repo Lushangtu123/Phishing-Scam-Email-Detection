@@ -14,8 +14,10 @@ from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import domain_age  # noqa: E402
 import email_structure as es  # noqa: E402
 
@@ -30,7 +32,8 @@ def analyze(body, subject='Project update'):
 
 
 def codes(result):
-    return {item.get('code') for item in result['extra_indicators']}
+    # Findings in what the message shows; hidden_codes lists those only text it may hide makes.
+    return shown_codes(result)
 
 
 def styled_callback(declarations):
@@ -75,8 +78,10 @@ class GradientGrammarTests(unittest.TestCase):
                 self.assertIn('content.callback_request', codes(result))
 
     def test_a_valid_one_colour_gradient_still_hides(self):
-        self.assertNotIn('content.callback_request',
-                         codes(analyze(styled_callback('color:black;background:linear-gradient(to left top,black,black)'))))
+        result = analyze(styled_callback('color:black;background:linear-gradient(to left top,black,black)'))
+        self.assertNotIn('content.callback_request', codes(result))
+        # Hidden, it is still read as text the message may hide: a Medium finding, not High.
+        self.assertIn('content.callback_request', hidden_codes(result))
 
 
 class BackgroundClipTests(unittest.TestCase):
@@ -99,7 +104,9 @@ class BackgroundClipTests(unittest.TestCase):
         # Nothing paints inside transparent glyphs; an unclipped black background hides black text.
         for declarations in ('-webkit-background-clip:text;color:transparent', 'color:black;background:black'):
             with self.subTest(declarations=declarations):
-                self.assertNotIn('content.callback_request', codes(analyze(styled_callback(declarations))))
+                result = analyze(styled_callback(declarations))
+                self.assertNotIn('content.callback_request', codes(result))
+                self.assertIn('content.callback_request', hidden_codes(result))
 
     def test_clip_values(self):
         self.assertEqual(app._background_clip('text'), 'all')

@@ -13,8 +13,10 @@ from unittest.mock import patch
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import email_structure as es  # noqa: E402
 
 CALLBACK = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
@@ -41,7 +43,8 @@ def eml(sender, html):
 
 
 def codes(result):
-    return {item.get('code') for item in result['extra_indicators']}
+    # Findings in what the message shows; hidden_codes lists those only text it may hide makes.
+    return shown_codes(result)
 
 
 def styled_callback(background):
@@ -113,7 +116,10 @@ class RenderingViewTests(unittest.TestCase):
     def test_a_label_hidden_on_every_view_is_not_read(self):
         html = ('<style>.x{display:none}</style><p>Your mailbox storage is full and incoming messages are on hold.</p>'
                 '<a class="x" href="https://portal.example.org/review">Release messages</a>')
-        self.assertNotIn('content.mailbox_lure', codes(analyze(html)))
+        result = analyze(html)
+        self.assertNotIn('content.mailbox_lure', codes(result))
+        # The hidden label is still read as text the message may hide (2026-10-05).
+        self.assertIn('content.mailbox_lure', hidden_codes(result))
 
 
 class ClaimedPlatformSenderTests(unittest.TestCase):

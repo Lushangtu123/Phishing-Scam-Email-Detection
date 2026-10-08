@@ -792,7 +792,7 @@ making errors visible over displaying an unsupported accuracy percentage.
 
 ## 4. Leave-one-source-out model evaluation
 
-The README's mixed-corpus figures come from a grouped split of pooled corpora, so
+The mixed-corpus figures in [data-and-model.md](data-and-model.md) come from a grouped split of pooled corpora, so
 every test message has training neighbours from the same corpus. This check asks a
 harder question: how does the content-model **training recipe** do on a corpus it
 has never seen? For each corpus it trains the deployed configuration (the same
@@ -1407,6 +1407,446 @@ passing DMARC check still scored High, because production trusts no
 **Limit:** no real Gmail-downloaded genuine notices were available, so the
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
+
+### Free development and storage addresses (2026-10-08)
+
+The section below left out a signal for any link to a free hosting service, for lack of
+recent legitimate mail. The owner chose to measure it on public developer lists: 15 monthly
+`lists.apache.org` archives, 2026-07 to 2026-09 (150 MB, kept outside the repository).
+
+| Source (2026-07 to 2026-09) | Messages | With a free hosting link |
+|---|---:|---:|
+| `announce@apache.org` (releases, CVE notices) | 756 | 0 |
+| `dev@kafka` (discussion, Jira and CI notices) | 1,364 | 0 |
+| `issues@iceberg` (GitHub notifications) | 21,891 | 0 |
+| `user@flink`, `users@tomcat` (questions) | 253 | 0 |
+
+With the older corpora and the owner's mail (section below), no legitimate message of 60,601
+links to any of the 35 services. The phishing that does concentrates on development, storage
+and tunnel addresses: of the 99 Nazario 2023–24 messages, `r2.dev` 55, `glitch.me` 15,
+`workers.dev` 7, `cyclic.app` 2, `replit.app` 2, `replit.dev` 1 and Azure storage web
+endpoints 1 (83 messages); site builders and app hosting much less (`wixsite.com` 5,
+`vercel.app` 5, `pages.dev` 3, `web.app` 2, `firebaseapp.com` 1).
+
+- **The rule** (`link.dev_hosting`): a link to one of 12 development, storage or tunnel
+  services (Cloudflare R2 and Workers dev URLs, Glitch, Cyclic, Replit, Cloudflare and ngrok
+  tunnels, 000webhost, Azure storage web endpoints) adds 4 points and a Medium floor, so it
+  alerts on its own. Not High, as developers do share these addresses.
+- **Left alone:** site builders and app hosting (Wix, Weebly, Square, Vercel, Netlify,
+  Cloudflare Pages, Firebase and others). Small businesses and developers run real sites
+  there, which these legitimate corpora (mailing lists and 2008-era mail) do not represent;
+  only a site named after a registered organization counts there.
+- **Why not weaker evidence.** Points without a floor would turn an undetermined phishing
+  message into Low: one pasted Nazario message with a free hosting link and no other
+  evidence would have gone from undetermined to not alerted.
+- **Measured** (committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`):
+  - `.eml`: no count changed. 83 Nazario 2023–24 messages carry the finding, and 21 of
+    their alerts moved from model-led to corroborated by this independent evidence.
+  - Nazario 2023–24 pasted as text: alerts 752 → 753 (one undetermined message), of 787.
+  - No legitimate cohort changed: the owner's genuine mail, the new brand emails,
+    PhishFuzzer's legitimate seeds and the 24,264 Apache messages.
+- **Limit.** Recent consumer and small-business mail was not measured; the owner's longer
+  mailbox would show it.
+
+### Links to a site named after an organization on a free hosting service (2026-10-08)
+
+`link.brand_lookalike` reports a link host imitating one of five protected brands (Apple,
+Amazon, Google, Microsoft, PayPal). Extending it to every registered organization, by a host
+holding the organization's domain label outside its official domains, was tried and rejected:
+
+| Cohort | Messages hit | What the hosts were |
+|---|---:|---|
+| Nazario 2023–24 phishing (787) | 13 | about half real lookalikes on free hosting or a hacked site; the rest exacttarget.com ("target") and zendesk.com |
+| Owner's genuine downloads (92) | 9 | all the organizations' own other domains: slackhq.com, reddithelp.com, ubisoftconnect.com, coursera.support, atlassian.com, Reddit's app.link |
+
+The real lookalikes sat on free hosting services, which anyone can use. Links to such a
+service, in the corpora on this computer (any site name; code and blog hosts left out):
+
+| Corpus | Phishing messages | Legitimate messages |
+|---|---:|---:|
+| Nazario 2023–24 | 99 of 787 | — |
+| Nazario (training CSV) | 10 of 1,565 | — |
+| PhishNChips core | 145 of 1,000 | 0 of 1,000 |
+| PhishFuzzer (train, validation, test) | 18 of 6,756 | 0 of 6,600 |
+| CEAS-08, Phishing_Email | 0 of 29,170 | 0 of 28,634 |
+| Owner's genuine downloads and new brand emails | — | 0 of 103 |
+
+A site name built on a registered organization's domain was rare: 3 Nazario 2023–24
+messages (`s-wellsfargo-online.cyclic.app` twice, `docusign2494816330289u1outlook9957422344.glitch.me`)
+and 1 PhishNChips message (`www.netflix-gamma-orpin.vercel.app`).
+
+- **The rule** (`link.brand_on_free_host`): a link to a site on one of 35 free hosting or
+  site-builder services whose name is built on the domain label of an organization matched
+  by display name. Labels of six or more characters also count at the start or end of a
+  word, and digits written for letters are read as letters. Common words (delta, canada,
+  trip, meta, cash) and the five protected brands are left out, as are names with "clone".
+- **Weight.** 4 points and no floor: alone it stays Low, with any other evidence it alerts.
+  Tools named after a platform (`youtube-summarizer.vercel.app`) are ordinary in developers'
+  mail, which these corpora do not contain.
+- **Code and blog hosts left out.** `github.io`, `gitlab.io` and `blogspot.com` carry official
+  project pages and blogs (netflix.github.io, googleblog.blogspot.com: 11 CEAS-08 legitimate
+  messages).
+- **Measured** (committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`): no alert,
+  undetermined or not-alerted count changed in any cohort; the 3 Nazario 2023–24 messages
+  now carry the finding, and all three were already alerts.
+- **Not added: a link to any free hosting service as a signal.** It separates the corpora
+  above (272 phishing messages, 0 of 36,337 legitimate), but most of those legitimate
+  corpora are from 2008 or earlier. Small businesses build their sites on Wix, Weebly and
+  Square, and developers' mail links to Vercel and Netlify; this needs recent legitimate mail
+  before it scores.
+
+### Thirteen more Chinese services (2026-10-07)
+
+The rest of the list's Chinese services, by the same method: a service, complaint or report
+mailbox on the organization's own page, read in a browser.
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| 快手 | name (快手官方, 快手客服, 快手科技, 快手小店) | `kuaishou.com` | Contact page: complaints to support@kuaishou.com |
+| 小红书 | name | `xiaohongshu.com` | About page: service@ and other mailboxes at @xiaohongshu.com |
+| 菜鸟 | name (菜鸟裹裹, 菜鸟驿站, 菜鸟集团, Cainiao) | `cainiao.com` | Contact page: cainiaoglobalcs@service.cainiao.com |
+| 百度 | name | `baidu.com` | Contact page: mailboxes at @baidu.com, bdjb@baidu.com; 400-800-8888 |
+| 货拉拉 | name | `huolala.cn` | Contact page: tu-cao@huolala.cn; 95036 |
+| 德邦快递 | name (德邦快递, 德邦物流) | `deppon.com` | Contact page: complaints to deppon315@deppon.com; 95353 |
+| 芒果TV | name | `mgtv.com` | Page footer: copyright@ and web@mgtv.com; 4009770707 |
+| 酷狗音乐 | name | `kugou.com` | Service centre: service@kugou.com |
+| 蜜雪冰城 | name | `mxbc.com` | About page: mxjc@ and beg@mxbc.com; franchise line 400-060-8888 |
+| 叮咚买菜 | name | `100.me` | Investor site: ir@100.me; 10103365 |
+| 瑞幸咖啡 | name (瑞幸咖啡, luckin coffee) | `lkcoffee.com`, `luckincoffee.com` | About pages: privacy@lkcoffee.com with 4000-100-100; customer.service@luckincoffee.com |
+| 微博 | service | `weibo.com` | Report page: tousu@staff.weibo.com; 4000-960-960 |
+| 知乎 | service | `zhihu.com` | Report page: jubao@zhihu.com |
+
+- **Names kept narrow.** "快手" and "菜鸟" are common words (a skilled hand; a beginner, as in
+  菜鸟教程). "德邦" also names 德邦证券, and "酷狗" alone is not matched.
+- **Services.** 微博 and 知乎 only verify their own mail: their notifications can carry other
+  users' posts, and "XX官方微博" is a common phrase.
+- **Not added.**
+  - 哈啰: its site could not be reached from here. 得物: requests from outside China are
+    redirected to its international site.
+  - 喜马拉雅, 豆瓣 and 高德: their live pages give only phone numbers or forms.
+  - 大众点评: its report mailbox is at meituan.com, and no page names dianping.com as a mail
+    domain. 优酷 and 盒马: their report mailboxes are at Alibaba's shared service.alibaba.com.
+    网易云音乐: its customer service uses a free 163.com mailbox.
+  - 钉钉, 飞书, 闲鱼 and BOSS直聘: they carry other users' messages and list no relay addresses.
+  - 网易163邮箱 and 中国电信's 189.cn: mailbox services anyone can use.
+  - 肯德基中国, 饿了么, 华为 and 苏宁易购: no official mailbox was found or read.
+- **Known gaps.** 百度's other business domains (such as baidubce.com) and 瑞幸's mainland site
+  domain luckincoffee.co are not named as mail domains.
+
+No count or signal changed on the usual cohorts, and none of the owner's mail comes from or
+names these services.
+
+### Ten Chinese services added to the official registry (2026-10-07)
+
+The owner's list names about 40 Chinese services the registry lacked. Chinese services rarely
+publish their sending domains, so the evidence here is the service, complaint or report
+mailbox each names on its own site, read in a browser:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| 携程旅行 | name (携程, Trip.com) | `ctrip.com`, `trip.com` | Contact page: service@ctrip.com, business mailboxes at @trip.com; 95010 |
+| 去哪儿网 | name (去哪儿网, 去哪儿旅行, Qunar) | `qunar.com` | Anti-fraud page: tousu@qunar.com; 95117 |
+| 同程旅行 | name | `ly.com` | Contact page: complaints to tcfwfxbz@ly.com; 95711 |
+| 美团 | name | `meituan.com` | Hotline page: complaints to tousu@meituan.com |
+| 抖音 | name | `douyin.com`, `bytedance.com` | Infringement guide: feedback@douyin.com, qinquan@bytedance.com |
+| 哔哩哔哩 | name (哔哩哔哩, bilibili) | `bilibili.com` | Contact page: mailboxes at @bilibili.com; 400-178-2233 |
+| 爱奇艺 | name | `qiyi.com` | Contact page: VIP service at vipservice@qiyi.com; 400-923-7171 |
+| 小米 | name (小米账号) | `xiaomi.com` | Account help: its mail comes from account-service@xiaomi.com; 400-100-5678 |
+| 滴滴出行 | service | `didiglobal.com`, `didichuxing.com` | Contact page: mailboxes at both domains |
+| 唯品会 | service | `vipshop.com` | Contact page: jubao@ and infosec@vipshop.com; 400-6789-888 |
+
+- **Chinese names match as substrings**, so common words are left out: "去哪儿" (周末去哪儿),
+  "小米" (a word and a nickname) and "滴滴" (a sound).
+- **Names only where the users' mail domain is named.** 小米 matches only 小米账号, as its store
+  site mi.com is not named as a mail domain. 滴滴 mails invoices from a domain no page names,
+  and 唯品会's members' site vip.com is not named as a mail domain, so both only verify their
+  own mail. 同程艺龙 is left out, as 艺龙 may send from elong.com.
+- **Official numbers.** The seven hotlines join the published numbers, so a message asking the
+  reader to call 95010 is not taken for a callback lure.
+- **Known gaps.** 美团's company domains (sankuai.com), 哔哩哔哩's game domain (biligame.com)
+  and 爱奇艺's site domain (iqiyi.com) are not named as mail domains, so genuine mail from them
+  that shows the name would carry an impersonation finding. Electronic invoices sent through
+  invoicing platforms usually show the company's legal name rather than the brand.
+- **Not added:** 饿了么 (no official mailbox found) and 华为 (no page names its account mail
+  domain). The list's other Chinese services were not checked yet.
+
+On the cohorts of the batches below, no count or signal changed, and none of the owner's 92
+downloads or 87 exported Gmail messages comes from or names these services. Those cohorts are
+English, so mail that shows these names from other domains is covered by the tests only.
+
+### Thirteen more organizations from the same list (2026-10-06)
+
+A second batch from the owner's list, in the same four groups and by the same method as the
+first (below). Each was confirmed on the organization's own page, read in a browser:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| Fidelity Investments | name | `fidelity.com` | Scams page: phishing@fidelity.com |
+| Discover | name (Discover Card, Discover Bank) | `discover.com` | Scams page: emailwatch@discover.com |
+| 1Password | name | `1password.com`, `.ca`, `.eu`, `agilebits.com`, `1password.partners`, `passage.id`, `1password.community` | "1Password email and marketing domains" |
+| Bitwarden | name | `bitwarden.com`, `bitwarden.eu` | "Identify Legitimate Emails from Bitwarden" |
+| Hilton | name (Hilton Honors) | `hilton.com` | Help Center: two-step codes from noreply@h6.hilton.com |
+| Emirates | name (Emirates Skywards, Emirates Airline, Fly Emirates) | `emirates.com`, `emirates.email` | Security page: abuse@emirates.com; Skywards FAQ: mail "via the domain emirates.email" |
+| State Farm | service | `statefarm.com`, `sfdividend.com` | Security page: abuse@statefarm.com; dividend mail from donotreply@e.sfdividend.com |
+| Chime | service | `chime.com` | Help: messages come "from trusted sources like @chime.com" |
+| Uber | service | `uber.com` | Help: emails should come "from an @uber.com domain" |
+| Lyft | service | `lyft.com`, `lyftmail.com` | Help: mail comes from @lyftmail.com, @lyft.com or @lyft.zendesk.com |
+| Qatar Airways | service | `qatarairways.com.qa`, `qr.qatarairways.com` | Fraud page: official mail comes from these "or similar country-specific domains" |
+| British Airways | service | `email.ba.com` | "Website security": phishing@email.ba.com |
+| Target | service | `target.com` | "Security & Fraud": abuse@target.com |
+
+- **Names kept narrow.** "Fidelity" (Fidelity Bank), "Discover" (Spotify's Discover Weekly),
+  "Hilton" (a surname) and "Emirates" (Emirates NBD, Emirates Post) alone are left out.
+- **Services.** State Farm's agents write under its name from their own domains. "Chime",
+  "Uber" and "Target" are common words. Lyft's support replies come from zendesk.com. Qatar
+  Airways' country domains and British Airways' other domains are not listed.
+- **Relays:** 1Password's community notifications and custom invitations, and Bitwarden's
+  no-reply address, which also sends invitations to an organization the inviter names.
+- **Shared senders left out:** lyft.zendesk.com, and the Ada chatbot and Reachdesk gifting
+  services that 1Password lists.
+- **Left out entirely.**
+  - Wise: it offers only a report form.
+  - Temu: buyers and merchants message each other through it, and whether its mail carries
+    merchants' words was not confirmed.
+  - DoorDash, HBO Max, Disney+, Hulu, SHEIN, Samsung, United Airlines, Southwest, Ryanair,
+    Home Depot, Costco, Instacart, Starbucks and Nike: no page names their sending domains or
+    a report address.
+
+On the cohorts of the first batch, no alert, undetermined or not-alerted count changed.
+- **One Nazario 2023–24 message** shows "Fidelity Investments" from another domain. It now
+  carries an impersonation finding, so its alert rests on the message's structure as well as
+  the model (fusion model-led to corroborated, risk floor Safe to High).
+- **The owner's mail.** None of the owner's 87 exported Gmail messages comes from or names
+  these organizations.
+
+### Fifteen organizations added to the official registry (2026-10-06)
+
+The owner supplied a list of 460 common sites with their official website domains and privacy
+policies. A website domain is not a sending domain, so the list was not imported: 82 of the
+registry's 113 organizations are on it, and 373 of its sites are not. It supplied candidates in
+the four groups the owner chose (banks and insurers, delivery and shopping, travel, subscriptions
+and games). Each was confirmed on the organization's own page, read in a browser:
+
+| Organization | Kind | Official domains | Confirmed by |
+|---|---|---|---|
+| RBC Royal Bank | name | `rbc.com` | Fraud pages: phishing emails go to phishing@rbc.com |
+| TD Bank Group | name (TD Canada Trust) | `td.com` | Canadian and US fraud pages: phishing@td.com |
+| Scotiabank | name | `scotiabank.com` | Help Centre: forward to phishing@scotiabank.com |
+| CIBC | name | `cibc.com` | Report Fraud page: fraud@cibc.com |
+| BMO | name | `bmo.com` | Report Fraud page: phishing@bmo.com |
+| DPD UK | name (DPD UK, DPD Local) | `dpd.co.uk`, `dpdlocal.co.uk`, `dpdgroup.co.uk`, `dpd.uk` | "A genuine DPD email will always end in" these four |
+| Evri | name | `evri.com`, `hermes-europe.co.uk`, `myhermes.co.uk` | Fraud page: emails come from these three |
+| Air Canada | name (Air Canada, Aeroplan) | `aircanada.com`, `aircanada.ca`, `aeroplan.com`, `aeroplan.ca`, `vacv.com` | Anti-fraud guide's list of safe domains |
+| Delta Air Lines | name | `delta.com` | Ticket-fraud page: DLTravelAgencyCCFraud@delta.com |
+| Blizzard Entertainment | name (with Battle.net) | `blizzard.com`, `battle.net`, `overwatchleague.com` | "Report Phishing": official mail domains, hacks@blizzard.com |
+| Roblox | name | `roblox.com` | Staff post: Security Alert emails come only from no-reply@roblox.com |
+| American Airlines | service | `aa.com` | Email security page: aa.it.security@aa.com |
+| OpenAI | service | `openai.com`, `c-openai.com` | Help: authentic email domains |
+| Nintendo | service | `nintendo.com`, `nintendo.net`, `email.nintendo-news.com` | Support: "The email domain names Nintendo uses" |
+| Riot Games | service | `riotgames.com`, `leagueoflegends.com` | Support: domains valid worldwide |
+
+- **Names kept narrow.** "RBC", "TD", "BMO", "DPD", "Delta" and "Blizzard" alone are left out,
+  as other senders use them (RBC Bearings, BMO Stadium, DPD companies in other countries,
+  Delta Faucet, the weather). "TD Bank" is left out too: no TD page names the domains TD Bank
+  (US) sends from, so its genuine mail could show an impersonation finding.
+- **Four services, not names.** They only verify their own mail, as other mail carries their
+  names from other domains: American Airlines Vacations, the American Airlines credit union and
+  the American Airlines Center; Nintendo of Europe's country domains, which no page lists;
+  OpenAI receipts that may come through a shared payment service; Riot's support replies from
+  zendesk.com. OpenAI's invites (noreply@tm.openai.com) carry another user's names and are relays.
+- **Shared senders left out:** Air Canada's survey, payment and gift-card senders (Qualtrics,
+  Interac, Buyatab); Evri's custhelp.com (Oracle's shared support domain) and two domains no
+  page explains; Riot's zendesk.com and stellaconnect.net addresses.
+- **Left out entirely.**
+  - U.S. Bank: its pages now give only a phone number.
+  - Walmart, Best Buy and eBay: seller or member messages reach customers through them
+    (Walmart creates a relay address for each seller).
+  - Marriott and PlayStation: no page names their sending domains.
+
+Committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`; alerts / undetermined / not alerted:
+
+| Cohort | Before | After |
+|---|---|---|
+| Owner's genuine `.eml` (79), no mailbox | 18 / 7 / 54 | 18 / 7 / 54 |
+| Owner's genuine `.eml` (79), mailbox chosen | 1 / 5 / 73 | 1 / 5 / 73 |
+| New brand emails, `.eml` (4) | 0 / 0 / 4 | 0 / 0 / 4 |
+| Nazario 2023–24 phishing (787) | 780 / 4 / 3 | 780 / 4 / 3 |
+| PhishFuzzer recent seeds, legitimate / phishing | 63 / 0 / 39; 87 / 0 / 14 | unchanged |
+
+- **No change, signal by signal.** None of these messages comes from or names the 15
+  organizations, and neither does any of the owner's 87 exported Gmail messages. The effect is
+  on mail that does; `test_registry_additions_2026_10_06.py` shows it on constructed messages.
+- Nazario 2015–22 and 2025 were not on this computer, so the usual 3,466-message cohort was not
+  run.
+
+### A local language model as a labelling teacher (2026-10-06)
+
+`evaluate_llm_labeler.py` asked `qwen3.8:27b-mxfp8`, with the local review's prompt, about
+each message of the cohorts of the four-model comparison (below), reading what the text model
+reads: the subject, the visible text and the link hosts, from the original message where there
+is one. It compares the readings with the human labels, to see whether the model can label the
+owner's mail as a [teacher](llm-teacher.md). Committed artifact `a0a503a0…`, `git` `9323365`
+with the new tools, an Apple M2 Max with 64 GB, Ollama 0.35.1:
+
+| Cohort | Messages | Read as phishing, 90+ / below | Read as legitimate, 90+ / below |
+|---|---:|---:|---:|
+| Owner's genuine downloads | 92 | 10 / 0 | 82 / 0 |
+| New brand emails (genuine) | 11 | 1 / 0 | 10 / 0 |
+| PhishFuzzer recent legitimate seeds | 102 | 29 / 2 | 70 / 1 |
+| PhishFuzzer recent phishing seeds | 103 | 83 / 16 | 1 / 3 |
+| Nazario 2023–24 phishing | 787 | 771 / 7 | 8 / 1 |
+
+Labels accepted at each confidence floor, all cohorts together:
+
+| Floor | Labelled | Phishing precision / recall | Legitimate precision | False phishing / missed |
+|---|---:|---:|---:|---:|
+| 50 | 1,095 (100%) | 95.4% / 98.5% | 92.6% | 42 / 13 |
+| 80 | 1,069 (97.6%) | 95.5% / 99.0% | 94.8% | 40 / 9 |
+| 90 | 1,065 (97.3%) | 95.5% / 99.0% | 94.7% | 40 / 9 |
+
+- **Phishing readings need a person.** 10 of the owner's 92 genuine messages (10.9%, 95%
+  interval 6.0–18.9%) and 31 of PhishFuzzer's 102 legitimate seeds were read as phishing.
+- **Legitimate readings at 90 or more missed 9 of 890 phishing messages** (1.0%, 0.5–1.9%).
+  The precision in the table reflects these phishing-heavy cohorts: in a mailbox where 2% of
+  mail is phishing, about 0.02% of the accepted rows would be phishing.
+- **The floor barely matters.** 97% of readings are at 90 or more, and so are 40 of the 42
+  false phishing readings.
+- **Against the served pipeline** on the same owner's messages (2026-10-05, below): 18 alerts
+  of the 79 within the `.eml` limit and 35 of the 92 pasted, against 10 phishing readings of 92.
+- **Time:** 5.08 s per message on average, 3.54 s median, 31.2 s at most, 1 h 34 min in all.
+  Every message got an answer.
+- **The owner's Gmail export** (87 messages, 2026-10-06): the 69 evaluation messages among
+  them were skipped. The teacher read the other 18 as legitimate at 90 or more, including a
+  community digest Gmail had filed in Spam (95). Spam now goes to a person whatever the
+  teacher reads; the owner labelled that digest legitimate, as the teacher had, so all 18
+  are training rows.
+
+Public corpora may be in the model's training data; the owner's mail is the trustworthy part,
+and 92 messages give wide intervals.
+
+### Local review: four Qwen models compared (2026-10-05)
+
+`evaluate_local_review.py` ran the serving pipeline over the same cohorts once per model, in
+shadow mode, so each count says how many alerts a model **would** lower if applied (a
+legitimate reading at 80% or more). Committed artifact `a0a503a0…`, RDAP lookups off,
+`git` `a36aacc` (plus the pasted-file change of this entry), an Apple M2 Max with 64 GB,
+Ollama 0.34. Alerts before → after:
+
+| Cohort | qwen3.5:4b-mlx (4.0 GB) | qwen3.5:9b (6.6 GB) | qwen3.8:27b-mlx (18 GB) | qwen3.8:27b-mxfp8 (32 GB) |
+|---|---:|---:|---:|---:|
+| Owner's genuine mail, pasted (92) | 35 → 19 | 35 → 24 | 35 → 10 | 35 → 3 |
+| Owner's genuine mail, `.eml` (79) | 18 → 13 | 18 → 14 | 18 → 8 | 18 → 7 |
+| New brand emails, pasted (11) | 3 → 1 | 3 → 1 | 3 → 0 | 3 → 0 |
+| PhishFuzzer recent legitimate seeds (102) | 63 → 19 | 63 → 36 | 63 → 22 | 63 → 26 |
+| PhishFuzzer recent phishing seeds (103) | 88 → 79 | 88 → 87 | 88 → 84 | 88 → 87 |
+| Nazario 2023–24 phishing, pasted (787) | 752 → 665 | 752 → 735 | 752 → 738 | 752 → 743 |
+| Nazario 2023–24 phishing, `.eml` (787) | 780 → 780 | 780 → 780 | 780 → 780 | 780 → 780 |
+| Seconds per review, mean / median / max | 0.76 / 0.60 / 4.2 | 1.69 / 1.43 / 7.1 | 3.57 / 2.50 / 26.4 | 4.18 / 3.17 / 27.5 |
+
+- **Small models do not hold up.** The 4B model would lower 87 pasted Nazario alerts (11.6%)
+  and 9 PhishFuzzer phishing alerts, while removing only 16 of the owner's 35 pasted false
+  alerts. The 9B model is cautious (17 Nazario alerts lowered, 40 readings below 80%) but
+  removes only 11 of those 35.
+- **The 8-bit 27B build is the best reviewer here:** 32 of the 35 pasted false alerts, 9 of
+  752 pasted Nazario alerts (1.2%) and 1 of 88 PhishFuzzer phishing alerts. The 4-bit build
+  reproduces the 2026-10-04 pilot (35 → 9 then, 35 → 10 now; 63 → 21 then, 63 → 22 now).
+- **`.eml` phishing is untouched by every model:** of 787 Nazario messages, 5 alerts rest on
+  the text model and none was read as legitimate. The cost sits in pasted text.
+- **Latency.** The slowest 27B reviews took 26–28 s, close to the 30-second request limit; a
+  served review would need a deadline below it, with a timeout keeping the alert.
+- `qwq:32b` was tried on 4 reviews and dropped: 3 timed out at 60 s.
+
+Cohorts: the owner's 92 genuine downloads (`phishguard-original-mail-2026-09-30`), 13 of
+them over the 60,000-byte `.eml` limit and so only in the pasted cohort; the 11 new brand
+emails of 2026-10-04 (pasted); PhishFuzzer's 205 `Source: Manual` seeds as text; Nazario
+2023 and 2024 `.eml` files (409 + 378). A pasted cohort is each message's subject and visible
+text without headers. Public sets carry placeholder providers and dates, which the analysis
+does not read. Public corpora may be in the models' training data; the owner's mail is the
+trustworthy part, and 92 messages give wide intervals.
+
+### Model-only note limited to original messages (2026-10-05)
+
+The note made earlier the same day (below) cost 25 to 56 points of phishing recall on
+pasted public corpora. The owner chose to keep it only where headers were read:
+
+- **Pasted text and screenshots:** a model-only score is again **Medium Risk — Model
+  Signal Needs Review**, asked about and open to the local review, as before.
+- **Original messages** (`.eml` uploads, `/api/analyze-eml`, `raw_email`, and text read
+  from that message's images): **Low Risk — Text Model Signal Only**, counted at most 29%.
+- Below the threshold the model alone counts at most 29% on every path.
+
+Measured with the committed artifact, RDAP lookups off and `PYTHONHASHSEED=0`, original
+code (`29334ee`) against this change; alerts / undetermined / other:
+
+| Cohort | Original | Now |
+|---|---|---|
+| Nazario phishing, pasted (1,561) | 1,506 / 47 / 8 | 1,506 / 47 / 8 |
+| PhishNChips core phishing, pasted (1,000) | 993 / 0 / 7 | 993 / 0 / 7 |
+| PhishFuzzer LLM variants, pasted (1,344 phishing; 1,392 legitimate) | 1,308 / 6 / 30; 194 / 2 / 1,196 | unchanged |
+| CEAS-08, Phishing_Email and PhishNChips legitimate, pasted | 27 / 1 / 1,468; 22 / 4 / 1,444; 31 / 0 / 969 | unchanged |
+| Nazario phishing, rebuilt as raw messages (1,563) | 1,544 / 15 / 4 | 1,529 / 15 / 19 |
+| CEAS-08 legitimate sample, rebuilt as raw messages (1,497) | 85 / 23 / 1,389 | 83 / 23 / 1,391 |
+
+- **Pasted text** is back to the original on every source.
+- **Raw messages** were rebuilt from the CSVs' sender, recipient, date, subject and body,
+  without authentication or Received headers, so they only approximate downloads. Sender
+  analysis adds points to most of them and few stay model-only: the note cost 15 Nazario
+  alerts (98.8% → 97.8%) and removed 2 of 85 CEAS false alerts.
+- **Not measured:** the owner's genuine `.eml` downloads, where the false alerts the note
+  targets are (24 alerts without a mailbox chosen, on 2026-10-05).
+
+### Hidden text read by the request and lure rules (2026-10-05)
+
+Eleven reviews from 2026-10-01 to 10-03 each found a style the CSS reader misjudged, so
+that a visible callback scam read as hidden text and came out Safe or Low. The request
+rules (credential, callback, subsidy, sensitive requests) and the lure rules now also read
+all of the text, whatever styles may hide. A finding only that reading makes is marked
+"In text the message may hide" and sets a Medium floor, after the model's renderings are
+chosen. Keyword categories and the model still never read hidden text.
+
+- **Tests.** No tested style clears a callback request: the reviews' declarations and the
+  common hiding methods (zero size, transparency, `display:none`, off-screen), in a
+  stylesheet, inline and print-only (`test_hidden_text_rules.py`).
+- **Local public corpora** (the 9,263 pasted messages of the section below): no alert count
+  changed and no message had a hidden-text finding; with RDAP lookups off the run took
+  2 min 43 s.
+- **Not measured.** These corpora are plain text. Run the owner's genuine downloads and the
+  Nazario `.eml` cohorts before deploying: genuine HTML mail with hidden preheaders or
+  responsive duplicates is where a new false alert would come from.
+
+### Model-only signals become a note, not an alert (2026-10-05)
+
+After the 2026-10-05 project review the owner chose to stop alerting on a text-model
+score that no rule, sender, link or structure evidence supports (`fusion_basis=model_only`)
+until a consented, independent holdout supports more.
+
+- **Change.** Such a result is **Low Risk — Text Model Signal Only**, not a Medium alert.
+  On its own the model counts at most 29% in `combined_phishing_score`;
+  `ml_phishing_probability` keeps its reading. Model-led alerts (the model with keyword
+  categories or presentation cues) still alert. Rendering views must still agree on the
+  model's decision, alert or note, so hidden text cannot add or remove one.
+- **Measured** with `evaluate_public_corpus.py` on the repository's git-ignored local
+  copies of public corpora, pasted as subject and body (no headers): 9,263 messages after
+  deduplication, committed artifact. Every corpus but PhishFuzzer is in the model's
+  training pool, so both columns overstate real performance. The owner's own mail was not
+  available to this run.
+
+| Cohort, pasted text | Alerts before | Alerts after |
+|---|---:|---:|
+| Nazario phishing (1,561) | 1,506 (96.5%) | 1,112 (71.2%) |
+| PhishNChips core phishing (1,000) | 993 (99.3%) | 435 (43.5%) |
+| PhishFuzzer LLM variants, test split, phishing (1,344) | 1,308 (97.3%) | 1,258 (93.6%) |
+| PhishFuzzer LLM variants, test split, legitimate (1,392) | 194 (13.9%) | 122 (8.8%) |
+| CEAS-08 legitimate, seeded sample (1,496) | 27 (1.8%) | 19 (1.3%) |
+| Phishing_Email legitimate, seeded sample (1,470) | 22 (1.5%) | 8 (0.5%) |
+| PhishNChips legitimate (1,000) | 31 (3.1%) | 19 (1.9%) |
+
+- **Reading the table.** Without headers nothing can corroborate the model, so pasted
+  phishing loses far more alerts than the raw Nazario 2023–25 messages measured on
+  2026-09-29 (91.8% → 89.0%). The cost depends on the input path. Undetermined counts did
+  not change.
+- **Before deploying**, run `evaluate_serving_pipeline.py` on the owner's genuine downloads
+  (pasted and `.eml`) and the Nazario `.eml` cohorts, and decide with those numbers.
 
 ### Six organizations added to the official registry (2026-10-05)
 
@@ -3649,7 +4089,7 @@ impossible even when every plausible reading was clearly benign.
 
 **Change.** Uncertain HTML views are scored as rendering views: visible, strict
 non-Outlook, and strict Outlook. A view is scored only if all readings lead to
-the same alert decision (see README). Disagreeing views keep abstaining.
+the same alert decision (see [detection-design.md](detection-design.md)). Disagreeing views keep abstaining.
 
 **Measured.** Old code (main) against new code; Medium and above count as alerts:
 

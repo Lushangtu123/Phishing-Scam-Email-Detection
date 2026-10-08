@@ -153,7 +153,9 @@ function renderContentResult(data, { languageOnly = false } = {}) {
     subParts.push(t('content.sub.ml', { score: data.ml_phishing_probability, label: mlLabelText(data.ml_label) }));
   }
   if (data.fusion_basis === 'model_only') {
-    subParts.push(t('content.sub.modelOnly'));
+    // An alert on pasted text or a screenshot; a note on an original email (.eml).
+    const alerting = ['medium', 'high', 'critical'].includes(data.risk_level);
+    subParts.push(t(alerting ? 'content.sub.modelOnly' : 'content.sub.modelOnlyNote'));
   } else if (data.fusion_basis === 'model_led') {
     subParts.push(t('content.sub.modelLed'));
   }
