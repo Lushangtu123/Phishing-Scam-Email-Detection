@@ -906,6 +906,12 @@
   'server.structure.auth_partial_failure': '有一项身份验证机制失败：{mechanisms}。',
   'server.structure.dangerous_attachment': '潜在危险附件：{filename}。',
   'server.structure.archive_attachment': '压缩包附件在打开前需要检查：{filename}。',
+  'server.sms.sender_mismatch': "短信自称来自{brand}，但发送方是个人号码、境外号码或邮箱地址，而不是该机构自己的服务号码。请通过其官方 App 或网站核实。",
+  'server.sms.sender_mismatch_weak': "短信自称来自{brand}，但发送方是普通的 10 位号码。少数正规企业会这样发短信，但大型机构通常用短号码发送。",
+  'server.sms.link_off_brand': "短信自称来自{brand}，但链接指向 {host}，不是该机构的网站。",
+  'server.sms.reopen_to_activate': "短信要你回复后重新打开，或把链接复制到浏览器，链接才能使用。手机会屏蔽陌生号码短信里的链接，诈骗短信常用这招绕过。",
+  'server.sms.fine_lure': "短信称你有未缴的罚款或通行费，其中的链接指向 {host}，不是政府网站。请只在你已知的官方网站或 App 上查询罚款和通行费。",
+  'server.sms.delivery_lure': "这条包裹短信要你通过链接（{host}）支付运费、关税或更正地址，但该网站不是登记过的承运商网站。请只在承运商自己的网站或 App 上查询包裹。",
 
   'server.prefix.sender': '发件人：{text}',
   'server.prefix.pdf_attachment': 'PDF 附件中的链接：{text}',

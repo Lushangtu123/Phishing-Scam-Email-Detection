@@ -52,15 +52,15 @@ The front end adds a third tab that reuses the existing result components.
 
 **Files:** `website/sms_analysis.py`, `website/tests/test_sms_analysis.py`.
 
-- [ ] `classify_sender`: the nine kinds of the spec, full-width digits, zero-width characters,
+- [ ] `classify_sender`: the ten kinds of the spec, full-width digits, zero-width characters,
   `+86`/`0086`/`+1` prefixes.
-- [ ] `claimed_brands`: signatures (`【…】`, `[…]`) and names in the first 20 characters, from both
+- [ ] `claimed_brand`: signatures (`【…】`, `[…]`) and the name a text opens with, from both
   registries; a later mention is not a claim.
 - [ ] Links without a scheme, accepted when `tldextract` finds a public suffix.
-- [ ] Rules: `sms.sender_mismatch` (strong and weak), `sms.link_off_brand`,
-  `sms.reopen_to_activate`, `sms.delivery_lure`, plus the reused rules.
-- [ ] `analyze_sms`: the verdict through `fuse_content_risk` with no model reading; `unknown` when
-  no rule fires.
+- [ ] Rules: `sms.sender_mismatch`, `sms.sender_mismatch_weak`, `sms.link_off_brand`,
+  `sms.reopen_to_activate`, `sms.fine_lure`, `sms.delivery_lure`, plus the reused rules.
+- [ ] `app.analyze_sms`: the verdict through `fuse_content_risk` with no model reading; `unknown`
+  when no rule fires.
 
 ### Task 4: Edge cases and risks
 

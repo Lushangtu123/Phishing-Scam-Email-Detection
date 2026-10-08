@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:17 PT] — SMS analysis: sender kinds, brand claims and text-message rules
+
+### Why
+- Tasks 2–4 of the SMS plan: the analysis behind the SMS mode, before its endpoint and tab.
+
+### Files changed
+- `website/sms_analysis.py` — new: `classify_sender` (ten kinds, `+86`/`0086`/`+1`, full-width digits, zero-width characters), `claimed_brand` (a signature or the name a text opens with; Chinese organisations by their Chinese names only; `sender_only` services left out), `text_links` (links with or without a scheme, bare hosts only with a known public suffix), and the rules `sms.sender_mismatch`, `sms.sender_mismatch_weak`, `sms.link_off_brand` and `sms.reopen_to_activate`.
+- `website/app.py` — `analyze_sms` combines them with the shared plain-text rules (`_text_rule_findings`), the link rules, short links and the fine and delivery lures (`sms.fine_lure`, `sms.delivery_lure`), scored by `fuse_content_risk` with no model; no finding gives `unknown`, never safe. `_lure_points` and `_delivery_wording` are now shared by the email and SMS lures.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the six `sms.*` messages in English and Chinese; asset versions bumped.
+- `website/tests/test_sms_analysis.py` — new; `website/tests/test_server_messages.py` — the `sms.` family.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md`, `docs/superpowers/plans/2026-10-08-sms-scam-detection.md` — brought in line: `app.analyze_sms` composes, because on Vercel the module named `app` is the root entrypoint; claims by opening name, not "within 20 characters" (which counted "我用工行转你了"); the `other_number` kind; separate weak-mismatch and lure codes, since the Chinese email lure messages say "邮件".
+
+### Effect
+- No email result changes: the served pipeline gave identical signals on the six usual cohorts before and after (genuine downloads with and without a mailbox, new brand emails with and without, PhishFuzzer recent seeds, Nazario 2023–24).
+- Not reachable yet: no endpoint or tab. A Chinese bank-scam text without email-style wording ("账户已冻结…输入密码和验证码") reaches only Low through its link findings; Chinese SMS phrases come from data in calibration.
+
 ## [2026-10-08 15:03 PT] — Implementation plan for SMS scam detection
 
 ### Why

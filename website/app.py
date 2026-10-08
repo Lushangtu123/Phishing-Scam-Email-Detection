@@ -51,6 +51,7 @@ from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 from config import load_settings
 import domain_age
+import sms_analysis
 from case_api import build_case_service, make_case_router, public_jev_status
 from feedback_api import make_feedback_router
 from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE  # noqa: F401 -- used by tests via app._REGISTRY_DOMAIN_RE
@@ -2587,17 +2588,39 @@ def _fine_lure(text: str, links, sender_domain: str = '') -> str | None:
     return None
 
 
+def _lure_points(item: dict) -> int:
+    """The points of a lure finding (fine, delivery, account hold, file share), which also
+    sets its level as the floor. Email and SMS (sms_analysis.py) score lures alike."""
+    return 4 if item['level'] == 'high' else 3
+
+
+def _delivery_wording(text: str) -> bool:
+    """A parcel, and a fee to pay or an address to correct."""
+    text = re.sub(r'\s+', ' ', text or '')
+    return bool(_DELIVERY_PARCEL.search(text) and (
+        _DELIVERY_FEE.search(text) or (_DELIVERY_ADDRESS.search(text) and _DELIVERY_ADDRESS_FIX.search(text))))
+
+
 def _delivery_lure(text: str, links, sender_domain: str = '') -> str | None:
     """The host a delivery-fee or wrong-address lure's button leads to, off the sender's domain."""
-    text = re.sub(r'\s+', ' ', text or '')
-    if not (_DELIVERY_PARCEL.search(text) and (
-            _DELIVERY_FEE.search(text) or (_DELIVERY_ADDRESS.search(text) and _DELIVERY_ADDRESS_FIX.search(text)))):
+    if not _delivery_wording(text):
         return None
     for label, destination in links or ():
         if _DELIVERY_ACTION.search(label or ''):
             host = _unlisted_off_sender_host(destination, sender_domain)
             if host and _organizational_domain(host) not in _DELIVERY_TRACKING_DOMAINS:
                 return host
+    return None
+
+
+def _sms_delivery_lure(text: str, links) -> str | None:
+    """_delivery_lure for a text message, whose links are bare, with no button to read."""
+    if not _delivery_wording(text):
+        return None
+    for _label, destination in links or ():
+        host = _unlisted_off_sender_host(destination, '')
+        if host and _organizational_domain(host) not in _DELIVERY_TRACKING_DOMAINS:
+            return host
     return None
 
 
@@ -3387,7 +3410,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         return found
 
     for item in lure_findings(lure_readings):
-        total_score += 4 if item['level'] == 'high' else 3
+        total_score += _lure_points(item)
         risk_floor = max((risk_floor, item['level']), key=floor_rank.get)
         extra_indicators.append(item)
 
@@ -3507,6 +3530,43 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         "risk_floor":        risk_floor,
         # For registration-date lookups only; removed before the response.
         "link_hosts":        _link_hosts(links),
+    }
+
+
+def analyze_sms(sender: str, text: str) -> dict:
+    """A text message: the SMS rules (sms_analysis.py) beside the plain-text rules texts share
+    with email, scored as email is. No text model: it was trained on email. With no finding
+    the verdict is unknown, never safe: a text's sender cannot be verified."""
+    floor_rank = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+    sms = sms_analysis.sms_findings(sender, text)
+    text, links = sms_analysis.clean_text(text), sms['links']
+    rules = _text_rule_findings(text)
+    score, floor = rules['score'] + sms['score'], max((rules['floor'], sms['floor']), key=floor_rank.get)
+    indicators = [*rules['requests'], *rules['style'], *rules['wording'], *sms['indicators']]
+    if _has_shortener_url(text, links=links):
+        score += 2
+        indicators.append(indicator('high', 'content.shortened_urls'))
+    link_score, link_findings, link_floor = _analyze_link_destinations(text, links=links)
+    score += link_score
+    floor = max((floor, link_floor), key=floor_rank.get)
+    indicators.extend(link_findings)
+    for code, host in (('sms.fine_lure', _fine_lure(text, links)), ('sms.delivery_lure', _sms_delivery_lure(text, links))):
+        if host:
+            item = indicator('high', code, host=host)
+            score += _lure_points(item)
+            floor = max((floor, item['level']), key=floor_rank.get)
+            indicators.append(item)
+    fused = fuse_content_risk(ml_phishing_probability=None, ml_decision_threshold=1.0, heuristic_score=score,
+                              minimum_level=floor)
+    level, label = fused['risk_level'], fused['risk_label']
+    if score == 0 and floor == 'safe':
+        level, label = 'unknown', 'No Known Scam Signs Found'
+    return {
+        'risk_level': level, 'risk_label': label, 'total_score': score,
+        'category_results': rules['categories'], 'extra_indicators': indicators,
+        'sender_kind': sms['sender_kind'], 'claimed_brand': sms['claimed_brand'],
+        'link_hosts': _link_hosts(links),
+        'official_channels': _official_channels((), first=sms['claimed_brand'], limit=1) if sms['claimed_brand'] else [],
     }
 
 

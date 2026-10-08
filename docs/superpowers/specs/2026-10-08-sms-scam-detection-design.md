@@ -43,11 +43,10 @@ This change does not include:
 browser ── POST /api/analyze-sms {sender, text} ──▶ app.py: validate, rate-limit
                                                      │
                                                      ▼
-                                     sms_analysis.analyze_sms(sender, text)
-                                       ├─ classify_sender(sender)
-                                       ├─ claimed_brands(text)       (both registries)
-                                       ├─ reused plain-text rules    (from app.py)
-                                       └─ SMS rules
+                                     app.analyze_sms(sender, text)
+                                       ├─ sms_analysis.sms_findings  (sender kind, brand claim,
+                                       │                              links, SMS rules)
+                                       └─ reused plain-text, link and lure rules (app.py)
                                                      │
                                      app.py: RDAP registration date of up to 5 link domains
                                                      │
@@ -55,8 +54,10 @@ browser ── POST /api/analyze-sms {sender, text} ──▶ app.py: validate, 
                                      result JSON, rendered by the existing result components
 ```
 
-`sms_analysis.py` holds pure functions and does not import FastAPI. `app.py` only adds the
-request model, the endpoint and the asynchronous domain-age lookup, as the content mode does.
+`sms_analysis.py` holds the parts only texts need, as pure functions, and imports nothing from
+`app.py`: on Vercel the module named `app` is the root entrypoint, not `website/app.py`.
+`app.analyze_sms` combines them with the shared rules, which live in `app.py`. `app.py` also adds
+the request model, the endpoint and the asynchronous domain-age lookup, as the content mode does.
 
 ## Sender classification
 
@@ -72,6 +73,7 @@ digits (`９５５８８`) and strips zero-width characters. It recognises the `
 | `nanp_toll_free` (area code 800, 833, 844, 855, 866, 877 or 888) | (833) 555-0100 |
 | `nanp_long_code` (other 10-digit North American numbers) | +1 212… |
 | `international` (any other country code) | +63…, +44… |
+| `other_number` (digits of no kind above: a landline, an unusual length) | +86 10 1234 5678 |
 | `email` (an address, as iMessage shows it) | name@example.com |
 | `alphanumeric` (a sender ID of letters) | USPS |
 | `none` (empty or unreadable) | |
@@ -80,15 +82,17 @@ The submitted sender is never stored. The result returns only its kind.
 
 ## Brand claims
 
-`claimed_brands(text)` finds the organisation a text says it comes from. A claim is either of:
+`claimed_brand(text)` finds the organisation a text says it comes from. A claim is either of:
 
 - a signature at the start or end: `【…】` or `[…]`;
-- an organisation name within the first 20 characters, such as "工商银行提醒您" or "USPS: ".
+- an organisation name the text opens with, such as "工商银行提醒您" or "USPS: ".
 
-Names come from the registries: `claim_names` in `official_brands_cn.json` and `display_names`
-in `official_brands_intl.json`. They match as the registry matcher does: Chinese names as
-substrings, ASCII names on word boundaries. A brand mentioned later in the text, as in a
-friend's "我用工行转你了", is not a claim.
+Names come from the registries: the Chinese `claim_names` in `official_brands_cn.json` (not their
+ASCII abbreviations such as ABC or CCB, which open many English texts) and `display_names` in
+`official_brands_intl.json`. Services named only by a verified sender (`sender_only`) are left
+out, as in email. Chinese names match as substrings, ASCII names on word boundaries. A brand
+mentioned later in the text, as in a friend's "我用工行转你了", is not a claim: "within the first
+20 characters" would have counted it.
 
 ## Rules
 
@@ -102,10 +106,14 @@ no mismatch.
 | Code | When | Initial weight |
 |---|---|---|
 | `sms.sender_mismatch` (strong) | A claimed organisation, and a sender of any other kind, except the weak case below | +4, at least Medium |
-| `sms.sender_mismatch` (weak) | An organisation in `official_brands_intl.json`, and a `nanp_long_code` sender: many genuine US businesses text from registered 10-digit numbers | +2, no floor |
+| `sms.sender_mismatch_weak` | An organisation in `official_brands_intl.json`, and a `nanp_long_code` sender: many genuine US businesses text from registered 10-digit numbers | +2, no floor |
 | `sms.link_off_brand` | A claimed organisation, and a link whose host is neither one of its `official_domains` nor a subdomain of one | +2 |
 | `sms.reopen_to_activate` | Instructions to reply (for example "Y") and then exit and reopen the text, or to copy the link into a browser, so that the link becomes active | +4, at least Medium |
 | `sms.delivery_lure` | The parcel, fee and address wording of `_delivery_lure`, with a bare link whose organisational domain is not among the known tracking domains | +4, at least High, as the email rule |
+| `sms.fine_lure` | `_fine_lure`: with no sender domain, any link host that is neither listed nor a government's | +4, at least High, as the email rule |
+
+The two lures have their own codes because the Chinese wording of `content.fine_lure` and
+`content.delivery_lure` says "邮件" (email).
 
 So a text signed 【工商银行】 from a `+1` number is a strong mismatch, as is a "USPS" text from
 an email address. "Reply Y to confirm your appointment" alone does not trigger
@@ -129,7 +137,6 @@ small shared helper, so both modes use the same weights and email results do not
 - `_analyze_link_destinations`: look-alike domains, IP-address links, free-hosting and
   development-hosting addresses;
 - `_has_shortener_url`;
-- `_fine_lure` (+4, at least High): with no sender domain, any non-government link host counts;
 - the registration date of up to five link domains (new within 90 days).
 
 ### Not used
@@ -140,7 +147,9 @@ SMS variant of `_delivery_lure`).
 
 ### Chinese lure phrases
 
-Common Chinese text scams (ETC authentication, medical-insurance card suspension, points
+The shared Chinese phrases came from Nazario email phishing (mailbox upgrades, "保持我的密码"),
+so a text such as "【工商银行】您的账户已冻结，请立即点击…输入密码和验证码解冻" reaches only Low
+through its link findings. Common Chinese text scams (ETC authentication, medical-insurance card suspension, points
 redemption, parcel compensation, task-based "刷单" jobs) may need new phrases. Phrases are
 written only from public data and the development batch, and judged on the held-out batch.
 
