@@ -660,15 +660,36 @@ async def local_vercel_collector(collector: str):
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
+INDEX_PAGE = BASE_DIR / "static" / "index.html"
+FAVICON = BASE_DIR / "static" / "favicon.svg"
+
+
+def _revalidated_file(path: Path, request: Request, media_type: str) -> Response:
+    """A file whose ETag is the hash of its bytes, revalidated on every use (no-cache).
+
+    FileResponse derives its ETag from the modification time and size, and Vercel gives every
+    deployed file the same time: a page whose ?v= numbers changed without changing its length
+    kept its ETag, and returning browsers were answered 304 with the previous deployment's page.
+    """
+    body = path.read_bytes()
+    etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+    headers = {'ETag': etag, 'Cache-Control': 'no-cache'}
+    # A proxy may weaken the tag (W/"…") on its way back; the hash is the same.
+    sent = {tag.strip().removeprefix('W/') for tag in request.headers.get('if-none-match', '').split(',')}
+    if etag in sent:
+        return Response(status_code=304, headers=headers)
+    return Response(body, media_type=media_type, headers=headers)
+
+
 @app.get("/")
-async def serve_index():
-    return FileResponse(str(BASE_DIR / "static" / "index.html"))
+async def serve_index(request: Request):
+    return _revalidated_file(INDEX_PAGE, request, "text/html")
 
 
 # Browsers request /favicon.ico regardless of the page's <link rel="icon">.
 @app.get("/favicon.ico", include_in_schema=False)
-async def serve_favicon():
-    return FileResponse(str(BASE_DIR / "static" / "favicon.svg"), media_type="image/svg+xml")
+async def serve_favicon(request: Request):
+    return _revalidated_file(FAVICON, request, "image/svg+xml")
 
 
 # ── Not-found page ────────────────────────────────────────────────────────────
