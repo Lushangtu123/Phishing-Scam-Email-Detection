@@ -129,7 +129,9 @@ def claimed_brand(text: str) -> dict | None:
 # knows its suffix, so file.txt or e.g. is no link.
 _LINK = re.compile(
     r'(?<![@A-Za-z0-9.\-])((?:https?://)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(?::\d{2,5})?'
-    r'(?:/[^\s<>"　-〿一-鿿＀-￯]*)?)', re.IGNORECASE)
+    r'(?:/[^\s<>"　-〿一-鿿＀-￯]*)?'
+    # An IPv4 host only after an explicit scheme: "version 1.2.3.4" is no link.
+    r'|https?://(?:\d{1,3}\.){3}\d{1,3}(?::\d{2,5})?(?:/[^\s<>"　-〿一-鿿＀-￯]*)?)', re.IGNORECASE)
 
 
 def text_links(text: str) -> list[tuple[str, str]]:
@@ -140,7 +142,7 @@ def text_links(text: str) -> list[tuple[str, str]]:
         url = label if re.match(r'https?://', label, re.IGNORECASE) else 'http://' + label
         host = (urlsplit(url).hostname or '').lower()
         parts = _ORGANIZATIONAL_DOMAINS(host)
-        if parts.suffix and parts.domain:
+        if (parts.suffix and parts.domain) or re.fullmatch(r'(?:\d{1,3}\.){3}\d{1,3}', host):
             links.append((label, url))
     return links
 
@@ -162,6 +164,17 @@ _REOPEN_TO_ACTIVATE = re.compile(
     r"|回复.{0,20}?(?:重新打开|再次打开|重新进入|退出.{0,10}?(?:打开|进入))"
     r"|复制.{0,15}?(?:链接|网址).{0,20}?浏览器|(?:链接|网址).{0,15}?复制.{0,20}?浏览器",
     re.IGNORECASE | re.DOTALL)
+# A prize, award or free offer to claim by calling, texting or dialling a number: the prize
+# scams of the Mishra and Soni development half. "won't" is no win. A premium-rate number alone
+# (09…, 087…) is left out: it marks old British texts, not today's US or Chinese ones.
+_PRIZE = re.compile(
+    r"\b(?:won(?!['’]t)|winners?|prizes?|claim|award(?:ed)?|rewards?|congratulations|congrats|guaranteed"
+    r"|selected\s+to\s+receive|free\s+(?:entry|gift|flights?|holiday|cruise|phone|mobile)|for\s+free"
+    r"|gift\s*cards?|vouchers?|cash\s+prize|awaits?\s+collection|unclaimed|complimentary|entitled\s+to)\b",
+    re.IGNORECASE)
+_CALL_A_NUMBER = re.compile(
+    r"\b(?:call|dial|ring|phone|text|txt|send|reply|contact|claim)\b[^.!?\n]{0,40}?(?<![\d£$€])\+?\d[\d\s-]{3,}\d",
+    re.IGNORECASE)
 # Senders each region's organisations text from; "none" and "alphanumeric" say nothing.
 _EXPECTED_SENDERS = {'cn': frozenset({'short_code', 'cn_port_106'}),
                      'intl': frozenset({'short_code', 'nanp_toll_free'})}
@@ -198,5 +211,10 @@ def sms_findings(sender: str, text: str) -> dict:
         score += 4
         floor = 'medium'
         found.append(indicator('high', 'sms.reopen_to_activate'))
+    if _PRIZE.search(text) and _CALL_A_NUMBER.search(text):
+        score += 4
+        floor = 'medium'
+        found.append(indicator('high', 'sms.prize_callback'))
     return {'score': score, 'floor': floor, 'indicators': found, 'sender_kind': kind,
-            'claimed_brand': brand['name'] if brand else None, 'links': links}
+            'claimed_brand': brand['name'] if brand else None, 'claimed_names': brand['names'] if brand else (),
+            'links': links}

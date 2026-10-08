@@ -20,6 +20,26 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:54 PT] — SMS calibration on public data: prize callbacks, IP links, the signed brand
+
+### Why
+- The public baseline caught 4 of 562 smishing texts. The missed ones were mostly prize scams asking for a call or text to a number. A genuine USPS text scored Low because the impersonation category counted the brand it signed as.
+
+### Files changed
+- `website/sms_analysis.py`:
+  - `sms.prize_callback`: prize or award wording with a request to call, text or dial a number, +4, at least Medium.
+  - IPv4 hosts after an explicit scheme are links.
+  - `sms_findings` returns the claimed organisation's names.
+- `website/app.py` — `_discount_claimed_brand`: in a text, the organisation it signs as is no impersonation keyword; other brands still count.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the `sms.prize_callback` message; asset versions bumped.
+- `website/tests/test_sms_analysis.py`, `website/tests/test_evaluate_sms.py` — the new rule with "won't" and appointment texts, the discount, IP links.
+- `docs/evaluation.md` — "SMS mode: a prize-callback rule, calibrated on public data": rules from the development half, test half scored once. `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the rule, the discount and their limits.
+
+### Effect
+- On the sealed test half of the Mishra and Soni dataset: smishing at Medium or above 2 → 136 of 281 (0.7% → 48.4%), spam 0 → 21 of 235, normal texts unchanged at 0 of 2,417.
+- The genuine USPS example now gives "No Known Scam Signs Found".
+- Still behind the flag. The owner's texts decide the launch.
+
 ## [2026-10-08 15:40 PT] — SMS mode: public-data baseline
 
 ### Why

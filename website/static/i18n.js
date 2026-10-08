@@ -962,6 +962,7 @@ window.PhishGuardI18n = (() => {
     'server.sms.sender_mismatch_weak': "The text says it is from {brand}, but it was sent from an ordinary 10-digit number. Some genuine businesses text this way, but large organisations usually text from a short code.",
     'server.sms.link_off_brand': "The text says it is from {brand}, but its link leads to {host}, which is not one of that organisation's websites.",
     'server.sms.reopen_to_activate': "The text asks you to reply and reopen it, or to copy its link into a browser, to make the link work. Phones disable links in texts from unknown senders, and scams use this to get around it.",
+    'server.sms.prize_callback': "The text says you have won or been selected for a prize, and asks you to call or text a number to claim it. Genuine prizes are not claimed through a number in a text.",
     'server.sms.fine_lure': "A text says you have an unpaid fine or toll, and its link leads to {host}, which is not a government site. Check fines and tolls only on the official website or app you already know.",
     'server.sms.delivery_lure': "A text about a parcel asks you to pay a shipping or customs fee, or to correct your address, through a link to {host}, which is not a listed carrier's site. Check parcels only on the carrier's own website or app.",
 
@@ -1382,7 +1383,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=55'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=56'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

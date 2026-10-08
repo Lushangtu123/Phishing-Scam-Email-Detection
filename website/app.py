@@ -3534,6 +3534,25 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     }
 
 
+def _discount_claimed_brand(rules: dict, names) -> None:
+    """A text names the organisation it signs as, and the sender rules judge that claim: its own
+    name is no impersonation keyword there (a genuine USPS text names USPS). Other brands count."""
+    names = {name.casefold() for name in names}
+    for index, category in enumerate(rules['categories'] if names else ()):
+        if category['key'] != 'impersonation':
+            continue
+        lowered = rules['analysis_text'].lower()
+        matched = [keyword for keyword in CONTENT_RULES['impersonation']['keywords']
+                   if keyword.casefold() not in names and _keyword_matches(lowered, keyword)]
+        rules['score'] -= category['score'] - min(len(matched), 5)
+        if matched:
+            rules['categories'][index] = {**category, 'matched': matched[:6], 'count': len(matched),
+                                          'score': min(len(matched), 5)}
+        else:
+            del rules['categories'][index]
+        return
+
+
 def analyze_sms(sender: str, text: str) -> dict:
     """A text message: the SMS rules (sms_analysis.py) beside the plain-text rules texts share
     with email, scored as email is. No text model: it was trained on email. With no finding
@@ -3542,6 +3561,7 @@ def analyze_sms(sender: str, text: str) -> dict:
     sms = sms_analysis.sms_findings(sender, text)
     text, links = sms_analysis.clean_text(text), sms['links']
     rules = _text_rule_findings(text)
+    _discount_claimed_brand(rules, sms['claimed_names'])
     score, floor = rules['score'] + sms['score'], max((rules['floor'], sms['floor']), key=floor_rank.get)
     indicators = [*rules['requests'], *rules['style'], *rules['wording'], *sms['indicators']]
     if _has_shortener_url(text, links=links):

@@ -1408,6 +1408,38 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: a prize-callback rule, calibrated on public data (2026-10-08)
+
+The Mishra and Soni texts of the baseline below were split 50/50 per cohort (seed 166). Rules
+were written from the development half only. The test half was set aside, with its SHA-256s
+recorded (`222c99a478ff…`, `e1ae05793da0…`, `e3a8fcd02d06…`), and scored once, before and after.
+
+Three changes:
+- **`sms.prize_callback`** (+4, at least Medium): prize or award wording ("won", not "won't";
+  "claim", "selected to receive", "gift card", "awaits collection", "entitled to"…) together
+  with a request to call, text or dial a number of at least five digits. A premium-rate number
+  alone (09…, 087…) was left out: it marks old British texts, not today's US or Chinese ones.
+- **Links to an IP address** (`http://23.254.215.52`) are extracted, so the existing IP-link rule
+  reads them. The extractor had required a letter top-level domain.
+- **The organisation a text signs as** is no impersonation keyword: its claim is judged by the
+  sender rules. Other brands it names still count. This affects texts that open with or sign
+  as a brand, which this dataset hardly has.
+
+| Test half (scored once) | Before | After |
+|---|---:|---:|
+| Normal texts at Medium or above | 0 / 2,417 | 0 / 2,417 |
+| Smishing at Medium or above | 2 / 281 (0.7%) | 136 / 281 (48.4%) |
+| Spam at Medium or above | 0 / 235 | 21 / 235 (8.9%) |
+
+On the development half smishing went from 2 to 127 of 281 (45.2%), and normal texts stayed
+at 0 of 2,417.
+
+**Limits.**
+- One public dataset, old and mostly British; the owner's texts decide the launch.
+- Genuine loyalty texts ("You've earned 500 reward points, call 1-800-…") would match the new
+  rule, and this dataset has none to measure.
+- Chinese wording is untested: the dataset has no Chinese texts.
+
 ### SMS mode: public-data baseline (2026-10-08)
 
 `website/tools/evaluate_sms.py` scored the SMS analysis (branch `sms-scam-detection`; its flag is

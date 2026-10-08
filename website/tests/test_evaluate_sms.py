@@ -38,13 +38,13 @@ class EvaluateSmsTests(unittest.TestCase):
         owner = report['cohorts']['owner']
         self.assertEqual((owner['scam']['messages'], owner['scam']['medium_or_above'], owner['scam']['medium_or_above_share']),
                          (2, 2, 1.0))
-        # The genuine USPS text is Low: the impersonation category is a list of brand names, and a
-        # brand's own text names it. Whether texts discount it is for calibration (plan, Task 9).
+        # Only the appointment text with a short link is Low; the genuine USPS text names the
+        # organisation it signs as, which is no impersonation keyword.
         self.assertEqual((owner['legitimate']['messages'], owner['legitimate']['medium_or_above'],
-                          owner['legitimate'].get('unknown'), owner['legitimate'].get('low')), (3, 0, 1, 2))
+                          owner['legitimate'].get('unknown'), owner['legitimate'].get('low')), (3, 0, 2, 1))
         self.assertEqual(report['regions']['cn']['legitimate'], {'messages': 1, 'unknown': 1, 'medium_or_above': 0,
                                                                   'medium_or_above_share': 0.0})
-        self.assertEqual(report['rules_on_legitimate'], {'category.impersonation': 1, 'content.shortened_urls': 1})
+        self.assertEqual(report['rules_on_legitimate'], {'content.shortened_urls': 1})
         self.assertFalse(report['configuration']['rdap_lookups'])
         for row in ROWS:
             self.assertNotIn(row['text'], text)

@@ -111,6 +111,7 @@ no mismatch.
 | `sms.reopen_to_activate` | Instructions to reply (for example "Y") and then exit and reopen the text, or to copy the link into a browser, so that the link becomes active | +4, at least Medium |
 | `sms.delivery_lure` | The parcel, fee and address wording of `_delivery_lure`, with a bare link whose organisational domain is not among the known tracking domains | +4, at least High, as the email rule |
 | `sms.fine_lure` | `_fine_lure`: with no sender domain, any link host that is neither listed nor a government's | +4, at least High, as the email rule |
+| `sms.prize_callback` | Prize or award wording ("won", not "won't"; "claim", "gift card", "awaits collection"…) and a request to call, text or dial a number of at least five digits (added in calibration, `docs/evaluation.md`) | +4, at least Medium |
 
 The two lures have their own codes because the Chinese wording of `content.fine_lure` and
 `content.delivery_lure` says "邮件" (email).
@@ -183,7 +184,7 @@ added to `website/data/server_messages.json` and the English and Chinese front-e
 - Rate limits, request size limits and security headers are those of the other analysis endpoints.
 
 Links without a scheme (`ezpass-pay.com/x`) are recognised when `tldextract` finds a public
-suffix, so `file.txt` is not a link.
+suffix, so `file.txt` is not a link. An IPv4 host counts after an explicit `http://` or `https://`.
 
 ## Front end
 
@@ -261,6 +262,8 @@ merged, or stacks on #11 if it is not.
 - The registries do not list official SMS short codes (USPS 28777, for example). A later change
   can add them, with the registry's evidence gate, to name the official number in the result.
 - Forged senders that match the official number are caught only by the content and link rules.
-- The impersonation keyword category is a list of brand names, so a genuine brand's text that
-  names itself scores Low (1 point) rather than `unknown`. Calibration decides whether texts
-  discount the claimed brand's own name.
+- The impersonation keyword category is a list of brand names. A text that signs as a brand
+  does not score that brand's own name (calibration, 2026-10-08), but an unsigned genuine text
+  naming a brand still scores Low.
+- `sms.prize_callback` would match genuine loyalty texts that offer reward points and a number
+  to call; the public data has none to measure.

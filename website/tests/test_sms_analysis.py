@@ -64,8 +64,15 @@ class LinkTests(unittest.TestCase):
         self.assertEqual([url for _label, url in links],
                          ['http://ezpass-pay.com/x', 'https://www.usps.com/track', 'http://t.cn/abc'])
 
+    def test_an_ip_address_after_a_scheme(self):
+        self.assertEqual(sms.text_links('Click:http://23.254.215.52 to fill out the form'),
+                         [('http://23.254.215.52', 'http://23.254.215.52')])
+        self.assertIn('link.ip_host', [item.get('rule_id') for item in app.analyze_sms(
+            '', 'Click:http://23.254.215.52 to fill out the form')['extra_indicators']])
+
     def test_what_is_no_link(self):
-        for text in ('See file.txt for details.', 'e.g. tomorrow', 'Version 3.14 is out.', 'Write to name@example.com'):
+        for text in ('See file.txt for details.', 'e.g. tomorrow', 'Version 3.14 is out.', 'Write to name@example.com',
+                     'Update to version 1.2.3.4 tonight.'):
             with self.subTest(text=text):
                 self.assertEqual(sms.text_links(text), [])
 
@@ -111,6 +118,26 @@ class RuleTests(unittest.TestCase):
                 self.assertNotIn('sms.reopen_to_activate', [i['code'] for i in sms.sms_findings('', text)['indicators']])
 
 
+class PrizeCallbackTests(unittest.TestCase):
+    def fires(self, text):
+        return 'sms.prize_callback' in [item['code'] for item in sms.sms_findings('', text)['indicators']]
+
+    def test_a_prize_to_claim_through_a_number(self):
+        for text in ('URGENT! You have won a £1000 prize GUARANTEED. Call 09061234567 from a landline to claim.',
+                     'Congratulations! You have been selected to receive a $500 gift card. Text WIN to 55123.',
+                     'Your complimentary holiday or £1000 cash awaits collection. Dial 0871 234 5678 now.'):
+            with self.subTest(text=text):
+                self.assertTrue(self.fires(text))
+
+    def test_no_prize_or_no_number(self):
+        for text in ("I won't be home tonight, call me on 555 0100 when you land.",
+                     'Reply Y to confirm your appointment on Monday at 9.',
+                     'You won! Visit the store to pick up your prize.',
+                     'Your order 123456 has shipped.'):
+            with self.subTest(text=text):
+                self.assertFalse(self.fires(text))
+
+
 class VerdictTests(unittest.TestCase):
     def test_no_finding_is_unknown_never_safe(self):
         result = app.analyze_sms('', 'See you at lunch tomorrow.')
@@ -146,7 +173,13 @@ class VerdictTests(unittest.TestCase):
         self.assertIn('sms.delivery_lure', codes(parcel))
         self.assertIn('sms.sender_mismatch', codes(parcel))
         genuine = app.analyze_sms('28777', 'USPS: Your package was delivered. Track it at https://tools.usps.com/go/x')
-        self.assertEqual(codes(genuine), [])
+        self.assertEqual((codes(genuine), genuine['category_results'], genuine['risk_level']), ([], [], 'unknown'))
+
+    def test_only_the_claimed_organisations_own_name_is_discounted(self):
+        other = app.analyze_sms('28777', 'USPS: Your PayPal refund is waiting. Track it at https://tools.usps.com/go/x')
+        self.assertEqual([(cat['key'], cat['matched']) for cat in other['category_results']], [('impersonation', ['paypal'])])
+        unsigned = app.analyze_sms('', 'Your package from USPS was delivered today.')
+        self.assertEqual([cat['key'] for cat in unsigned['category_results']], ['impersonation'])
 
     def test_shared_text_rules_read_chinese_requests(self):
         result = app.analyze_sms('13812345678', '我是快递员，麻烦把收到的验证码发给我，帮你改地址。')
