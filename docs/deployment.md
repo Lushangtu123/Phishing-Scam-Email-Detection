@@ -81,6 +81,18 @@ deployment smoke check requires this SHA to match the deployment event before
 it sends analysis controls; an alias still serving older code will fail the
 check even when the model artifact has not changed.
 
+Static files (`/static/...`) are served from Vercel's CDN, not by the Python
+Function: `pyproject.toml` sets `[tool.vercel.fastapi.static] cdn = true`, as the
+app's top-level middleware would otherwise keep them in the Function and wake it on
+every CDN cache miss (a cold first visit took 0.8–2.2 s per file, 2026-10-08). CDN
+files skip the middleware, so `vercel.json` `headers` repeats its `/static` headers:
+the security headers, the vision worker's Content-Security-Policy and the
+versioned-asset Cache-Control. `website/tests/test_vercel_static_headers.py` fails
+when the two disagree or two rules would set one header. Once a `pyproject.toml`
+exists, Vercel installs dependencies from its `[project]` table with uv, so that table
+lists the serving pins of `requirements.txt` (which local and CI installs read); the same
+test fails when the two lists differ.
+
 Model explanations cache their immutable 80,000-feature name/coefficient arrays
 and calculate contributors directly from the sparse request vector. This keeps
 the displayed terms unchanged without allocating one dense feature array for

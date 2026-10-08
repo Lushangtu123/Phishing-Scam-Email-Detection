@@ -118,6 +118,7 @@ CI also lints with `ruff`, smoke-tests the Vercel profile and compares screensho
 Phishing-Scam-Email-Detection/
 ├── app.py                      # Vercel entry point; imports website/app.py
 ├── vercel.json, render.yaml    # deployment profiles
+├── pyproject.toml              # Vercel settings and the serving pins it installs
 ├── requirements*.txt           # pinned runtime and development dependencies
 ├── website/
 │   ├── app.py                  # API, content rules, link checks, fusion, domain checks

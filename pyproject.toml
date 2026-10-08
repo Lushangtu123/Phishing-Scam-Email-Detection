@@ -1,0 +1,30 @@
+# Vercel's Python builder installs dependencies from this file (with uv) once it exists, so
+# [project] lists the serving pins of requirements.txt, which local and CI installs use.
+# website/tests/test_vercel_static_headers.py fails if the two lists differ.
+[project]
+name = "phishguard"
+version = "0.0.0"
+# The committed model artifact was built with Python 3.12 (.python-version).
+requires-python = "~=3.12.0"
+dependencies = [
+    "fastapi==0.141.1",
+    "uvicorn==0.52.4",
+    "pydantic==2.13.5",
+    "scikit-learn==1.9.0",
+    "numpy==2.5.3",
+    "scipy==1.18.1",
+    "joblib==1.6.0",
+    "threadpoolctl==3.7.0",
+    "python-multipart==0.0.32",
+    "dnspython==2.8.0",
+    "python-whois==0.9.6",
+    "tldextract==5.3.2",
+    "dkimpy==1.1.8",
+    "authres==1.2.0",
+]
+
+[tool.vercel.fastapi.static]
+# Serve /static from Vercel's CDN although the app has top-level middleware, which would
+# otherwise keep every static file in the Python function (and wake it on each cache miss).
+# CDN files skip the middleware, so vercel.json "headers" repeats its /static headers.
+cdn = true

@@ -513,20 +513,32 @@ def _record_rate_limit_hit(
 VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
 
 
-def _with_security_headers(response):
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-    response.headers.setdefault(
-        "Content-Security-Policy",
-        # Scripts are same-origin files only: no inline handlers or CDN hosts.
-        # Styles are same-origin stylesheets only: no style="" attributes or
-        # <style> elements (scripts may still set element.style via the CSSOM).
+# Browser protections on every response. On Vercel the CDN serves /static itself, without
+# this app's middleware, so vercel.json "headers" repeats these, the worker policy below and
+# VERSIONED_ASSET_CACHE_CONTROL for /static (test_vercel_static_headers.py pins them).
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    # Scripts are same-origin files only: no inline handlers or CDN hosts.
+    # Styles are same-origin stylesheets only: no style="" attributes or
+    # <style> elements (scripts may still set element.style via the CSSOM).
+    "Content-Security-Policy": (
         "default-src 'self'; script-src 'self'; "
         "style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; "
-        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
-    )
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"),
+}
+# The vision worker scripts run WebAssembly and may start their own workers.
+WORKER_SCRIPT_PATHS = frozenset({'/static/vision-worker.mjs', '/static/vendor/vision/worker.min.js'})
+WORKER_CONTENT_SECURITY_POLICY = (
+    "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; "
+    "connect-src 'self'; worker-src 'self'; object-src 'none'")
+
+
+def _with_security_headers(response):
+    for key, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
     return response
 
 
@@ -600,10 +612,8 @@ async def security_middleware(request: Request, call_next):
                     headers={'Retry-After': str(feedback_decision.retry_after)}))
 
     response = _with_security_headers(await call_next(request))
-    if request.url.path in {'/static/vision-worker.mjs', '/static/vendor/vision/worker.min.js'}:
-        response.headers['Content-Security-Policy'] = (
-            "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; "
-            "connect-src 'self'; worker-src 'self'; object-src 'none'")
+    if request.url.path in WORKER_SCRIPT_PATHS:
+        response.headers['Content-Security-Policy'] = WORKER_CONTENT_SECURITY_POLICY
     # A versioned URL (?v=...) changes whenever its file does, so browsers may
     # reuse it without revalidating. 304s carry it too, or a browser that cached
     # the old max-age=0 would keep revalidating.
