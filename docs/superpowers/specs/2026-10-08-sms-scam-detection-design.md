@@ -261,3 +261,6 @@ merged, or stacks on #11 if it is not.
 - The registries do not list official SMS short codes (USPS 28777, for example). A later change
   can add them, with the registry's evidence gate, to name the official number in the result.
 - Forged senders that match the official number are caught only by the content and link rules.
+- The impersonation keyword category is a list of brand names, so a genuine brand's text that
+  names itself scores Low (1 point) rather than `unknown`. Calibration decides whether texts
+  discount the claimed brand's own name.

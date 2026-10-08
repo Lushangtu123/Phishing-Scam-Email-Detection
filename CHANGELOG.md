@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:36 PT] — SMS evaluation tool
+
+### Why
+- Task 8 of the SMS plan: a counts-only measurement for calibration and the launch gate.
+
+### Files changed
+- `website/tools/evaluate_sms.py` — new: reads JSONL cohorts of labelled texts (region `cn` or `us`, optional sender, text, label `scam` or `legitimate`), runs `app.analyze_sms` with no network, and reports verdicts by cohort, label and region, the share at Medium or above, and how often each rule or keyword category fires on legitimate texts. A malformed row is reported by line number only.
+- `website/tests/test_evaluate_sms.py` — new: counts, shares, rules on legitimate texts, no text or sender in the report, row validation.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — a known gap found while testing it.
+
+### Effect
+- No change to the site. On the tool's synthetic test texts, a genuine USPS delivery text scores Low because the impersonation category is a list of brand names; calibration decides whether texts discount the claimed brand's own name.
+
 ## [2026-10-08 15:33 PT] — The SMS tab
 
 ### Why
