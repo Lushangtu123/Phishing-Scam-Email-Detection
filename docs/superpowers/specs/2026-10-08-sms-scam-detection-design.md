@@ -63,7 +63,9 @@ the request model, the endpoint and the asynchronous domain-age lookup, as the c
 
 `classify_sender(sender)` removes spaces, hyphens, dots and parentheses, converts full-width
 digits (`９５５８８`) and strips zero-width characters. It recognises the `+86`, `0086` and
-`+1` prefixes, then returns one kind:
+`+1` prefixes, then returns one kind. International and North American numbers are typed by
+libphonenumber (`phonenumberslite`, offline metadata); Chinese 106 ports and short numbers keep
+their own rules, which libphonenumber does not know:
 
 | Kind | Examples |
 |---|---|
@@ -72,6 +74,7 @@ digits (`９５５８８`) and strips zero-width characters. It recognises the `
 | `cn_mobile` (11 digits starting with `1[3-9]`) | 13812345678, +86 138… |
 | `nanp_toll_free` (area code 800, 833, 844, 855, 866, 877 or 888) | (833) 555-0100 |
 | `nanp_long_code` (other 10-digit North American numbers) | +1 212… |
+| `premium_rate` (a premium-rate number in its numbering plan, from libphonenumber) | +1 900…, +44 909… |
 | `international` (any other country code) | +63…, +44… |
 | `other_number` (digits of no kind above: a landline, an unusual length) | +86 10 1234 5678 |
 | `email` (an address, as iMessage shows it) | name@example.com |
@@ -111,6 +114,7 @@ no mismatch.
 | `sms.reopen_to_activate` | Instructions to reply (for example "Y") and then exit and reopen the text, or to copy the link into a browser, so that the link becomes active | +4, at least Medium |
 | `sms.delivery_lure` | The parcel, fee and address wording of `_delivery_lure`, with a bare link whose organisational domain is not among the known tracking domains | +4, at least High, as the email rule |
 | `sms.fine_lure` | `_fine_lure`: with no sender domain, any link host that is neither listed nor a government's | +4, at least High, as the email rule |
+| `sms.premium_callback` | A request to call or text a number that a numbering plan lists as premium rate (US, UK or Chinese plan when no country code is given) | +4, at least Medium |
 | `sms.prize_callback` | Prize or award wording ("won", not "won't"; "claim", "gift card", "awaits collection"…) and a request to call, text or dial a number of at least five digits (added in calibration, `docs/evaluation.md`) | +4, at least Medium |
 
 The two lures have their own codes because the Chinese wording of `content.fine_lure` and
@@ -262,6 +266,8 @@ merged, or stacks on #11 if it is not.
 - The registries do not list official SMS short codes (USPS 28777, for example). A later change
   can add them, with the registry's evidence gate, to name the official number in the result.
 - Forged senders that match the official number are caught only by the content and link rules.
+- VoIP numbers are not recognised where a country gives them no separate range (the US);
+  line-type services would receive the reader's numbers and are not used.
 - The impersonation keyword category is a list of brand names. A text that signs as a brand
   does not score that brand's own name (calibration, 2026-10-08), but an unsigned genuine text
   naming a brand still scores Low.

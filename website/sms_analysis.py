@@ -12,15 +12,17 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
+import phonenumbers
+from phonenumbers import PhoneNumberType
+
 from email_structure import _OFFICIAL_BRANDS_PATHS, _ORGANIZATIONAL_DOMAINS, normalize_domain
 from server_messages import indicator
 
-SENDER_KINDS = ('short_code', 'cn_port_106', 'cn_mobile', 'nanp_toll_free', 'nanp_long_code', 'international',
-                'other_number', 'email', 'alphanumeric', 'none')
+SENDER_KINDS = ('short_code', 'cn_port_106', 'cn_mobile', 'nanp_toll_free', 'nanp_long_code', 'premium_rate',
+                'international', 'other_number', 'email', 'alphanumeric', 'none')
 _ZERO_WIDTH = re.compile('[​-‏⁠﻿]')
 _EMAIL = re.compile(r'[^@\s]+@[^@\s]+\.[A-Za-z]{2,}')
 _CN_MOBILE = re.compile(r'1[3-9]\d{9}')
-_TOLL_FREE_AREA_CODES = frozenset({'800', '833', '844', '855', '866', '877', '888'})
 
 
 def clean_text(text: str) -> str:
@@ -38,10 +40,21 @@ def _chinese_kind(national: str) -> str | None:
     return None
 
 
+def _number_type(number: str, region: str | None = None) -> int | None:
+    """libphonenumber's type for a valid number (offline metadata only), else None."""
+    try:
+        parsed = phonenumbers.parse(number, region)
+    except phonenumbers.NumberParseException:
+        return None
+    return phonenumbers.number_type(parsed) if phonenumbers.is_valid_number(parsed) else None
+
+
 def _north_american_kind(ten: str) -> str | None:
-    if len(ten) == 10 and ten[0] in '23456789':
-        return 'nanp_toll_free' if ten[:3] in _TOLL_FREE_AREA_CODES else 'nanp_long_code'
-    return None
+    if len(ten) != 10 or ten[0] not in '23456789':
+        return None
+    kind = _number_type('+1' + ten)
+    return ('premium_rate' if kind == PhoneNumberType.PREMIUM_RATE else
+            'nanp_toll_free' if kind == PhoneNumberType.TOLL_FREE else 'nanp_long_code')
 
 
 def classify_sender(sender: str) -> str:
@@ -66,7 +79,8 @@ def classify_sender(sender: str) -> str:
             return _chinese_kind(digits[2:]) or 'other_number'
         if digits.startswith('1') and len(digits) == 11:
             return _north_american_kind(digits[1:]) or 'other_number'
-        return 'international'
+        kind = _number_type('+' + digits)
+        return 'other_number' if kind is None else 'premium_rate' if kind == PhoneNumberType.PREMIUM_RATE else 'international'
     return (_chinese_kind(digits) or _north_american_kind(digits)
             or (len(digits) == 11 and digits.startswith('1') and _north_american_kind(digits[1:]))
             or (digits.startswith('86') and _chinese_kind(digits[2:])) or 'other_number')
@@ -173,8 +187,19 @@ _PRIZE = re.compile(
     r"|gift\s*cards?|vouchers?|cash\s+prize|awaits?\s+collection|unclaimed|complimentary|entitled\s+to)\b",
     re.IGNORECASE)
 _CALL_A_NUMBER = re.compile(
-    r"\b(?:call|dial|ring|phone|text|txt|send|reply|contact|claim)\b[^.!?\n]{0,40}?(?<![\d£$€])\+?\d[\d\s-]{3,}\d",
+    r"\b(?:call|dial|ring|phone|text|txt|send|reply|contact|claim)\b[^.!?\n]{0,40}?(?<![\d£$€])(\+?\d[\d\s-]{3,}\d)",
     re.IGNORECASE)
+# Numbering plans tried for a number written without a country code: the US and China, which
+# the SMS mode covers, and the UK of the public data. Premium rate is a fact of each plan, not
+# a pattern of one dataset.
+_NATIONAL_PLANS = ('US', 'GB', 'CN')
+
+
+def _premium_rate(number: str) -> bool:
+    if number.startswith(('+', '00')):
+        return _number_type('+' + number.lstrip('+')[2:] if number.startswith('00') else number) == \
+            PhoneNumberType.PREMIUM_RATE
+    return any(_number_type(number, region) == PhoneNumberType.PREMIUM_RATE for region in _NATIONAL_PLANS)
 # Senders each region's organisations text from; "none" and "alphanumeric" say nothing.
 _EXPECTED_SENDERS = {'cn': frozenset({'short_code', 'cn_port_106'}),
                      'intl': frozenset({'short_code', 'nanp_toll_free'})}
@@ -215,6 +240,12 @@ def sms_findings(sender: str, text: str) -> dict:
         score += 4
         floor = 'medium'
         found.append(indicator('high', 'sms.prize_callback'))
+    premium = next((match.group(1).strip() for match in _CALL_A_NUMBER.finditer(text)
+                    if _premium_rate(re.sub(r'[\s-]', '', match.group(1)))), None)
+    if premium:
+        score += 4
+        floor = 'medium'
+        found.append(indicator('high', 'sms.premium_callback', number=premium))
     return {'score': score, 'floor': floor, 'indicators': found, 'sender_kind': kind,
             'claimed_brand': brand['name'] if brand else None, 'claimed_names': brand['names'] if brand else (),
             'links': links}

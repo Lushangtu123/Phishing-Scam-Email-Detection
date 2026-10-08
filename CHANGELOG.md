@@ -20,6 +20,22 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 16:04 PT] — SMS: premium-rate numbers from libphonenumber
+
+### Why
+- The owner asked whether phone-number tools (PhoneInfoga, numint, Ignorant, caller-ID apps) would help. Their privacy-safe core is Google's libphonenumber. Their online parts send numbers to third parties or probe a person's accounts, which the SMS mode does not do. Premium-rate numbers, a fact of each numbering plan, give a callback signal that is not tied to old British prefixes.
+
+### Files changed
+- `requirements.txt`, `pyproject.toml` — `phonenumberslite==9.0.40` (Apache-2.0, offline metadata only, released 2026-09-24).
+- `website/sms_analysis.py` — international and North American senders typed by libphonenumber, with a `premium_rate` kind; `sms.premium_callback` for a request to call or text a premium-rate number.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`, `website/static/i18n.test.mjs` — the message and the sender kind; asset versions bumped.
+- `website/tests/test_sms_analysis.py` — premium numbers and other numbers; the Ofcom drama range `+44 7700 900…` is no valid number.
+- `docs/evaluation.md`, `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — results and limits.
+
+### Effect
+- Mishra and Soni test half: smishing at Medium or above 136 → 156 of 281 (55.5%), spam 21 → 43 of 235, normal texts still 0 of 2,417.
+- VoIP numbers are still not recognised in the US.
+
 ## [2026-10-08 15:54 PT] — SMS calibration on public data: prize callbacks, IP links, the signed brand
 
 ### Why

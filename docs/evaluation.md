@@ -1408,7 +1408,30 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
-### SMS mode: a prize-callback rule, calibrated on public data (2026-10-08)
+### SMS mode: premium-rate numbers from libphonenumber (2026-10-08)
+
+`phonenumberslite==9.0.40` (Apache-2.0; Google's libphonenumber metadata, offline, no carrier or
+geocoder data) now classifies international and North American senders. That adds a
+`premium_rate` kind and replaces a hard-coded toll-free list. A new rule,
+**`sms.premium_callback`** (+4, at least Medium), fires when a text asks the reader to call or
+text a number that some numbering plan lists as premium rate. Numbers without a country code
+are tried in the US, UK and Chinese plans. Premium rate is a fact of each plan, not a pattern of
+this dataset, unlike the "09…/087…" prefixes left out before.
+
+On the same split, the test half was scored once more, for this change only. No rule was
+adjusted after seeing it.
+
+| Medium or above | Development half | Test half |
+|---|---:|---:|
+| Normal texts | 0 / 2,417 | 0 / 2,417 |
+| Smishing | 127 → 168 / 281 (59.8%) | 136 → 156 / 281 (55.5%) |
+| Spam | 17 → 42 / 234 | 21 → 43 / 235 |
+
+**Limits.** libphonenumber cannot tell a VoIP number from an ordinary one where a country gives
+VoIP no separate range (the US). Line-type services that can tell (Twilio Lookup,
+IPQualityScore) would receive the reader's numbers and are not used. Premium short codes are
+not checked.
+
 
 The Mishra and Soni texts of the baseline below were split 50/50 per cohort (seed 166). Rules
 were written from the development half only. The test half was set aside, with its SHA-256s

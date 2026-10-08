@@ -290,7 +290,7 @@ test('keys built from codes cover every code the scripts can pass', () => {
     'level.%': ['critical', 'high', 'medium', 'low', 'info', 'safe', 'unknown'],
     'mailbox.%': ['known_disposable_provider', 'privacy_relay', 'suspicious_mailbox_pattern', 'suspicious_domain_pattern', 'no_known_match'],
     'theme.mode.%': ['auto', 'light', 'dark'],
-    'sms.kind.%': ['short_code', 'cn_port_106', 'cn_mobile', 'nanp_toll_free', 'nanp_long_code', 'international',
+    'sms.kind.%': ['short_code', 'cn_port_106', 'cn_mobile', 'nanp_toll_free', 'nanp_long_code', 'premium_rate', 'international',
       'other_number', 'email', 'alphanumeric', 'none'],
     'metric.%': ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC_AUC'],
     'category.%.label': ['urgency', 'threats', 'financial', 'credential', 'impersonation', 'deception', 'attachments',

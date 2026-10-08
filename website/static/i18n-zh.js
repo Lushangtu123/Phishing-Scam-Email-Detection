@@ -91,6 +91,7 @@
   'sms.kind.cn_mobile': "中国手机号",
   'sms.kind.nanp_toll_free': "北美免费电话号码",
   'sms.kind.nanp_long_code': "北美普通号码",
+  'sms.kind.premium_rate': "付费号码（按高价收费）",
   'sms.kind.international': "其他国家的号码",
   'sms.kind.other_number': "无法归类的号码",
   'sms.kind.email': "邮箱地址",
@@ -945,6 +946,7 @@
   'server.sms.link_off_brand': "短信自称来自{brand}，但链接指向 {host}，不是该机构的网站。",
   'server.sms.reopen_to_activate': "短信要你回复后重新打开，或把链接复制到浏览器，链接才能使用。手机会屏蔽陌生号码短信里的链接，诈骗短信常用这招绕过。",
   'server.sms.prize_callback': "短信称你中奖或被选中获得奖品，并要你拨打或发短信到某个号码领取。真正的奖品不会让你通过短信里的号码领取。",
+  'server.sms.premium_callback': "短信要你拨打或发短信到 {number}，这是按高价收费的付费号码。正规机构不会在短信里让你拨打付费号码。",
   'server.sms.fine_lure': "短信称你有未缴的罚款或通行费，其中的链接指向 {host}，不是政府网站。请只在你已知的官方网站或 App 上查询罚款和通行费。",
   'server.sms.delivery_lure': "这条包裹短信要你通过链接（{host}）支付运费、关税或更正地址，但该网站不是登记过的承运商网站。请只在承运商自己的网站或 App 上查询包裹。",
 

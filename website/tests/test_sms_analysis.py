@@ -22,7 +22,8 @@ class SenderKindTests(unittest.TestCase):
                 ('13812345678', 'cn_mobile'), ('+86 138 1234 5678', 'cn_mobile'), ('0086-138-1234-5678', 'cn_mobile'),
                 ('8613812345678', 'cn_mobile'), ('(833) 555-0100', 'nanp_toll_free'), ('+1 800 555 0100', 'nanp_toll_free'),
                 ('+1 (212) 555-0100', 'nanp_long_code'), ('212-555-0100', 'nanp_long_code'),
-                ('12125550100', 'nanp_long_code'), ('+63 917 123 4567', 'international'), ('+44 7700 900123', 'international'),
+                ('12125550100', 'nanp_long_code'), ('+63 917 123 4567', 'international'), ('+44 7911 123456', 'international'),
+                ('+44 7700 900123', 'other_number'), ('+1 900 555 0100', 'premium_rate'), ('+44 909 879 0000', 'premium_rate'),
                 ('+86 10 1234 5678', 'other_number'), ('12', 'other_number'), ('toll.notice@example.com', 'email'),
                 ('USPS', 'alphanumeric'), ('Mom', 'alphanumeric'), ('', 'none'), ('  ', 'none'),
                 ('1​38​1234​5678', 'cn_mobile')):
@@ -136,6 +137,24 @@ class PrizeCallbackTests(unittest.TestCase):
                      'Your order 123456 has shipped.'):
             with self.subTest(text=text):
                 self.assertFalse(self.fires(text))
+
+
+class PremiumCallbackTests(unittest.TestCase):
+    def found(self, text):
+        return [item['params'] for item in sms.sms_findings('', text)['indicators'] if item['code'] == 'sms.premium_callback']
+
+    def test_a_premium_rate_number_to_call_or_text(self):
+        self.assertEqual(self.found('Please CALL 09061213237 immediately as there is an urgent message waiting.'),
+                         [{'number': '09061213237'}])
+        self.assertEqual(self.found('Your account is on hold. Call +1 900 555 0100 to restore it.'),
+                         [{'number': '+1 900 555 0100'}])
+
+    def test_other_numbers(self):
+        for text in ('Your table is ready. Call 212-555-0100 if you are running late.',
+                     'Questions? Call us toll-free at 1-833-555-0100.',
+                     'Reference 09061213237 was paid.'):  # no request to call
+            with self.subTest(text=text):
+                self.assertEqual(self.found(text), [])
 
 
 class VerdictTests(unittest.TestCase):
