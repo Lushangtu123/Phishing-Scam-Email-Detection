@@ -172,7 +172,9 @@ added to `website/data/server_messages.json` and the English and Chinese front-e
 
 `POST /api/analyze-sms` takes `{"sender": str (≤ 64 characters, optional), "text": str (1–2,000 characters)}`.
 
-- An empty or too-long text, or a too-long sender, returns 400 with a localised message.
+- An empty text returns 400. A too-long text or sender is rejected by the request model with 422,
+  as on the other analysis endpoints, and the page limits both fields. Request bodies over 16,000
+  bytes are refused before parsing.
 - An unreadable sender is not an error; its kind is `none`.
 - An RDAP failure or timeout gives no finding and a warning in the result, as in the content mode.
 - With `SMS_ANALYSIS_ENABLED` off, the endpoint returns 404 and `/api/config` hides the tab.

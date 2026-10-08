@@ -435,7 +435,7 @@ allowed_hosts = _build_allowed_hosts(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BYTES,
                    path_limits={**{path: MAX_VISUAL_REQUEST_BYTES for path in VISUAL_PATHS},
-                                '/api/feedback': 100_000})
+                                '/api/feedback': 100_000, '/api/analyze-sms': 16_000})
 
 _rate_limit_lock = threading.Lock()
 _rate_limit_buckets: dict[str, deque[float]] = {}
@@ -449,7 +449,7 @@ class _RateLimitBucket(deque):
 
 _RATE_LIMIT_PATHS = frozenset({
     '/api/analyze-email', '/api/analyze-content', '/api/analyze-eml',
-    '/api/analyze-visual', '/api/verify-email', '/api/feedback',
+    '/api/analyze-visual', '/api/verify-email', '/api/feedback', '/api/analyze-sms',
 })
 
 
@@ -799,6 +799,7 @@ async def get_public_config():
         "domain_verification_enabled": SETTINGS.domain_verification_enabled,
         "smtp_verification_enabled": SETTINGS.smtp_verification_enabled,
         "content_model_enabled": SETTINGS.content_model_enabled,
+        "sms_analysis_enabled": SETTINGS.sms_analysis_enabled,
         "sender_history_enabled": SETTINGS.sender_history_enabled,
         "sender_history_configured": SETTINGS.sender_history_ready,
         "sender_history_available": SETTINGS.sender_history_ready,
@@ -3714,6 +3715,29 @@ def _agreeing_model_views(bodies, view_readings, predictions, *, threshold, heur
 @app.post("/api/analyze-content")
 async def analyze_content_endpoint(request: ContentRequest):
     return await _analyze_content(request)
+
+
+class SmsRequest(BaseModel):
+    sender: str = Field(default="", max_length=64)
+    text: str = Field(default="", max_length=2_000)
+
+
+@app.post("/api/analyze-sms")
+async def analyze_sms_endpoint(request: SmsRequest):
+    """A pasted text message and, optionally, its sender. Off until the launch gate passes."""
+    if not SETTINGS.sms_analysis_enabled:
+        raise HTTPException(status_code=404, detail='Not Found')
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail='Text message is required')
+    result = await _run_analysis(analyze_sms, request.sender, request.text)
+    # Registration dates of the links' domains, as for email: context only, no points.
+    candidates = _registration_candidates('', result.pop('link_hosts'))
+    if SETTINGS.rdap_lookups_enabled and candidates:
+        dates = await domain_age.lookup_many_async([domain for _role, domain in candidates])
+        result['domain_registrations'] = {domain: date.date().isoformat() if date else None
+                                          for domain, date in dates.items()}
+        result['extra_indicators'].extend(_registration_findings(candidates, dates))
+    return JSONResponse(annotate_content(result))
 
 
 @app.post("/api/analyze-eml")

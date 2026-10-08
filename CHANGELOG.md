@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:20 PT] — SMS endpoint behind SMS_ANALYSIS_ENABLED
+
+### Why
+- Task 5 of the SMS plan: an endpoint for the SMS analysis, off until the launch gate passes.
+
+### Files changed
+- `website/config.py` — `sms_analysis_enabled` from `SMS_ANALYSIS_ENABLED`, false by default.
+- `website/app.py` — `SmsRequest` (sender up to 64 characters, text up to 2,000) and `POST /api/analyze-sms`: 404 when off, 400 for an empty text, the analysis on the analysis workers, then the registration dates of up to five link domains when RDAP lookups are on (context only, as for email). The sender is never echoed. The path is rate-limited and its bodies are capped at 16,000 bytes. `/api/config` reports `sms_analysis_enabled`.
+- `website/tests/test_sms_endpoint.py` — new: the flag, validation, the response, link-domain ages with a stubbed lookup, and the rate limit.
+- `website/tests/test_app_security.py` — the public configuration now includes `sms_analysis_enabled`.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — over-long fields get 422 from the request model, as on the other analysis endpoints.
+
+### Effect
+- No change for visitors: the flag is off and the page has no SMS tab yet.
+
 ## [2026-10-08 15:17 PT] — SMS analysis: sender kinds, brand claims and text-message rules
 
 ### Why
