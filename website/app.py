@@ -119,6 +119,7 @@ from email_structure import (
     MAILBOX_AUTHSERV_IDS,
     SENDER_ONLY_SERVICES,
     OFFICIAL_SERVICE_NUMBERS as _OFFICIAL_SERVICE_NUMBERS,
+    BRAND_SITE_LABELS as _BRAND_SITE_LABELS,
     official_channels as _official_channels,
     _PROTECTED_BRAND_DOMAINS,
     _confusable_skeleton,
@@ -1716,6 +1717,40 @@ def _is_ipfs_gateway(host: str, path: str) -> bool:
     return bool(_IPFS_SUBDOMAIN.match(host) or _IPFS_PATH.match(path or ""))
 
 
+# Free hosting and site-builder services whose subdomains anyone can claim. Organizations do
+# not serve their own sign-in or account pages there, so a site named after a registered
+# one is a lookalike. Code and blog hosts (github.io, gitlab.io, blogspot.com) are left out:
+# organizations publish official project pages and blogs there under their own names.
+_FREE_HOSTING_SUFFIXES = (
+    "pages.dev", "workers.dev", "r2.dev", "trycloudflare.com", "vercel.app", "netlify.app", "glitch.me",
+    "cyclic.app", "web.app", "firebaseapp.com", "onrender.com", "up.railway.app", "fly.dev", "herokuapp.com",
+    "repl.co", "replit.app", "replit.dev", "surge.sh", "weebly.com", "weeblysite.com", "wixsite.com",
+    "webflow.io", "square.site", "000webhostapp.com", "framer.website", "framer.app", "ngrok.io",
+    "ngrok-free.app", "amplifyapp.com", "azurestaticapps.net", "canva.site", "godaddysites.com",
+    "mystrikingly.com", "jimdosite.com", "web.core.windows.net",
+)
+
+
+def _free_hosting_suffix(host: str) -> str:
+    """The free hosting service a host is a site on, or ''."""
+    return next((suffix for suffix in _FREE_HOSTING_SUFFIXES if host.endswith("." + suffix)), "")
+
+
+def _brand_in_site_name(site: str) -> str | None:
+    """Registered organization a site name is built on (s-wellsfargo-online, docusign2494...)."""
+    site = site.casefold()
+    if "clone" in site:
+        # Developers' practice copies of well-known apps (netflix-clone).
+        return None
+    tokens = dict.fromkeys(re.findall(r"[a-z0-9]+", site)
+                           + re.findall(r"[a-z0-9]+", _confusable_skeleton(site).translate(_ASCII_BRAND_TRANSLATION)))
+    for token in tokens:
+        for label, organization in _BRAND_SITE_LABELS.items():
+            if token == label or (len(label) >= 6 and (token.startswith(label) or token.endswith(label))):
+                return organization
+    return None
+
+
 _SENSITIVE_HOST_TERMS = frozenset({
     "account", "credential", "login", "password", "reactivate",
     "secure", "security", "signin", "unlock", "verification", "verify",
@@ -1839,6 +1874,18 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                 finding_types.add("brand-lookalike")
                 findings.append({"rule_id": "link.brand_lookalike",
                                  **indicator("high", "link.brand_lookalike", host=target_host, brand=brand)})
+
+        free_host = _free_hosting_suffix(target_host)
+        site_brand = free_host and _brand_in_site_name(_decode_idna_domain(target_host[: -len(free_host) - 1]))
+        if site_brand and "brand-free-host" not in finding_types:
+            # Supporting evidence only (no floor): tools named after a platform
+            # (youtube-summarizer.vercel.app) are ordinary in developers' mail. In
+            # 2023-24 phishing 99/787 messages linked to these services; 3 named a brand.
+            score += 4
+            finding_types.add("brand-free-host")
+            findings.append({"rule_id": "link.brand_on_free_host",
+                             **indicator("medium", "link.brand_on_free_host", host=target_host,
+                                         brand=site_brand, service=free_host)})
 
         host_tokens = set(re.findall(r"[a-z0-9]+", decoded_skeleton))
         credential_collection = bool(
@@ -2653,7 +2700,8 @@ _PHISHING_TACTICS = {
     "payment": {"content.sensitive_request.gift_card", "content.sensitive_request.crypto_transfer",
                 "content.large_amounts", "content.delivery_lure", "content.fine_lure"},
     "remote_access": {"content.sensitive_request.remote_access"},
-    "impersonation": {"link.brand_lookalike", "link.idn_confusable", "structure.brand_display_name",
+    "impersonation": {"link.brand_lookalike", "link.idn_confusable", "link.brand_on_free_host",
+                      "structure.brand_display_name",
                       "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
                       "link.file_share_elsewhere", "structure.recipient_domain_display"},
     "deceptive_link": {"link.display_mismatch", "link.ip_host", "link.url_userinfo", "link.ipfs_gateway",

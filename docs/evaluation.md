@@ -1408,6 +1408,53 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Links to a site named after an organization on a free hosting service (2026-10-08)
+
+`link.brand_lookalike` reports a link host imitating one of five protected brands (Apple,
+Amazon, Google, Microsoft, PayPal). Extending it to every registered organization, by a host
+holding the organization's domain label outside its official domains, was tried and rejected:
+
+| Cohort | Messages hit | What the hosts were |
+|---|---:|---|
+| Nazario 2023–24 phishing (787) | 13 | about half real lookalikes on free hosting or a hacked site; the rest exacttarget.com ("target") and zendesk.com |
+| Owner's genuine downloads (92) | 9 | all the organizations' own other domains: slackhq.com, reddithelp.com, ubisoftconnect.com, coursera.support, atlassian.com, Reddit's app.link |
+
+The real lookalikes sat on free hosting services, which anyone can use. Links to such a
+service, in the corpora on this computer (any site name; code and blog hosts left out):
+
+| Corpus | Phishing messages | Legitimate messages |
+|---|---:|---:|
+| Nazario 2023–24 | 99 of 787 | — |
+| Nazario (training CSV) | 10 of 1,565 | — |
+| PhishNChips core | 145 of 1,000 | 0 of 1,000 |
+| PhishFuzzer (train, validation, test) | 18 of 6,756 | 0 of 6,600 |
+| CEAS-08, Phishing_Email | 0 of 29,170 | 0 of 28,634 |
+| Owner's genuine downloads and new brand emails | — | 0 of 103 |
+
+A site name built on a registered organization's domain was rare: 3 Nazario 2023–24
+messages (`s-wellsfargo-online.cyclic.app` twice, `docusign2494816330289u1outlook9957422344.glitch.me`)
+and 1 PhishNChips message (`www.netflix-gamma-orpin.vercel.app`).
+
+- **The rule** (`link.brand_on_free_host`): a link to a site on one of 35 free hosting or
+  site-builder services whose name is built on the domain label of an organization matched
+  by display name. Labels of six or more characters also count at the start or end of a
+  word, and digits written for letters are read as letters. Common words (delta, canada,
+  trip, meta, cash) and the five protected brands are left out, as are names with "clone".
+- **Weight.** 4 points and no floor: alone it stays Low, with any other evidence it alerts.
+  Tools named after a platform (`youtube-summarizer.vercel.app`) are ordinary in developers'
+  mail, which these corpora do not contain.
+- **Code and blog hosts left out.** `github.io`, `gitlab.io` and `blogspot.com` carry official
+  project pages and blogs (netflix.github.io, googleblog.blogspot.com: 11 CEAS-08 legitimate
+  messages).
+- **Measured** (committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`): no alert,
+  undetermined or not-alerted count changed in any cohort; the 3 Nazario 2023–24 messages
+  now carry the finding, and all three were already alerts.
+- **Not added: a link to any free hosting service as a signal.** It separates the corpora
+  above (272 phishing messages, 0 of 36,337 legitimate), but most of those legitimate
+  corpora are from 2008 or earlier. Small businesses build their sites on Wix, Weebly and
+  Square, and developers' mail links to Vercel and Netlify; this needs recent legitimate mail
+  before it scores.
+
 ### Thirteen more Chinese services (2026-10-07)
 
 The rest of the list's Chinese services, by the same method: a service, complaint or report

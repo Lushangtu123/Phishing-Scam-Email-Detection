@@ -92,6 +92,7 @@
   "link.display_mismatch": "Link display domain ({display_host}) does not match the actual destination ({host}).",
   "link.idn_confusable": "Link destination ({host}) is an IDN/confusable lookalike for {brand}.",
   "link.brand_lookalike": "Link destination ({host}) is a noncanonical lookalike for {brand}.",
+  "link.brand_on_free_host": "Link destination ({host}) is a site on {service}, a free hosting service anyone can use, named after {brand}. Organisations do not run their own account pages there.",
   "link.file_share_elsewhere": "The message says files were shared with you through {service}, but its download or open button leads to another site, {host}. Open shared files from the service's own website or app.",
   "sender.recently_registered": "The sender's domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing often uses newly registered domains; established organisations send from long-held ones.",
   "link.recently_registered": "The link domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing pages are often hosted on newly registered domains.",

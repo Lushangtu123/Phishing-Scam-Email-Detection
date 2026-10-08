@@ -567,6 +567,16 @@ Raw input enables these checks:
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
+- links to a site on a free hosting or site-builder service (`pages.dev`,
+  `workers.dev`, `vercel.app`, `netlify.app`, `glitch.me`, `web.app`, `wixsite.com` and
+  others) whose name is built on a registered organization's own domain
+  (`s-wellsfargo-online.cyclic.app`, `icbc-zhuanzhang.pages.dev`), after digits written
+  for letters are read as letters (`link.brand_on_free_host`). Only organizations matched by
+  display name count, without common words (delta, canada, trip) or names with "clone"
+  (developers' practice copies). Code and blog hosts (`github.io`, `blogspot.com`) are left
+  out, as organizations publish official pages there. Supporting evidence: 4 points and no
+  floor, because tools named after a platform (`youtube-summarizer.vercel.app`) are
+  ordinary in developers' mail;
 - callback requests: a phone number next to both a call instruction and
   unexpected-charge or not-me wording ("did not authorize", "don't recognize",
   "auto-renewal", "dispute", 扣款, 自动续费). Letters written for digits next to a

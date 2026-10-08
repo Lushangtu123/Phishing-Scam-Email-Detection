@@ -465,6 +465,38 @@ def normalize_domain(domain: str) -> str:
 
 
 _OFFICIAL_BRANDS = _load_official_brands()
+# Domain labels that are ordinary words or names (delta, discover, canada, trip, meta),
+# and the protected brands, whose lookalikes link.brand_lookalike already reports.
+_COMMON_SITE_LABELS = frozenset({
+    "apple", "amazon", "google", "microsoft", "paypal",
+    "battle", "blizzard", "canada", "cash", "chase", "customs", "delta", "discover", "fidelity",
+    "hilton", "meta", "passage", "square", "trip",
+})
+
+
+def _load_brand_site_labels(paths=_OFFICIAL_BRANDS_PATHS) -> dict[str, str]:
+    """First label of a registered organization's own domain (wellsfargo, ctrip) -> its name.
+
+    Only organizations matched by display name, whose names were checked as distinctive;
+    labels of four or more letters or digits; and whole registrable domains, not subdomains
+    of a shared service (metamask.discoursemail.com).
+    """
+    labels: dict[str, str] = {}
+    for path in paths:
+        for brand in json.loads(path.read_text(encoding="utf-8"))["brands"]:
+            if not brand["display_names"]:
+                continue
+            for domain in brand["official_domains"]:
+                domain = normalize_domain(domain)
+                if organizational_domain(domain) != domain:
+                    continue
+                label = domain.split(".", 1)[0]
+                if len(label) >= 4 and label.isalnum() and label not in _COMMON_SITE_LABELS:
+                    labels.setdefault(label, brand["name"])
+    return labels
+
+
+BRAND_SITE_LABELS = _load_brand_site_labels()
 _OFFICIAL_SENDER_DOMAINS = _load_official_sender_domains()
 _ORGANIZATION_NAMES = _load_organization_names()
 _RELAY_ADDRESSES = _load_relay_addresses()

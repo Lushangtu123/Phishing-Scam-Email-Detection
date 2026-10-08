@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 09:12 PT] — Links to a site named after an organization on a free hosting service
+
+### Why
+- Asked whether Cloudflare's Clef models help with phishing domains: Clef classifies a domain by fetching and rendering the site, which PhishGuard never does, so the useful change was in the link rules. `link.brand_lookalike` covers only five brands, and extending it to every registered organization would have flagged 9 of the owner's 92 genuine messages (the organizations' own other domains) for few new catches. The real lookalikes sat on free hosting services.
+
+### Files changed
+- `website/email_structure.py` — `BRAND_SITE_LABELS`: the domain labels of organizations matched by display name, without common words, the five protected brands or shared-service subdomains.
+- `website/app.py` — `link.brand_on_free_host`: a link to a site on one of 35 free hosting or site-builder services (Cloudflare Pages, Workers and R2, Vercel, Netlify, Glitch, Firebase, Wix and others) whose name is built on such a label; 4 points, no floor, once per message. Code and blog hosts (`github.io`, `blogspot.com`) and names with "clone" are left out. The finding counts as impersonation evidence.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the message in English and Chinese; asset versions bumped (`index.html`, `cases.html`, `404.html`, `lang-init.js`, manifest).
+- `website/tools/evidence_attribution.py` — the rule is a recognized signal.
+- `website/tests/test_link_brand_free_host.py` — new: lookalike sites from real phishing, digit-for-letter and pinyin names, the weight, and the sites not flagged.
+- `docs/detection-design.md`, `docs/evaluation.md` — the rule, the rejected extension and the data.
+
+### Effect
+- No alert, undetermined or not-alerted count changed on the owner's genuine mail, the new brand emails, Nazario 2023–24 or PhishFuzzer's recent seeds. Three Nazario 2023–24 phishing messages (Wells Fargo on cyclic.app, Docusign on glitch.me) now carry the finding; all were already alerts.
+- Not added: a link to any free hosting service as a signal. 99 of 787 Nazario 2023–24 messages had one and none of 36,337 legitimate messages in the local corpora did, but those corpora are mostly from 2008 or earlier, and small businesses and developers use these services.
+
 ## [2026-10-08 08:52 PT] — Thirteen more Chinese services added to the official registry
 
 ### Why
