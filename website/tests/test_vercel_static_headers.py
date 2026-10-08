@@ -95,8 +95,15 @@ class VercelStaticHeaderTests(unittest.TestCase):
     def test_the_cdn_serves_static_files(self):
         config = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
         self.assertIs(config['tool']['vercel']['fastapi']['static']['cdn'], True)
-        # Dependencies stay in requirements.txt; a [project] table would change how Vercel installs them.
-        self.assertNotIn('project', config)
+
+    def test_vercel_installs_the_serving_pins(self):
+        # With a pyproject.toml present Vercel installs from [project] (uv lock), while local
+        # and CI installs read requirements.txt: the two must name the same pins.
+        config = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        pins = [line.split('#', 1)[0].strip() for line in (ROOT / 'requirements.txt').read_text().splitlines()]
+        self.assertEqual(sorted(config['project']['dependencies']), sorted(pin for pin in pins if pin))
+        self.assertEqual(config['project']['requires-python'],
+                         f"~={(ROOT / '.python-version').read_text().strip()}.0")
 
 
 if __name__ == '__main__':

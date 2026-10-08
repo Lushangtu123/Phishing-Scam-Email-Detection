@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 09:45 PT] — Vercel installs dependencies from pyproject.toml
+
+### Why
+- The preview deployment of the previous entry failed: once a `pyproject.toml` exists, Vercel's Python builder runs `uv lock` on it, which stopped with "No `project` table found". The previous entry's claim that dependencies stay in `requirements.txt` for Vercel was wrong.
+
+### Files changed
+- `pyproject.toml` — a `[project]` table (`requires-python = "~=3.12.0"`, as `.python-version`) listing the serving pins of `requirements.txt`, beside the CDN setting.
+- `website/tests/test_vercel_static_headers.py` — the two dependency lists must name the same pins, and the Python requirement must match `.python-version`.
+- `README.md` — how Vercel installs dependencies now.
+
+### Effect
+- Vercel installs the same direct pins as before, through uv instead of pip; local and CI installs still read `requirements.txt`. To be confirmed on the preview deployment.
+
 ## [2026-10-08 09:40 PT] — Serve static files from Vercel's CDN
 
 ### Why
