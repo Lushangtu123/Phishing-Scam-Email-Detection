@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 09:40 PT] — Serve static files from Vercel's CDN
+
+### Why
+- The owner asked why the page loads slowly. Warm, the whole page loads in 0.17 s (22 files, 127 KB). Cold, each `/static` file took 0.8–2.2 s, one after another: Vercel keeps `app.mount("/static", StaticFiles(...))` in the Python Function when the app has top-level middleware, so every CDN cache miss (after a deployment, in a new region, after a day, after idle time) woke the Function.
+
+### Files changed
+- `pyproject.toml` — new, Vercel settings only: `[tool.vercel.fastapi.static] cdn = true` promotes `/static` to the CDN despite the middleware. Dependencies stay in `requirements.txt`.
+- `vercel.json` — `headers` gives CDN-served `/static` files what the middleware gave them: the security headers, the page Content-Security-Policy (the vision worker scripts keep their own) and, for `?v=` URLs, the versioned-asset Cache-Control. No two rules set the same header, as Vercel does not document which would win.
+- `website/app.py` — the security headers and the worker policy are named constants (`SECURITY_HEADERS`, `WORKER_SCRIPT_PATHS`, `WORKER_CONTENT_SECURITY_POLICY`); behaviour unchanged.
+- `website/tests/test_vercel_static_headers.py` — new: for nine static URLs the `vercel.json` headers equal the middleware's, no header is set twice, other paths get none, and the CDN setting stays on.
+- `README.md` — the static-file delivery and why the headers live in two places.
+
+### Effect
+- On Vercel, static files no longer wake the Function. The homepage and API requests still run in it, as do static files missing from the build.
+- Browser caching is unchanged (one day for versioned files): with the CDN serving them, expiry no longer reaches the Function, and the short lifetime keeps the margin against a missed `?v=` bump.
+- To be confirmed on the preview deployment before merging: the build installs dependencies as before, `/static` responses come from the CDN with these headers, and the page and analysis work.
+
 ## [2026-10-05 15:26 PT] — Add six organizations to the official registry
 
 ### Why
