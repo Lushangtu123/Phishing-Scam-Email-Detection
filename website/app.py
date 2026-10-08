@@ -3559,16 +3559,22 @@ def analyze_sms(sender: str, text: str) -> dict:
             indicators.append(item)
     fused = fuse_content_risk(ml_phishing_probability=None, ml_decision_threshold=1.0, heuristic_score=score,
                               minimum_level=floor)
-    level, label = fused['risk_level'], fused['risk_label']
-    if score == 0 and floor == 'safe':
-        level, label = 'unknown', 'No Known Scam Signs Found'
-    return {
-        'risk_level': level, 'risk_label': label, 'total_score': score,
+    result = {
+        'risk_level': fused['risk_level'], 'risk_label': fused['risk_label'], 'total_score': score,
         'category_results': rules['categories'], 'extra_indicators': indicators,
         'sender_kind': sms['sender_kind'], 'claimed_brand': sms['claimed_brand'],
         'link_hosts': _link_hosts(links),
         'official_channels': _official_channels((), first=sms['claimed_brand'], limit=1) if sms['claimed_brand'] else [],
     }
+    if score == 0 and floor == 'safe':
+        result['risk_level'] = 'unknown'
+        result['risk_label'] = 'No Known Scam Signs Found'
+    # The email labels for these levels name email ("钓鱼邮件" in Chinese).
+    elif result['risk_level'] == 'critical':
+        result['risk_label'] = 'Critical Risk — Very Likely a Scam Text'
+    elif result['risk_level'] == 'high':
+        result['risk_label'] = 'High Risk — Likely a Scam Text'
+    return result
 
 
 class ContentRequest(BaseModel):

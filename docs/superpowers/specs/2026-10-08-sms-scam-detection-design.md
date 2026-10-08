@@ -158,7 +158,9 @@ written only from public data and the development batch, and judged on the held-
 The rule score goes through `fuse_content_risk` with no model reading. Its scale is unchanged:
 1–4 points Low, 5 or more Medium, 9 or more High, 13 or more Critical, with rule floors.
 
-When no rule fires, the verdict is `unknown`, shown as "No known scam signs found", never Safe.
+When no rule fires, the verdict is `unknown`, shown as "No Known Scam Signs Found", never Safe.
+High and Critical texts get their own labels ("High Risk — Likely a Scam Text"), as the email
+labels for those levels say "钓鱼邮件" in Chinese; Medium and Low share the email labels.
 A text's sender cannot be verified, so the absence of known signs is not evidence of safety,
 as in the short-message abstention design. Every result also says that a matching number can
 be forged, and that an organisation should be contacted through its official app or the

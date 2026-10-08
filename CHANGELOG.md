@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:33 PT] — The SMS tab
+
+### Why
+- Task 7 of the SMS plan: a homepage tab for the SMS analysis, shown only when the server enables it.
+
+### Files changed
+- `website/static/index.html` — a third tab, "Text Message", hidden by default, and its panel: sender and text fields (64 and 2,000 characters, with a count), the privacy notice, three synthetic examples (an unpaid-toll text, a fake Chinese bank text, a genuine USPS delivery text), and a result area with the banner, matched categories, a sender card (the sender's kind, the claimed organisation and a reminder that a matching number can be forged), the organisation's official channels and the findings.
+- `website/static/app-sms.js` — new: shows the tab when `/api/config` reports `sms_analysis_enabled` (and then follows a `?tab=sms` link), posts to `/api/analyze-sms` with cancellation, renders the result with the content tab's helpers, re-renders on a language switch and records verdict-only recent checks.
+- `website/static/app.js`, `app-config.js`, `app-layout.js`, `app-reports.js` — the SMS actions, the configuration hook, `?tab=sms` and arrow keys that skip a hidden tab, and the `sms` recent-check mode.
+- `website/static/style.css` — a hidden tab stays hidden, the sliding highlight divides in thirds when three tabs show, and the tabs tighten at 560 px and drop icons at 420 px.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese strings for the tab, the ten sender kinds and three risk labels: "No Known Scam Signs Found", and High and Critical labels for texts, since the email ones say "钓鱼邮件". `website/app.py` uses them.
+- `website/static/*.test.mjs` — `app-sms.js` in the page-script lists; the page actions, tab semantics, the hidden-by-default tab and the rendered result; the `sms.kind.*` key family. Asset versions bumped.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the text labels.
+
+### Effect
+- In production nothing changes until `SMS_ANALYSIS_ENABLED` is set: the tab stays hidden, so the visual baselines are unchanged.
+- Checked on a local server with the flag on: the fake bank example gives "High Risk — Likely a Scam Text" with four findings and ICBC's official channels, in English and Chinese; at 375 px the three tabs fit on one line in both languages, with no horizontal scroll.
+
 ## [2026-10-08 15:20 PT] — SMS endpoint behind SMS_ANALYSIS_ENABLED
 
 ### Why

@@ -8,7 +8,7 @@ import {loadPage} from '../tests/fixtures/i18n/scenarios.mjs';
 
 const source = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
 const APP_SCRIPTS = ['app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
-  'app-content.js', 'app-content-render.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
+  'app-content.js', 'app-content-render.js', 'app-sms.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
 const TIMEOUT_TEXT = 'The service took too long to respond. Try again.';
 const tick = () => new Promise(resolve => setImmediate(resolve));
 

@@ -5,9 +5,9 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 // ── Demo Tab Switcher ─────────────────────────────────────────────────────────
-// ?tab=address|content deep-links a tab. It is a query parameter rather than
+// ?tab=address|content|sms deep-links a tab (sms only while the SMS tab is shown). It is a query parameter rather than
 // the hash because in-page links already push #demo, #about, … to the URL.
-const TAB_QUERY_VALUES = new Map([['address', 'email-address'], ['content', 'email-content']]);
+const TAB_QUERY_VALUES = new Map([['address', 'email-address'], ['content', 'email-content'], ['sms', 'sms']]);
 
 function tabFromSearch(search) {
   try {
@@ -34,7 +34,8 @@ function syncTabQuery(tabName) {
 let _requestedDemoTab = null;
 
 function switchDemoTab(tabName, { animate = true, updateUrl = true } = {}) {
-  if (!document.getElementById('tab-' + tabName)) return;
+  const requested = document.getElementById('tab-' + tabName);
+  if (!requested || requested.hidden) return;
   const current = _requestedDemoTab || document.querySelector('.demo-tab.active')?.id?.replace(/^tab-/, '');
   if (tabName === current) return;
   _requestedDemoTab = tabName;
@@ -64,7 +65,7 @@ function setupDemoTabs() {
   const tablist = document.querySelector('.demo-tabs');
   if (!tablist) return;
   tablist.addEventListener('keydown', event => {
-    const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')].filter(tab => !tab.hidden);
     const index = tabs.indexOf(document.activeElement);
     const target = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key];
     if (index < 0 || target === undefined) return;

@@ -6,7 +6,7 @@ import {FakeElement, loadPage, memoryStorage, runScenarios, runVisionScenario} f
 
 const source = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
 const APP_SCRIPTS = ['app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
-  'app-content.js', 'app-content-render.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
+  'app-content.js', 'app-content-render.js', 'app-sms.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
 // A Chinese page runs i18n-zh.js (requested by lang-init.js) before i18n.js;
 // the English snapshot runs without it, as an English visitor does.
 const PAGE = ['i18n-zh.js', 'i18n.js', ...APP_SCRIPTS];
@@ -290,6 +290,8 @@ test('keys built from codes cover every code the scripts can pass', () => {
     'level.%': ['critical', 'high', 'medium', 'low', 'info', 'safe', 'unknown'],
     'mailbox.%': ['known_disposable_provider', 'privacy_relay', 'suspicious_mailbox_pattern', 'suspicious_domain_pattern', 'no_known_match'],
     'theme.mode.%': ['auto', 'light', 'dark'],
+    'sms.kind.%': ['short_code', 'cn_port_106', 'cn_mobile', 'nanp_toll_free', 'nanp_long_code', 'international',
+      'other_number', 'email', 'alphanumeric', 'none'],
     'metric.%': ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC_AUC'],
     'category.%.label': ['urgency', 'threats', 'financial', 'credential', 'impersonation', 'deception', 'attachments',
       'tech_scam', 'job_scam', 'social_engineering'],
@@ -301,7 +303,8 @@ test('keys built from codes cover every code the scripts can pass', () => {
   const computed = T_FILES.flatMap(name => [...source(name).matchAll(/\bt\(\s*`([^`]+)`/g)].map(match => match[1]));
   const allowed = ['sender.history.${state.key}.label', 'sender.history.${state.key}.detail', 'sender.verdict.${data.verdict}',
     'verify.verdict.${overall}', 'content.ml.model.${id}', 'content.level.${level}', 'mailbox.${status}',
-    'content.ml.metric.${key}', 'metric.${key}', 'sender.verdict.${entry.level}'];
+    'content.ml.metric.${key}', 'metric.${key}', 'sender.verdict.${entry.level}',
+    'sms.kind.${data.sender_kind}'];
   assert.deepEqual([...new Set(computed)].filter(key => !allowed.includes(key)), []);
 });
 

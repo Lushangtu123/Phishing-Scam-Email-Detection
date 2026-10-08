@@ -2,7 +2,7 @@
    app.js – PhishGuard frontend entry point
    Loaded last, after i18n.js and app-core, app-theme, app-layout,
    app-config, app-sender, app-verify, app-content, app-content-render,
-   app-reports and app-metrics (classic scripts sharing one global scope).
+   app-sms, app-reports and app-metrics (classic scripts sharing one global scope).
    It binds page actions, runs the setup functions on DOMContentLoaded and
    re-renders script-written text when the language changes.
    ────────────────────────────────────────────────────────────────────────── */
@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupScrollReveal();
   setupCountUps();
   setupInputEvents();
+  setupSmsInput();
   setupMobileNav();
   setupCaseLoginLink();
   setupShortcuts();
@@ -43,6 +44,9 @@ const PAGE_ACTIONS = {
   'clear-content':       () => clearContent(),
   'analyze-content':     () => runContentAnalysis(),
   'set-content-example': arg => setContentExample(arg),
+  'clear-sms':           () => clearSms(),
+  'analyze-sms':         () => runSmsAnalysis(),
+  'set-sms-example':     arg => setSmsExample(arg),
   'download-report':     arg => downloadReport(...String(arg).split(':')),
   'clear-recent':        () => clearRecentChecks(),
 };
@@ -79,6 +83,7 @@ function rerenderForLanguage() {
     renderContentResult(lastResults.content, { languageOnly: true });
     window.PhishGuardVision?.render(document.getElementById('visual-evidence'), lastResults.content.visual_analysis, _visualFile);
   }
+  rerenderSmsForLanguage();
   renderRecentChecks();
   relabelMetrics();
 }

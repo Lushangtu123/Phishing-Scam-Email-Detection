@@ -11,7 +11,7 @@ const WEBSITE = new URL('../', import.meta.url);
 const REGISTRY = JSON.parse(readFileSync(new URL('data/server_messages.json', WEBSITE), 'utf8'));
 const source = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
 const PAGE = ['i18n-zh.js', 'i18n.js', 'app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
-  'app-content.js', 'app-content-render.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
+  'app-content.js', 'app-content-render.js', 'app-sms.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
 const fields = text => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort();
 
 function loadI18n(languages) {

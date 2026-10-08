@@ -82,6 +82,36 @@ window.PhishGuardI18n = (() => {
     'demo.tabs.aria': 'Analysis mode',
     'demo.tab.address': 'Email Address',
     'demo.tab.content': 'Email Content',
+    'demo.tab.sms': "Text Message",
+    'sms.sender.label': "Sender (optional)",
+    'sms.sender.placeholder': "e.g. 95588, +1 833 555 0100, or an email address",
+    'sms.text.label': "Text message",
+    'sms.text.placeholder': "Paste the text message here…",
+    'sms.privacy': "The text and sender are processed on this server and not retained. Only the sender's kind appears in the result. Where domain-age lookups are enabled, the registrable domains of up to five links are sent to the registry’s public RDAP service. Remove names and codes before you paste.",
+    'sms.analyze': "Analyze Text",
+    'sms.analyzing': "Checking…",
+    'sms.example.toll': "Unpaid toll text",
+    'sms.example.bank': "Fake bank text (Chinese)",
+    'sms.example.delivered': "Genuine delivery text",
+    'sms.col.sender': "Sender",
+    'sms.col.findings': "Findings",
+    'sms.reminder': "A number that matches the organisation can still be forged. Contact the organisation through its official app or the number on your card.",
+    'sms.loading': "Checking the text message…",
+    'sms.count': "{count} / {max} characters",
+    'sms.error.empty': "Paste a text message first.",
+    'sms.sub.none': "No rule found a known scam sign. This does not show that the text is safe.",
+    'sms.sender.kind': "Sender: {kind}",
+    'sms.sender.claimed': "Says it is from: {organization}",
+    'sms.kind.short_code': "a short code or service number",
+    'sms.kind.cn_port_106': "a 106 message port",
+    'sms.kind.cn_mobile': "a Chinese mobile number",
+    'sms.kind.nanp_toll_free': "a North American toll-free number",
+    'sms.kind.nanp_long_code': "an ordinary North American number",
+    'sms.kind.international': "a number in another country",
+    'sms.kind.other_number': "a number of no recognised kind",
+    'sms.kind.email': "an email address",
+    'sms.kind.alphanumeric': "a name, not a number",
+    'sms.kind.none': "not given",
     'examples.label': 'Quick examples:',
 
     // ── Sender input ──
@@ -325,6 +355,9 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.lowRequested': 'Low Risk — Confirmed as Your Own Action',
     'content.riskLabel.lowLocal': 'Low Risk — Read as Legitimate by a Local Model',
     'content.riskLabel.safe': 'No Phishing Indicators Found',
+    'content.riskLabel.smsUnknown': "No Known Scam Signs Found",
+    'content.riskLabel.smsCritical': "Critical Risk — Very Likely a Scam Text",
+    'content.riskLabel.smsHigh': "High Risk — Likely a Scam Text",
     'content.riskLabel.remoteUnchecked': 'No Indicators in Inspected Text — Remote Image Unchecked',
     'content.riskLabel.incomplete': 'Analysis Incomplete — Risk Undetermined',
     'content.riskLabel.imageIncomplete': 'Image Analysis Incomplete — Risk Undetermined',
@@ -525,6 +558,7 @@ window.PhishGuardI18n = (() => {
     'recent.mode.content': 'Content',
     'recent.mode.eml': 'Email file',
     'recent.mode.image': 'Image',
+    'recent.mode.sms': "Text message",
     'recent.fallbackLabel': 'Result',
     'recent.time.now': 'Just now',
     'recent.time.minutes': '{count} min ago',
@@ -1348,7 +1382,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=53'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=55'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1473,7 +1507,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowModel', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowModel', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'smsUnknown', 'smsCritical', 'smsHigh', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {
