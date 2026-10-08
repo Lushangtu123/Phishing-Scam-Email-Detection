@@ -1717,17 +1717,23 @@ def _is_ipfs_gateway(host: str, path: str) -> bool:
     return bool(_IPFS_SUBDOMAIN.match(host) or _IPFS_PATH.match(path or ""))
 
 
+# Free development, storage and tunnel addresses anyone can create in minutes (Cloudflare R2
+# and Workers dev URLs, Glitch, Replit, tunnels, Azure storage web endpoints). Organizations
+# send customers to their own domains, not here. In the corpora on this computer, 2023-24
+# phishing linked to them and real legitimate mail did not (docs/evaluation.md).
+_DEV_HOSTING_SUFFIXES = (
+    "r2.dev", "workers.dev", "glitch.me", "cyclic.app", "replit.app", "replit.dev", "repl.co",
+    "trycloudflare.com", "ngrok.io", "ngrok-free.app", "000webhostapp.com", "web.core.windows.net",
+)
 # Free hosting and site-builder services whose subdomains anyone can claim. Organizations do
 # not serve their own sign-in or account pages there, so a site named after a registered
 # one is a lookalike. Code and blog hosts (github.io, gitlab.io, blogspot.com) are left out:
 # organizations publish official project pages and blogs there under their own names.
-_FREE_HOSTING_SUFFIXES = (
-    "pages.dev", "workers.dev", "r2.dev", "trycloudflare.com", "vercel.app", "netlify.app", "glitch.me",
-    "cyclic.app", "web.app", "firebaseapp.com", "onrender.com", "up.railway.app", "fly.dev", "herokuapp.com",
-    "repl.co", "replit.app", "replit.dev", "surge.sh", "weebly.com", "weeblysite.com", "wixsite.com",
-    "webflow.io", "square.site", "000webhostapp.com", "framer.website", "framer.app", "ngrok.io",
-    "ngrok-free.app", "amplifyapp.com", "azurestaticapps.net", "canva.site", "godaddysites.com",
-    "mystrikingly.com", "jimdosite.com", "web.core.windows.net",
+_FREE_HOSTING_SUFFIXES = _DEV_HOSTING_SUFFIXES + (
+    "pages.dev", "vercel.app", "netlify.app", "web.app", "firebaseapp.com", "onrender.com", "up.railway.app",
+    "fly.dev", "herokuapp.com", "surge.sh", "weebly.com", "weeblysite.com", "wixsite.com", "webflow.io",
+    "square.site", "framer.website", "framer.app", "amplifyapp.com", "azurestaticapps.net", "canva.site",
+    "godaddysites.com", "mystrikingly.com", "jimdosite.com",
 )
 
 
@@ -1876,6 +1882,14 @@ def _analyze_link_destinations(text: str, *, links=None, parse_warnings=None) ->
                                  **indicator("high", "link.brand_lookalike", host=target_host, brand=brand)})
 
         free_host = _free_hosting_suffix(target_host)
+        if free_host in _DEV_HOSTING_SUFFIXES and "dev-hosting" not in finding_types:
+            # An alert on its own (Medium), not High: developers do share such addresses.
+            score += 4
+            if risk_floor in {"safe", "low"}:
+                risk_floor = "medium"
+            finding_types.add("dev-hosting")
+            findings.append({"rule_id": "link.dev_hosting",
+                             **indicator("medium", "link.dev_hosting", host=target_host, service=free_host)})
         site_brand = free_host and _brand_in_site_name(_decode_idna_domain(target_host[: -len(free_host) - 1]))
         if site_brand and "brand-free-host" not in finding_types:
             # Supporting evidence only (no floor): tools named after a platform
@@ -2705,6 +2719,7 @@ _PHISHING_TACTICS = {
                       "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
                       "link.file_share_elsewhere", "structure.recipient_domain_display"},
     "deceptive_link": {"link.display_mismatch", "link.ip_host", "link.url_userinfo", "link.ipfs_gateway",
+                       "link.dev_hosting",
                        "link.obfuscated_scheme", "link.unsafe_scheme"},
     "spoofed_sender": {"structure.auth_failed"},
     "dangerous_attachment": {"structure.dangerous_attachment"},

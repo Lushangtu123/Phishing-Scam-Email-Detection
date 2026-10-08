@@ -36,7 +36,9 @@ class FileShareElsewhereTests(unittest.TestCase):
                              WETRANSFER.format(link='https://files-review.workers.dev/get'))
         item = finding(result)
         self.assertEqual(item['params'], {'service': 'WeTransfer', 'host': 'files-review.workers.dev'})
-        self.assertEqual(result['risk_level'], 'high')
+        # A Workers dev address is also link.dev_hosting evidence, which raises High to Critical.
+        self.assertIn('link.dev_hosting', {entry.get('code') for entry in result['extra_indicators']})
+        self.assertEqual(result['risk_level'], 'critical')
         self.assertIn('impersonation', result['mail_type']['tactics'])
 
     def test_the_service_named_only_by_the_display_name(self):

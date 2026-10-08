@@ -1408,6 +1408,46 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### Free development and storage addresses (2026-10-08)
+
+The section below left out a signal for any link to a free hosting service, for lack of
+recent legitimate mail. The owner chose to measure it on public developer lists: 15 monthly
+`lists.apache.org` archives, 2026-07 to 2026-09 (150 MB, kept outside the repository).
+
+| Source (2026-07 to 2026-09) | Messages | With a free hosting link |
+|---|---:|---:|
+| `announce@apache.org` (releases, CVE notices) | 756 | 0 |
+| `dev@kafka` (discussion, Jira and CI notices) | 1,364 | 0 |
+| `issues@iceberg` (GitHub notifications) | 21,891 | 0 |
+| `user@flink`, `users@tomcat` (questions) | 253 | 0 |
+
+With the older corpora and the owner's mail (section below), no legitimate message of 60,601
+links to any of the 35 services. The phishing that does concentrates on development, storage
+and tunnel addresses: of the 99 Nazario 2023–24 messages, `r2.dev` 55, `glitch.me` 15,
+`workers.dev` 7, `cyclic.app` 2, `replit.app` 2, `replit.dev` 1 and Azure storage web
+endpoints 1 (83 messages); site builders and app hosting much less (`wixsite.com` 5,
+`vercel.app` 5, `pages.dev` 3, `web.app` 2, `firebaseapp.com` 1).
+
+- **The rule** (`link.dev_hosting`): a link to one of 12 development, storage or tunnel
+  services (Cloudflare R2 and Workers dev URLs, Glitch, Cyclic, Replit, Cloudflare and ngrok
+  tunnels, 000webhost, Azure storage web endpoints) adds 4 points and a Medium floor, so it
+  alerts on its own. Not High, as developers do share these addresses.
+- **Left alone:** site builders and app hosting (Wix, Weebly, Square, Vercel, Netlify,
+  Cloudflare Pages, Firebase and others). Small businesses and developers run real sites
+  there, which these legitimate corpora (mailing lists and 2008-era mail) do not represent;
+  only a site named after a registered organization counts there.
+- **Why not weaker evidence.** Points without a floor would turn an undetermined phishing
+  message into Low: one pasted Nazario message with a free hosting link and no other
+  evidence would have gone from undetermined to not alerted.
+- **Measured** (committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`):
+  - `.eml`: no count changed. 83 Nazario 2023–24 messages carry the finding, and 21 of
+    their alerts moved from model-led to corroborated by this independent evidence.
+  - Nazario 2023–24 pasted as text: alerts 752 → 753 (one undetermined message), of 787.
+  - No legitimate cohort changed: the owner's genuine mail, the new brand emails,
+    PhishFuzzer's legitimate seeds and the 24,264 Apache messages.
+- **Limit.** Recent consumer and small-business mail was not measured; the owner's longer
+  mailbox would show it.
+
 ### Links to a site named after an organization on a free hosting service (2026-10-08)
 
 `link.brand_lookalike` reports a link host imitating one of five protected brands (Apple,

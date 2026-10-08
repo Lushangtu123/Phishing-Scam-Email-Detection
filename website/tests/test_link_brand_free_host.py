@@ -1,4 +1,5 @@
-"""Links to a site on a free hosting service named after a registered organization (synthetic inputs)."""
+"""Links to free development and storage addresses, and to sites on free hosting named after a
+registered organization (synthetic inputs)."""
 import sys
 import unittest
 from pathlib import Path
@@ -64,6 +65,42 @@ class BrandOnFreeHostTests(unittest.TestCase):
                 '<a href="https://wellsfargo-b.glitch.me/">Two</a>')
         _score, findings, _floor = app._analyze_link_destinations(text)
         self.assertEqual(sum(item['rule_id'] == 'link.brand_on_free_host' for item in findings), 1)
+
+
+def dev_findings(text):
+    score, findings, floor = app._analyze_link_destinations(text)
+    return score, [item for item in findings if item['rule_id'] == 'link.dev_hosting'], floor
+
+
+class DevHostingTests(unittest.TestCase):
+    def test_development_storage_and_tunnel_addresses_alert(self):
+        for url, service in (
+                ('https://pub-0a8952aeed314c3e88b3319fff3a5ae5.r2.dev/index.html', 'r2.dev'),
+                ('https://rdgdwrkehg.ethel-duclos.workers.dev/', 'workers.dev'),
+                ('https://broad-outstanding-skiff.glitch.me/', 'glitch.me'),
+                ('https://html-buggyman.replit.app/', 'replit.app'),
+                ('https://packingstan-secondary.z13.web.core.windows.net/', 'web.core.windows.net'),
+                ('https://sudden-river.trycloudflare.com/login', 'trycloudflare.com'),
+                ('https://3f2a-198-51-100-7.ngrok-free.app/', 'ngrok-free.app')):
+            with self.subTest(url=url):
+                score, findings, floor = dev_findings(f'<a href="{url}">Open</a>')
+                self.assertEqual((score, [item['params']['service'] for item in findings], floor), (4, [service], 'medium'))
+
+    def test_site_builders_and_app_hosting_are_not_flagged_alone(self):
+        # Small businesses and developers use these for real sites; only a site named after a
+        # registered organization counts there (link.brand_on_free_host).
+        for url in ('https://mybakery.wixsite.com/home', 'https://my-portfolio.vercel.app/',
+                    'https://docs-demo.netlify.app/', 'https://blog.pages.dev/', 'https://project.web.app/',
+                    'https://r2.dev.example.com/', 'https://example.com/r2.dev'):
+            with self.subTest(url=url):
+                self.assertEqual(dev_findings(f'<a href="{url}">Open</a>')[1], [])
+
+    def test_one_finding_per_message_and_with_a_brand_both_count(self):
+        score, findings, floor = dev_findings('<a href="https://pub-a.r2.dev/x">1</a> <a href="https://b.glitch.me/">2</a>')
+        self.assertEqual((score, len(findings), floor), (4, 1, 'medium'))
+        score, findings, floor = app._analyze_link_destinations('<a href="https://s-wellsfargo-online.cyclic.app/">Sign in</a>')
+        self.assertEqual(sorted(item['rule_id'] for item in findings), ['link.brand_on_free_host', 'link.dev_hosting'])
+        self.assertEqual((score, floor), (8, 'medium'))
 
 
 if __name__ == '__main__':

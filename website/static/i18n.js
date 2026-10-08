@@ -895,6 +895,7 @@ window.PhishGuardI18n = (() => {
     'server.link.display_mismatch': 'Link display domain ({display_host}) does not match the actual destination ({host}).',
     'server.link.idn_confusable': 'Link destination ({host}) is an IDN/confusable lookalike for {brand}.',
     'server.link.brand_lookalike': 'Link destination ({host}) is a noncanonical lookalike for {brand}.',
+    'server.link.dev_hosting': 'Link destination ({host}) is on {service}, a free development, storage or tunnel address anyone can create in minutes. Organisations send customers to their own domains, not to addresses like this.',
     'server.link.brand_on_free_host': 'Link destination ({host}) is a site on {service}, a free hosting service anyone can use, named after {brand}. Organisations do not run their own account pages there.',
     'server.link.file_share_elsewhere': "The message says files were shared with you through {service}, but its download or open button leads to another site, {host}. Open shared files from the service's own website or app.",
     'server.sender.recently_registered': "The sender's domain {domain} was registered on {date}, {days} days ago (the registry's RDAP record). Phishing often uses newly registered domains; established organisations send from long-held ones.",
@@ -1341,7 +1342,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=51'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=52'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

@@ -567,6 +567,13 @@ Raw input enables these checks:
 - links to public IPFS gateways (ipfs.io, dweb.link, Pinata and others, the
   `<cid>.ipfs.<gateway>` subdomain form, or `/ipfs/<cid>` paths). The brand
   being imitated cannot take these content-addressed pages down;
+- links to a free development, storage or tunnel address (`link.dev_hosting`): Cloudflare
+  R2 and Workers dev URLs (`pub-….r2.dev`, `….workers.dev`), Glitch, Replit, Cyclic,
+  000webhost, Cloudflare and ngrok tunnels, and Azure storage web endpoints. Organizations
+  send customers to their own domains, not to these. An alert on its own (4 points, Medium
+  floor), not High, as developers do share such addresses. Site builders and app hosting
+  (Wix, Weebly, Vercel, Netlify, Cloudflare Pages, Firebase) are not flagged alone, as small
+  businesses and developers run real sites there;
 - links to a site on a free hosting or site-builder service (`pages.dev`,
   `workers.dev`, `vercel.app`, `netlify.app`, `glitch.me`, `web.app`, `wixsite.com` and
   others) whose name is built on a registered organization's own domain

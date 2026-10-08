@@ -24,6 +24,7 @@ _RULE_IDS = frozenset({
     'link.obfuscated_scheme', 'link.malformed_target', 'link.unsafe_scheme',
     'link.url_userinfo', 'link.ip_host', 'link.display_mismatch',
     'link.idn_confusable', 'link.brand_lookalike', 'link.brand_on_free_host',
+    'link.dev_hosting',
     'link.credential_collection_host', 'link.sensitive_host',
 })
 _OUTCOMES = frozenset({

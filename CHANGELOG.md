@@ -20,6 +20,24 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 09:26 PT] — Links to free development and storage addresses
+
+### Why
+- The previous entry left out a signal for any link to a free hosting service until it was measured on recent legitimate mail. The owner chose public developer lists: 24,264 messages of 15 `lists.apache.org` archives from 2026-07 to 2026-09 had no such link, nor did any of 60,601 legitimate messages in all, while 99 of 787 Nazario 2023–24 phishing messages did, 83 of them on development, storage or tunnel addresses.
+
+### Files changed
+- `website/app.py` — `link.dev_hosting`: a link to Cloudflare R2 or Workers dev URLs, Glitch, Cyclic, Replit, Cloudflare or ngrok tunnels, 000webhost or Azure storage web endpoints adds 4 points and a Medium floor. Site builders and app hosting (Wix, Vercel, Netlify, Cloudflare Pages, Firebase) stay out of it; there only a site named after a registered organization counts.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the message in English and Chinese; asset versions bumped.
+- `website/tools/evidence_attribution.py` — the rule is a recognized signal.
+- `website/tests/test_link_brand_free_host.py` — the services flagged, site builders and app hosting not flagged alone, one finding per message, and a brand on a development address.
+- `website/tests/test_file_share_elsewhere.py` — the fake WeTransfer notice whose button leads to a `workers.dev` address is now Critical (High before), with the new finding.
+- `docs/detection-design.md`, `docs/evaluation.md` — the rule and the measurement.
+
+### Effect
+- No count changed on `.eml` cohorts; 83 Nazario 2023–24 messages carry the finding, and 21 of their alerts are now corroborated by it rather than led by the model.
+- Nazario 2023–24 pasted as text: 752 → 753 alerts of 787. No legitimate cohort changed.
+- Recent consumer and small-business mail was not measured.
+
 ## [2026-10-08 09:12 PT] — Links to a site named after an organization on a free hosting service
 
 ### Why

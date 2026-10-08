@@ -877,6 +877,7 @@
   'server.link.display_mismatch': '链接显示的域名（{display_host}）与实际目标（{host}）不一致。',
   'server.link.idn_confusable': '链接目标（{host}）是 {brand} 的 IDN/易混淆字符仿冒域名。',
   'server.link.brand_lookalike': '链接目标（{host}）是 {brand} 的非官方仿冒域名。',
+  'server.link.dev_hosting': '链接目标（{host}）位于 {service}，这是任何人几分钟就能申请的免费开发、存储或隧道地址。正规机构会让客户访问自己的域名，而不是这类地址。',
   'server.link.brand_on_free_host': '链接目标（{host}）是免费建站服务 {service} 上一个以 {brand} 命名的网站。任何人都能在这类服务上建站，正规机构不会把自己的账户页面放在那里。',
   'server.link.file_share_elsewhere': '邮件称有人通过 {service} 与你共享了文件，但其中的下载或打开按钮却指向另一个网站 {host}。请在该服务的官网或 App 中打开共享文件。',
   'server.sender.recently_registered': '发件域名 {domain} 注册于 {date}，距今 {days} 天（注册局 RDAP 记录）。钓鱼邮件常用新注册的域名；正规机构一般使用持有多年的域名发信。',
