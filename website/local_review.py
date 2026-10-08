@@ -57,6 +57,9 @@ class LocalReviewSettings:
     timeout: float = 60.0
     # Record the reading without changing the verdict (docs/llm-review-rollout.md).
     shadow: bool = False
+    # Ollama's "think". gpt-oss cannot turn reasoning off and ignores false: it takes "low",
+    # "medium" or "high" (docs/llm-teacher.md).
+    think: bool | str = False
 
     @property
     def enabled(self):
@@ -105,7 +108,7 @@ def review(settings: LocalReviewSettings, subject: str, body: str, hosts) -> dic
     if hosts:
         content += f"\n\n[Link destinations: {', '.join(hosts)}]"
     content += "\nEMAIL>>>"
-    payload = {"model": settings.model, "stream": False, "think": False, "format": SCHEMA,
+    payload = {"model": settings.model, "stream": False, "think": settings.think, "format": SCHEMA,
                "options": {"temperature": 0, "num_ctx": 8192},
                "messages": [{"role": "system", "content": PROMPT}, {"role": "user", "content": content}]}
     request = Request(settings.url + '/api/chat', data=json.dumps(payload).encode(),
