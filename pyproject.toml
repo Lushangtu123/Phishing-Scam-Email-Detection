@@ -1,0 +1,8 @@
+# Vercel build settings only. Dependencies stay in requirements.txt and lint settings in
+# ruff.toml.
+
+[tool.vercel.fastapi.static]
+# Serve /static from Vercel's CDN although the app has top-level middleware, which would
+# otherwise keep every static file in the Python function (and wake it on each cache miss).
+# CDN files skip the middleware, so vercel.json "headers" repeats its /static headers.
+cdn = true
