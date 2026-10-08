@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 14:59 PT] — Design for SMS scam detection
+
+### Why
+- Scam text messages are increasingly common, and the owner asked for an SMS mode that judges a text from its sender and wording. The owner chose China and the US as regions, pasted text with an optional sender as input, a separate module and endpoint, and the owner's texts plus public datasets as test data.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — new: sender kinds, brand claims, the sender-mismatch, off-brand-link, reopen-to-activate and SMS delivery rules, the reused plain-text rules, an `unknown` verdict when no rule fires, the `SMS_ANALYSIS_ENABLED` flag, and a launch gate fixed before the held-out run.
+
+### Effect
+- No code changes. Implementation follows an implementation plan, after Lushangtu123/Phishing-Scam-Email-Detection#11 is merged.
+
 ## [2026-10-08 10:02 PT] — Merge main into the review follow-ups: CDN notes in docs/deployment.md
 
 ### Why
