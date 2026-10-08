@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 15:40 PT] — SMS mode: public-data baseline
+
+### Why
+- Task 9 of the SMS plan starts with a baseline on public data. The owner chose the Mishra and Soni SMS phishing dataset (CC BY 4.0) and not the UCI collection, with which it shares 4,753 texts.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: public-data baseline (2026-10-08)": 0 of 4,834 normal texts and 4 of 562 smishing texts at Medium or above, and what the missed texts have in common.
+
+### Effect
+- No code changes. The data stays outside the repository. The baseline shows that recall, not false alerts, is the gap, and that the public texts are older prize scams with premium-rate numbers rather than today's link scams.
+
 ## [2026-10-08 15:36 PT] — SMS evaluation tool
 
 ### Why

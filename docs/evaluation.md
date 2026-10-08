@@ -1408,6 +1408,33 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: public-data baseline (2026-10-08)
+
+`website/tools/evaluate_sms.py` scored the SMS analysis (branch `sms-scam-detection`; its flag is
+off in production) on the SMS phishing dataset of Mishra and Soni
+([Mendeley Data](https://data.mendeley.com/datasets/f45bkkt8pr/1), DOI 10.17632/f45bkkt8pr.1,
+CC BY 4.0; `Dataset_5971.zip`, SHA-256 `9bbf3188…3cc3`, as Mendeley publishes it). The set has no
+senders, so the sender rules cannot fire. Exact duplicates within a label were removed. A 2026
+systematic review reports that 4,753 of its texts also appear in the UCI SMS Spam Collection,
+which was therefore not downloaded.
+
+| Cohort | Texts | Medium or above | Low | No known signs |
+|---|---:|---:|---:|---:|
+| Normal (ham) | 4,834 | 0 (0.0%) | 171 | 4,663 |
+| Smishing | 562 | 4 (0.7%) | 207 | 351 |
+| Spam | 469 | 0 | 46 | 423 |
+
+- **No false alerts on 4,834 normal texts.** The 171 Low come mostly from capital letters (57) and
+  exclamation marks (56).
+- **Recall is the gap: 4 of 562 smishing texts alert.** The missed texts are older prize scams:
+  80% carry a phone number and 47% a premium-rate number (09…, 087…), 49% prize wording, and only
+  17% a link. Normal texts almost never carry a phone number (6 of 4,834).
+- **The email rules do not cover them.** The callback rule needs refund or cancellation wording,
+  and the lures need a link.
+- **These texts are old and mostly British**, unlike today's toll, parcel and Chinese bank texts.
+  Rules written for them are judged on the owner's texts, as the launch gate fixed in the design
+  requires.
+
 ### Free development and storage addresses (2026-10-08)
 
 The section below left out a signal for any link to a free hosting service, for lack of
