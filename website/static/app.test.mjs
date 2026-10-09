@@ -635,7 +635,7 @@ test('every declared page action calls the handler its inline attribute used to 
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const declared = [...html.matchAll(/data-action="([^"]+)"(?:[^>]*?data-arg="([^"]*)")?/g)]
     .map(([, action, arg]) => ({ action, arg }));
-  assert.equal(declared.length, 40);
+  assert.equal(declared.length, 42);
   const controls = declared.map(({ action, arg }) =>
     Object.assign(new FakeElement(), { dataset: arg === undefined ? { action } : { action, arg } }));
   const elements = new Map();
@@ -682,7 +682,7 @@ test('every declared page action calls the handler its inline attribute used to 
     assert.deepEqual(calls, [expected[control.dataset.action](declared[index].arg, event)], control.dataset.action);
   });
   assert.ok(declared.some(({ action, arg }) => action === 'set-example' && arg === 'security-alert@paypa1-verify.xyz'));
-  for (const kind of ['sender', 'content']) {
+  for (const kind of ['sender', 'content', 'sms']) {
     for (const format of ['md', 'json']) {
       assert.ok(declared.some(({ action, arg }) => action === 'download-report' && arg === `${kind}:${format}`), `${kind}:${format}`);
     }
@@ -1930,6 +1930,50 @@ test('downloads ignore missing results and unknown formats, and report failures'
   failing.context.renderResult(senderResult('a@example.com'));
   failing.context.downloadReport('sender', 'md');
   assert.equal(failing.elements.get('copy-status').textContent, 'Download failed');
+});
+
+test('text message reports carry the findings and the sender kind, never the number or the text', async () => {
+  const h = downloadHarness();
+  h.context.downloadReport('sms', 'md');
+  assert.equal(h.clicks.length, 0, 'nothing to download before a result');
+  const data = { risk_level: 'high', risk_label: 'High Risk — Likely a Scam Text', total_score: 13, sender_kind: 'email',
+    claimed_brand: 'United States Postal Service', link_hosts: ['usps-redelivery.top'],
+    category_results: [{ key: 'urgency', label: 'Urgency', level: 'high', count: 1, matched: ['immediately'] }],
+    official_channels: [{ organization: 'United States Postal Service', website: 'https://www.usps.com', service_numbers: ['1-800-275-8777'] }],
+    extra_indicators: [{ level: 'high', code: 'sms.sender_mismatch', params: { brand: 'United States Postal Service' },
+      msg: 'Sent from an email address, not [USPS](http://x.test)' }, { level: 'info', msg: 'note' }] };
+  h.context.renderSmsResult(data);
+  h.context.downloadReport('sms', 'md');
+  assert.match(h.clicks[0].download, /^phishguard-sms-\d{8}-\d{6}\.md$/);
+  const text = await h.blobs[0].text();
+  assert.match(text, /^# PhishGuard text message check\n\n- \*\*Input:\*\* Text message\n- \*\*Verdict:\*\* High Risk — Likely a Scam Text\n- \*\*Sender:\*\* an email address\n- \*\*Says it is from:\*\* United States Postal Service\n- \*\*Note:\*\* Organisations in China and the US/);
+  assert.match(text, /## Categories\n\n- Urgency \(high, 1 signal\)/);
+  assert.match(text, /## Findings\n\n- \*\*high\*\* — /);
+  assert.match(text, /\\\[USPS\\\]/, 'finding text is Markdown-escaped');
+  assert.match(text, /## How to verify it yourself\n\n- United States Postal Service: don’t use this text’s links[^\n]*1-800-275-8777/);
+  assert.match(text, /does not prove a message is safe or malicious/);
+  assert.equal(h.elements.get('copy-status').textContent, 'Report downloaded');
+
+  h.context.downloadReport('sms', 'json');
+  const report = JSON.parse(await h.blobs[1].text());
+  assert.equal(report.mode, 'sms');
+  assert.match(h.clicks[1].download, /^phishguard-sms-\d{8}-\d{6}\.json$/);
+  assert.equal(report.result.sender_kind, 'email');
+  assert.equal('sender' in report.result || 'text' in report.result, false, 'the API response has no number or text');
+
+  const plain = h.context.smsReportMarkdown({ ...data, sender_kind: 'short_code', claimed_brand: null, link_hosts: [],
+    official_channels: [], category_results: [], extra_indicators: [] }, new Date());
+  assert.doesNotMatch(plain, /Says it is from|Note:|How to verify/);
+  assert.match(plain, /## Categories\n\nNone matched\.\n\n## Findings\n\nNone detected\./);
+});
+
+test('the text message result has its own labelled download group', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const area = html.slice(html.indexOf('id="sms-result-area"'), html.indexOf('id="sms-risk-banner"'));
+  assert.match(area, /<div class="download-group" role="group" aria-labelledby="sms-download-label">/);
+  assert.match(area, /<span class="download-label" id="sms-download-label">[\s\S]*Download report<\/span>/);
+  assert.match(area, /data-action="download-report" data-arg="sms:md">Markdown<\/button>/);
+  assert.match(area, /data-action="download-report" data-arg="sms:json">JSON<\/button>/);
 });
 
 test('download controls sit beside each copy button as a labelled, keyboard-reachable group', () => {

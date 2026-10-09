@@ -15,7 +15,7 @@
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/compat.js?v=1"></script>
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=65"></script>
+  <script src="/static/lang-init.js?v=67"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/static/style.css?v=61" />
 </head>
@@ -778,6 +778,13 @@
       </div>
 
       <div id="sms-result-area" class="content-result-area hidden">
+        <div class="result-actions">
+          <div class="download-group" role="group" aria-labelledby="sms-download-label">
+            <span class="download-label" id="sms-download-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5v10"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></svg> <span data-i18n="result.download">Download report</span></span>
+            <button type="button" class="download-option" data-action="download-report" data-arg="sms:md">Markdown</button>
+            <button type="button" class="download-option" data-action="download-report" data-arg="sms:json">JSON</button>
+          </div>
+        </div>
         <div class="content-risk-banner" id="sms-risk-banner">
           <div class="crb-left">
             <div class="crb-icon" id="sms-banner-icon"></div>
@@ -1163,7 +1170,7 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=126"></script>
+<script src="/static/i18n.js?v=130"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
@@ -1178,8 +1185,8 @@
 <script src="/static/app-verify.js?v=4"></script>
 <script src="/static/app-content.js?v=8"></script>
 <script src="/static/app-content-render.js?v=12"></script>
-<script src="/static/app-sms.js?v=2"></script>
-<script src="/static/app-reports.js?v=4"></script>
+<script src="/static/app-sms.js?v=3"></script>
+<script src="/static/app-reports.js?v=6"></script>
 <script src="/static/app-metrics.js?v=4"></script>
 <script src="/static/app.js?v=56"></script>
 <!-- Vercel's same-origin page-view and web-vitals collectors. No email input is sent as a custom event. -->

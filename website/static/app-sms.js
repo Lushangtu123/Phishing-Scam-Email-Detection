@@ -135,7 +135,7 @@ function renderSmsResult(data, { languageOnly = false } = {}) {
   document.getElementById('sms-official-card').hidden = channels.length === 0;
   document.getElementById('sms-official-list').innerHTML = channels.map(channel => `
     <div class="official-item">
-      <p class="official-advice">${escapeHtml(t('content.verify.channel', {
+      <p class="official-advice">${escapeHtml(t('sms.verify.channel', {
         organization: channel.organization, website: channel.website }))}</p>
       ${channel.service_numbers?.length ? `<p class="official-phone">${escapeHtml(t('content.verify.phone', {
         numbers: channel.service_numbers.join(' / ') }))}</p>` : ''}

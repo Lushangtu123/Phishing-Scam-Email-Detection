@@ -86,6 +86,7 @@
   'sms.sub.none': "没有规则发现已知的诈骗特征。这不代表短信是安全的。",
   'sms.sender.kind': "发送方：{kind}",
   'sms.sender.claimed': "自称来自：{organization}",
+  'sms.verify.channel': "{organization}：不要使用这条短信里的链接或电话。请自己打开官方 App，或在浏览器里手动输入 {website}。",
   'sms.sender.unusual': "中国和美国的机构通常用短号码或服务号码发短信。很多诈骗短信来自邮箱地址或境外号码，不过朋友和部分境外服务也会用。",
   'sms.kind.short_code': "短号码或服务号码",
   'sms.kind.cn_port_106': "106 短信端口",
@@ -590,6 +591,10 @@
   'report.noneMatched': '未匹配。',
   'report.technical': '技术指标',
   'report.warnings': '分析警告',
+  'report.sms.title': "PhishGuard 短信检查",
+  'report.smsSender': "发送方",
+  'report.claimed': "自称来自",
+  'report.note': "提示",
 
   // ── Requests ──
   'request.error.network': '无法连接到服务。请检查网络连接后重试。',
