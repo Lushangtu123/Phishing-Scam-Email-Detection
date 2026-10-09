@@ -217,6 +217,10 @@ evaluation tool reports counts only.
   are masked; links and number kinds are kept.
 - **Two batches.** The first is for development. The second is held out and scored once, before
   launch.
+- **From a Mac:** `website/tools/export_sms_from_messages.py extract` reads the Messages database
+  read-only. It exports only one-way conversations (one other party, never answered), masks codes,
+  card tails, the owner's numbers, email local parts and personal senders, and assigns batches;
+  the owner labels `review.csv`, and `finish` writes `batch1.jsonl` and `batch2.jsonl`.
 - **Public datasets**, for development and large-sample false alerts: the SMS phishing dataset
   of Mishra and Soni (about 6,000 texts, several hundred of them smishing) and the UCI SMS Spam
   Collection. Both are older and mostly English. Their licences and counts are checked, and
@@ -234,6 +238,13 @@ each rule fires on genuine texts. It writes no text, number or per-message row.
 | Public genuine texts | At most 2% Medium or above |
 
 If the gate fails, the flag stays off and the results are documented.
+
+## Launch status
+
+On 2026-10-08 the owner turned the SMS mode on in production (`SMS_ANALYSIS_ENABLED=true` for
+the Production environment in Vercel) as a test, before the launch gate was measured. The gate
+above, the calibration on the owner's texts and the known gaps below still apply; the
+results will be recorded in `docs/evaluation.md` and the rules updated then.
 
 ## Tests
 
