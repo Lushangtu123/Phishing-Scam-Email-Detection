@@ -20,6 +20,60 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 10:03 PT] — SMS mode: Chinese rules from the IMC 2025 Chinese reports
+
+### Why
+- The 42 Chinese reports, sealed and scored once at 0 of 42, were read to learn what the Chinese rules miss. They are development data from now on.
+
+### Files changed
+- `website/sms_analysis.py`:
+  - `sms.loan_offer` (new, +4, at least Medium): a loan or credit line "approved" to claim through a link;
+  - `sms.account_lure` also covers ETC and phone-line suspensions; `sms.account_threat` also covers Chinese new-device alerts and "确认您的帐户";
+  - `sms.parcel_problem` covers parcels held by customs with a number to call; `sms.authority_threat` needs 您, covers court "execution" threats, and its warning filter looks for warning phrasing rather than the word 诈骗;
+  - `sms.stock_group` covers free stock-tip services; "飞机@" counts as a private messenger; more traditional characters are read as simplified.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the loan message; the stock message names tip services; static asset versions bumped.
+- `website/tests/test_sms_analysis.py` — each new branch firing and not firing (a genuine Apple notice, a 微众银行 bill, a China Mobile balance warning, a question about court enforcement).
+- `docs/evaluation.md`, `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — what the reports showed, and the rule table.
+- `CHANGELOG.md`, `docs/evaluation.md` — corrects the IMC English development count of the entry below to 1,977 (24.8%): the earlier figure predated the toll-free fix in the same commit.
+
+### Effect
+- IMC Chinese reports 0 → 13 of 42 (in-sample; about a third are not scams).
+- No change on the full 707,396 Chinese normal texts (41 flagged), the owner's normal texts, the public ham or the IMC English development half; FBS development half financial fraud 18 → 20.
+
+## [2026-10-09 01:30 PT] — SMS mode: the wording rules on the sealed IMC halves and the full Chinese corpus
+
+### Why
+- The rules of `2f751a0` were committed before the sealed IMC English half and the 42 Chinese reports were scored, once, and before the full Chinese normal corpus was rerun.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: wording rules from public scam reports, and Chinese false alarms": the two datasets, their split, seal and preprocessing, results per scam type, false alarms, and the gate.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — "Launch status" update.
+
+### Effect
+- IMC English sealed half: 364 → 1,913 of 7,982 at Medium or above (4.6% → 24.0%); the development half moved the same way (24.8%).
+- IMC Chinese, sealed: still 0 of 42. The Chinese scam side of the gate is not met; the mode stays a test.
+- Chinese normal texts flagged: 288 → 41 of 707,396. The owner's normal texts and the public ham stay at 0.
+
+## [2026-10-09 01:17 PT] — SMS mode: wording rules from public scam reports, and fewer false alarms on Chinese chat
+
+### Why
+- The owner asked to raise accuracy. Two downloads (owner-approved) showed the gaps: the IMC 2025 smishing reports (Agarwal et al., CC-BY-4.0) were 4.4% at Medium or above once their link placeholders became neutral links, because the SMS mode leaned on links; and a 720K-text Chinese corpus (hrwhisper/SpamMessage) showed 288 of 707,396 normal texts flagged, mostly by `sms.split_words`.
+
+### Files changed
+- `website/sms_analysis.py`:
+  - six rules, each +4 and at least Medium, written on the IMC development half and known Chinese scripts: `sms.account_threat` (block, suspend or KYC/PAN, new-device or changed-details alerts, points to redeem), `sms.utility_cutoff`, `sms.refund_lure`, `sms.family_new_number`, `sms.parcel_problem` (English and Chinese), `sms.authority_threat` (embassy, customs, police; anti-fraud warnings left out);
+  - a callback counts only when the number is not a toll-free or service line ("1-800-…" no longer reads as a Chinese mobile);
+  - `sms.split_words` needs a break that splits a lure word (佣.金, 微|信), so chat's "~", "···" and foreign names' "·" no longer fire;
+  - `sms.gambling_promo` counts 赌场/赌城/网赌 instead of any 赌 and skips news and warnings; `sms.stock_group` needs an invitation to join and a promotional hook.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the six messages in English and Chinese; static asset versions bumped.
+- `website/tests/test_sms_analysis.py` — each new rule firing and not firing (Chase, Apple, PG&E, GOV.UK, IRS, USPS, 顺丰, 公安部 anti-fraud texts), and the stricter split-words rule.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the rule table gains the six.
+
+### Effect
+- IMC English development half at Medium or above: 349 → 1,977 of 7,987 (bank 50 → 1,321, government 22 → 135, "hey mum" 0 → 21 of 30). Mishra and Soni smishing 324 → 343 of 562.
+- Chinese normal texts flagged: of the 93 the new rules' predecessors still flagged in the full corpus, 41 remain (mostly part-time and rebate spam labelled normal).
+- No change on the owner's normal texts (0) or the public ham (0), or on the FBS development half. The sealed IMC halves are scored once on this commit.
+
 ## [2026-10-09 00:44 PT] — SMS mode: the Chinese rules on the sealed half of the FBS texts
 
 ### Why

@@ -125,9 +125,21 @@ no mismatch.
 | `sms.flight_compensation` | A cancelled or delayed flight, compensation, and a number to call (added on the FBS development half) | +4, at least Medium |
 | `sms.stock_group` | Stock tips and a group to join (added on the FBS development half) | +4, at least Medium |
 | `sms.album_link` | Photos, an album or "you're in the news" with a hook to look ("你自己看", "看看我们…") and a link outside the official domains (added on the FBS development half) | +4, at least Medium |
+| `sms.account_threat` | An account, card, KYC or service to be blocked, suspended or locked with a step to fix it, a sign-in, payment or change "if this was not you", or points to redeem; and a link outside the official domains, "click here" with no link, or a number that is not a toll-free or service line (added on the IMC 2025 development half) | +4, at least Medium |
+| `sms.utility_cutoff` | Electricity, gas or water to be cut off, and a number to call that is not a toll-free or service line (IMC development half) | +4, at least Medium |
+| `sms.refund_lure` | A tax office or government body, a refund, rebate, grant or payment, and a link outside the official domains or "follow the link below" (IMC development half) | +4, at least Medium |
+| `sms.family_new_number` | "Mum"/"Dad" and a new number or a broken, lost or borrowed phone (IMC development half) | +4, at least Medium |
+| `sms.parcel_problem` | A parcel held, returned or undeliverable for an address or an unpaid fee, with a link outside the official domains; in Chinese, 包裹/快递 with 地址不详, 无法派送, 滞留 and similar (IMC development half and known scripts) | +4, at least Medium |
+| `sms.authority_threat` | In Chinese, an embassy, customs, police or court with important documents, a case or frozen money, and a call, a key to press or a link; texts warning against such scams (诈骗, 反诈) are left out (known scripts) | +4, at least Medium |
+| `sms.loan_offer` | In Chinese, a loan or credit line "approved" for the reader (微粒贷, 备用金, 额度 with 审批通过, 已成为…用户, 可借), and a link outside the official domains or "点击领取" with no link (added on the IMC 2025 Chinese reports) | +4, at least Medium |
 
 The Chinese rules read the text with traditional and look-alike characters made plain (註冊,
-婇票, 氺) and spaces between Chinese characters removed.
+婇票, 氺, 帳戶, 點擊) and spaces between Chinese characters removed. From the IMC 2025 Chinese
+reports: `sms.account_lure` also covers ETC (E速通) and phone-line suspensions with a key to press;
+`sms.account_threat` also covers Chinese new-device alerts ("如果这不是您") and "确认您的帐户";
+`sms.parcel_problem` covers a parcel held by customs with a number to call; `sms.authority_threat`
+needs the formal 您 and covers court "execution" threats; `sms.stock_group` covers free stock-tip
+services (明牌推送); and a Telegram handle written "飞机@" counts as a private messenger.
 
 The two lures have their own codes because the Chinese wording of `content.fine_lure` and
 `content.delivery_lure` says "邮件" (email).
@@ -266,6 +278,11 @@ Update, 2026-10-09: six Chinese scam rules were calibrated on the development ha
 FBS fake-base-station texts. On its sealed test half, 64.9% of Chinese scam texts reach Medium
 (bank phishing 89%, gambling 51%); 3 of the owner's 6 held-out Chinese scams do. Both are below
 70%, so the mode stays a test. No normal text changed.
+
+Update, 2026-10-09 (later): wording rules from the public IMC 2025 scam reports raise English
+reported scams from 4.6% to 24.0% at Medium or above on a sealed half. Chinese normal-text false
+alarms fall from 288 to 41 of 707,396. The 42 sealed Chinese reports stay at 0, so the Chinese
+scam side still keeps the mode a test.
 
 ## Tests
 
