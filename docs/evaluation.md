@@ -1451,13 +1451,13 @@ number, and the 公安部 anti-fraud warning.
 |---|---:|---:|
 | Banking (3,360 each) | 50 → 1,321 (39.3%) | 51 → 1,249 (37.2%) |
 | Delivery (630) | 175 → 209 (33.2%) | 165 → 204 (32.4%) |
-| Government (689) | 22 → 137 (19.9%) | 18 → 138 (20.0%) |
+| Government (689) | 22 → 135 (19.6%) | 18 → 138 (20.0%) |
 | "Hey mum/dad" (30 / 29) | 0 → 21 (70%) | 0 → 18 (62%) |
 | Telecom (700 / 699) | 10 → 80 (11.4%) | 5 → 67 (9.6%) |
-| Others (1,870 / 1,869) | 62 → 189 (10.1%) | 90 → 199 (10.7%) |
+| Others (1,870 / 1,869) | 62 → 181 (9.7%) | 90 → 199 (10.7%) |
 | Spam (595 / 594) | 30 → 30 | 35 → 38 |
 | Wrong number (112) | 0 → 0 | 0 → 0 |
-| **All** | **349 → 1,987 (24.9%)** | **364 → 1,913 (24.0%)** |
+| **All** | **349 → 1,977 (24.8%)** | **364 → 1,913 (24.0%)** |
 
 - The test half matches the development half, so the rules carry over.
 - Most remaining misses are hard to separate from genuine texts without more signal:
@@ -1471,6 +1471,29 @@ number, and the 公安部 anti-fraud warning.
   (delivery, government, banking), and the parcel and authority rules, written from known
   scripts without reading them, did not catch any.
 - The FBS development half is unchanged (bank phishing 90%, gambling 52%).
+
+**The 42 Chinese reports, read after their single scoring.** They became development data.
+About a third are not scam texts:
+- anti-fraud warnings from the Beijing police and SF Express Hong Kong;
+- a STARLUX flight change and a breast-screening appointment;
+- fragments ("【Alex"), and users' own complaints.
+
+The scams among them showed what the rules lacked:
+- **Court "execution" threats.** These accuse the reader of fraud ("因您信贷诈骗"), so the
+  warning filter skipped them. It now looks for warning phrasing (谨防, 都是诈骗) instead of the
+  word 诈骗, and the authority rule needs the formal 您.
+- **Loans "approved" to claim** (微粒贷, 6.3万, 点击领取): the new rule `sms.loan_offer`.
+- **Account rules extended** to Chinese new-device alerts ("如果这不是您", "确认您的帐户"), ETC
+  (E速通) suspensions, and the "phone line will be cut off, press 2" voicemail.
+- **Smaller additions:**
+  - parcels held by customs with a number to call;
+  - free stock-tip services (明牌推送);
+  - Telegram written "飞机@";
+  - traditional characters (帳戶, 點擊, 鏈接).
+
+With these, 13 of the 42 reach Medium. That figure is in-sample, and no Chinese held-out set
+is left. The rest are the non-scams above, "wrong number" openers and links that did not
+survive. Neither the full Chinese normal corpus nor any control gained a flagged text.
 
 **False alarms.**
 - The full 707,396 Chinese normal texts: 41 at Medium or above (0.006%), down from 288 (0.04%) on main.

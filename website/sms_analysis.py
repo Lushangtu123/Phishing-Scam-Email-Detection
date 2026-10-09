@@ -215,7 +215,7 @@ _EASY_MONEY = re.compile(
     re.IGNORECASE)
 _PRIVATE_MESSENGER = re.compile(
     r"(?:加|添加|联系|私信)[^，。,.!！?？\n]{0,6}(?<!企业)(?:微信|vx|v信|薇信|威信|qq|扣扣|企鹅|好友|老师|助理)"
-    r"|(?<!企业)微信号|qq号|vx[:：]|飞机号|电报|纸飞机"
+    r"|(?<!企业)微信号|qq号|vx[:：]|飞机号|飞机\s*[@:：]|tg\s*[@:：]|电报|纸飞机"
     r"|\b(?:whats\s?app|telegram|wechat|line id|kakao(?:talk)?)\b",
     re.IGNORECASE)
 # Chinese words broken up with symbols ("佣.金", "微|信", "代~理") to slip past filters. The
@@ -253,12 +253,31 @@ _VARIANTS = str.maketrans({
     '記': '记', '査': '查', '內': '内', '現': '现', '賭': '赌', '歀': '款', '餸': '送', '囎': '赠', '賽': '赛', '緹': '提',
     '優': '优', '會': '会', '國': '国', '際': '际', '時': '时', '盤': '盘', '賠': '赔', '視': '视', '訊': '讯', '腦': '脑',
     '請': '请', '進': '进', '詳': '详', '節': '节', '凍': '冻',
+    # Traditional forms in texts to Hong Kong, Taiwan and Chinese speakers abroad
+    '帳': '账', '確': '确', '認': '认', '點': '点', '擊': '击', '鏈': '链', '結': '结', '設': '设', '備': '备',
+    '訂': '订', '閱': '阅', '漲': '涨', '獲': '获', '費': '费', '這': '这', '們': '们', '個': '个', '與': '与',
+    '關': '关', '閉': '闭', '損': '损', '陸': '陆', '務': '务', '啟': '启', '詢': '询', '騙': '骗', '詐': '诈',
+    '豐': '丰', '遞': '递', '發': '发', '運': '运', '機': '机', '車': '车', '違': '违', '規': '规', '罰': '罚',
+    '謹': '谨', '鑰': '钥', '貸': '贷', '額': '额', '還': '还', '轉': '转', '應': '应', '問': '问', '題': '题',
+    '單': '单', '傳': '传', '話': '话', '電': '电', '從': '从', '過': '过', '裡': '里', '裏': '里', '寶': '宝',
+    '線': '线', '帶': '带', '強': '强', '執': '执', '絡': '络', '聯': '联', '統': '统', '異': '异',
 })
 _CJK_GAP = re.compile(r'(?<=[㐀-鿿0-9])\s+(?=[㐀-鿿])|(?<=[㐀-鿿])\s+(?=[0-9])')
 # A notice about a bank account, points or security token that sends the reader to a link or
 # a mobile number: "积分可兑换现金，请登录…", "电子密码器将于今日失效，请登入我行网站…",
 # "信用卡已冻结，请致电138…". Banks point to their own app, site or 95 number.
 _ACCOUNT_SUBJECT = re.compile(r'银行|我行|网银|手机银行|银联|信用卡|储蓄卡|[工建农中交招]行|邮储|工银')
+_SERVICE_SUSPENSION = re.compile(
+    r'(?:etc|e速通|电子不停车|车钥)[^。！!]{0,30}?(?:停用|失效|过期|认证|升级|异常|注销)'
+    r'|(?:电话|手机|号码|号卡|话费)[^。！!]{0,15}?(?:异常|欠费)[^。！!]{0,20}?(?:停机|停用|关停)')
+_SERVICE_ACTION = re.compile(r'按\s*[0-9一二三四五六七八九]|回拨|致电|点击|click here')
+# A sign-in, card or change "if this was not you", or an account to confirm ("我們需要確認您的帳戶").
+_ZH_DEVICE_ALERT = re.compile(r'(?:新设备|新装置|异地|陌生设备|添加到).{0,60}?(?:不是您|非本人|并非本人|如非本人)'
+                              r'|(?:确认|验证|核实)(?:您的)?(?:账户|帐户|账号)')
+_ZH_CLICK = re.compile(r'点击(?:下面|下方|以下)?的?链接|点击领取|请查看|详情请查看|访问')
+# A loan or credit line "approved" for the reader, to claim through a link ("微粒贷…金额达6.3万，点击领取").
+_LOAN = re.compile(r'微粒贷|借呗|备用金|贷款|信用贷|网贷|额度|授信')
+_LOAN_APPROVED = re.compile(r'(?:已|成功)?(?:申请|审批|审核)通过|已成为[^。]{0,8}?用户|已为您|可借|放款|最高可借|预授信')
 _ACCOUNT_LURE = re.compile(
     r'积分.{0,30}?(?:兑换|兑现|清零|失效|过期|现金|礼包|礼品)'
     r'|(?:密码器|电子密码|u盾|证书|动态口令|口令卡|e令).{0,12}?(?:失效|过期|冻结|停用|升级|激活|效验|校验|更新|维护|到期)'
@@ -292,7 +311,9 @@ _PRIZE_CLAIM = re.compile(r'领取|兑奖|领奖|查收|查看|验证码|验码|
 _FLIGHT_CHANGE = re.compile(r'航班.{0,40}?(?:取消|延误|故障|停飞|无法.{0,4}起飞)', re.DOTALL)
 _FLIGHT_PAYOUT = re.compile(r'补偿|赔偿|延误费|误机费')
 # A stock-tip group on a messenger ("前私募操盘手建群了，长线牛股今晚公布，进QQ…").
-_STOCK = re.compile(r'牛股|股票|炒股|股市|股友|讲股|荐股|操盘|私募|涨停|拉升|主力|黑马|个股')
+_STOCK = re.compile(r'牛股|股票|炒股|股市|股友|讲股|荐股|操盘|私募|涨停|拉升|主力|黑马|个股|明牌|飙股')
+# A free stock-tip service to sign up for ("明牌推送服務 0 元訂閱，立即領取").
+_STOCK_SERVICE = re.compile(r'(?:明牌|牛股|飙股|内幕)[^。]{0,20}?(?:推送|订阅|领取|免费)')
 _GROUP = re.compile(r'进群|建群|开群|入群|加群|拉群|加入.{0,8}群|人满')
 _STOCK_HOOK = re.compile(r'免费|不收费|公益|牛股|涨停|内幕|黑马|翻倍|收益|验证|口令|长线|短线|公布')
 # "Look at our old album", "you're in the news, see for yourself", with a link: a lure to
@@ -353,14 +374,18 @@ _EN_NEW_PHONE = re.compile(
 # that cannot be delivered with a link to fix it, and an embassy, customs or police notice of
 # documents, a case or frozen money with a number to call or a key to press.
 _ZH_PARCEL = re.compile(r'包裹|快递|快件|邮件|邮包|运单')
-_ZH_PARCEL_PROBLEM = re.compile(r'无法(?:派送|投递|配送|送达)|派送失败|投递失败|配送失败|地址(?:不详|不全|不完整|错误|有误|不正确|不清楚)'
+_ZH_PARCEL_PROBLEM = re.compile(r'无法(?:派送|投递|配送|送达)|被(?:block|扣|扣留|拦截)|海关.{0,6}?(?:扣|查|拦截)|清关|派送失败|投递失败|配送失败|地址(?:不详|不全|不完整|错误|有误|不正确|不清楚)'
                                 r'|滞留|待领取|未领取|重新(?:派送|投递|配送)|(?:更新|补充|补全|确认|核实|修改)(?:收件|收货)?地址'
                                 r'|违禁品|理赔')
+# Held by customs, with a number to call: couriers give their own number for a wrong address, not for customs.
+_ZH_PARCEL_HELD = re.compile(r'被(?:block|扣|扣留|拦截)|海关|清关')
+_PHONE_CALL = re.compile(r'拨打|致电|来电|(?<!\d)(?:\+?\d[\d\s-]{7,}\d)(?!\d)')
 _ZH_AUTHORITY = re.compile(r'大使馆|领事馆|使馆|海关|公安|警方|法院|检察院|移民局|税务局|出入境|卫健委')
-_ZH_AUTHORITY_LURE = re.compile(r'重要文件|(?:涉嫌|涉及).{0,10}?(?:案|违法|犯罪|洗钱)|冻结|传票|逮捕|通缉|未领取|待领取')
-_ZH_AUTHORITY_ACTION = re.compile(r'按\s*[0-9一二三四五六七八九]|转人工|回电|致电|拨打|联系')
+_ZH_AUTHORITY_LURE = re.compile(r'重要文件|(?:涉嫌|涉及).{0,10}?(?:案|违法|犯罪|洗钱)|冻结|传票|逮捕|通缉|未领取|待领取'
+                                r'|缺席|出庭|强制执行|执行上门|拘留|拘捕|击毙|枪决|撤销执行|结清[^。]{0,4}?欠款')
+_ZH_AUTHORITY_ACTION = re.compile(r'按\s*[0-9一二三四五六七八九]|转人工|回电|致电|拨打|联系|结清|搜索|关注')
 # Warnings against these scams use the same words ("自称公检法说你涉嫌洗钱的都是诈骗").
-_ZH_SCAM_WARNING = re.compile(r'诈骗|骗子|反诈|谨防|警惕')
+_ZH_SCAM_WARNING = re.compile(r'反诈|谨防|警惕|防骗|提示[:：]|都是诈骗|就是诈骗|是骗子|骗子短信|呼吁')
 
 
 def _service_number(number: str) -> bool:
@@ -450,13 +475,14 @@ def sms_findings(sender: str, text: str) -> dict:
     zh = _chinese_view(joined)
     off_platform = any(not _official_host(link_host(url)) for _label, url in links)
     chinese_rules = (
-        ('sms.account_lure', _ACCOUNT_SUBJECT.search(zh) and _ACCOUNT_LURE.search(zh)
-         and (off_platform or _MOBILE_NUMBER.search(zh))),
+        ('sms.account_lure', (_ACCOUNT_SUBJECT.search(zh) and _ACCOUNT_LURE.search(zh)
+                              and (off_platform or _MOBILE_NUMBER.search(zh)))
+         or (_SERVICE_SUSPENSION.search(zh) and (off_platform or _SERVICE_ACTION.search(zh)))),
         ('sms.gambling_promo', _gambling(zh) and not _GAMBLING_NEWS.search(zh) and (links or messenger or _REACH_OUT.search(zh))),
         ('sms.prize_link', _PRIZE_PICKED.search(zh) and _PRIZE_CLAIM.search(zh) and off_platform),
         ('sms.flight_compensation', _FLIGHT_CHANGE.search(zh) and _FLIGHT_PAYOUT.search(zh)
          and _PHONE_NUMBER.search(zh) and ('客服' in zh or '联系' in zh or '致电' in zh)),
-        ('sms.stock_group', _STOCK.search(zh) and _GROUP.search(zh) and _STOCK_HOOK.search(zh)),
+        ('sms.stock_group', (_STOCK.search(zh) and _GROUP.search(zh) and _STOCK_HOOK.search(zh)) or _STOCK_SERVICE.search(zh)),
         ('sms.album_link', _ALBUM.search(zh) and _ALBUM_HOOK.search(zh) and off_platform),
     )
     callback = next((match.group(1) for match in _CALL_A_NUMBER.finditer(text) if not _service_number(match.group(1))), None)
@@ -465,14 +491,18 @@ def sms_findings(sender: str, text: str) -> dict:
     chinese_rules += (
         ('sms.account_threat', ((_EN_ACCOUNT.search(joined) and _EN_BLOCK.search(joined) and _EN_FIX.search(joined))
                                 or _EN_NEW_DEVICE.search(joined) or _EN_POINTS.search(joined))
-         and (link_claim or callback)),
+         and (link_claim or callback)
+         or (not warning and _ZH_DEVICE_ALERT.search(zh) and (off_platform or (not links and _ZH_CLICK.search(zh))))),
         ('sms.utility_cutoff', _EN_UTILITY.search(joined) and callback),
         ('sms.refund_lure', _EN_GOVERNMENT.search(joined) and _EN_REFUND.search(joined) and link_claim),
         ('sms.family_new_number', _EN_FAMILY.search(joined) and _EN_NEW_PHONE.search(joined)),
-        ('sms.parcel_problem', (not warning and _ZH_PARCEL.search(zh) and _ZH_PARCEL_PROBLEM.search(zh) and off_platform)
+        ('sms.parcel_problem', (not warning and _ZH_PARCEL.search(zh) and _ZH_PARCEL_PROBLEM.search(zh)
+                                and (off_platform or (_ZH_PARCEL_HELD.search(zh) and _PHONE_CALL.search(zh))))
          or (_EN_PARCEL.search(joined) and _EN_PARCEL_PROBLEM.search(joined) and link_claim)),
-        ('sms.authority_threat', not warning and _ZH_AUTHORITY.search(zh) and _ZH_AUTHORITY_LURE.search(zh)
+        ('sms.authority_threat', not warning and '您' in zh and _ZH_AUTHORITY.search(zh) and _ZH_AUTHORITY_LURE.search(zh)
          and (_ZH_AUTHORITY_ACTION.search(zh) or off_platform)),
+        ('sms.loan_offer', not warning and _LOAN.search(zh) and _LOAN_APPROVED.search(zh)
+         and (off_platform or (not links and _ZH_CLICK.search(zh)))),
     )
     for code, fired in chinese_rules:
         if fired:

@@ -131,9 +131,15 @@ no mismatch.
 | `sms.family_new_number` | "Mum"/"Dad" and a new number or a broken, lost or borrowed phone (IMC development half) | +4, at least Medium |
 | `sms.parcel_problem` | A parcel held, returned or undeliverable for an address or an unpaid fee, with a link outside the official domains; in Chinese, 包裹/快递 with 地址不详, 无法派送, 滞留 and similar (IMC development half and known scripts) | +4, at least Medium |
 | `sms.authority_threat` | In Chinese, an embassy, customs, police or court with important documents, a case or frozen money, and a call, a key to press or a link; texts warning against such scams (诈骗, 反诈) are left out (known scripts) | +4, at least Medium |
+| `sms.loan_offer` | In Chinese, a loan or credit line "approved" for the reader (微粒贷, 备用金, 额度 with 审批通过, 已成为…用户, 可借), and a link outside the official domains or "点击领取" with no link (added on the IMC 2025 Chinese reports) | +4, at least Medium |
 
 The Chinese rules read the text with traditional and look-alike characters made plain (註冊,
-婇票, 氺) and spaces between Chinese characters removed.
+婇票, 氺, 帳戶, 點擊) and spaces between Chinese characters removed. From the IMC 2025 Chinese
+reports: `sms.account_lure` also covers ETC (E速通) and phone-line suspensions with a key to press;
+`sms.account_threat` also covers Chinese new-device alerts ("如果这不是您") and "确认您的帐户";
+`sms.parcel_problem` covers a parcel held by customs with a number to call; `sms.authority_threat`
+needs the formal 您 and covers court "execution" threats; `sms.stock_group` covers free stock-tip
+services (明牌推送); and a Telegram handle written "飞机@" counts as a private messenger.
 
 The two lures have their own codes because the Chinese wording of `content.fine_lure` and
 `content.delivery_lure` says "邮件" (email).

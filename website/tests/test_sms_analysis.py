@@ -415,3 +415,36 @@ class WordingRuleTests(unittest.TestCase):
         self.assertNotIn('sms.split_words', codes(app.analyze_sms(
             '', '想苗条的过冬天嘛~想穿再多的衣服也显瘦吗~那就赶紧试试吧~试了就有机会哟~赶紧快人一步')))
         self.assertNotIn('sms.split_words', codes(app.analyze_sms('', '主演：霍史尼玛·热蒂玛·伊比、吊·热德伊比、珍妮·玛碧热')))
+
+
+class ChineseReportRuleTests(unittest.TestCase):
+    """Patterns read in the IMC 2025 Chinese reports (now development data)."""
+
+    def fires(self, code, text):
+        result = app.analyze_sms('', text)
+        return code in codes(result) and result['risk_level'] in {'medium', 'high', 'critical'}
+
+    def test_loan_offer(self):
+        self.assertTrue(self.fires('sms.loan_offer', '【微粒贷】根据综合评估，您已成为微粒贷的用户，金额达6.3万，点击领取。'))
+        self.assertTrue(self.fires('sms.loan_offer', '客服通知：您注册的备用金已申请通过，详情请查看 wld-loan.top/a'))
+        self.assertFalse(self.fires('sms.loan_offer', '【微众银行】您的微粒贷本月账单已出，请在微信内还款。'))
+        self.assertFalse(self.fires('sms.loan_offer', '谨防贷款诈骗：凡是声称已为您审批通过、先交保证金的都是诈骗。'))
+
+    def test_device_and_account_alerts(self):
+        self.assertTrue(self.fires('sms.account_threat', '您的卡已在新设备上成功添加到 Apple Pay。如果这不是您，请访问 applepay-help.top/x 以保护您的帐户。'))
+        self.assertTrue(self.fires('sms.account_threat', '我們需要確認您的帳戶。點擊下面的鏈接：'))
+        self.assertFalse(self.fires('sms.account_threat', '您的Apple ID已在新设备上登录。如果这不是您，请访问 https://appleid.apple.com。'))
+
+    def test_service_suspensions(self):
+        self.assertTrue(self.fires('sms.account_lure', '【ETC通告】尊敬的车主，您的E速通已停用，请及时点击 etc-renew.top/a 认证。'))
+        self.assertTrue(self.fires('sms.account_lure', '您好，您的电话出现异常，将在两小时后强制停机，查询请按二。'))
+        self.assertFalse(self.fires('sms.account_lure', '【中国移动】您的话费余额不足10元，为避免停机请及时充值。'))
+
+    def test_customs_parcel_and_court_threat(self):
+        self.assertTrue(self.fires('sms.parcel_problem', '您的Lazada包裹因海关被扣留，请您拨打这个号码 +1 202 555 0100。'))
+        self.assertTrue(self.fires('sms.authority_threat', '执行通知：因您信贷违约缺席出庭，法院将强制执行，14点前结清全部欠款可撤销执行。'))
+        self.assertFalse(self.fires('sms.authority_threat', '走法院能强制执行的了3个月内把钱结清的诉求吗'))
+
+    def test_stock_service_and_telegram(self):
+        self.assertTrue(self.fires('sms.stock_group', '恭喜老朋友，您已获得明牌推送服务0元订阅权，立即领取！'))
+        self.assertTrue(self.fires('sms.external_contact_lure', '诚招代理，佣金日结，飞机@ agclubbot'))
