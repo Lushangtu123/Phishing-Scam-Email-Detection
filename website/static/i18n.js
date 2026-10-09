@@ -973,6 +973,12 @@ window.PhishGuardI18n = (() => {
     'server.sms.flight_compensation': "The text says your flight was cancelled or delayed and offers compensation if you call a number. Airlines announce changes in their own app and from their service numbers; scammers use such calls to get bank details and payments.",
     'server.sms.stock_group': "The text invites you to a stock-tip group. Such groups are a known investment scam: free tips build trust, then members are pushed to fake trading platforms or paid courses.",
     'server.sms.album_link': "The text urges you to open a link to see photos, an album or news about you. This lure is used to install malware or take over accounts. Do not open it; check with the sender another way.",
+    'server.sms.account_threat': "The text says your account, card, KYC or service will be blocked, suspended or locked, or that someone signed in from a new device, and sends you to a link or a number to fix it. Banks and services do not ask you to verify through a link or a personal number in a text; open their app or call the number on your card.",
+    'server.sms.utility_cutoff': "The text says your electricity, gas or water will be cut off and asks you to call a number or follow a link right away. Utilities send written notices and take payment through their own website or app.",
+    'server.sms.refund_lure': "The text says a government body owes you a refund, rebate or support payment and sends you to a link that is not a government website. Tax offices and agencies do not offer refunds through links in texts.",
+    'server.sms.family_new_number': "The text claims to be your child or parent writing from a new number because their phone broke or was lost. This is a common opener for asking for money; call their usual number before you reply or pay.",
+    'server.sms.parcel_problem': "The text says a parcel cannot be delivered (wrong or missing address, held, waiting to be collected) and sends you to a link that is not the courier's. Couriers do not ask you to fix a delivery through unknown links.",
+    'server.sms.authority_threat': "The text claims to come from an embassy, customs, police or a court about documents, a case or frozen money, and asks you to call, press a key or follow a link. Real authorities do not handle cases through texts like this.",
     'server.sms.split_words': "The text breaks words up with symbols in {count} places (such as 佣.金 or 微|信), a trick to slip past spam filters that genuine senders do not use.",
     'server.sms.fine_lure': "A text says you have an unpaid fine or toll, and its link leads to {host}, which is not a government site. Check fines and tolls only on the official website or app you already know.",
     'server.sms.delivery_lure': "A text about a parcel asks you to pay a shipping or customs fee, or to correct your address, through a link to {host}, which is not a listed carrier's site. Check parcels only on the carrier's own website or app.",
@@ -1394,7 +1400,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=59'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=61'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

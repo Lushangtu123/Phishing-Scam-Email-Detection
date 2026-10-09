@@ -20,6 +20,26 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 01:17 PT] — SMS mode: wording rules from public scam reports, and fewer false alarms on Chinese chat
+
+### Why
+- The owner asked to raise accuracy. Two downloads (owner-approved) showed the gaps: the IMC 2025 smishing reports (Agarwal et al., CC-BY-4.0) were 4.4% at Medium or above once their link placeholders became neutral links, because the SMS mode leaned on links; and a 720K-text Chinese corpus (hrwhisper/SpamMessage) showed 288 of 707,396 normal texts flagged, mostly by `sms.split_words`.
+
+### Files changed
+- `website/sms_analysis.py`:
+  - six rules, each +4 and at least Medium, written on the IMC development half and known Chinese scripts: `sms.account_threat` (block, suspend or KYC/PAN, new-device or changed-details alerts, points to redeem), `sms.utility_cutoff`, `sms.refund_lure`, `sms.family_new_number`, `sms.parcel_problem` (English and Chinese), `sms.authority_threat` (embassy, customs, police; anti-fraud warnings left out);
+  - a callback counts only when the number is not a toll-free or service line ("1-800-…" no longer reads as a Chinese mobile);
+  - `sms.split_words` needs a break that splits a lure word (佣.金, 微|信), so chat's "~", "···" and foreign names' "·" no longer fire;
+  - `sms.gambling_promo` counts 赌场/赌城/网赌 instead of any 赌 and skips news and warnings; `sms.stock_group` needs an invitation to join and a promotional hook.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the six messages in English and Chinese; static asset versions bumped.
+- `website/tests/test_sms_analysis.py` — each new rule firing and not firing (Chase, Apple, PG&E, GOV.UK, IRS, USPS, 顺丰, 公安部 anti-fraud texts), and the stricter split-words rule.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the rule table gains the six.
+
+### Effect
+- IMC English development half at Medium or above: 349 → 1,987 of 7,987 (bank 50 → 1,321, government 22 → 137, "hey mum" 0 → 21 of 30). Mishra and Soni smishing 324 → 343 of 562.
+- Chinese normal texts flagged: of the 93 the new rules' predecessors still flagged in the full corpus, 41 remain (mostly part-time and rebate spam labelled normal).
+- No change on the owner's normal texts (0) or the public ham (0), or on the FBS development half. The sealed IMC halves are scored once on this commit.
+
 ## [2026-10-09 00:44 PT] — SMS mode: the Chinese rules on the sealed half of the FBS texts
 
 ### Why

@@ -219,8 +219,19 @@ _PRIVATE_MESSENGER = re.compile(
     r"|\b(?:whats\s?app|telegram|wechat|line id|kakao(?:talk)?)\b",
     re.IGNORECASE)
 # Chinese words broken up with symbols ("佣.金", "微|信", "代~理") to slip past filters. The
-# rules read the text joined again; four or more breaks are a finding of their own.
+# rules read the text joined again. Four or more breaks are a finding of their own when one of
+# them splits a lure word: chat uses "~" and "···" between clauses, and "·" separates the parts
+# of a foreign name (霍史尼玛·热蒂玛), with no word split.
 _SPLIT_HAN = re.compile(r'(?<=[\u4e00-\u9fff])[.|~*\-_·•]+(?=[\u4e00-\u9fff])')
+_SPLIT_LURE_WORDS = frozenset({
+    '代理', '会员', '佣金', '微信', '薇信', '彩金', '返利', '返现', '兼职', '刷单', '红包', '赚钱', '日赚', '日结',
+    '提成', '扣扣', '博彩', '投注', '贷款', '充值', '首充', '注册', '网址', '提现', '优惠', '领取', '加微', '下载'})
+
+
+def _split_lure(text: str) -> bool:
+    """Whether a single break symbol splits a lure word (佣.金, 微|信, 代~理)."""
+    return any(len(match.group()) == 1 and text[match.start() - 1] + text[match.end()] in _SPLIT_LURE_WORDS
+               for match in _SPLIT_HAN.finditer(text))
 # An unsolicited job: work, pay or hours, and a way off the platform (a short link, a
 # messenger, or "send a message to this number"). Job alerts link to the site itself.
 _JOB = re.compile(r"\b(?:remote|part[- ]?time|full[- ]?time|work from home|jobs?|position|hiring|recruit(?:er|ment|ing)?)\b"
@@ -258,7 +269,7 @@ _ACCOUNT_LURE = re.compile(
 # withdrawal notice has no gambling term, rebate or deposit bonus.
 _GAMBLING_GROUPS = {
     'games': re.compile(r'彩金|菜金|彩票|采票|菜票|娱乐城|娱乐场|娱乐成|乐城|棋牌|百家乐|佰家|百稼|真人(?:视讯|娱乐|荷官|发牌|真钱|游戏|游艺)'
-                        r'|荷官|视讯|电子游艺|老虎机|捕鱼|投注|网投|下注|博彩|赌|六合|时时彩|时时采|快三|一肖|特码|赔率|滚球|盘口'
+                        r'|荷官|视讯|电子游艺|老虎机|捕鱼|投注|网投|下注|博彩|赌场|赌城|网赌|六合|时时彩|时时采|快三|一肖|特码|赔率|滚球|盘口'
                         r'|bbin|xpj|葡京|威尼斯人|太阳城|vip\s*厅|机麻|爆分|收米'),
     'turnover': re.compile(r'流水|倍水|返水|反水|回水|打码|转码|洗码|水位'),
     'deposit': re.compile(r'首存|续存|存\d*送|存赠|首次入款|入款|多存多送'),
@@ -268,6 +279,8 @@ _GAMBLING_GROUPS = {
 }
 _PHONE_NUMBER = re.compile(r'(?<!\d)(?:1[3-9]\d{9}|400\d{7}|0\d{9,11})(?!\d)')
 _MOBILE_NUMBER = re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)')
+# News and warnings about gambling scams ("破获微信红包赌博案") share its words.
+_GAMBLING_NEWS = re.compile(r'案|警方|警察|公安|查获|破获|治安|曝光|新闻|涉赌|被骗|诈骗|小心|谨慎|提醒|提个醒|处罚|违法')
 _REACH_OUT = re.compile(r'(?<!\d)(?:1[3-9]\d{9}|400\d{7}|0\d{9,11})(?!\d)|客服|专员|qq|微信|wx|vx|网址|官网|登入|登录|注册')
 # Being picked or winning something large, with a link to claim it ("您已被选为幸运观众，将获得
 # 8万元及笔记本电脑，请登录…领取"). Shops' coupons ("恭喜获得10元券") are no selection.
@@ -280,11 +293,82 @@ _FLIGHT_CHANGE = re.compile(r'航班.{0,40}?(?:取消|延误|故障|停飞|无�
 _FLIGHT_PAYOUT = re.compile(r'补偿|赔偿|延误费|误机费')
 # A stock-tip group on a messenger ("前私募操盘手建群了，长线牛股今晚公布，进QQ…").
 _STOCK = re.compile(r'牛股|股票|炒股|股市|股友|讲股|荐股|操盘|私募|涨停|拉升|主力|黑马|个股')
-_GROUP = re.compile(r'进群|建群|开群|入群|加群|群内|群里|(?:qq|微信|wx)群|人满')
+_GROUP = re.compile(r'进群|建群|开群|入群|加群|拉群|加入.{0,8}群|人满')
+_STOCK_HOOK = re.compile(r'免费|不收费|公益|牛股|涨停|内幕|黑马|翻倍|收益|验证|口令|长线|短线|公布')
 # "Look at our old album", "you're in the news, see for yourself", with a link: a lure to
 # install malware.
 _ALBUM = re.compile(r'相册|影集|照片|留念照|艺术照|视频|录像|上新闻')
 _ALBUM_HOOK = re.compile(r'自己看|认真看|看看我们|看完|打开看|瞧瞧|这是怎么回事|上新闻了')
+
+
+# Scam scripts read in the development half of the IMC 2025 user reports (docs/evaluation.md).
+# An account, card, KYC or service about to be blocked, suspended or locked, with a step to fix
+# it ("SBI A/C will be blocked today, update your PAN card, click here …"), or a sign-in or
+# payment from a new device "if this was not you".
+_EN_ACCOUNT = re.compile(r"\b(?:accounts?|a/c|cards?|kyc|pan\s*card|pancard|net\s*banking|wallet|apple\s*id|sim|login"
+                         r"|access|services?|number|id|profile|subscription|billing|contract|plan|payment (?:details|method))\b",
+                         re.IGNORECASE)
+_EN_BLOCK = re.compile(r"\b(?:block(?:ed)?|suspend(?:ed)?|suspension|lock(?:ed)?|restrict(?:ed|ion)?|deactivat(?:ed|ion|e)"
+                       r"|disabled?|frozen|freeze|on hold|hold your|be(?:en)? hold|terminat(?:ed|ion)|expir(?:ed|es|y)|cancel(?:led|lation)?)\b",
+                       re.IGNORECASE)
+_EN_FIX = re.compile(r"\b(?:update|verify|verification|confirm|reactivate|unlock|restore|complete|re-?kyc|kyc|upload"
+                     r"|validate|reconfirm|pan\s*card|pancard|pan number)\b", re.IGNORECASE)
+_EN_NEW_DEVICE = re.compile(
+    r"\b(?:new device|unauthori[sz]ed|unusual (?:sign-?in|activity|login)|(?:sign-?in|login|log-?in) attempt"
+    r"|payment (?:was )?attempted|withdrawal request|you (?:sent|made) a payment|reset your password|password (?:was |has been )?reset"
+    r"|(?:contact (?:information|details)|password|e-?mail(?: address)?|(?:phone|mobile) number|details) (?:has|have) been (?:updated|changed))"
+    r"\b.{0,100}?\b(?:not you|wasn['’]?t you|wasnt you|not done by you|did not|didn['’]?t|cancel|verify|secure)\b",
+    re.IGNORECASE | re.DOTALL)
+# Card or reward points about to expire, to redeem as cash through a link.
+_EN_POINTS = re.compile(r"\bpoints?\b.{0,60}?\b(?:expir\w*|redeem\w*)\b", re.IGNORECASE | re.DOTALL)
+# "Click here" where the link itself did not survive (copied text, or a link the phone hides).
+_EN_CLICK_HERE = re.compile(r"\b(?:click|tap|check) (?:here|on (?:the |below )?(?:the )?link|the link|link|below)\b"
+                            r"|\b(?:visit|follow) (?:the|our|this) (?:secure )?link\b|\blink below\b", re.IGNORECASE)
+# A parcel held, returned or undeliverable for an address or a small unpaid fee, with a step to take.
+_EN_PARCEL = re.compile(r"\b(?:packages?|parcels?|shipments?|items?|box|order|deliver(?:y|ies)|courier|consignment)\b",
+                        re.IGNORECASE)
+_EN_PARCEL_PROBLEM = re.compile(
+    r"\b(?:wrong|incorrect|incomplete|invalid|insufficient|unclear) (?:delivery |shipping |house |door )?(?:address|number)"
+    r"|address (?:is )?(?:not detailed|incomplete|incorrect|wrong|invalid)"
+    r"|unpaid (?:shipping|delivery|customs|redelivery)?\s*(?:fee|charge|duty)|(?:shipping|delivery|customs|redelivery) fee"
+    r"|\b(?:held|detained|stopped|suspended|on hold|returned?(?: to sender)?)\b.{0,40}?\b(?:depot|warehouse|terminal|center|centre|sender|facility)"
+    r"|will be returned|return(?:ed)? to sender|could(?:n['’]?t| not) (?:be )?deliver|cannot deliver|unable to deliver",
+    re.IGNORECASE | re.DOTALL)
+# Power, gas or water to be cut off tonight unless the reader calls or pays now.
+_EN_UTILITY = re.compile(r"\b(?:electricity|power|gas|water|utility|light)\b.{0,60}?"
+                         r"\b(?:disconnect(?:ed|ion)?|cut(?:\s*off)?|shut\s*off|lose power|be stopped)\b", re.IGNORECASE | re.DOTALL)
+# A government body offering a refund, rebate or support the reader is "eligible" for.
+_EN_GOVERNMENT = re.compile(r"\b(?:gov\.?uk|govuk|hmrc|irs|nhs|dvla|council|government|tax|federal|ministry"
+                            r"|social security|medicare)\b", re.IGNORECASE)
+_EN_REFUND = re.compile(r"\b(?:refunds?|rebates?|eligible|entitled|grants?|support scheme|stimulus|compensation|rejected"
+                        r"|overpaid|owed to you|unclaimed|sent you \$?\d|waiting to be deposited)\b",
+                        re.IGNORECASE)
+# "Mum, I dropped my phone, this is my new number": a child or parent on a new number.
+_EN_FAMILY = re.compile(r"\b(?:mum|mom|mam|mummy|mommy|dad|daddy)\b", re.IGNORECASE)
+_EN_NEW_PHONE = re.compile(
+    r"\bnew (?:phone |mobile )?number\b|\bsave (?:this|my) (?:new )?number\b|\bfriend['’]?s phone\b"
+    r"|\b(?:phone|mobile)\b.{0,30}?\b(?:broke|broken|died|dead|lost|dropped|smashed|cracked|stolen|not working)\b",
+    re.IGNORECASE | re.DOTALL)
+# Chinese parcel and authority scripts aimed at Chinese speakers at home and abroad: a parcel
+# that cannot be delivered with a link to fix it, and an embassy, customs or police notice of
+# documents, a case or frozen money with a number to call or a key to press.
+_ZH_PARCEL = re.compile(r'包裹|快递|快件|邮件|邮包|运单')
+_ZH_PARCEL_PROBLEM = re.compile(r'无法(?:派送|投递|配送|送达)|派送失败|投递失败|配送失败|地址(?:不详|不全|不完整|错误|有误|不正确|不清楚)'
+                                r'|滞留|待领取|未领取|重新(?:派送|投递|配送)|(?:更新|补充|补全|确认|核实|修改)(?:收件|收货)?地址'
+                                r'|违禁品|理赔')
+_ZH_AUTHORITY = re.compile(r'大使馆|领事馆|使馆|海关|公安|警方|法院|检察院|移民局|税务局|出入境|卫健委')
+_ZH_AUTHORITY_LURE = re.compile(r'重要文件|(?:涉嫌|涉及).{0,10}?(?:案|违法|犯罪|洗钱)|冻结|传票|逮捕|通缉|未领取|待领取')
+_ZH_AUTHORITY_ACTION = re.compile(r'按\s*[0-9一二三四五六七八九]|转人工|回电|致电|拨打|联系')
+# Warnings against these scams use the same words ("自称公检法说你涉嫌洗钱的都是诈骗").
+_ZH_SCAM_WARNING = re.compile(r'诈骗|骗子|反诈|谨防|警惕')
+
+
+def _service_number(number: str) -> bool:
+    """A short code, a North American toll-free number or a Chinese 400/800 service line: the
+    numbers organisations print. "1-800-935-9935" without its dashes would read as a Chinese mobile."""
+    digits = re.sub(r'\D', '', number)
+    return (len(digits) <= 6 or re.fullmatch(r'1?8(?:00|33|44|55|66|77|88)\d{7}', digits) is not None
+            or re.fullmatch(r'[48]00\d{7}', digits) is not None)
 
 
 def _chinese_view(text: str) -> str:
@@ -343,7 +427,7 @@ def sms_findings(sender: str, text: str) -> dict:
         found.append(indicator('high', 'sms.prize_callback'))
     breaks = len(_SPLIT_HAN.findall(text))
     joined = _SPLIT_HAN.sub('', text)
-    if breaks >= 4:
+    if breaks >= 4 and _split_lure(text):
         score += 4
         floor = 'medium'
         found.append(indicator('high', 'sms.split_words', count=breaks))
@@ -368,12 +452,27 @@ def sms_findings(sender: str, text: str) -> dict:
     chinese_rules = (
         ('sms.account_lure', _ACCOUNT_SUBJECT.search(zh) and _ACCOUNT_LURE.search(zh)
          and (off_platform or _MOBILE_NUMBER.search(zh))),
-        ('sms.gambling_promo', _gambling(zh) and (links or messenger or _REACH_OUT.search(zh))),
+        ('sms.gambling_promo', _gambling(zh) and not _GAMBLING_NEWS.search(zh) and (links or messenger or _REACH_OUT.search(zh))),
         ('sms.prize_link', _PRIZE_PICKED.search(zh) and _PRIZE_CLAIM.search(zh) and off_platform),
         ('sms.flight_compensation', _FLIGHT_CHANGE.search(zh) and _FLIGHT_PAYOUT.search(zh)
          and _PHONE_NUMBER.search(zh) and ('客服' in zh or '联系' in zh or '致电' in zh)),
-        ('sms.stock_group', _STOCK.search(zh) and _GROUP.search(zh)),
+        ('sms.stock_group', _STOCK.search(zh) and _GROUP.search(zh) and _STOCK_HOOK.search(zh)),
         ('sms.album_link', _ALBUM.search(zh) and _ALBUM_HOOK.search(zh) and off_platform),
+    )
+    callback = next((match.group(1) for match in _CALL_A_NUMBER.finditer(text) if not _service_number(match.group(1))), None)
+    warning = _ZH_SCAM_WARNING.search(zh)
+    link_claim = off_platform or (not links and _EN_CLICK_HERE.search(joined))
+    chinese_rules += (
+        ('sms.account_threat', ((_EN_ACCOUNT.search(joined) and _EN_BLOCK.search(joined) and _EN_FIX.search(joined))
+                                or _EN_NEW_DEVICE.search(joined) or _EN_POINTS.search(joined))
+         and (link_claim or callback)),
+        ('sms.utility_cutoff', _EN_UTILITY.search(joined) and callback),
+        ('sms.refund_lure', _EN_GOVERNMENT.search(joined) and _EN_REFUND.search(joined) and link_claim),
+        ('sms.family_new_number', _EN_FAMILY.search(joined) and _EN_NEW_PHONE.search(joined)),
+        ('sms.parcel_problem', (not warning and _ZH_PARCEL.search(zh) and _ZH_PARCEL_PROBLEM.search(zh) and off_platform)
+         or (_EN_PARCEL.search(joined) and _EN_PARCEL_PROBLEM.search(joined) and link_claim)),
+        ('sms.authority_threat', not warning and _ZH_AUTHORITY.search(zh) and _ZH_AUTHORITY_LURE.search(zh)
+         and (_ZH_AUTHORITY_ACTION.search(zh) or off_platform)),
     )
     for code, fired in chinese_rules:
         if fired:

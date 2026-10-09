@@ -337,3 +337,81 @@ class ChineseScamRuleTests(unittest.TestCase):
             '婚礼照片已上传，密码是生日。',
             '看看我们之前的照片，在家庭群里。',
         ))
+
+
+class WordingRuleTests(unittest.TestCase):
+    """Rules from the IMC 2025 development half and known Chinese parcel and authority scripts."""
+
+    def assert_rule(self, code, fires, quiet):
+        for text in fires:
+            with self.subTest(text=text):
+                result = app.analyze_sms('', text)
+                self.assertIn(code, codes(result))
+                self.assertIn(result['risk_level'], {'medium', 'high', 'critical'})
+        for text in quiet:
+            with self.subTest(text=text):
+                self.assertNotIn(code, codes(app.analyze_sms('', text)))
+
+    def test_account_threat(self):
+        self.assert_rule('sms.account_threat', (
+            'Dear SBI user, your A/C will be blocked today. Update your PAN card, click here http://sbi-kyc.co/x',
+            'Dear customer your account has been suspended, please update your KYC. Call +91 98765 43210 now.',
+            'WELLS FARGO: Unauthorized sign-in from a new device. If this was not you, visit wf-secure.info/v to verify.',
+            'Your Kotak credit card points worth Rs.4878 will expire today. Redeem in cash: kotak-points.in/r',
+            'Dear User your SBI account will be suspended today please update your PAN card, click here link',
+        ), (
+            'Chase: Your card ending 1234 is locked. To unlock it, call 1-800-935-9935 or visit chase.com.',
+            'Your Apple ID was used to sign in on a new device. If this was not you, visit https://appleid.apple.com.',
+            'Your subscription renews today. Manage it in the app.',
+        ))
+
+    def test_utility_cutoff(self):
+        self.assert_rule('sms.utility_cutoff', (
+            'Dear consumer, your electricity power will be disconnected tonight. Please contact 9876543210 immediately.',
+        ), (
+            'PG&E: service in your area will be shut off for maintenance tomorrow 9-11am.',
+            'Your water service is scheduled for disconnection on 10/15. Pay at https://www.pge.com or call 1-800-743-5000.',
+        ))
+
+    def test_refund_lure(self):
+        self.assert_rule('sms.refund_lure', (
+            'HMRC: You have a pending tax refund of 265.84GBP. Follow our secure link below to claim.',
+            'GOV.UK: You are eligible for the Energy Bills Support Scheme. Apply here: http://energy-support.uk-claim.com',
+        ), (
+            'GOV.UK: Your vehicle tax is due. Renew at https://www.gov.uk/vehicle-tax',
+            'IRS: your refund has been issued. Check its status at https://www.irs.gov/refunds',
+        ))
+
+    def test_family_new_number(self):
+        self.assert_rule('sms.family_new_number', (
+            "Hi Mum, I dropped my phone in the toilet. This is my new number, text me when you can.",
+            "It's dad, my phone is broken so I'm on a friend's phone. Can you send me 250 for a bill?",
+        ), (
+            'Mum, dinner at 7? Love you.',
+            'Your new phone number is active. Welcome to Mint Mobile!',
+        ))
+
+    def test_parcel_problem(self):
+        self.assert_rule('sms.parcel_problem', (
+            'RoyalMail: Your item has a £2 unpaid shipping fee. Pay now at royal-redeliver.com/x or it will be returned to sender.',
+            'Your package address is incomplete and cannot be delivered. Update it here: usps-addr.top/a',
+            '您的包裹因地址不详无法派送，请点击 sf-redeliver.top/a 补充地址。',
+        ), (
+            'USPS: Your package was delivered. Track it at https://tools.usps.com/go/x',
+            '【顺丰速运】您的快件因地址不详无法派送，请联系快递员13812345678。',
+            'Your order is out for delivery today.',
+        ))
+
+    def test_authority_threat(self):
+        self.assert_rule('sms.authority_threat', (
+            '中国驻纽约领事馆提醒您，您有一份重要文件未领取，请按1了解详情。',
+            '海关通知：您的包裹涉嫌违法被扣留，相关账户将被冻结，请致电 02012345678 处理。',
+        ), (
+            '【公安部】提醒您：凡是自称公检法说你涉嫌洗钱、要求转账到安全账户的，都是诈骗。',
+            '【中国驻纽约总领馆】领事证件办理时间调整，详见官网。',
+        ))
+
+    def test_split_words_needs_a_split_lure_word(self):
+        self.assertNotIn('sms.split_words', codes(app.analyze_sms(
+            '', '想苗条的过冬天嘛~想穿再多的衣服也显瘦吗~那就赶紧试试吧~试了就有机会哟~赶紧快人一步')))
+        self.assertNotIn('sms.split_words', codes(app.analyze_sms('', '主演：霍史尼玛·热蒂玛·伊比、吊·热德伊比、珍妮·玛碧热')))

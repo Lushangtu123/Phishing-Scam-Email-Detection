@@ -125,6 +125,12 @@ no mismatch.
 | `sms.flight_compensation` | A cancelled or delayed flight, compensation, and a number to call (added on the FBS development half) | +4, at least Medium |
 | `sms.stock_group` | Stock tips and a group to join (added on the FBS development half) | +4, at least Medium |
 | `sms.album_link` | Photos, an album or "you're in the news" with a hook to look ("你自己看", "看看我们…") and a link outside the official domains (added on the FBS development half) | +4, at least Medium |
+| `sms.account_threat` | An account, card, KYC or service to be blocked, suspended or locked with a step to fix it, a sign-in, payment or change "if this was not you", or points to redeem; and a link outside the official domains, "click here" with no link, or a number that is not a toll-free or service line (added on the IMC 2025 development half) | +4, at least Medium |
+| `sms.utility_cutoff` | Electricity, gas or water to be cut off, and a number to call that is not a toll-free or service line (IMC development half) | +4, at least Medium |
+| `sms.refund_lure` | A tax office or government body, a refund, rebate, grant or payment, and a link outside the official domains or "follow the link below" (IMC development half) | +4, at least Medium |
+| `sms.family_new_number` | "Mum"/"Dad" and a new number or a broken, lost or borrowed phone (IMC development half) | +4, at least Medium |
+| `sms.parcel_problem` | A parcel held, returned or undeliverable for an address or an unpaid fee, with a link outside the official domains; in Chinese, 包裹/快递 with 地址不详, 无法派送, 滞留 and similar (IMC development half and known scripts) | +4, at least Medium |
+| `sms.authority_threat` | In Chinese, an embassy, customs, police or court with important documents, a case or frozen money, and a call, a key to press or a link; texts warning against such scams (诈骗, 反诈) are left out (known scripts) | +4, at least Medium |
 
 The Chinese rules read the text with traditional and look-alike characters made plain (註冊,
 婇票, 氺) and spaces between Chinese characters removed.
