@@ -2635,9 +2635,16 @@ def _delivery_lure(text: str, links, sender_domain: str = '') -> str | None:
     return None
 
 
+# Texts rarely ask for a fee outright: "set delivery preferences", "the scheduled delivery
+# changed, please confirm here". "Track" is left out, as genuine notices invite it.
+_SMS_PARCEL_ACTION = re.compile(r"\b(?:confirm|update|set|schedule|reschedule|verify|pay|release|redeliver|claim)\b",
+                                re.IGNORECASE)
+
+
 def _sms_delivery_lure(text: str, links) -> str | None:
-    """_delivery_lure for a text message, whose links are bare, with no button to read."""
-    if not _delivery_wording(text):
+    """_delivery_lure for a text message, whose links are bare, with no button to read: a
+    parcel, an action to take, and a link that is neither official nor a known tracker."""
+    if not (_delivery_wording(text) or (_DELIVERY_PARCEL.search(text) and _SMS_PARCEL_ACTION.search(text))):
         return None
     for _label, destination in links or ():
         host = _unlisted_off_sender_host(destination, '')

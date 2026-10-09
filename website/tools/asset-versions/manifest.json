@@ -76,16 +76,16 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "57",
-    "sha256": "c5ea5a4264839d4dee6fd726e52de8c689d7f260d29acf9344ca4572056bf460"
+    "version": "58",
+    "sha256": "d8a9e98bab8b5ce100b2d995f58e42fe58967f25d04e63652386ca95cd6ee12a"
   },
   "i18n.js": {
-    "version": "115",
-    "sha256": "58abaa108c151e58d1ed3ecf80913663bae3005204084feeaa82222b00b7e5d2"
+    "version": "117",
+    "sha256": "b269559f60c4bdb57970dc9e914b4a67f93fa00be08ae97f0ba335cb93acb3a1"
   },
   "lang-init.js": {
-    "version": "59",
-    "sha256": "2c78598bf296757fb13eb426d6eb4b9872f3e963ced343da4d7829533e3a6673"
+    "version": "60",
+    "sha256": "679bf85c88fd8d424ef23c959c28be7e937154143a265a9d741be05b8617151e"
   },
   "request.js": {
     "version": "1",

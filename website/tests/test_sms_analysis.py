@@ -208,3 +208,54 @@ class VerdictTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OwnerCalibrationTests(unittest.TestCase):
+    """Rules added on 2026-10-09 from the owner's first batch, on synthetic texts."""
+
+    def codes(self, sender, text):
+        return codes(app.analyze_sms(sender, text))
+
+    def test_chinese_service_numbers_with_an_extension(self):
+        for sender in ('1008611', '9555801', '1230601'):
+            with self.subTest(sender=sender):
+                self.assertEqual(sms.classify_sender(sender), 'short_code')
+        self.assertNotIn('sms.sender_mismatch', self.codes('1008611', '【中国移动】您的套餐将于月底到期。'))
+
+    def test_a_parcel_with_an_action_and_an_unknown_link(self):
+        self.assertIn('sms.delivery_lure', self.codes('+1 202 555 0100',
+                      'USPS: the scheduled delivery for your parcel changed. Please confirm here: w4fza.info/x'))
+        for text in ('USPS: Your package was delivered. Track it at https://tools.usps.com/go/x',
+                     'Update your delivery preferences at https://www.usps.com/manage',
+                     'Your package will be delivered today. Track it at https://amzn.to/abc'):
+            with self.subTest(text=text):
+                self.assertNotIn('sms.delivery_lure', self.codes('28777', text))
+
+    def test_easy_money_and_a_private_messenger(self):
+        for text in ('亲，上次在我店买的宝贝降价多收了您钱，加薇信给您退红包。',
+                     '稳赚不赔，诚招代理，详情加QQ咨询。',
+                     'Remote part-time job, earn $300/day. Contact us on WhatsApp.'):
+            with self.subTest(text=text):
+                self.assertIn('sms.external_contact_lure', self.codes('', text))
+        for text in ('添加企业微信领取返现券。', '您的理财产品已到期，如有疑问请致电95588。',
+                     'Your order shipped. Questions? Chat with us on WhatsApp.'):
+            with self.subTest(text=text):
+                self.assertNotIn('sms.external_contact_lure', self.codes('', text))
+
+    def test_split_words(self):
+        found = app.analyze_sms('', '代~理会|员 月.赚百万佣.金，添加微|信即送彩.金')
+        self.assertIn('sms.split_words', codes(found))
+        self.assertIn('sms.external_contact_lure', codes(found))  # read joined again
+        for text in ('您预订的北京-上海-广州航班已出票。', '欢迎欧阳·娜娜入住，房号1203。'):
+            with self.subTest(text=text):
+                self.assertNotIn('sms.split_words', self.codes('', text))
+
+    def test_an_unsolicited_job(self):
+        for text in ('Remote/Part-time jobs for 20hrs weekly. No experience needed. Apply: https://bit.ly/abc',
+                     'We decided to offer you a remote position, salary paid daily. Please send a message to this number.'):
+            with self.subTest(text=text):
+                self.assertIn('sms.job_offer', self.codes('+1 202 555 0100', text))
+        for text in ('New jobs for you: Remote Data Analyst, $80k salary. View: https://www.indeed.com/viewjob?jk=1',
+                     'Hi, this is Ana from Acme recruiting. Are you still interested in the analyst role? Reply YES.'):
+            with self.subTest(text=text):
+                self.assertNotIn('sms.job_offer', self.codes('+1 202 555 0100', text))
