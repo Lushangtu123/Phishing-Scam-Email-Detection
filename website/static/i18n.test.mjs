@@ -1122,9 +1122,9 @@ test('404.html is translated to Chinese on load, <title> included', () => {
 test('404.html: same start-up scripts as the homepage, no inline code, not indexed, links home and to the workspace', () => {
   const html = source('404.html');
   const head = html.slice(0, html.indexOf('</head>'));
-  assert.match(head, /<script src="\/static\/theme-init\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
+  assert.match(head, /<script src="\/static\/compat\.js\?v=\d+"><\/script>\s*<script src="\/static\/theme-init\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
   assert.match(head, /<link rel="stylesheet" href="\/static\/style\.css\?v=\d+" \/>\s*<script src="\/static\/i18n\.js\?v=\d+" defer><\/script>/);
-  assert.equal((html.match(/<script\b/g) || []).length, 3);
+  assert.equal((html.match(/<script\b/g) || []).length, 4);
   assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>|<style\b|\sstyle=|\son[a-z]+\s*=/i, 'nothing the CSP would block');
   assert.match(head, /<meta name="robots" content="noindex" \/>/);
   assert.match(html, /<a class="btn btn-primary" href="\/" data-i18n="notFound\.home">/);

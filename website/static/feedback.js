@@ -67,7 +67,8 @@ window.PhishGuardFeedback = (() => {
   function open(kind) {
     if (!contexts[kind]) return;
     if (active) detach();
-    active = sessions[kind] ||= createSession(kind);
+    if (!sessions[kind]) sessions[kind] = createSession(kind);
+    active = sessions[kind];
     render(active, true);
     if (!$('feedback-dialog').open) $('feedback-dialog').showModal();
     $(active.submitted ? 'feedback-new-report' : 'feedback-type').focus();

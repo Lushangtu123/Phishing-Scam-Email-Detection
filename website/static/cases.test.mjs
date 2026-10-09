@@ -1184,10 +1184,10 @@ test('language switches keep a pending draft save and an open notice, and work w
 test('the workspace loads lang-init.js in <head> and i18n.js before every other script, with a language switch', () => {
   const html = readFileSync(new URL('./cases.html', import.meta.url), 'utf8');
   const head = html.slice(0, html.indexOf('</head>'));
-  assert.match(head, /<script src="\/static\/cases-theme\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
+  assert.match(head, /<script src="\/static\/compat\.js\?v=\d+"><\/script>\s*<script src="\/static\/cases-theme\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);
   const deferred = [...head.matchAll(/<script src="\/static\/([a-z0-9-]+\.js)\?v=\d+" defer><\/script>/g)].map(match => match[1]);
   assert.deepEqual(deferred, ['i18n.js', 'vision.js', 'file-intake.js', 'confirm-dialog.js', 'request.js', 'cases.js']);
-  assert.equal((html.match(/<script\b/g) || []).length, 8, 'no other (inline) scripts: CSP is script-src \'self\'');
+  assert.equal((html.match(/<script\b/g) || []).length, 9, 'no other (inline) scripts: CSP is script-src \'self\'');
   const topbar = html.slice(html.indexOf('<header class="topbar">'), html.indexOf('</header>', html.indexOf('<header class="topbar">')));
   const toggle = topbar.match(/<button class="lang-toggle" id="lang-toggle" type="button"([^>]*)>([\s\S]*?)<\/button>/);
   assert.ok(toggle, 'a real <button> in the topbar');
