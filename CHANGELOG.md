@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 14:16 PT] — Report an issue on text message results
+
+### Why
+- Validating the SMS mode further needs real misjudgements, and a text message result had no "Report an issue" button: production mistakes could not reach the analysts' queue as they do for email checks.
+
+### Files changed
+- `website/feedback_api.py` — `/api/feedback` accepts `input_mode: sms`. With consent the report keeps the sender (at most 256 UTF-8 bytes) and the text (8,000); analysts see them as the report's body. Consent to private evaluation stays limited to email content and email files.
+- `website/static/feedback.js`, `website/static/app-sms.js`, `website/static/index.html` — a "Report an issue" button on the text message result (shown when feedback is enabled), the report's analysis summary (rule codes with dots written as underscores, no 0–100 score), and the context cleared when the input changes; static asset versions bumped.
+- `website/tests/test_feedback_api.py`, `website/static/app.test.mjs` — a consented SMS report stored for review, a source-free one, and rejected fields, evaluation consent and sizes; the button and the analysis summary; the page's 43 actions.
+
+### Effect
+- Readers can tell the analysts that a text was misjudged, with or without the text itself. Checked locally with feedback storage on: the dialog hides the evaluation consent and the report is saved (201).
+
 ## [2026-10-09 11:45 PT] — Downloadable reports for text message checks
 
 ### Why

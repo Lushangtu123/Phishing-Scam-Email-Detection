@@ -1,10 +1,10 @@
 /* Public reports are opt-in. Source builders run only after retention consent. */
 'use strict';
 window.PhishGuardFeedback = (() => {
-  const contexts = {sender: null, content: null};
+  const contexts = {sender: null, content: null, sms: null};
   // A report belongs to an analysis, so closing its dialog must not discard a
   // sent request, its idempotency key, or a receipt that arrives while closed.
-  const sessions = {sender: null, content: null};
+  const sessions = {sender: null, content: null, sms: null};
   let active = null;
   const $ = id => document.getElementById(id);
   // Homepage only: i18n.js loads first. Server `detail` messages stay as sent.
@@ -95,7 +95,7 @@ window.PhishGuardFeedback = (() => {
     if (context.inputMode === 'image' && !source.ocr_text && !source.qr_text) {
       throw new Error(t('feedback.error.noImageText'));
     }
-    const limits = {email:320, subject:500, body:50000, ocr_text:12000, qr_text:4000};
+    const limits = {email:320, subject:500, body:50000, ocr_text:12000, qr_text:4000, sender:256, text:8000};
     for (const [key, value] of Object.entries(source)) {
       if (key === 'eml_base64') continue;
       if (typeof value !== 'string' || new TextEncoder().encode(value).length > limits[key] || value.toLowerCase().includes('data:')) {

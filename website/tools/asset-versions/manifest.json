@@ -36,8 +36,8 @@
     "sha256": "d937e538964b5521e56d154e17ca4b47ffacdd38bcb98cfe5ad9e076f42c1004"
   },
   "app-sms.js": {
-    "version": "3",
-    "sha256": "1d6e3d7f66bf1dffa309ea1ab03504c9850060260db799a4bd166d1840927cf5"
+    "version": "4",
+    "sha256": "231660c762c72e728522b87b123f791824bc509e462a82e084533922904c110c"
   },
   "app-theme.js": {
     "version": "2",
@@ -72,8 +72,8 @@
     "sha256": "d7878504dee780bfb81f3a1f80d8058bf66c1a58234fe9c4b99b8b75c4c319e2"
   },
   "feedback.js": {
-    "version": "11",
-    "sha256": "a2833796d0036cac48f1aeb354383468318e6af427d1d1e229bb2a4260c6736f"
+    "version": "12",
+    "sha256": "bf730ba5c3ffed56936d92fa825693117dce8af5ee8340066b1410065feba0a2"
   },
   "file-intake.js": {
     "version": "3",

@@ -37,6 +37,7 @@ function updateSmsCount() {
 
 function invalidateSms() {
   _smsRequestId++;
+  window.PhishGuardFeedback?.clear('sms');
   _smsAbort?.abort();
   _smsAbort = null;
   setError('sms-error');
@@ -80,6 +81,10 @@ async function runSmsAnalysis() {
     if (requestId !== _smsRequestId) return;
     renderSmsResult(data);
     recordRecentCheck(smsRecentEntry(data));
+    window.PhishGuardFeedback?.set('sms', {
+      inputMode: 'sms', fingerprintInput: sender + '\0' + text, analysis: smsFeedbackAnalysis(data),
+      buildSource: () => ({ sender, text }),
+    });
   } catch (error) {
     if (requestId === _smsRequestId) setError('sms-error', error.message);
   } finally {
@@ -90,6 +95,16 @@ async function runSmsAnalysis() {
       document.getElementById('sms-loading-area').classList.add('hidden');
     }
   }
+}
+
+// The report's evidence codes are short identifiers, so a rule code's dots become underscores
+// (sms.account_lure -> sms_account_lure). A text has rule points, not a 0-100 score.
+function smsFeedbackAnalysis(data) {
+  const codes = [...(data.category_results || []).map(item => item.key),
+    ...(data.extra_indicators || []).map(item => item.code || item.rule_id)]
+    .filter(code => typeof code === 'string').map(code => code.replace(/\./g, '_'));
+  return { ...feedbackAnalysis(data), risk_score: null, model_id: null,
+    evidence_codes: [...new Set(codes.filter(code => /^[a-z0-9_-]{1,48}$/.test(code)))].slice(0, 20) };
 }
 
 function smsRecentEntry(data) {
