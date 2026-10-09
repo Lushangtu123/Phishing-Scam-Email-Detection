@@ -23,6 +23,9 @@ SENDER_KINDS = ('short_code', 'cn_port_106', 'cn_mobile', 'nanp_toll_free', 'nan
 _ZERO_WIDTH = re.compile('[​-‏⁠﻿]')
 _EMAIL = re.compile(r'[^@\s]+@[^@\s]+\.[A-Za-z]{2,}')
 _CN_MOBILE = re.compile(r'1[3-9]\d{9}')
+# Carriers (10086, 10010, 10000), banks and services (95xxx, 96xxx) and public services
+# (12306, 12345) also text from extensions of their numbers, such as 1008611.
+_CN_SERVICE_EXTENSION = re.compile(r'(?:100\d\d|9[56]\d{3}|12\d{3})\d{1,4}')
 
 
 def clean_text(text: str) -> str:
@@ -35,7 +38,7 @@ def _chinese_kind(national: str) -> str | None:
         return 'cn_mobile'
     if national.startswith('106') and len(national) >= 8:
         return 'cn_port_106'
-    if 3 <= len(national) <= 6:
+    if 3 <= len(national) <= 6 or _CN_SERVICE_EXTENSION.fullmatch(national):
         return 'short_code'
     return None
 
@@ -200,6 +203,34 @@ def _premium_rate(number: str) -> bool:
         return _number_type('+' + number.lstrip('+')[2:] if number.startswith('00') else number) == \
             PhoneNumberType.PREMIUM_RATE
     return any(_number_type(number, region) == PhoneNumberType.PREMIUM_RATE for region in _NATIONAL_PLANS)
+# Money for little effort (rebates, commissions, part-time or remote pay, sure-win returns,
+# gambling) and a request to move to a private messenger, where no platform sees the rest.
+# A business's own WeCom ("企业微信") is left out: retailers hand out coupons through it.
+_EASY_MONEY = re.compile(
+    r"返利|返现|返款|返佣|佣金|提成|兼职|刷单|点赞|做任务|日赚|日结|日入|稳赚|保本|高回报|高收益|代理|博彩|彩票|投注|赌"
+    r"|退款|退.{0,2}红包|多收|理赔|赔付|补偿"
+    r"|\b(?:part[- ]?time|remote (?:job|work|position)|work from home|daily pay|commission|salary|investment|crypto"
+    r"|(?:earn|make)\s+(?:up to\s+)?\$?\d|guaranteed (?:profit|income|returns?))\b"
+    r"|\$\d[\d,]*\s*(?:-\s*\$?\d[\d,]*\s*)?(?:/|per|a)\s*(?:day|hour|hr|week)\b",
+    re.IGNORECASE)
+_PRIVATE_MESSENGER = re.compile(
+    r"(?:加|添加|联系|私信)[^，。,.!！?？\n]{0,6}(?<!企业)(?:微信|vx|v信|薇信|威信|qq|扣扣|企鹅|好友|老师|助理)"
+    r"|(?<!企业)微信号|qq号|vx[:：]|飞机号|电报|纸飞机"
+    r"|\b(?:whats\s?app|telegram|wechat|line id|kakao(?:talk)?)\b",
+    re.IGNORECASE)
+# Chinese words broken up with symbols ("佣.金", "微|信", "代~理") to slip past filters. The
+# rules read the text joined again; four or more breaks are a finding of their own.
+_SPLIT_HAN = re.compile(r'(?<=[\u4e00-\u9fff])[.|~*\-_·•]+(?=[\u4e00-\u9fff])')
+# An unsolicited job: work, pay or hours, and a way off the platform (a short link, a
+# messenger, or "send a message to this number"). Job alerts link to the site itself.
+_JOB = re.compile(r"\b(?:remote|part[- ]?time|full[- ]?time|work from home|jobs?|position|hiring|recruit(?:er|ment|ing)?)\b"
+                  r"|兼职|招聘|岗位|在家工作|远程工作", re.IGNORECASE)
+_JOB_PAY = re.compile(r"\$\s?\d|\b(?:salary|income|daily pay|bonus|commission)\b|\bper (?:day|hour|week)\b"
+                      r"|\b\d+\s*(?:hrs?|hours)\s*(?:a |per )?week(?:ly)?\b|\bno experience\b"
+                      r"|日结|日薪|月薪|时薪|底薪|工资|佣金|无需经验", re.IGNORECASE)
+_JOB_CONTACT = re.compile(r"\b(?:send|text|message|reply|contact|call)\b[^.!?\n]{0,30}\b(?:this|my|our) number\b", re.IGNORECASE)
+_SHORTENERS = frozenset({'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'cutt.ly', 'rb.gy', 't.ly', 'shorturl.at',
+                         'ow.ly', 'buff.ly', 'rebrand.ly', 's.id', 't.cn', 'url.cn', 'dwz.cn', 'tiny.cc'})
 # Senders each region's organisations text from; "none" and "alphanumeric" say nothing.
 _EXPECTED_SENDERS = {'cn': frozenset({'short_code', 'cn_port_106'}),
                      'intl': frozenset({'short_code', 'nanp_toll_free'})}
@@ -240,6 +271,22 @@ def sms_findings(sender: str, text: str) -> dict:
         score += 4
         floor = 'medium'
         found.append(indicator('high', 'sms.prize_callback'))
+    breaks = len(_SPLIT_HAN.findall(text))
+    joined = _SPLIT_HAN.sub('', text)
+    if breaks >= 4:
+        score += 4
+        floor = 'medium'
+        found.append(indicator('high', 'sms.split_words', count=breaks))
+    messenger = _PRIVATE_MESSENGER.search(joined)
+    if _EASY_MONEY.search(joined) and messenger:
+        score += 4
+        floor = 'medium'
+        found.append(indicator('high', 'sms.external_contact_lure'))
+    short_link = any(link_host(url) in _SHORTENERS for _label, url in links)
+    if _JOB.search(joined) and _JOB_PAY.search(joined) and (short_link or messenger or _JOB_CONTACT.search(joined)):
+        score += 4
+        floor = 'medium'
+        found.append(indicator('high', 'sms.job_offer'))
     premium = next((match.group(1).strip() for match in _CALL_A_NUMBER.finditer(text)
                     if _premium_rate(re.sub(r'[\s-]', '', match.group(1)))), None)
     if premium:

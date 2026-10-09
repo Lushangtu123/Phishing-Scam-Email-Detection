@@ -1408,6 +1408,50 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: the owner's texts (2026-10-09)
+
+**Data.**
+- Codex read the macOS Messages window (it could not open the database) and kept 104 received texts from 62 conversations, from 2019 to 2026, deidentified, as 85 templates.
+- Senders were kept as their type (short code, 106 port, 95 number, email, North American toll-free or ordinary number, other country, "other Chinese number"). Codex replaced personal and some service numbers with placeholders.
+- The owner labelled the templates: 53 normal and 32 scam. The labels equal Codex's proposals.
+- For scoring, each placeholder became a stand-in number of its type (`+1 833 555 0100`, `+1 202 555 0100`, an example mobile for the country code, and a Beijing landline for "other Chinese number").
+- Nothing here quotes a text.
+
+**Split.**
+- Batch 1 (61): the 36 templates counted first, and half of the 49 new ones (seed 166, stratified by label and language).
+- Batch 2 (24): the other half, sealed (SHA-256 `e3809f6ce465…`) and scored once, after the rules were committed (`4adbae8`).
+
+| Medium or above | Batch 1, before | Batch 1, after (in-sample) | Batch 2 (test) | Gate |
+|---|---:|---:|---:|---|
+| US normal | 0 / 33 | 0 / 33 | none in batch 2 | ≤ 4% |
+| Chinese normal | 1 / 11 | 0 / 11 | 3 / 9 | ≤ 4% |
+| US scam | 10 / 14 (71%) | 14 / 14 | 11 / 12 (92%) | ≥ 70% |
+| Chinese scam | 0 / 3 | 3 / 3 | 2 / 3 | ≥ 70% |
+
+- **Batch 1 before the change.** The Chinese false alert was a genuine China Mobile text from a 7-digit service extension, which the sender kinds did not know. The owner allowed reading only the six scams batch 1 still missed, so the "after" column is in-sample.
+- **Batch 2 does not meet the gate for Chinese normal texts, pending one check.** The three alerts are China Mobile texts whose sender Codex recorded only as "other Chinese number". The landline stand-in makes them a sender mismatch.
+  - From a service number (10086, 1008611) or a 106 port they would not alert, and Chinese normal texts would be 0 of 9.
+  - From a mobile or landline they are real false alerts of `sms.sender_mismatch`.
+  - The owner is to check those conversations.
+- **Correction: they were service-port texts.** The owner checked the window: the three messages show `+86 (10) 6581 3919`, that is 1065813919, a China Mobile SMS port listed by its 139 Mail help centre. Codex had recorded it as an ordinary +86 number.
+  - In the corrected export, two of the templates carry 1065813919 (`cn_port_106`) and the third an 8-digit service number (`short_code`).
+  - Rescored with these senders and the same rules, Chinese normal texts are **0 of 9**, and no rule fires on any normal text of batch 2. Only those three senders changed.
+- **Batch 3 (75 genuine texts, new in the owner's full review).** The owner's full review adds 75 normal templates (45 Chinese, 30 US), never seen before. They were scored once with the same rules:
+
+  | Batch 3 | Texts | Medium or above |
+  |---|---:|---:|
+  | Chinese normal | 45 | 0 |
+  | US normal | 30 | 1 (High) |
+
+  - The High one is a genuine text from a short code linking to `apple.co`, Apple's own short-link domain, which `link.brand_lookalike` reads as a look-alike of `apple.com`.
+  - The rule, shared with email, also flags `apple.news`, Amazon's country stores (`amazon.ca`, `.fr`, `.co.jp`, `.com.au`, `.in`), Google's (`google.ca`, `.de`, `.co.jp`), `microsoftonline.com`, `paypal.me`, `paypalobjects.com`, `paypal-community.com` and `microsoft365.com`: the five protected brands list only a few official domains. A separate change is to add them.
+- **Held out (batches 2 and 3) against the gate:**
+  - Chinese normal: 0 of 54. ✓
+  - US normal: 1 of 30 (3.3%), but that one is High, which the gate excludes, and 30 is short of 50. ✗
+  - US scam: 11 of 12 (92%). ✓
+  - Chinese scam: 2 of 3. ✗, too few to judge.
+- **Limits.** Only 3 held-out Chinese scams. US normal texts are short of 50. Spam and unknown-sender folders were not reachable from the window. The mode stays a test, as the spec's launch status says.
+
 ### SMS mode: premium-rate numbers from libphonenumber (2026-10-08)
 
 `phonenumberslite==9.0.40` (Apache-2.0; Google's libphonenumber metadata, offline, no carrier or

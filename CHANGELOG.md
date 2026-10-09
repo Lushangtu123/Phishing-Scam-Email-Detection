@@ -35,6 +35,57 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - Public legitimate messages linking these domains: PhishNChips 19 alerts → 0, CEAS-08 4 → 1 (the one left links `amazonaws.com`).
 - The owner's batch 3 of texts: the one genuine text at High (`apple.co`) is no longer flagged.
 
+## [2026-10-08 21:06 PT] — SMS mode: corrected senders and a third batch of the owner's texts
+
+### Why
+- The owner found that the three China Mobile texts of batch 2 come from 1065813919, a China Mobile SMS port, which Codex had recorded as an ordinary +86 number. The owner also labelled a full review with 75 more genuine templates.
+
+### Files changed
+- `docs/evaluation.md`:
+  - batch 2 rescored with the corrected senders: Chinese normal texts 0 of 9;
+  - batch 3 (45 Chinese and 30 US genuine texts, scored once): 0 and 1 at Medium or above, the one a genuine `apple.co` link that `link.brand_lookalike` flags;
+  - the official domains that rule misses, and the held-out totals against the gate.
+
+### Effect
+- No code changes. Held out, Chinese normal texts pass (0 of 54). US normal texts do not yet (one High, 30 texts), and Chinese scams are too few. The mode stays a test.
+
+## [2026-10-08 20:45 PT] — SMS mode: batch 2 of the owner's texts, scored once
+
+### Why
+- The sealed batch 2 (24 templates) was scored once against the rules committed in `4adbae8`.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: the owner's texts (2026-10-09)": the data, the split, both batches against the gate, and the limits; counts only.
+
+### Effect
+- US scams 11 of 12 (92%) and Chinese scams 2 of 3 at Medium or above.
+- 3 of 9 Chinese normal texts alerted, all China Mobile texts whose sender was recorded only as "other Chinese number" and scored with a landline stand-in. Whether they are real false alerts waits for the owner to check the sender. The gate is not met, and the mode stays a test.
+
+## [2026-10-08 20:44 PT] — SMS rules calibrated on the owner's first batch
+
+### Why
+- The owner labelled 85 deidentified text templates from macOS Messages (53 normal, 32 scam). They were split into batch 1 (61: the 36 already counted and half of the new ones, seed 166, stratified by label and language) and a sealed batch 2 (24).
+- On batch 1, before these changes:
+  - the gate's US criteria held: 0 of 33 normal texts at Medium or above, and 10 of 14 scams (71%);
+  - the Chinese ones did not: 1 of 11 normal texts at Medium (9%), and 0 of 3 scams.
+- The owner allowed reading only the six scams batch 1 still missed. Their wording guided the rules below, so batch 1's results after the change are in-sample; batch 2 is the test.
+
+### Files changed
+- `website/sms_analysis.py`:
+  - Chinese service numbers with an extension (100xx, 95xxx, 96xxx, 12xxx plus up to four digits, such as 1008611) are short codes. A genuine China Mobile text from a 7-digit number was a sender mismatch.
+  - `sms.external_contact_lure`: easy money (rebates, commissions, part-time pay, sure returns, gambling, refunds) and a private messenger (WeChat, QQ, WhatsApp, Telegram); a business's WeCom is left out.
+  - `sms.split_words`: four or more Chinese words broken up with symbols ("佣.金", "微|信"); the rules read the text joined again.
+  - `sms.job_offer`: a job with pay or hours, and a short link, a messenger or "send a message to this number".
+  - Each rule is +4, at least Medium.
+- `website/app.py` — the SMS parcel lure also reads a parcel with an action to take (confirm, set, update, reschedule…) and a link that is neither official nor a known tracker.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the three messages; asset versions bumped.
+- `website/tests/test_sms_analysis.py` — synthetic texts for each change, including genuine ones that must not fire: WeCom coupons, a bank's maturity notice, a WhatsApp help line, a flight route with hyphens, a name with a middle dot, a job alert on indeed.com, a recruiter asking for a reply.
+
+### Effect
+- Batch 1, in-sample: 14 of 14 US and 3 of 3 Chinese scams at Medium or above; 0 of 33 US and 0 of 11 Chinese normal texts.
+- Public Mishra and Soni data: still 0 of 4,834 normal texts; smishing 57.6%.
+- Batch 2 is scored once, after this commit.
+
 ## [2026-10-08 19:48 PT] — SMS mode on in production as a test, before the launch gate
 
 ### Why
