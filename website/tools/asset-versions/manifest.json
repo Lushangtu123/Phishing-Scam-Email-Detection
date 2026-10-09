@@ -20,8 +20,8 @@
     "sha256": "4082c819998f07176278de1646cf6eea77479435977b53645291f257c06c0e22"
   },
   "app-layout.js": {
-    "version": "3",
-    "sha256": "4126bb3666db8224b14641090c824a9fb518b91d73fca57570a5cf12a9996158"
+    "version": "4",
+    "sha256": "13985bf9a3e5a3e1dde85a210225a429ca4961001e04345ed2fb344cd4f02f9f"
   },
   "app-metrics.js": {
     "version": "4",
@@ -92,8 +92,8 @@
     "sha256": "75de1dd9c937a1b0d3c75d8bb2ef2c09f0063ec9271564234a0bd5deac55d415"
   },
   "style.css": {
-    "version": "60",
-    "sha256": "12ab3a92cb8a87cbd751e291c66059efa727343b614d9decb702dec219c70990"
+    "version": "61",
+    "sha256": "9ada2b9b8d34a3fbb3a70e3d3db2dea8c7354b98de94a8b48e8952d8a8f917f6"
   },
   "theme-init.js": {
     "version": "1",
