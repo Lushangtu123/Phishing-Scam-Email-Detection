@@ -1408,6 +1408,33 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: the owner's texts (2026-10-09)
+
+**Data.**
+- Codex read the macOS Messages window (it could not open the database) and kept 104 received texts from 62 conversations, from 2019 to 2026, deidentified, as 85 templates.
+- Senders were kept as their type (short code, 106 port, 95 number, email, North American toll-free or ordinary number, other country, "other Chinese number"). Codex replaced personal and some service numbers with placeholders.
+- The owner labelled the templates: 53 normal and 32 scam. The labels equal Codex's proposals.
+- For scoring, each placeholder became a stand-in number of its type (`+1 833 555 0100`, `+1 202 555 0100`, an example mobile for the country code, and a Beijing landline for "other Chinese number").
+- Nothing here quotes a text.
+
+**Split.**
+- Batch 1 (61): the 36 templates counted first, and half of the 49 new ones (seed 166, stratified by label and language).
+- Batch 2 (24): the other half, sealed (SHA-256 `e3809f6ce465…`) and scored once, after the rules were committed (`4adbae8`).
+
+| Medium or above | Batch 1, before | Batch 1, after (in-sample) | Batch 2 (test) | Gate |
+|---|---:|---:|---:|---|
+| US normal | 0 / 33 | 0 / 33 | none in batch 2 | ≤ 4% |
+| Chinese normal | 1 / 11 | 0 / 11 | 3 / 9 | ≤ 4% |
+| US scam | 10 / 14 (71%) | 14 / 14 | 11 / 12 (92%) | ≥ 70% |
+| Chinese scam | 0 / 3 | 3 / 3 | 2 / 3 | ≥ 70% |
+
+- **Batch 1 before the change.** The Chinese false alert was a genuine China Mobile text from a 7-digit service extension, which the sender kinds did not know. The owner allowed reading only the six scams batch 1 still missed, so the "after" column is in-sample.
+- **Batch 2 does not meet the gate for Chinese normal texts, pending one check.** The three alerts are China Mobile texts whose sender Codex recorded only as "other Chinese number". The landline stand-in makes them a sender mismatch.
+  - From a service number (10086, 1008611) or a 106 port they would not alert, and Chinese normal texts would be 0 of 9.
+  - From a mobile or landline they are real false alerts of `sms.sender_mismatch`.
+  - The owner is to check those conversations.
+- **Limits.** Batch 2 has no US normal texts, and only 3 Chinese scams and 9 Chinese normal texts per batch, far from the gate's 50 normal texts per region. Spam and unknown-sender folders were not reachable from the window. The mode stays a test, as the spec's launch status says.
+
 ### SMS mode: premium-rate numbers from libphonenumber (2026-10-08)
 
 `phonenumberslite==9.0.40` (Apache-2.0; Google's libphonenumber metadata, offline, no carrier or

@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 20:45 PT] — SMS mode: batch 2 of the owner's texts, scored once
+
+### Why
+- The sealed batch 2 (24 templates) was scored once against the rules committed in `4adbae8`.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: the owner's texts (2026-10-09)": the data, the split, both batches against the gate, and the limits; counts only.
+
+### Effect
+- US scams 11 of 12 (92%) and Chinese scams 2 of 3 at Medium or above.
+- 3 of 9 Chinese normal texts alerted, all China Mobile texts whose sender was recorded only as "other Chinese number" and scored with a landline stand-in. Whether they are real false alerts waits for the owner to check the sender. The gate is not met, and the mode stays a test.
+
 ## [2026-10-08 20:44 PT] — SMS rules calibrated on the owner's first batch
 
 ### Why
