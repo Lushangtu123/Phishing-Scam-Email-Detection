@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 14:50 PT] — CI pulls Redis from Amazon ECR Public
+
+### Why
+- The test jobs of PR #26 failed twice before any test ran: GitHub's runners hit Docker Hub's unauthenticated pull limit ("toomanyrequests") and then timeouts while pulling the `redis:7-alpine` service image.
+
+### Files changed
+- `.github/workflows/ci.yml` — the Redis service uses `public.ecr.aws/docker/library/redis:7-alpine`, the same official image mirrored on Amazon ECR Public.
+
+### Effect
+- The test jobs no longer depend on Docker Hub's anonymous limit. No code or test changes.
+
 ## [2026-10-09 14:16 PT] — Report an issue on text message results
 
 ### Why
