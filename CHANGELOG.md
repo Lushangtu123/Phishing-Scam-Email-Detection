@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 21:06 PT] — SMS mode: corrected senders and a third batch of the owner's texts
+
+### Why
+- The owner found that the three China Mobile texts of batch 2 come from 1065813919, a China Mobile SMS port, which Codex had recorded as an ordinary +86 number. The owner also labelled a full review with 75 more genuine templates.
+
+### Files changed
+- `docs/evaluation.md`:
+  - batch 2 rescored with the corrected senders: Chinese normal texts 0 of 9;
+  - batch 3 (45 Chinese and 30 US genuine texts, scored once): 0 and 1 at Medium or above, the one a genuine `apple.co` link that `link.brand_lookalike` flags;
+  - the official domains that rule misses, and the held-out totals against the gate.
+
+### Effect
+- No code changes. Held out, Chinese normal texts pass (0 of 54). US normal texts do not yet (one High, 30 texts), and Chinese scams are too few. The mode stays a test.
+
 ## [2026-10-08 20:45 PT] — SMS mode: batch 2 of the owner's texts, scored once
 
 ### Why
