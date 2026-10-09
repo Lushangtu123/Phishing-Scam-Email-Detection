@@ -735,6 +735,8 @@ test('the SMS tab appears only when enabled, and renders the sender kind, claim 
       msg: 'The text says it is from United States Postal Service, but it was sent from a personal or foreign number or an email address, not from the organisation\'s own service numbers. Check through its official app or website.' }] });
   assert.equal(elements.get('sms-sender-kind').textContent, 'Sender: an email address');
   assert.equal(elements.get('sms-claimed').textContent, 'Says it is from: United States Postal Service');
+  assert.equal(elements.get('sms-sender-note').hidden, false);
+  assert.match(elements.get('sms-sender-note').textContent, /email address or a number abroad/);
   assert.match(elements.get('sms-extra-list').innerHTML, /sent from a personal or foreign number/);
   assert.equal(elements.get('sms-result-area').classList.contains('hidden'), false);
 
@@ -743,6 +745,7 @@ test('the SMS tab appears only when enabled, and renders the sender kind, claim 
   assert.equal(elements.get('sms-banner-sub').textContent,
     'No rule found a known scam sign. This does not show that the text is safe.');
   assert.equal(elements.get('sms-claimed').hidden, true);
+  assert.equal(elements.get('sms-sender-note').hidden, true, 'no note for a short code');
   assert.equal(elements.get('sms-extra-card').hidden, true);
   assert.deepEqual({ ...context.smsRecentEntry({ risk_level: 'unknown', risk_label: 'x' }), at: 0 },
     { mode: 'sms', label: 'x', level: 'unknown', score: null, at: 0 });

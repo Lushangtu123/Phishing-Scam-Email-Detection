@@ -86,6 +86,7 @@
   'sms.sub.none': "没有规则发现已知的诈骗特征。这不代表短信是安全的。",
   'sms.sender.kind': "发送方：{kind}",
   'sms.sender.claimed': "自称来自：{organization}",
+  'sms.sender.unusual': "中国和美国的机构通常用短号码或服务号码发短信。很多诈骗短信来自邮箱地址或境外号码，不过朋友和部分境外服务也会用。",
   'sms.kind.short_code': "短号码或服务号码",
   'sms.kind.cn_port_106': "106 短信端口",
   'sms.kind.cn_mobile': "中国手机号",
