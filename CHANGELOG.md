@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 19:43 PT] — Export texts from macOS Messages for the SMS launch gate
+
+### Why
+- The SMS mode launches only after the owner's own texts meet the gate, and copying them by hand is the obstacle. The owner asked for a local script that reads the Messages database.
+
+### Files changed
+- `website/tools/export_sms_from_messages.py` — new:
+  - `extract` opens `~/Library/Messages/chat.db` read-only. It exports only one-way conversations (one other party, never answered), so personal chats and group chats are left out, and reads the text from `attributedBody` where newer macOS keeps it.
+  - It masks verification codes, card tails, the owner's numbers (`--own-number`) and email local parts. A personal sender becomes an example number of the same kind and country, so the SMS mode classifies it the same way.
+  - Identical masked texts are kept once with a count, and rows are split into batch 1 and a held-out batch 2 per region (seed 166). It writes `review.csv` outside the repository and prints counts only.
+  - `finish` requires every row to be labelled `scam`, `legitimate` or `skip`, then writes `batch1.jsonl` and `batch2.jsonl` for `evaluate_sms.py` and names the batches short of 50 legitimate texts.
+- `website/tests/test_export_sms_from_messages.py` — new, on a synthetic `chat.db`: one-way conversations only, the database unchanged, masking, `attributedBody`, `--since`, duplicates, batches, labels, and an output inside the repository refused.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the tool in the data section.
+
+### Effect
+- No change to the site. Terminal needs Full Disk Access to read `chat.db`; the owner reads every row before labelling, as masking cannot find names.
+
 ## [2026-10-08 19:19 PT] — Restore the missing 2026-09-17 scroll-reveal entry
 
 ### Why
