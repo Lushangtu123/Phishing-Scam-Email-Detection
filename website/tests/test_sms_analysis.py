@@ -259,3 +259,81 @@ class OwnerCalibrationTests(unittest.TestCase):
                      'Hi, this is Ana from Acme recruiting. Are you still interested in the analyst role? Reply YES.'):
             with self.subTest(text=text):
                 self.assertNotIn('sms.job_offer', self.codes('+1 202 555 0100', text))
+
+
+class ChineseScamRuleTests(unittest.TestCase):
+    """Rules calibrated on the FBS development half; synthetic texts in the same patterns."""
+
+    def codes(self, text, sender=''):
+        return codes(app.analyze_sms(sender, text))
+
+    def assert_rule(self, code, fires, quiet):
+        for text in fires:
+            with self.subTest(text=text):
+                result = app.analyze_sms('', text)
+                self.assertIn(code, codes(result))
+                self.assertIn(result['risk_level'], {'medium', 'high', 'critical'})
+        for text in quiet:
+            with self.subTest(text=text):
+                self.assertNotIn(code, self.codes(text))
+
+    def test_account_lure(self):
+        self.assert_rule('sms.account_lure', (
+            '【建设银行】尊敬的建行用户，您的账户已满8000积分可兑换现金，请登录手机网 ccb-jf.top 兑换，逾期失效。',
+            '尊敬的工行用户：您的电子密码器将于今日失效，请登入我行网站 icbc-mm.cc 重新激活。',
+            '尊敬的客户，您的信用卡因逾期已被冻结，请致电13812345678办理解冻。招商银行',
+            '尊 敬 的 工行 用户 您 的 密码 器 证书 将 于 今日 失效 请 登入 http://icbc-e.net 激活',
+        ), (
+            '【建设银行】您的信用卡积分可兑换礼品，详情请登录建行手机银行APP。',
+            '【工商银行】您的电子密码器即将到期，请携带身份证到网点更换，详询95588。',
+            '【工商银行】积分兑换活动请访问 https://www.icbc.com.cn 查看。',
+            '您尾号1234的储蓄卡账户于10日取款500元，存款余额3000元。【工商银行】',
+        ))
+
+    def test_gambling_promo(self):
+        self.assert_rule('sms.gambling_promo', (
+            '新会员注册即送88元，首存100送100，百家乐、真人视讯、体育投注，网址 xpj88.vip',
+            '彩票网五周年庆，充100元即送，1倍流水即可取款，联系在线客服申请。',
+            '註冊即送彩金，天天返氺，加微信 wx12345 领取',
+        ), (
+            '【中国移动】充100送20元话费，登录 http://www.10086.cn 办理。',
+            '新游上线！首充双倍，注册即送豪礼，点击下载。',
+            '【中国体育彩票】您购买的彩票已开奖，请到购彩网点查询。',
+            '【工商银行】您尾号1234的账户于10日取款500元，存款余额3000元。',
+        ))
+
+    def test_prize_link(self):
+        self.assert_rule('sms.prize_link', (
+            '您已被选为好声音幸运观众，将获得8万元及笔记本电脑一部，请登录 hsy-cj.cc 领取，验证码1234。',
+            '恭喜您被抽中，获得苹果手机一部，详进 http://lucky-win.top 查看。',
+        ), (
+            '【淘宝】恭喜获得10元无门槛券，点击 https://www.taobao.com 领取。',
+            '恭喜您中奖了！奖品已寄出，详情请在官方App查看。',
+        ))
+
+    def test_flight_compensation(self):
+        self.assert_rule('sms.flight_compensation', (
+            '尊敬的旅客您好，您预订的CA1234航班因机械故障已取消，请联系客服13812345678办理退改签，每位旅客补偿300元。',
+        ), (
+            '【中国国航】您预订的CA1234航班已取消，可在国航App免费改签或退票，详询95583。',
+            '您的航班CA1234延误约1小时，请留意登机口广播。',
+        ))
+
+    def test_stock_group(self):
+        self.assert_rule('sms.stock_group', (
+            '前私募操盘手建群了，长线牛股今晚公布，不收费，人满即封，进QQ群验证。',
+            '十年老股民开群讲股，加微信免费领取每日涨停股。',
+        ), (
+            '【中银基金】中银战略新兴产业股票基金今日起募集，详情见官网。投资有风险。',
+            '您的股票账户本月交易已结算，请登录券商App查看对账单。',
+        ))
+
+    def test_album_link(self):
+        self.assert_rule('sms.album_link', (
+            '你认真看完这相册吧 bit.ly/a1b2',
+            '小明，看看我们之前的精彩影集 http://xc-photo.top/x',
+            '你都上新闻了，你自己看吧 http://news-x.cc/a',
+        ), (
+            '婚礼照片已上传，密码是生日。',
+            '看看我们之前的照片，在家庭群里。',
+        ))
