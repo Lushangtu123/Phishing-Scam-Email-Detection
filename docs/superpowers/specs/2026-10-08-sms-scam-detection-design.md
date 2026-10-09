@@ -239,6 +239,13 @@ each rule fires on genuine texts. It writes no text, number or per-message row.
 
 If the gate fails, the flag stays off and the results are documented.
 
+## Launch status
+
+On 2026-10-08 the owner turned the SMS mode on in production (`SMS_ANALYSIS_ENABLED=true` for
+the Production environment in Vercel) as a test, before the launch gate was measured. The gate
+above, the calibration on the owner's texts and the known gaps below still apply; the
+results will be recorded in `docs/evaluation.md` and the rules updated then.
+
 ## Tests
 
 - `website/tests/test_sms_analysis.py`:

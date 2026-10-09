@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 19:48 PT] — SMS mode on in production as a test, before the launch gate
+
+### Why
+- The owner chose to put the SMS mode online now and update it after calibration on their own texts, instead of waiting for the launch gate.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — "Launch status": the decision, and that the gate, calibration and known gaps still apply.
+- Vercel (not in the repository): `SMS_ANALYSIS_ENABLED=true` for the Production environment.
+
+### Effect
+- After the next production deployment the "Text Message" tab and `/api/analyze-sms` are live. Chinese wording is uncalibrated, and genuine loyalty texts or US businesses texting from 10-digit numbers may be flagged (see the spec's known gaps).
+
 ## [2026-10-08 19:43 PT] — Export texts from macOS Messages for the SMS launch gate
 
 ### Why
