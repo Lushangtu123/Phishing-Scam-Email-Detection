@@ -1534,6 +1534,63 @@ which was therefore not downloaded.
   Rules written for them are judged on the owner's texts, as the launch gate fixed in the design
   requires.
 
+### Official domains of the five protected brands (2026-10-08)
+
+`link.brand_lookalike` reported any host carrying a protected brand's name outside a short
+list of that brand's domains, so links to the brands' own other domains scored High. In the
+owner's third batch of texts, the one genuine text at High linked Apple's own `apple.co`. The
+list now holds each brand's domains from its own published lists (read 2026-10-08):
+
+- **Google:** the 187 search domains at `www.google.com/supported_domains` (google.ca,
+  google.de, google.co.jp, ...).
+- **Amazon:** the 23 stores in the Seller and Vendor Central URL lists of the Selling Partner
+  API documentation, and the two other Vendor Central domains there (amazon.com.sg, amazon.me).
+- **Microsoft:** microsoft365.com, microsoftonline.com, microsoftonline-p.com and .net, and
+  microsoftazuread-sso.com from "Microsoft 365 URLs and IP address ranges".
+- **Apple:** apple.co and apple.news, linked from apple.com/apple-news; cdn-apple.com,
+  apple-dns.net, apple-cloudkit.com, apple-mapkit.com and apple-livephotoskit.com from "Use
+  Apple products on enterprise networks".
+- **PayPal:** paypal.me (PayPal.Me) and paypalobjects.com (the assets of PayPal's pages).
+- **Brand top-level domains:** .apple, .amazon, .google and .microsoft, sponsored in the IANA
+  root zone by the brands or their registry companies, so every host under them is the
+  brand's (blog.google, outlook.cloud.microsoft, developer-docs.amazon). PayPal has none.
+
+Left flagged: `amazonaws.com` and `onmicrosoft.com`, where anyone with an account gets a host,
+and `paypal-community.com`, which no PayPal page read here links to. The same list decides
+whether a display name such as "Amazon" is impersonation, so "Amazon" from `amazon.ca` is not.
+
+Measured (committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`). `.eml` cohorts hold the
+files within the site's 60,000-byte upload limit; pasted cohorts are each message's subject
+and text with its link addresses; exact duplicates are dropped.
+
+| Cohort | Before: alerts / undetermined / not alerted | After |
+|---|---|---|
+| Owner's genuine downloads, `.eml` (79), mailbox chosen | 1 / 5 / 73 | same |
+| Owner's genuine downloads, `.eml` (79), no mailbox | 18 / 7 / 54 | same |
+| Owner's genuine downloads pasted (91) | 30 / 4 / 57 | same |
+| New brand emails, `.eml` (4) and pasted (11) | 0 / 0 / 4 and 2 / 0 / 9 | same |
+| PhishFuzzer seeds: legitimate (102), phishing (101) | 63 / 0 / 39; 87 / 0 / 14 | same |
+| Nazario 2023–24 phishing, `.eml` (787) | 780 / 4 / 3 | same |
+| Nazario 2023–24 phishing pasted (754) | 714 / 20 / 20 | same |
+| PhishNChips legitimate messages linking a newly listed domain (19) | 19 / 0 / 0 | 0 / 0 / 19 |
+| CEAS-08 legitimate messages linking a newly listed domain or amazonaws.com (4) | 4 / 0 / 0 | 1 / 0 / 3 |
+
+Signal counts were identical in every cohort but the last two, so no phishing message lost
+evidence; Nazario's 24 `.eml` messages with the finding keep it. The CEAS-08 message still
+alerting links to `amazonaws.com`.
+
+- **amazonaws.com as Amazon's own, measured and not adopted.** Nazario messages with the
+  finding would fall from 24 to 15 (`.eml`) and 20 to 11 (pasted); no alert count would
+  change, as each has other evidence, and the CEAS-08 message would no longer alert. The
+  owner's downloads link to `amazonaws.com` in 6 of 92 messages, none with the finding.
+  A link to shared storage is better reported as such than as an Amazon lookalike.
+- **Texts** (`evaluate_sms.py`, counts only): batch 3's genuine texts at High 1 → 0. With
+  the calibration on the owner's texts as well, 0 of 30 US and 0 of 45 Chinese genuine texts
+  are Medium or above. Batches 1 and 2 and the public data did not change (0 of 4,834 ham;
+  324 of 562 smishing).
+- **Limit.** The lists change: a new Amazon store or Google domain scores High until it is
+  added.
+
 ### Free development and storage addresses (2026-10-08)
 
 The section below left out a signal for any link to a free hosting service, for lack of
