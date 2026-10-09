@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 01:30 PT] — SMS mode: the wording rules on the sealed IMC halves and the full Chinese corpus
+
+### Why
+- The rules of `2f751a0` were committed before the sealed IMC English half and the 42 Chinese reports were scored, once, and before the full Chinese normal corpus was rerun.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: wording rules from public scam reports, and Chinese false alarms": the two datasets, their split, seal and preprocessing, results per scam type, false alarms, and the gate.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — "Launch status" update.
+
+### Effect
+- IMC English sealed half: 364 → 1,913 of 7,982 at Medium or above (4.6% → 24.0%); the development half moved the same way (24.9%).
+- IMC Chinese, sealed: still 0 of 42. The Chinese scam side of the gate is not met; the mode stays a test.
+- Chinese normal texts flagged: 288 → 41 of 707,396. The owner's normal texts and the public ham stay at 0.
+
 ## [2026-10-09 01:17 PT] — SMS mode: wording rules from public scam reports, and fewer false alarms on Chinese chat
 
 ### Why

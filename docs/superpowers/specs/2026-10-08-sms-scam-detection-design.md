@@ -273,6 +273,11 @@ FBS fake-base-station texts. On its sealed test half, 64.9% of Chinese scam text
 (bank phishing 89%, gambling 51%); 3 of the owner's 6 held-out Chinese scams do. Both are below
 70%, so the mode stays a test. No normal text changed.
 
+Update, 2026-10-09 (later): wording rules from the public IMC 2025 scam reports raise English
+reported scams from 4.6% to 24.0% at Medium or above on a sealed half. Chinese normal-text false
+alarms fall from 288 to 41 of 707,396. The 42 sealed Chinese reports stay at 0, so the Chinese
+scam side still keeps the mode a test.
+
 ## Tests
 
 - `website/tests/test_sms_analysis.py`:

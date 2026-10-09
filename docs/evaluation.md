@@ -1408,6 +1408,92 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: wording rules from public scam reports, and Chinese false alarms (2026-10-09)
+
+**Data** (both downloads approved by the owner, kept outside the repository):
+
+| Dataset | What it is | Used for |
+|---|---|---|
+| IMC 2025 smishing reports (*Fishing for Smishing*, Agarwal et al.; `reportsmishing/Smishing-Dataset-IMC25@a617556`, CC-BY-4.0) | 33,869 scam texts that users reported publicly, labelled by scam type; links, numbers and names replaced by placeholders (`<URL>`, `<PHONE_NUMBER>`) | 15,969 unique English texts and 42 Chinese |
+| Chinese labelled SMS (`hrwhisper/SpamMessage@754d3a7`, research use) | 800,000 texts from around 2015 labelled normal or spam; numbers masked and links removed | 707,396 unique normal texts as a false-alarm check |
+
+**Protocol.**
+- The English texts were split per scam type with seed 166: a development half of 7,987 and a test half of 7,982.
+- The test half and all 42 Chinese texts were sealed before any text was read.
+- An analysis plan fixed the preprocessing: each placeholder becomes a neutral stand-in that triggers no rule on its own, such as `http://www.example.com/a` for `<URL>`.
+- The current rules were scored on the raw placeholders first: English 245 / 15,969, Chinese 0 / 42.
+- The rules were then written on the development half, committed (`2f751a0`), and the sealed sets scored once.
+
+**Why the mode missed so much.** With the links restored, the English development half was
+still only 4.4% at Medium or above. The SMS rules mostly needed a link that was a lookalike,
+or one tied to a parcel or a fine. Most reported scams are wording plus an unknown link.
+
+**Rules** (`sms_analysis.py`, each +4 and at least Medium). A number to call counts only when
+it is not a toll-free or service line ("1-800-935-9935" without dashes had read as a Chinese
+mobile).
+
+| Code | Fires on |
+|---|---|
+| `sms.account_threat` | An account, card, KYC or PAN to be blocked, suspended or locked with a step to fix it; a sign-in, payment, password reset or changed details "if this was not you"; or points to redeem. In each case there must also be a link outside the official domains, "click here" with no link, or a number to call |
+| `sms.utility_cutoff` | Electricity, gas or water to be cut off, and a number to call |
+| `sms.refund_lure` | A tax office or government body with a refund, rebate, grant or payment, and a link outside the official domains or "follow the link below" |
+| `sms.family_new_number` | "Mum"/"Dad" and a new number or a broken, lost or borrowed phone |
+| `sms.parcel_problem` | A parcel held, returned or undeliverable for an address or an unpaid fee, with such a link. In Chinese, 包裹/快递 with 地址不详, 无法派送, 滞留 and similar |
+| `sms.authority_threat` | In Chinese, an embassy, customs, police or court with documents, a case or frozen money, and a call, a key to press or a link. Texts warning against such scams (诈骗, 反诈) are left out |
+
+Tests keep these quiet on genuine texts: Chase and PG&E with 1-800 numbers, Apple and IRS
+links to their own sites, GOV.UK vehicle tax, USPS tracking, a 顺丰 courier giving their
+number, and the 公安部 anti-fraud warning.
+
+**Results, English** (Medium or above):
+
+| IMC scam type | Development, before → after | Test (sealed), before → after |
+|---|---:|---:|
+| Banking (3,360 each) | 50 → 1,321 (39.3%) | 51 → 1,249 (37.2%) |
+| Delivery (630) | 175 → 209 (33.2%) | 165 → 204 (32.4%) |
+| Government (689) | 22 → 137 (19.9%) | 18 → 138 (20.0%) |
+| "Hey mum/dad" (30 / 29) | 0 → 21 (70%) | 0 → 18 (62%) |
+| Telecom (700 / 699) | 10 → 80 (11.4%) | 5 → 67 (9.6%) |
+| Others (1,870 / 1,869) | 62 → 189 (10.1%) | 90 → 199 (10.7%) |
+| Spam (595 / 594) | 30 → 30 | 35 → 38 |
+| Wrong number (112) | 0 → 0 | 0 → 0 |
+| **All** | **349 → 1,987 (24.9%)** | **364 → 1,913 (24.0%)** |
+
+- The test half matches the development half, so the rules carry over.
+- Most remaining misses are hard to separate from genuine texts without more signal:
+  - "wrong number" openers ("hello can you speak mandarin?");
+  - credit-card and loan offers;
+  - texts whose link did not survive the dataset ("please update here:").
+- Mishra and Soni smishing: 324 → 343 of 562.
+
+**Results, Chinese.**
+- The 42 sealed Chinese reports stay at 0 of 42. Most are aimed at Chinese speakers abroad
+  (delivery, government, banking), and the parcel and authority rules, written from known
+  scripts without reading them, did not catch any.
+- The FBS development half is unchanged (bank phishing 90%, gambling 52%).
+
+**False alarms.**
+- The full 707,396 Chinese normal texts: 41 at Medium or above (0.006%), down from 288 (0.04%) on main.
+- The corpus's 79,140 spam texts, mostly advertising rather than scams, go from 1,183 to 415 flagged.
+- Before this change, main flagged 288. The causes:
+  - `sms.split_words` (195) on chat's "~" and "···" and on the "·" in foreign names;
+  - `sms.gambling_promo` (40) on news about "微信红包赌博";
+  - `sms.stock_group` (13) on chat about stock groups.
+- The fixes:
+  - `sms.split_words` now needs a break that splits a lure word (佣.金, 微|信);
+  - `sms.gambling_promo` counts 赌场/赌城/网赌 rather than any 赌, and skips news and warnings;
+  - `sms.stock_group` needs an invitation to join and a promotional hook.
+- Most of what still alerts is part-time, rebate and agency spam the corpus labels normal
+  (`sms.external_contact_lure`).
+- No change on the owner's normal texts (0 of 74 Chinese, 0 of 102 US) or the public ham
+  (0 of 4,834).
+
+**Against the gate.**
+- The owner's US side still meets it.
+- The Chinese scam side does not: the FBS test half was 64.9%, the owner's held-out Chinese
+  scams 3 of 6, and the IMC Chinese reports 0 of 42.
+- The mode stays a test.
+
 ### SMS mode: Chinese scam rules from public fake-base-station texts (2026-10-09)
 
 **Why public data.** The owner's Messages hold only 9 Chinese scam templates; Codex searched
