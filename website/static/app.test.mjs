@@ -635,7 +635,7 @@ test('every declared page action calls the handler its inline attribute used to 
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const declared = [...html.matchAll(/data-action="([^"]+)"(?:[^>]*?data-arg="([^"]*)")?/g)]
     .map(([, action, arg]) => ({ action, arg }));
-  assert.equal(declared.length, 42);
+  assert.equal(declared.length, 43);
   const controls = declared.map(({ action, arg }) =>
     Object.assign(new FakeElement(), { dataset: arg === undefined ? { action } : { action, arg } }));
   const elements = new Map();
@@ -1965,6 +1965,19 @@ test('text message reports carry the findings and the sender kind, never the num
     official_channels: [], category_results: [], extra_indicators: [] }, new Date());
   assert.doesNotMatch(plain, /Says it is from|Note:|How to verify/);
   assert.match(plain, /## Categories\n\nNone matched\.\n\n## Findings\n\nNone detected\./);
+});
+
+test('a text message result can be reported, with rule codes as short identifiers', () => {
+  const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const area = html.slice(html.indexOf('id="sms-result-area"'), html.indexOf('id="sms-risk-banner"'));
+  assert.match(area, /<div class="result-report" hidden><button type="button" class="report-trigger" data-action="open-feedback" data-arg="sms">/);
+  const { context } = loadFrontend();
+  const analysis = context.smsFeedbackAnalysis({ risk_level: 'high', risk_label: 'High Risk — Likely a Scam Text', total_score: 13,
+    category_results: [{ key: 'urgency' }], extra_indicators: [{ code: 'sms.account_lure' }, { rule_id: 'link.brand_lookalike', code: 'link.brand_lookalike' },
+      { code: 'sms.account_lure' }, { msg: 'no code' }] });
+  assert.equal(analysis.risk_level, 'high');
+  assert.equal(analysis.risk_score, null, 'rule points are not a 0-100 score');
+  assert.deepEqual([...analysis.evidence_codes], ['urgency', 'sms_account_lure', 'link_brand_lookalike']);
 });
 
 test('the text message result has its own labelled download group', () => {

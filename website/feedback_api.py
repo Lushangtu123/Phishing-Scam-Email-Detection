@@ -38,7 +38,7 @@ class FeedbackInput(BaseModel):
     note: str = Field(default='', max_length=2000)
     include_source: bool = Field(strict=True)
     evaluation_consent: bool = Field(default=False, strict=True)
-    input_mode: Literal['sender', 'content', 'eml', 'image']
+    input_mode: Literal['sender', 'content', 'eml', 'image', 'sms']
     input_fingerprint: str
     analysis: FeedbackAnalysis
     source: dict[str, str] | None = None
@@ -60,11 +60,13 @@ class FeedbackInput(BaseModel):
             'content': {'subject', 'body'},
             'eml': {'eml_base64'},
             'image': {'ocr_text', 'qr_text'},
+            'sms': {'sender', 'text'},
         }[self.input_mode]
         if not set(self.source) <= allowed or not any(self.source.values()):
             raise ValueError('Invalid source fields for input mode')
+        # Text message fields are bounded in UTF-8 bytes: 64 and 2,000 characters, as /api/analyze-sms.
         limits = {'email': 320, 'subject': 500, 'body': 50000, 'eml_base64': 80000,
-                  'ocr_text': 12000, 'qr_text': 4000}
+                  'ocr_text': 12000, 'qr_text': 4000, 'sender': 256, 'text': 8000}
         for key, value in self.source.items():
             if len(value.encode('utf-8')) > limits[key] or (key != 'eml_base64' and 'data:' in value.lower()):
                 raise ValueError('Original input exceeds retention limits or contains inline data')
@@ -104,6 +106,9 @@ def make_feedback_router():
                 raw = base64.b64decode(payload.source['eml_base64'], validate=True)
                 source['body'] = raw.decode('utf-8', errors='replace')[:60000]
                 source['eml_base64'] = payload.source['eml_base64']
+            elif payload.input_mode == 'sms':
+                sender = payload.source.get('sender', '')
+                source['body'] = (f'Sender: {sender}\n\n' if sender else '') + payload.source.get('text', '')
             else:
                 source['body'] = '\n'.join(filter(None, (payload.source.get('ocr_text'), payload.source.get('qr_text'))))
         analysis = payload.analysis.model_dump()

@@ -251,6 +251,28 @@ class FeedbackAPITests(unittest.TestCase):
         self.assertNotIn('image', json.dumps(saved['source']).lower())
         self.assertIn('Synthetic text', saved['source']['body'])
 
+    def test_a_text_message_report_keeps_its_sender_and_text_for_review(self):
+        value = payload(input_mode='sms', include_source=True,
+                        analysis={'risk_level': 'unknown', 'risk_label': 'No Known Scam Signs Found',
+                                  'evidence_codes': ['sms_account_lure']},
+                        source={'sender': '+44 7911 123456', 'text': '您的账户已冻结，请点击链接。'})
+        self.assertEqual(self.submit(value)[0], 201)
+        report = self.call('GET', '/api/cases?kind=feedback')[1]['items'][0]
+        saved = self.call('GET', '/api/cases/' + report['id'])[1]
+        self.assertEqual(saved['source']['body'], 'Sender: +44 7911 123456\n\n您的账户已冻结，请点击链接。')
+        self.assertEqual(saved['provenance']['input_mode'], 'sms')
+        app._rate_limit_buckets.clear()
+        bare = payload(input_mode='sms', include_source=False)
+        self.assertEqual(self.submit(bare, key='00000000-0000-4000-8000-000000000097')[0], 201)
+        for index, bad in enumerate((
+                payload(input_mode='sms', include_source=True, source={'subject': 'x', 'text': 'x'}),
+                payload(input_mode='sms', include_source=True, evaluation_consent=True, source={'text': 'x'}),
+                payload(input_mode='sms', include_source=True, source={'text': '字' * 2700}),
+                payload(input_mode='sms', include_source=True, source={'sender': 'x' * 257, 'text': 'x'}))):
+            with self.subTest(index=index):
+                app._rate_limit_buckets.clear()
+                self.assertEqual(self.submit(bad, key=f'00000000-0000-4000-8000-0000000001{index:02d}')[0], 422)
+
     def test_consent_and_size_validation(self):
         bad = [
             payload(evaluation_consent=True),

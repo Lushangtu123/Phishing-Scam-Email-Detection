@@ -49,7 +49,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       redis:
-        image: redis:7-alpine
+        # The official image through Amazon ECR Public: Docker Hub's anonymous pull limit
+        # and timeouts stopped the test jobs before they ran (2026-10-09).
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
         options: >-
