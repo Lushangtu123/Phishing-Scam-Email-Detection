@@ -246,6 +246,10 @@ the Production environment in Vercel) as a test, before the launch gate was meas
 above, the calibration on the owner's texts and the known gaps below still apply; the
 results will be recorded in `docs/evaluation.md` and the rules updated then.
 
+Update, 2026-10-08: with the owner's batch 3 and its supplement, normal texts meet the gate in both
+regions (US 0 of 69, Chinese 0 of 52 at Medium or above). US scams meet it (11 of 12). Chinese scams do
+not (2 of 5), so the mode stays a test until more Chinese scam texts are calibrated and held out.
+
 ## Tests
 
 - `website/tests/test_sms_analysis.py`:

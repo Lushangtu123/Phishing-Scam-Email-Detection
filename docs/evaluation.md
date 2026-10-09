@@ -1451,6 +1451,36 @@ on consented Gmail downloads imported with `import_own_mailbox.py`.
   - US scam: 11 of 12 (92%). ✓
   - Chinese scam: 2 of 3. ✗, too few to judge.
 - **Limits.** Only 3 held-out Chinese scams. US normal texts are short of 50. Spam and unknown-sender folders were not reachable from the window. The mode stays a test, as the spec's launch status says.
+- **Batch 3 supplement (2026-10-08).** Codex searched the Messages window again and found 48 texts not
+  seen before: 39 US service notices (DoorDash, Uber, Best Buy, Chase, Cricket and others), 5 Chinese
+  service notices and 2 Chinese marketing texts (106 ports, all from 2019), a Chinese gambling promotion
+  (iMessage from an email address, 2019) and a Chinese gift promotion asking the reader to claim it
+  elsewhere. The owner labelled them: 46 normal and 2 scam (the two promotions). Twelve US senders were
+  hidden numbers; they were scored as ordinary `+1` numbers, the stricter reading. None repeats an
+  earlier text.
+  - The owner's full review of the 160 earlier templates, returned at the same time, agrees with every
+    label used above (158 texts match exactly; the other 2, both Chinese normal, differ slightly in text
+    or sender).
+  - Scored once on `3e936ce`. The only rule change since batch 3 was first scored is the protected
+    brands' official domains (section "Official domains of the five protected brands"), which cleared
+    the `apple.co` alert:
+
+  | Medium or above | Batch 3 | Supplement | Together | Gate |
+  |---|---:|---:|---:|---|
+  | US normal | 0 / 30 | 0 / 39 | **0 / 69** | ≤ 4%, none High |
+  | Chinese normal | 0 / 45 | 0 / 7 | **0 / 52** | ≤ 4%, none High |
+  | Chinese scam | — | 0 / 2 | — | ≥ 70% |
+
+  - **Normal texts now meet the gate in both regions**, with more than 50 in each. No normal text in
+    them reaches Medium; `sms.link_off_brand` (3) and the shared category signals stay Low.
+  - **Both Chinese promotion scams get no finding at all.** No rule covers a gambling site or a gift
+    to claim off the platform. They were not read, and two texts are too few to write a rule from.
+- **Held out against the gate, with the supplement:**
+  - US normal: 0 of 69 ✓ (the batch 3 part after the official-domain change).
+  - Chinese normal: 0 of 61 (batches 2 and 3 and the supplement) ✓.
+  - US scam: 11 of 12 (92%) ✓.
+  - Chinese scam: 2 of 5 (40%) ✗. This is what keeps the mode a test: more Chinese scam texts are
+    needed, part to calibrate on and part held out.
 
 ### SMS mode: premium-rate numbers from libphonenumber (2026-10-08)
 
