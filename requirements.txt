@@ -13,6 +13,8 @@ python-multipart==0.0.32
 dnspython==2.8.0
 python-whois==0.9.6
 tldextract==5.3.2
+# Phone-number types for texts (premium rate, toll-free); metadata only, no carrier or geocoder data.
+phonenumberslite==9.0.40
 # ARC (RFC 8617) seal verification of uploaded messages; authres parses ARC results.
 dkimpy==1.1.8
 authres==1.2.0

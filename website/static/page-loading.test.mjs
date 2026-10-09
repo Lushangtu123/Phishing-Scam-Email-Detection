@@ -8,7 +8,7 @@ import {FakeElement, loadPage, memoryStorage, VISION_ANALYSIS} from '../tests/fi
 
 const source = name => readFileSync(new URL(`./${name}`, import.meta.url), 'utf8');
 const APP_SCRIPTS = ['app-core.js', 'app-theme.js', 'app-layout.js', 'app-config.js', 'app-sender.js', 'app-verify.js',
-  'app-content.js', 'app-content-render.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
+  'app-content.js', 'app-content-render.js', 'app-sms.js', 'app-reports.js', 'app-metrics.js', 'app.js'];
 const METRICS = {'Random Forest': {Accuracy: 0.97, Precision: 0.96, Recall: 0.95, F1: 0.94, ROC_AUC: 0.99},
   'Naive Bayes': {Accuracy: 0.93, Precision: 0.92, Recall: 0.91, F1: 0.9, ROC_AUC: 0.95}};
 const CHART_SRC = source('app-metrics.js').match(/const CHART_SRC = '([^']+)'/)[1];

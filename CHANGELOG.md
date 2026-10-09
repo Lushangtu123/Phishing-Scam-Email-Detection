@@ -20,6 +20,151 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 16:12 PT] — The homepage revalidates by content
+
+### Why
+- Testing a preview deployment, a browser that had visited before kept the previous deployment's homepage. It loaded `i18n.js?v=111` while the new page names `?v=115`, so it showed raw dictionary keys and untranslated messages.
+- Starlette's `FileResponse` derives its ETag from the file's modification time and size, and Vercel gives every deployed file the same time (`Last-Modified: Sat, 20 Oct 2018 01:46:40 GMT`). A deployment that changes only `?v=` numbers of the same length keeps the ETag, and the browser's revalidation is answered 304. This defeats the `?v=` asset versioning for returning visitors, in production too.
+
+### Files changed
+- `website/app.py` — `_revalidated_file`: the homepage and the favicon get an ETag from the SHA-256 of their bytes and `Cache-Control: no-cache`, with no `Last-Modified`. A matching `If-None-Match` (weak or strong) gets 304. `/cases` is unchanged: it is `no-store` and never reused.
+- `website/tests/test_html_etag.py` — new: the ETag is the page's hash; revalidation; two pages of the same size and time, which `FileResponse` gives one ETag, get different ones, and a browser holding the old one receives the new page; the favicon.
+
+### Effect
+- After each deployment, returning visitors revalidate the homepage and get the new page with its new asset versions. An unchanged page still costs only a 304.
+- Checked on a local server: 200 with the hash ETag, 304 with it, 200 and the full page with a stale one.
+
+## [2026-10-08 16:04 PT] — SMS: premium-rate numbers from libphonenumber
+
+### Why
+- The owner asked whether phone-number tools (PhoneInfoga, numint, Ignorant, caller-ID apps) would help. Their privacy-safe core is Google's libphonenumber. Their online parts send numbers to third parties or probe a person's accounts, which the SMS mode does not do. Premium-rate numbers, a fact of each numbering plan, give a callback signal that is not tied to old British prefixes.
+
+### Files changed
+- `requirements.txt`, `pyproject.toml` — `phonenumberslite==9.0.40` (Apache-2.0, offline metadata only, released 2026-09-24).
+- `website/sms_analysis.py` — international and North American senders typed by libphonenumber, with a `premium_rate` kind; `sms.premium_callback` for a request to call or text a premium-rate number.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`, `website/static/i18n.test.mjs` — the message and the sender kind; asset versions bumped.
+- `website/tests/test_sms_analysis.py` — premium numbers and other numbers; the Ofcom drama range `+44 7700 900…` is no valid number.
+- `docs/evaluation.md`, `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — results and limits.
+
+### Effect
+- Mishra and Soni test half: smishing at Medium or above 136 → 156 of 281 (55.5%), spam 21 → 43 of 235, normal texts still 0 of 2,417.
+- VoIP numbers are still not recognised in the US.
+
+## [2026-10-08 15:54 PT] — SMS calibration on public data: prize callbacks, IP links, the signed brand
+
+### Why
+- The public baseline caught 4 of 562 smishing texts. The missed ones were mostly prize scams asking for a call or text to a number. A genuine USPS text scored Low because the impersonation category counted the brand it signed as.
+
+### Files changed
+- `website/sms_analysis.py`:
+  - `sms.prize_callback`: prize or award wording with a request to call, text or dial a number, +4, at least Medium.
+  - IPv4 hosts after an explicit scheme are links.
+  - `sms_findings` returns the claimed organisation's names.
+- `website/app.py` — `_discount_claimed_brand`: in a text, the organisation it signs as is no impersonation keyword; other brands still count.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the `sms.prize_callback` message; asset versions bumped.
+- `website/tests/test_sms_analysis.py`, `website/tests/test_evaluate_sms.py` — the new rule with "won't" and appointment texts, the discount, IP links.
+- `docs/evaluation.md` — "SMS mode: a prize-callback rule, calibrated on public data": rules from the development half, test half scored once. `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the rule, the discount and their limits.
+
+### Effect
+- On the sealed test half of the Mishra and Soni dataset: smishing at Medium or above 2 → 136 of 281 (0.7% → 48.4%), spam 0 → 21 of 235, normal texts unchanged at 0 of 2,417.
+- The genuine USPS example now gives "No Known Scam Signs Found".
+- Still behind the flag. The owner's texts decide the launch.
+
+## [2026-10-08 15:40 PT] — SMS mode: public-data baseline
+
+### Why
+- Task 9 of the SMS plan starts with a baseline on public data. The owner chose the Mishra and Soni SMS phishing dataset (CC BY 4.0) and not the UCI collection, with which it shares 4,753 texts.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: public-data baseline (2026-10-08)": 0 of 4,834 normal texts and 4 of 562 smishing texts at Medium or above, and what the missed texts have in common.
+
+### Effect
+- No code changes. The data stays outside the repository. The baseline shows that recall, not false alerts, is the gap, and that the public texts are older prize scams with premium-rate numbers rather than today's link scams.
+
+## [2026-10-08 15:36 PT] — SMS evaluation tool
+
+### Why
+- Task 8 of the SMS plan: a counts-only measurement for calibration and the launch gate.
+
+### Files changed
+- `website/tools/evaluate_sms.py` — new: reads JSONL cohorts of labelled texts (region `cn` or `us`, optional sender, text, label `scam` or `legitimate`), runs `app.analyze_sms` with no network, and reports verdicts by cohort, label and region, the share at Medium or above, and how often each rule or keyword category fires on legitimate texts. A malformed row is reported by line number only.
+- `website/tests/test_evaluate_sms.py` — new: counts, shares, rules on legitimate texts, no text or sender in the report, row validation.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — a known gap found while testing it.
+
+### Effect
+- No change to the site. On the tool's synthetic test texts, a genuine USPS delivery text scores Low because the impersonation category is a list of brand names; calibration decides whether texts discount the claimed brand's own name.
+
+## [2026-10-08 15:33 PT] — The SMS tab
+
+### Why
+- Task 7 of the SMS plan: a homepage tab for the SMS analysis, shown only when the server enables it.
+
+### Files changed
+- `website/static/index.html` — a third tab, "Text Message", hidden by default, and its panel: sender and text fields (64 and 2,000 characters, with a count), the privacy notice, three synthetic examples (an unpaid-toll text, a fake Chinese bank text, a genuine USPS delivery text), and a result area with the banner, matched categories, a sender card (the sender's kind, the claimed organisation and a reminder that a matching number can be forged), the organisation's official channels and the findings.
+- `website/static/app-sms.js` — new: shows the tab when `/api/config` reports `sms_analysis_enabled` (and then follows a `?tab=sms` link), posts to `/api/analyze-sms` with cancellation, renders the result with the content tab's helpers, re-renders on a language switch and records verdict-only recent checks.
+- `website/static/app.js`, `app-config.js`, `app-layout.js`, `app-reports.js` — the SMS actions, the configuration hook, `?tab=sms` and arrow keys that skip a hidden tab, and the `sms` recent-check mode.
+- `website/static/style.css` — a hidden tab stays hidden, the sliding highlight divides in thirds when three tabs show, and the tabs tighten at 560 px and drop icons at 420 px.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — English and Chinese strings for the tab, the ten sender kinds and three risk labels: "No Known Scam Signs Found", and High and Critical labels for texts, since the email ones say "钓鱼邮件". `website/app.py` uses them.
+- `website/static/*.test.mjs` — `app-sms.js` in the page-script lists; the page actions, tab semantics, the hidden-by-default tab and the rendered result; the `sms.kind.*` key family. Asset versions bumped.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the text labels.
+
+### Effect
+- In production nothing changes until `SMS_ANALYSIS_ENABLED` is set: the tab stays hidden, so the visual baselines are unchanged.
+- Checked on a local server with the flag on: the fake bank example gives "High Risk — Likely a Scam Text" with four findings and ICBC's official channels, in English and Chinese; at 375 px the three tabs fit on one line in both languages, with no horizontal scroll.
+
+## [2026-10-08 15:20 PT] — SMS endpoint behind SMS_ANALYSIS_ENABLED
+
+### Why
+- Task 5 of the SMS plan: an endpoint for the SMS analysis, off until the launch gate passes.
+
+### Files changed
+- `website/config.py` — `sms_analysis_enabled` from `SMS_ANALYSIS_ENABLED`, false by default.
+- `website/app.py` — `SmsRequest` (sender up to 64 characters, text up to 2,000) and `POST /api/analyze-sms`: 404 when off, 400 for an empty text, the analysis on the analysis workers, then the registration dates of up to five link domains when RDAP lookups are on (context only, as for email). The sender is never echoed. The path is rate-limited and its bodies are capped at 16,000 bytes. `/api/config` reports `sms_analysis_enabled`.
+- `website/tests/test_sms_endpoint.py` — new: the flag, validation, the response, link-domain ages with a stubbed lookup, and the rate limit.
+- `website/tests/test_app_security.py` — the public configuration now includes `sms_analysis_enabled`.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — over-long fields get 422 from the request model, as on the other analysis endpoints.
+
+### Effect
+- No change for visitors: the flag is off and the page has no SMS tab yet.
+
+## [2026-10-08 15:17 PT] — SMS analysis: sender kinds, brand claims and text-message rules
+
+### Why
+- Tasks 2–4 of the SMS plan: the analysis behind the SMS mode, before its endpoint and tab.
+
+### Files changed
+- `website/sms_analysis.py` — new: `classify_sender` (ten kinds, `+86`/`0086`/`+1`, full-width digits, zero-width characters), `claimed_brand` (a signature or the name a text opens with; Chinese organisations by their Chinese names only; `sender_only` services left out), `text_links` (links with or without a scheme, bare hosts only with a known public suffix), and the rules `sms.sender_mismatch`, `sms.sender_mismatch_weak`, `sms.link_off_brand` and `sms.reopen_to_activate`.
+- `website/app.py` — `analyze_sms` combines them with the shared plain-text rules (`_text_rule_findings`), the link rules, short links and the fine and delivery lures (`sms.fine_lure`, `sms.delivery_lure`), scored by `fuse_content_risk` with no model; no finding gives `unknown`, never safe. `_lure_points` and `_delivery_wording` are now shared by the email and SMS lures.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the six `sms.*` messages in English and Chinese; asset versions bumped.
+- `website/tests/test_sms_analysis.py` — new; `website/tests/test_server_messages.py` — the `sms.` family.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md`, `docs/superpowers/plans/2026-10-08-sms-scam-detection.md` — brought in line: `app.analyze_sms` composes, because on Vercel the module named `app` is the root entrypoint; claims by opening name, not "within 20 characters" (which counted "我用工行转你了"); the `other_number` kind; separate weak-mismatch and lure codes, since the Chinese email lure messages say "邮件".
+
+### Effect
+- No email result changes: the served pipeline gave identical signals on the six usual cohorts before and after (genuine downloads with and without a mailbox, new brand emails with and without, PhishFuzzer recent seeds, Nazario 2023–24).
+- Not reachable yet: no endpoint or tab. A Chinese bank-scam text without email-style wording ("账户已冻结…输入密码和验证码") reaches only Low through its link findings; Chinese SMS phrases come from data in calibration.
+
+## [2026-10-08 15:03 PT] — Implementation plan for SMS scam detection
+
+### Why
+- The owner approved the SMS design and asked for its implementation plan.
+
+### Files changed
+- `docs/superpowers/plans/2026-10-08-sms-scam-detection.md` — new: ten tasks from the branch and baseline through shared scoring, the SMS module, edge cases, the endpoint and flag, messages, the tab, the evaluation tool, calibration and the held-out launch decision.
+
+### Effect
+- No code changes.
+
+## [2026-10-08 14:59 PT] — Design for SMS scam detection
+
+### Why
+- Scam text messages are increasingly common, and the owner asked for an SMS mode that judges a text from its sender and wording. The owner chose China and the US as regions, pasted text with an optional sender as input, a separate module and endpoint, and the owner's texts plus public datasets as test data.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — new: sender kinds, brand claims, the sender-mismatch, off-brand-link, reopen-to-activate and SMS delivery rules, the reused plain-text rules, an `unknown` verdict when no rule fires, the `SMS_ANALYSIS_ENABLED` flag, and a launch gate fixed before the held-out run.
+
+### Effect
+- No code changes. Implementation follows an implementation plan, after Lushangtu123/Phishing-Scam-Email-Detection#11 is merged.
+
 ## [2026-10-08 10:40 PT] — Measure several local teachers and their agreement
 
 ### Why

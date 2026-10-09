@@ -12,6 +12,7 @@ let _verificationNoticeKey = null;
 
 function applyPublicConfig(config) {
   _publicConfig = config;
+  applySmsConfig(config);
   document.getElementById('content-enhancement-options').hidden = config.enhanced_vision_enabled !== true;
   refreshEnhancedOptions();
   document.querySelectorAll('.result-report').forEach(row => { row.hidden = config.feedback_enabled !== true; });

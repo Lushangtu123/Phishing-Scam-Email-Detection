@@ -122,6 +122,15 @@
   "structure.dangerous_attachment": "Potentially dangerous attachment: {filename}.",
   "structure.archive_attachment": "Archive attachment requires inspection before opening: {filename}.",
 
+  "sms.sender_mismatch": "The text says it is from {brand}, but it was sent from a personal or foreign number or an email address, not from the organisation's own service numbers. Check through its official app or website.",
+  "sms.sender_mismatch_weak": "The text says it is from {brand}, but it was sent from an ordinary 10-digit number. Some genuine businesses text this way, but large organisations usually text from a short code.",
+  "sms.link_off_brand": "The text says it is from {brand}, but its link leads to {host}, which is not one of that organisation's websites.",
+  "sms.reopen_to_activate": "The text asks you to reply and reopen it, or to copy its link into a browser, to make the link work. Phones disable links in texts from unknown senders, and scams use this to get around it.",
+  "sms.prize_callback": "The text says you have won or been selected for a prize, and asks you to call or text a number to claim it. Genuine prizes are not claimed through a number in a text.",
+  "sms.premium_callback": "The text asks you to call or text {number}, a premium-rate number that charges you for the call. Organisations do not ask you to call premium-rate numbers in a text.",
+  "sms.fine_lure": "A text says you have an unpaid fine or toll, and its link leads to {host}, which is not a government site. Check fines and tolls only on the official website or app you already know.",
+  "sms.delivery_lure": "A text about a parcel asks you to pay a shipping or customs fee, or to correct your address, through a link to {host}, which is not a listed carrier's site. Check parcels only on the carrier's own website or app.",
+
   "prefix.sender": "Sender: {text}",
   "prefix.pdf_attachment": "PDF attachment link: {text}",
   "prefix.docx_attachment": "Word attachment link: {text}",

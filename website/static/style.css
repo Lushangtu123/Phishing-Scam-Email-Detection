@@ -894,6 +894,18 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 }
 .demo-tab:hover { color: var(--text); }
 .demo-tab.active { color: var(--text); }
+/* The SMS tab is shown only when /api/config enables it; display: flex above would override [hidden]. */
+.demo-tab[hidden] { display: none; }
+.demo-tabs:has(#tab-sms:not([hidden]))::before { width: calc((100% - 16px) / 3); }
+.demo-tabs:has(.demo-tab:nth-child(3).active)::before { transform: translateX(calc(200% + 8px)); }
+@media (max-width: 560px) {
+  .demo-tabs:has(#tab-sms:not([hidden])) .demo-tab { padding: 10px 6px; gap: 5px; font-size: 13px; }
+}
+@media (max-width: 420px) {
+  .demo-tabs:has(#tab-sms:not([hidden])) .demo-tab .ico { display: none; }
+}
+.sms-count { margin: 6px 0 0; text-align: right; }
+.sms-sender-line { margin: 0 0 8px; }
 
 .tab-panel.hidden { display: none; }
 

@@ -21,7 +21,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 import app  # noqa: E402
 import server_messages as sm  # noqa: E402
 
-FAMILIES = ('sender.', 'content.', 'link.', 'structure.', 'warning.', 'safety.', 'prefix.', 'verify.')
+FAMILIES = ('sender.', 'content.', 'link.', 'structure.', 'sms.', 'warning.', 'safety.', 'prefix.', 'verify.')
 CONTENT_EXAMPLES = {
     key: re.search(r"'" + key + r"': \{\s*subject: '([^']*)',\s*body: `([^`]*)`", (WEBSITE_DIR / 'static' / 'app-content.js')
                    .read_text(encoding='utf-8')).groups()
