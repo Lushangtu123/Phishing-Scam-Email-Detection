@@ -1408,6 +1408,43 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: the sender's kind as evidence (2026-10-09)
+
+The owner asked how well the number checks work. On the owner's 211 labelled texts (35 scams,
+176 genuine; rules of `084b105`):
+
+- 31 scams and no genuine text reach Medium or above.
+- The number rules (`sms.sender_mismatch`, `sms.sender_mismatch_weak`, `sms.premium_callback`)
+  fired on 2 scams and no genuine text, and decided none: both scams alert without them.
+- The sender's kind separates the texts far better than the rules use it:
+
+  | Sender kind | Scams | Genuine |
+  |---|---:|---:|
+  | Email address (iMessage) | 17 | 0 |
+  | Number in another country | 9 | 0 |
+  | 106 port | 5 | 37 |
+  | Ordinary US number | 4 | 12 |
+  | Short code | 0 | 111 |
+  | Toll-free | 0 | 12 |
+  | Unrecognised number | 0 | 4 |
+
+**Tried and not adopted: +2 points for an email or foreign sender.** At 5 points a text
+reaches Medium, so +2 lifts only texts already at 3 or 4 without a floor.
+
+- On the owner's texts it would have caught no more scams. All 26 scams from such senders
+  already alert. The one missed scam from an email address has no other finding, so it
+  would go only to Low; the other three misses come from 106 ports.
+- Its false alarms cannot be measured. No genuine text here comes from such a sender, and the
+  public datasets carry no sender. Friends' iMessages and services abroad do use them.
+
+**Adopted instead: a note with no points.** When the sender is an email address or a foreign
+number, the result says that organisations in China and the US text from short codes or
+service numbers, and that friends and some services abroad use such senders too.
+
+**A gap seen while checking it.** An English prize text with a link ("You won a $500 gift
+card. Claim it now at …") is only Low: `sms.prize_callback` needs a number to call, and
+`sms.prize_link` reads Chinese only.
+
 ### SMS mode: wording rules from public scam reports, and Chinese false alarms (2026-10-09)
 
 **Data** (both downloads approved by the owner, kept outside the repository):

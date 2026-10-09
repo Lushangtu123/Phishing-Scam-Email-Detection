@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 10:54 PT] — SMS mode: a note on email and foreign senders
+
+### Why
+- The owner asked how well the number checks work. In the owner's 211 labelled texts, 26 of 35 scams and none of 176 genuine texts came from an email address or a foreign number, yet the number rules decided no alert. Scoring such senders (+2) was measured and not adopted: it would have caught no more of the owner's scams, and its false alarms on friends' iMessages and services abroad cannot be measured.
+
+### Files changed
+- `website/static/app-sms.js`, `website/static/index.html` — a note under "Sender" when it is an email address or a foreign number; no points.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — the note in English and Chinese; static asset versions bumped.
+- `website/static/app.test.mjs` — the note shows for an email sender and not for a short code.
+- `docs/evaluation.md` — "SMS mode: the sender's kind as evidence": the counts, the tried change and a gap seen (English prize texts with a link stay Low).
+
+### Effect
+- No score or verdict changes. Readers see why an email or foreign sender is worth a second look.
+
 ## [2026-10-09 10:23 PT] — The Text Message tab on older phone browsers
 
 ### Why

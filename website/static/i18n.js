@@ -102,6 +102,7 @@ window.PhishGuardI18n = (() => {
     'sms.sub.none': "No rule found a known scam sign. This does not show that the text is safe.",
     'sms.sender.kind': "Sender: {kind}",
     'sms.sender.claimed': "Says it is from: {organization}",
+    'sms.sender.unusual': "Organisations in China and the US text from short codes or service numbers. Many scam texts come from an email address or a number abroad, though friends and some services abroad use them too.",
     'sms.kind.short_code': "a short code or service number",
     'sms.kind.cn_port_106': "a 106 message port",
     'sms.kind.cn_mobile': "a Chinese mobile number",
@@ -1401,7 +1402,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=62'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=63'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

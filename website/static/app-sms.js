@@ -15,6 +15,7 @@ const SMS_EXAMPLES = {
   delivered: { sender: '28777',
     text: 'USPS: Your package was delivered at 2:15 pm. Track it at https://tools.usps.com/go/TrackConfirmAction' },
 };
+const UNUSUAL_SMS_SENDERS = new Set(['email', 'international']);
 let _smsRequestId = 0;
 let _smsAbort = null;
 let _smsResult = null;
@@ -113,6 +114,11 @@ function renderSmsResult(data, { languageOnly = false } = {}) {
   const claimed = document.getElementById('sms-claimed');
   claimed.hidden = !data.claimed_brand;
   claimed.textContent = data.claimed_brand ? t('sms.sender.claimed', { organization: data.claimed_brand }) : '';
+  // A note, not a score: friends' iMessages and some services abroad use these too, but in the
+  // owner's texts 26 of 35 scams and none of 176 genuine texts came from them (docs/evaluation.md).
+  const note = document.getElementById('sms-sender-note');
+  note.hidden = !UNUSUAL_SMS_SENDERS.has(data.sender_kind);
+  note.textContent = note.hidden ? '' : t('sms.sender.unusual');
 
   document.getElementById('sms-category-grid').innerHTML = categories.map(cat => `
     <div class="cat-card cat-${escapeHtml(cat.level)}">

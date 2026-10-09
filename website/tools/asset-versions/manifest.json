@@ -36,8 +36,8 @@
     "sha256": "d937e538964b5521e56d154e17ca4b47ffacdd38bcb98cfe5ad9e076f42c1004"
   },
   "app-sms.js": {
-    "version": "1",
-    "sha256": "45c2e17db21ddb768b6b32d66d58bdf47601c4a1d583f875298feac666c87134"
+    "version": "2",
+    "sha256": "a3a3f06627f0475f9e510a5d0afbbbed6427d15bba0fb0db4c414015d9bc9229"
   },
   "app-theme.js": {
     "version": "2",
@@ -80,16 +80,16 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "62",
-    "sha256": "dfcd1b3433c0c1593a2b567c28cedc55d285d67e937ce6bea8459534db92d0bd"
+    "version": "63",
+    "sha256": "a279249a6c6ccb4fc05e11c557e2fcd4414e5f76ffeb52942f14224296956ce9"
   },
   "i18n.js": {
-    "version": "124",
-    "sha256": "2621754dc782dc682958ff774b41ff1b7e8cf065a103121232abc2140f8c4d2e"
+    "version": "126",
+    "sha256": "4b4fbe499a9414caa6a2684964e2342741ed3e75e52b0491c1766c2b972bdb54"
   },
   "lang-init.js": {
-    "version": "64",
-    "sha256": "0013ab22ab7aab0a3591118822ab4c51c8dfd2ce964985b06e37a458752d667f"
+    "version": "65",
+    "sha256": "5dd3faa49185c6a3118b4d9e1c5f32c7149790cf13166f0ac6d51ff224d79045"
   },
   "request.js": {
     "version": "1",
