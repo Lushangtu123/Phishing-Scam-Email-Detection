@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 23:34 PT] — SMS mode: batch 3 supplement of the owner's texts
+
+### Why
+- Batch 3 left the US normal texts short of the gate's 50, and Chinese scams were too few to judge. Codex found 48 more texts in the Messages window and the owner labelled them.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: the owner's texts": the supplement (39 US and 7 Chinese normal texts, 2 Chinese promotion scams), its single scoring on `3e936ce`, the check of the owner's full 160-template review, and the gate with the supplement.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — "Launch status": where the gate stands.
+
+### Effect
+- Normal texts meet the gate in both regions: US 0 of 69 and Chinese 0 of 52 at Medium or above. US scams 11 of 12.
+- Chinese scams do not (2 of 5): the gambling and off-platform gift promotions get no finding. The mode stays a test. No rule changed.
+
 ## [2026-10-08 21:26 PT] — Official domains of the five protected brands
 
 ### Why
