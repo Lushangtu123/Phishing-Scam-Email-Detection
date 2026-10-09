@@ -119,6 +119,11 @@ class ClientTests(unittest.TestCase):
         self.assertNotIn('h15.example.org', content)
         self.assertTrue(content.endswith('\nEMAIL>>>'))
 
+    def test_a_reasoning_level_for_models_that_cannot_turn_it_off(self):
+        settings = lr.LocalReviewSettings(self.settings.url, 'stub-model', think='low')
+        lr.review(settings, 'Weekly notes', 'Agenda attached.', [])
+        self.assertEqual(StubOllama.requests[-1][1]['think'], 'low')
+
     def test_out_of_form_answers(self):
         for reply in ((200, {'message': {'content': json.dumps({'verdict': 'unsure', 'confidence': 90})}}),
                       (200, {'message': {'content': json.dumps({'verdict': 'legitimate', 'confidence': 30})}}),

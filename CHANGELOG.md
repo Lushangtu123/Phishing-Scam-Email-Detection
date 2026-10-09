@@ -201,6 +201,20 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 ### Effect
 - No code changes. Implementation follows an implementation plan, after Lushangtu123/Phishing-Scam-Email-Detection#11 is merged.
 
+## [2026-10-08 10:40 PT] — Measure several local teachers and their agreement
+
+### Why
+- A second teacher from another model family should make errors that do not coincide with Qwen's, so a label both give is safer. Measuring that needs each message put to both models.
+- gpt-oss ignores `"think": false` and reasons anyway. On two synthetic messages it read a shipping notice as phishing (90) in 5.2 s; with `"think": "low"` it read both correctly in 0.8 s each.
+
+### Files changed
+- `website/tools/evaluate_llm_labeler.py` — `--model` may be repeated. The report then gives each model's counts and their agreement as one teacher: the verdict all give, at the lowest of their confidences; a disagreement goes to a person. `--think MODEL=LEVEL` sets a reasoning level. Each floor also reports `legitimate_to_person`. One model still writes the schema-1 report.
+- `website/local_review.py` — `LocalReviewSettings.think`, default `False`, so the served review is unchanged.
+- `website/tests/test_evaluate_llm_labeler.py`, `website/tests/test_local_review.py` — agreement counts, argument checks, and the forwarded reasoning level.
+
+### Effect
+- No served behaviour changes. The measurement of `gpt-oss:20b` beside `qwen3.8:27b-mxfp8` has not run yet.
+
 ## [2026-10-08 10:02 PT] — Merge main into the review follow-ups: CDN notes in docs/deployment.md
 
 ### Why
