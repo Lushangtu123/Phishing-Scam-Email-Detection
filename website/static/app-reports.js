@@ -168,6 +168,36 @@ function contentReportMarkdown(data, generatedAt) {
   ].join('\n');
 }
 
+// A text message report: what the check found, never the sender's number or the text itself
+// (the API response carries neither; the sender appears as its kind). Findings name the link hosts.
+function smsReportMarkdown(data, generatedAt) {
+  const categories = data.category_results || [];
+  const findings = (data.extra_indicators || []).filter(r => r.level !== 'info');
+  const channels = data.official_channels || [];
+  const unusual = typeof UNUSUAL_SMS_SENDERS !== 'undefined' && UNUSUAL_SMS_SENDERS.has(data.sender_kind);
+  return [
+    `# ${t('report.sms.title')}`, '',
+    reportField('report.input', t(RECENT_MODES.sms)),
+    reportField('report.verdict', markdownText(contentRiskLabel(data.risk_label, data.risk_level))),
+    reportField('report.smsSender', markdownText(t(`sms.kind.${data.sender_kind}`))),
+    ...(data.claimed_brand ? [reportField('report.claimed', markdownText(data.claimed_brand))] : []),
+    ...(unusual ? [reportField('report.note', markdownText(t('sms.sender.unusual')))] : []),
+    reportField('report.generated', generatedAt.toISOString()), '',
+    `## ${t('report.categories')}`, '',
+    ...(categories.length
+      ? categories.map(c => tPlural('summary.categoryLine', c.count, {
+        label: markdownText(categoryText(c, 'label')), level: markdownText(levelName(c.level)), count: markdownText(c.count),
+      }))
+      : [t('report.noneMatched')]),
+    '', `## ${t('sms.col.findings')}`, '',
+    ...(findings.length ? findings.map(reportIndicator) : [t('report.noneDetected')]),
+    ...(channels.length ? ['', `## ${t('content.col.verify')}`, '', ...channels.map(channel => `- ${markdownText(t('sms.verify.channel',
+      { organization: channel.organization, website: channel.website }))}${channel.service_numbers?.length
+      ? ` ${markdownText(t('content.verify.phone', { numbers: channel.service_numbers.join(' / ') }))}` : ''}`)] : []),
+    '', '---', '', `_${t('summary.disclaimer')}_`, '',
+  ].join('\n');
+}
+
 // Drops every *_base64 field at any depth so a report never embeds file bytes.
 function withoutBase64(value) {
   if (Array.isArray(value)) return value.map(withoutBase64);
@@ -185,20 +215,22 @@ function reportFilename(mode, format, date) {
 }
 
 function buildReport(kind, format, data, generatedAt) {
-  const mode = kind === 'sender' ? 'sender' : contentMode(data);
+  const mode = kind === 'sender' || kind === 'sms' ? kind : contentMode(data);
   const text = format === 'json'
     ? JSON.stringify({
       // `language` records the UI language; `result` is the raw (English) API response.
       generated_at: generatedAt.toISOString(), tool: 'PhishGuard', language: i18n() ? i18n().languageTag() : 'en',
       mode, result: withoutBase64(data),
     }, null, 2) + '\n'
-    : (kind === 'sender' ? senderReportMarkdown : contentReportMarkdown)(data, generatedAt);
+    : ({ sender: senderReportMarkdown, sms: smsReportMarkdown }[kind] || contentReportMarkdown)(data, generatedAt);
   return { text, filename: reportFilename(mode, format, generatedAt), type: REPORT_TYPES[format] };
 }
 
 function downloadReport(kind, format) {
-  if ((kind !== 'sender' && kind !== 'content') || !Object.hasOwn(REPORT_TYPES, format) || !lastResults[kind]) return;
-  const report = buildReport(kind, format, lastResults[kind], new Date());
+  if (!['sender', 'content', 'sms'].includes(kind) || !Object.hasOwn(REPORT_TYPES, format)) return;
+  const data = kind === 'sms' ? _smsResult : lastResults[kind];
+  if (!data) return;
+  const report = buildReport(kind, format, data, new Date());
   let url = null;
   try {
     url = URL.createObjectURL(new Blob([report.text], { type: report.type }));

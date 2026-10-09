@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 11:45 PT] — Downloadable reports for text message checks
+
+### Why
+- The owner asked whether text message results appear in a report. They did not: only the email address and email content checks could be downloaded, and the recent-checks list keeps only the verdict.
+
+### Files changed
+- `website/static/app-reports.js` — `smsReportMarkdown`: verdict, the sender's kind, the organisation it claims, the email/foreign-sender note, categories, findings and how to verify through official channels; `downloadReport` and `buildReport` accept `sms` (Markdown and JSON). Like the API response, the report holds neither the sender's number nor the text.
+- `website/static/index.html` — Markdown and JSON download buttons on the text message result.
+- `website/static/app-sms.js`, `website/static/i18n.js`, `website/static/i18n-zh.js` — report labels in English and Chinese; "How to verify" on a text result says "this text" instead of "this email" (`sms.verify.channel`); static asset versions bumped.
+- `website/static/app.test.mjs` — the SMS report's Markdown and JSON, nothing downloaded before a result, the labelled download group, and the page's 42 actions.
+
+### Effect
+- A text message check can be saved as `phishguard-sms-<time>.md` or `.json`, built in the browser; nothing is sent anywhere.
+
 ## [2026-10-09 10:54 PT] — SMS mode: a note on email and foreign senders
 
 ### Why
