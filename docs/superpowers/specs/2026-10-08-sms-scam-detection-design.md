@@ -262,6 +262,11 @@ Update, 2026-10-08: with the owner's batch 3 and its supplement, normal texts me
 regions (US 0 of 69, Chinese 0 of 52 at Medium or above). US scams meet it (11 of 12). Chinese scams do
 not (2 of 5), so the mode stays a test until more Chinese scam texts are calibrated and held out.
 
+Update, 2026-10-09: six Chinese scam rules were calibrated on the development half of the public
+FBS fake-base-station texts. On its sealed test half, 64.9% of Chinese scam texts reach Medium
+(bank phishing 89%, gambling 51%); 3 of the owner's 6 held-out Chinese scams do. Both are below
+70%, so the mode stays a test. No normal text changed.
+
 ## Tests
 
 - `website/tests/test_sms_analysis.py`:

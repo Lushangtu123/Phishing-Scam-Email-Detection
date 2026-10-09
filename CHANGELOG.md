@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 00:44 PT] — SMS mode: the Chinese rules on the sealed half of the FBS texts
+
+### Why
+- The six Chinese rules were committed (`316eefb`) before the sealed test half of the FBS texts was scored; the result decides where the Chinese side of the launch gate stands.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: Chinese scam rules from public fake-base-station texts": the dataset, its preprocessing and limits, the split, seal and analysis plan, development and test results per category, controls, and the owner's held-out Chinese scams.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — "Launch status" update.
+
+### Effect
+- Sealed test half, scored once: 1,328 of 2,046 Chinese scam texts at Medium or above (64.9%): bank phishing 89.3%, gambling 51.4%, other fraud 36.3%, financial fraud 27.4%. Texts whose template is not in the development half: 65.5%.
+- The owner's held-out Chinese scams: 3 of 6. The gate's 70% is not met, so the SMS mode stays a test. No normal text changed.
+
 ## [2026-10-09 00:41 PT] — SMS mode: six Chinese scam rules from public fake-base-station texts
 
 ### Why

@@ -1408,6 +1408,93 @@ passing DMARC check still scored High, because production trusts no
 false-alert reduction is shown only on a constructed receipt. It needs measuring
 on consented Gmail downloads imported with `import_own_mailbox.py`.
 
+### SMS mode: Chinese scam rules from public fake-base-station texts (2026-10-09)
+
+**Why public data.** The owner's Messages hold only 9 Chinese scam templates; Codex searched
+3,096 records with 44 queries and the spam folder. That is too few to calibrate on and still
+hold out enough to judge the gate's 70%. Public Chinese SMS fraud data is scarce: case
+reports (CCL 2023) and call audio (TeleAntiFraud-28k) are not texts.
+
+**Data.** The FBS spam dataset of *Lies in the Air: Characterizing Fake-base-station Spam
+Ecosystem in China* (CCS 2020; `github.com/Cypher-Z/FBS_SMS_Dataset`, commit `49173b1`):
+14K texts sent from fake base stations in China, labelled by the researchers. With the owner's
+approval, only its fraud and gambling files were downloaded (0.69 MB, kept outside the
+repository; the README asks users to cite the paper).
+
+- 4,095 unique texts: bank phishing 1,781, gambling 1,597, other fraud 584, financial fraud
+  125, other phishing 8.
+- The release is pre-processed: Chinese is word-segmented, punctuation and 【】 signatures are
+  gone, and links, numbers, names and places are replaced by tokens. Tokens became neutral
+  stand-ins that trigger no rule on their own (`http://www.example.com/a`, `13812345678`, `张伟`,
+  `北京`), and segmentation spaces between Chinese characters were removed.
+- **So link and sender rules cannot fire here; this measures the wording rules only.** No
+  sender is known, and the texts date from 2017 to 2019.
+
+**Protocol.**
+- Split per category with seed 166 into a development half (2,049) and a test half (2,046).
+- The test half was sealed (SHA-256 `2af386d02d40…`, files read-only) before any text was read.
+- An analysis plan was written before scoring (primary and secondary measures, preprocessing).
+- The rules were committed (`316eefb`), and only then was the test half scored, once.
+
+**Baseline.** Before the change, 4 of 2,049 development texts reached Medium (all gambling).
+
+**Rules** (`sms_analysis.py`, each +4 and at least Medium). They read the text with
+traditional and look-alike characters made plain (註冊, 婇票, 氺):
+
+| Code | Fires on |
+|---|---|
+| `sms.account_lure` | A bank, its points, security token, card limit or real-name records needing action, and a link outside the registries' official domains or a Chinese mobile number |
+| `sms.gambling_promo` | Two gambling terms, or one gambling term, rebate or deposit bonus with a sign-up, payout or bonus offer, and a link or contact |
+| `sms.prize_link` | Being picked or winning a large prize, wording to claim it, and a link outside the official domains |
+| `sms.flight_compensation` | A cancelled or delayed flight, compensation and a number to call |
+| `sms.stock_group` | Stock tips and a group to join |
+| `sms.album_link` | Photos, an album or "you're in the news" with a hook to look, and a link outside the official domains |
+
+Left out on purpose:
+- top-up offers (充100送20), a game's first-purchase bonus, and banks' deposit and
+  withdrawal notices or deposit promotions (存5万送礼);
+- fund marketing without a group;
+- account fragments ("户名…开户行…") and "this is my new number", which genuine texts share.
+
+**Results** (Medium or above):
+
+| FBS category | Development half | Test half (sealed) |
+|---|---:|---:|
+| Bank phishing | 805 / 891 (90.3%) | 795 / 890 (89.3%) |
+| Gambling | 413 / 799 (51.7%) | 410 / 798 (51.4%) |
+| Other fraud | 143 / 292 (49.0%) | 106 / 292 (36.3%) |
+| Financial fraud | 18 / 63 (28.6%) | 17 / 62 (27.4%) |
+| Other phishing (iCloud, carrier) | 0 / 4 | 0 / 4 |
+| **All** | **1,379 / 2,049 (67.3%)** | **1,328 / 2,046 (64.9%)** |
+
+- Secondary measures from the plan:
+  - test texts of 20 or more characters: 1,328 / 1,960 (67.8%);
+  - test texts whose template is not in the development half: 1,066 / 1,627 (65.5%).
+  So the rules carry over to unseen templates.
+- What stays missed:
+  - gambling written as verse with platform codes and a landline;
+  - "other fraud" fragments of a few characters (account names, "这是我新号码");
+  - legitimate-looking fund marketing sent through fake base stations, which the researchers
+    count as financial fraud.
+- **Controls.** No new rule fires on any normal text:
+  - the owner's 74 Chinese and 102 US normal texts stay 0 at Medium or above;
+  - the public 4,834 ham texts stay 0.
+  - Mishra and Soni smishing is unchanged (324 / 562) and spam goes from 85 to 87 of 469.
+  - The rules are SMS-only, so email is untouched.
+- **The owner's Chinese scams** (rules written without reading them): 6 of 9 at Medium or
+  above, up from 5. Batch 1 is 3 of 3 (in-sample). Held out, the result is 3 of 6:
+  - batch 2: 2 of 3;
+  - the supplement: 1 of 2 (the gambling promotion is now caught);
+  - the new gift promotion: 0 of 1.
+
+**Against the gate.**
+- Chinese scams are at 64.9% on the sealed public half and 3 of 6 held-out owner texts. Both
+  are below 70%, so the gate is still not met.
+- With real links and senders, the link rules (`link.brand_lookalike`, IP hosts, free
+  hosting, `sms.link_off_brand`) and the sender rules would add to this. The dataset cannot
+  show by how much.
+- The mode stays a test.
+
 ### SMS mode: the owner's texts (2026-10-09)
 
 **Data.**
