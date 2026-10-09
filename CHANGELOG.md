@@ -20,6 +20,42 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 19:19 PT] — Restore the missing 2026-09-17 scroll-reveal entry
+
+### Why
+- The entry for the scroll-reveal easing fix (commit `cfb334b`) was written but never committed to `main`. It sat on two unmerged Cursor branches, `cursor/changelog-scroll-reveal-542f` (draft PR #4, closed 2026-10-08) and `cursor/sci-fi-frontend-refresh-542f`, with the same text.
+
+### Files changed
+- `CHANGELOG.md` — "Smoother scroll reveal in 'How It Works'" restored in its chronological position (2026-09-17 13:32 PT), from draft PR #4's version, which says it was missed.
+
+### Effect
+- No code changes; the history of `cfb334b` is complete.
+
+## [2026-10-08 19:19 PT] — Cursor Cloud Agent environment
+
+### Why
+- Draft PR #9 (closed 2026-10-08) added a development environment for Cursor's Cloud Agents and was never merged. The repository already uses Cursor (`.cursor/rules/changelog.mdc`).
+
+### Files changed
+- `.cursor/environment.json` — from PR #9 unchanged: create `.venv`, install `website/requirements.txt` (which includes the serving pins), and run the app with uvicorn on port 8000.
+
+### Effect
+- No change to the site or CI.
+
+## [2026-10-08 19:19 PT] — Scroll reveal replays on every pass
+
+### Why
+- On 2026-09-17 the owner reported that the fade/slide-in played only the first time content scrolled into view; scrolling back showed nothing. Draft PR #5 fixed it on the old single `app.js` and was never merged (closed 2026-10-08). The homepage script has since been split, so the change is ported rather than merged.
+
+### Files changed
+- `website/static/app-layout.js` — `setupScrollReveal` keeps observing every target (`threshold: 0`). An element that fully leaves the viewport drops `.in-view`, `.settled` and `.from-above`; on re-entry it plays again with the per-batch stagger. An element entering across the top edge gets `.from-above`. `animationend` adds `.settled` instead of removing the classes.
+- `website/static/style.css` — `.reveal.in-view.from-above` uses `reveal-in-down` (an 18px drift down), and `.reveal.in-view.settled` drops the animation fill so hover transforms work.
+- `website/static/app.test.mjs` — new: entering from below, settling, resetting on leaving, and re-entering from above; nothing is unobserved.
+- Asset versions bumped.
+
+### Effect
+- Content fades in each time it scrolls into view, from the side it arrives on. With reduced motion, or without IntersectionObserver, nothing is hidden, as before.
+
 ## [2026-10-08 16:12 PT] — The homepage revalidates by content
 
 ### Why
@@ -4873,6 +4909,37 @@ The read-only review of main at 06dfbb7 (2026-10-02) found three P1 and two P2 i
   code conflicts or loss of classification behavior.
 - The merged backend suite passes 83 tests, the frontend suite passes 9 tests,
   and JavaScript syntax validation succeeds.
+
+## [2026-09-17 13:32 PT] — Smoother scroll reveal in "How It Works"
+
+### Why
+- User observed that the pipeline step text appeared abruptly when scrolling
+  into the "How It Works" section.
+- Root cause: `.step` (and `.stat-card`, `.feature-category-card`,
+  `.top3-card`) declare their own `transition` for hover effects. Being later
+  in the stylesheet with equal specificity, they overrode `.reveal`'s
+  transition, so opacity snapped in instantly while only the transform eased.
+  In addition, stagger delays were fixed at load time by child index, so a
+  step entering the viewport alone still waited up to 350 ms.
+- This entry was written with commit `cfb334b` but missed that commit; it is
+  recorded here in chronological position.
+
+### Files changed
+- `website/static/style.css` — `.reveal` now animates via a `reveal-in`
+  keyframe (0.8 s, `cubic-bezier(0.16, 1, 0.3, 1)`, 18px rise) with
+  `animation-delay: var(--reveal-delay)`, independent of element transitions;
+  reduced-motion block updated accordingly.
+- `website/static/app.js` — `setupScrollReveal()` computes stagger per
+  IntersectionObserver batch (60 ms between siblings that enter together, 0 ms
+  for a lone entrant), and removes `.reveal/.in-view` on `animationend` so
+  hover transforms work normally afterwards; threshold relaxed to 0.05 /
+  `-6%` root margin.
+
+### Effect
+- Opacity and position now ease together for every revealed element; steps
+  scrolled into view one at a time start animating immediately.
+- `node --test website/static/app.test.mjs` 6/6 passing at the time (9/9 after
+  the disposable-classification merge); `node --check` OK.
 
 ## [2026-09-17 13:07 PT] — Modern fluid restyle (supersedes the HUD theme)
 

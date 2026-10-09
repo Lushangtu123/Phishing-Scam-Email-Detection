@@ -2280,3 +2280,46 @@ test('a model-driven account notice asks whether it was requested and sends the 
   assert.equal(requests.at(-1).body.requested, undefined);
   assert.equal(question.hidden, false);
 });
+
+test('scroll reveal replays on every entry, from the side the element arrives on', () => {
+  const step = new FakeElement();
+  const props = {};
+  step.style = { setProperty: (key, value) => { props[key] = value; }, removeProperty: key => { delete props[key]; } };
+  step.parentElement = {};
+  step.compareDocumentPosition = () => 0;
+  let callback, options;
+  const observed = [], unobserved = [];
+  class FakeObserver {
+    constructor(cb, opts) { callback = cb; options = opts; }
+    observe(el) { observed.push(el); }
+    unobserve(el) { unobserved.push(el); }
+  }
+  const document = {
+    addEventListener() {},
+    createElement: () => new FakeElement(),
+    getElementById: () => new FakeElement(),
+    querySelector: () => new FakeElement(),
+    // The joined REVEAL_SELECTORS start with .section-header; the groups find nothing.
+    querySelectorAll: selector => (selector.startsWith('.section-header') ? [step] : []),
+  };
+  const { context } = loadFrontend({ document, IntersectionObserver: FakeObserver, matchMedia: () => ({ matches: false }) });
+  context.setupScrollReveal();
+  assert.equal(options.threshold, 0);
+  assert.deepEqual(observed, [step]);
+  const has = name => step.classList.contains(name);
+  const enter = top => callback([{ target: step, isIntersecting: true, boundingClientRect: { top }, rootBounds: { top: 0 } }]);
+
+  enter(400);  // scrolling down: rises from below
+  assert.ok(has('reveal') && has('in-view') && !has('from-above'));
+  assert.equal(props['--reveal-delay'], '0ms');
+  step.listeners.animationend({ target: step });
+  assert.ok(has('settled'));
+
+  callback([{ target: step, isIntersecting: false }]);  // fully out of view: reset
+  assert.ok(has('reveal') && !has('in-view') && !has('settled'));
+  assert.equal('--reveal-delay' in props, false);
+
+  enter(-120);  // scrolling up: drifts down from above, and plays again
+  assert.ok(has('in-view') && has('from-above') && !has('settled'));
+  assert.deepEqual(unobserved, []);
+});
