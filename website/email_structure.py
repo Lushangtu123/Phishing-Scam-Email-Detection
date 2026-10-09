@@ -81,12 +81,38 @@ _ARCHIVE_MIME_TYPES = {
     "application/x-zip-compressed",
     "application/zip",
 }
+# Each protected brand's own domains, from the brand's published lists (read 2026-10-08):
+# Google's search domains (www.google.com/supported_domains); Amazon's stores in the Seller
+# and Vendor Central URL lists of its Selling Partner API documentation; Microsoft's
+# "Microsoft 365 URLs and IP address ranges"; Apple's "Use Apple products on enterprise
+# networks" (support.apple.com/101555) and the apple.co and apple.news links on
+# apple.com/apple-news; paypal.me and paypalobjects.com on PayPal's own pages. A bare label
+# is the brand's own top-level domain in the IANA root zone, so every host under it is the
+# brand's. amazonaws.com and onmicrosoft.com are left out: anyone with an account gets a
+# host there, and phishing pages use them.
+_GOOGLE_SEARCH_SUFFIXES = """
+com ad ae com.af com.ag al am co.ao com.ar as at com.au az ba com.bd be bf bg com.bh bi bj com.bn
+com.bo com.br bs bt co.bw by com.bz ca cd cf cg ch ci co.ck cl cm cn com.co co.cr com.cu cv com.cy
+cz de dj dk dm com.do dz com.ec ee com.eg es com.et fi com.fj fm fr ga ge gg com.gh com.gi gl gm gr
+com.gt gy com.hk hn hr ht hu co.id ie co.il im co.in iq is it je com.jm jo co.jp co.ke com.kh ki kg
+co.kr com.kw kz la com.lb li lk co.ls lt lu lv com.ly co.ma md me mg mk ml com.mm mn com.mt mu mv
+mw com.mx com.my co.mz com.na com.ng com.ni ne nl no com.np nr nu co.nz com.om com.pa com.pe com.pg
+com.ph com.pk pl pn com.pr ps pt com.py com.qa ro ru rw com.sa com.sb sc se com.sg sh si sk com.sl
+sn so sm sr st com.sv td tg co.th com.tj tl tm tn to com.tr tt com.tw co.tz com.ua co.ug co.uk
+com.uy co.uz com.vc co.ve co.vi com.vn vu ws rs co.za co.zm co.zw cat
+""".split()
+_AMAZON_STORE_SUFFIXES = """
+com ca com.mx com.br ie es co.uk fr com.be nl de it se co.za pl eg sa ae com.tr in sg com.sg
+com.au co.jp me
+""".split()
 _PROTECTED_BRAND_DOMAINS = {
-    "apple": {"apple.com", "icloud.com"},
-    "amazon": {"amazon.com", "amazon.co.uk", "amazon.de"},
-    "google": {"google.com", "google.co.uk", "googleusercontent.com"},
-    "microsoft": {"microsoft.com"},
-    "paypal": {"paypal.com"},
+    "apple": {"apple.com", "icloud.com", "apple.co", "apple.news", "cdn-apple.com", "apple-dns.net",
+              "apple-cloudkit.com", "apple-mapkit.com", "apple-livephotoskit.com", "apple"},
+    "amazon": {"amazon." + suffix for suffix in _AMAZON_STORE_SUFFIXES} | {"amazon"},
+    "google": {"google." + suffix for suffix in _GOOGLE_SEARCH_SUFFIXES} | {"googleusercontent.com", "google"},
+    "microsoft": {"microsoft.com", "microsoft365.com", "microsoftonline.com", "microsoftonline-p.com",
+                  "microsoftonline-p.net", "microsoftazuread-sso.com", "microsoft"},
+    "paypal": {"paypal.com", "paypal.me", "paypalobjects.com"},
 }
 _OFFICIAL_BRANDS_PATHS = tuple(
     Path(__file__).resolve().parent / "data" / name

@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-08 21:26 PT] — Official domains of the five protected brands
+
+### Why
+- `link.brand_lookalike` scored links to the protected brands' own other domains High: Apple's `apple.co` in the owner's third batch of texts, and Google, Amazon, Microsoft and PayPal country or service domains in public legitimate mail.
+
+### Files changed
+- `website/email_structure.py` — `_PROTECTED_BRAND_DOMAINS` holds each brand's domains from its own published lists (Google's 187 search domains, Amazon's stores, Microsoft 365 sign-in domains, apple.co, apple.news and Apple service domains, paypal.me and paypalobjects.com) and the brands' top-level domains (.apple, .amazon, .google, .microsoft). `amazonaws.com` and `onmicrosoft.com` stay out.
+- `website/tests/test_protected_brand_domains.py` (new) — official hosts are not lookalikes in mail or texts, lookalikes built on them and shared hosts stay High, and display names from the brands' own domains are not impersonation.
+- `docs/evaluation.md` — "Official domains of the five protected brands": sources, before/after counts and the `amazonaws.com` variant.
+
+### Effect
+- No alert count changed in the owner's genuine downloads, the new brand emails, PhishFuzzer or Nazario 2023–24, and no phishing message lost evidence.
+- Public legitimate messages linking these domains: PhishNChips 19 alerts → 0, CEAS-08 4 → 1 (the one left links `amazonaws.com`).
+- The owner's batch 3 of texts: the one genuine text at High (`apple.co`) is no longer flagged.
+
 ## [2026-10-08 19:48 PT] — SMS mode on in production as a test, before the launch gate
 
 ### Why
