@@ -20,6 +20,40 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 00:44 PT] — SMS mode: the Chinese rules on the sealed half of the FBS texts
+
+### Why
+- The six Chinese rules were committed (`316eefb`) before the sealed test half of the FBS texts was scored; the result decides where the Chinese side of the launch gate stands.
+
+### Files changed
+- `docs/evaluation.md` — "SMS mode: Chinese scam rules from public fake-base-station texts": the dataset, its preprocessing and limits, the split, seal and analysis plan, development and test results per category, controls, and the owner's held-out Chinese scams.
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — "Launch status" update.
+
+### Effect
+- Sealed test half, scored once: 1,328 of 2,046 Chinese scam texts at Medium or above (64.9%): bank phishing 89.3%, gambling 51.4%, other fraud 36.3%, financial fraud 27.4%. Texts whose template is not in the development half: 65.5%.
+- The owner's held-out Chinese scams: 3 of 6. The gate's 70% is not met, so the SMS mode stays a test. No normal text changed.
+
+## [2026-10-09 00:41 PT] — SMS mode: six Chinese scam rules from public fake-base-station texts
+
+### Why
+- The owner's Messages hold only 9 Chinese scam templates, too few to calibrate or judge the gate, and the current rules caught almost none of the public FBS spam texts (CCS 2020; 4 of 2,049 in the development half). The owner chose to download its fraud and gambling categories.
+
+### Files changed
+- `website/sms_analysis.py` — six rules, each +4 and at least Medium, reading a view of the text with traditional and look-alike characters made plain:
+  - `sms.account_lure`: bank points, security token, card limit or real-name records, with a link outside the official domains or a mobile number;
+  - `sms.gambling_promo`: gambling terms with sign-up, deposit, rebate, payout or bonus offers, and a link or contact;
+  - `sms.prize_link`: being picked for a large prize, with a link to claim it;
+  - `sms.flight_compensation`: a cancelled flight, compensation and a number to call;
+  - `sms.stock_group`: stock tips and a group to join;
+  - `sms.album_link`: photos or "you're in the news" with a link.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the six messages in English and Chinese; static asset versions bumped.
+- `website/tests/test_sms_analysis.py` — each rule firing and not firing (genuine bank, telecom, airline, lottery and fund texts).
+- `docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md` — the rule table gains these six and the three from the owner's calibration.
+
+### Effect
+- FBS development half at Medium or above: bank phishing 4 of 891 → 805, gambling 4 of 799 → 413, other fraud 0 of 292 → 143, financial fraud 0 of 63 → 18.
+- No normal text changes: the owner's US and Chinese normal texts stay 0 at Medium or above, as do the public 4,834 ham texts; no new rule fires on any of them. The sealed test half is scored once on this commit.
+
 ## [2026-10-08 23:34 PT] — SMS mode: batch 3 supplement of the owner's texts
 
 ### Why

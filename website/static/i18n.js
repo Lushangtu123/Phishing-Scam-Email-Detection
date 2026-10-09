@@ -967,6 +967,12 @@ window.PhishGuardI18n = (() => {
     'server.sms.premium_callback': "The text asks you to call or text {number}, a premium-rate number that charges you for the call. Organisations do not ask you to call premium-rate numbers in a text.",
     'server.sms.external_contact_lure': "The text offers easy money (a rebate, commission, part-time pay or sure returns) and asks you to continue on a private messenger, such as WeChat, QQ, WhatsApp or Telegram, where no platform sees the rest.",
     'server.sms.job_offer': "The text offers a job with pay or hours and sends you to a short link, a private messenger or a number to message. Real employers do not recruit through unsolicited texts like this.",
+    'server.sms.account_lure': "The text says your bank account, points or security token needs attention (points to redeem, a token or certificate expiring, a frozen card, a higher limit) and sends you to a link or a mobile number. Banks point you to their own app, website or service number, such as 95588, never to a link or a personal number in a text.",
+    'server.sms.gambling_promo': "The text promotes an online gambling site: bets or lottery, with bonuses for signing up or depositing, rebates or fast payouts. Online gambling is illegal in mainland China, and these sites keep what players deposit.",
+    'server.sms.prize_link': "The text says you were picked or won a large prize (cash, a laptop, a phone) and sends you to a link to claim it. Real prizes are not handed out through unsolicited texts that ask you to enter codes or details on a website.",
+    'server.sms.flight_compensation': "The text says your flight was cancelled or delayed and offers compensation if you call a number. Airlines announce changes in their own app and from their service numbers; scammers use such calls to get bank details and payments.",
+    'server.sms.stock_group': "The text invites you to a stock-tip group. Such groups are a known investment scam: free tips build trust, then members are pushed to fake trading platforms or paid courses.",
+    'server.sms.album_link': "The text urges you to open a link to see photos, an album or news about you. This lure is used to install malware or take over accounts. Do not open it; check with the sender another way.",
     'server.sms.split_words': "The text breaks words up with symbols in {count} places (such as 佣.金 or 微|信), a trick to slip past spam filters that genuine senders do not use.",
     'server.sms.fine_lure': "A text says you have an unpaid fine or toll, and its link leads to {host}, which is not a government site. Check fines and tolls only on the official website or app you already know.",
     'server.sms.delivery_lure': "A text about a parcel asks you to pay a shipping or customs fee, or to correct your address, through a link to {host}, which is not a listed carrier's site. Check parcels only on the carrier's own website or app.",
@@ -1388,7 +1394,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=58'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=59'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

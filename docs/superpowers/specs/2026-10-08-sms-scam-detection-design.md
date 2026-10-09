@@ -116,6 +116,18 @@ no mismatch.
 | `sms.fine_lure` | `_fine_lure`: with no sender domain, any link host that is neither listed nor a government's | +4, at least High, as the email rule |
 | `sms.premium_callback` | A request to call or text a number that a numbering plan lists as premium rate (US, UK or Chinese plan when no country code is given) | +4, at least Medium |
 | `sms.prize_callback` | Prize or award wording ("won", not "won't"; "claim", "gift card", "awaits collection"…) and a request to call, text or dial a number of at least five digits (added in calibration, `docs/evaluation.md`) | +4, at least Medium |
+| `sms.split_words` | Four or more symbols breaking up Chinese words ("佣.金", "微|信"); the rules read the text joined again (added in calibration on the owner's texts) | +4, at least Medium |
+| `sms.external_contact_lure` | Easy money (rebates, commission, part-time pay, sure returns, gambling, refunds) and a move to a private messenger (WeChat, QQ, WhatsApp, Telegram; not a business's WeCom) (added in calibration on the owner's texts) | +4, at least Medium |
+| `sms.job_offer` | A job with pay or hours, and a short link, a messenger or "send a message to this number" (added in calibration on the owner's texts) | +4, at least Medium |
+| `sms.account_lure` | A bank, its points, security token, card limit or real-name records needing action, and a link outside the registries' official domains or a Chinese mobile number (added in calibration on the FBS development half) | +4, at least Medium |
+| `sms.gambling_promo` | Two gambling terms, or one gambling term, rebate or deposit bonus with a sign-up, payout or bonus offer, and a link or a way to reach them (added on the FBS development half) | +4, at least Medium |
+| `sms.prize_link` | Being picked or winning a large prize (cash, a laptop, a phone), wording to claim it, and a link outside the official domains (added on the FBS development half) | +4, at least Medium |
+| `sms.flight_compensation` | A cancelled or delayed flight, compensation, and a number to call (added on the FBS development half) | +4, at least Medium |
+| `sms.stock_group` | Stock tips and a group to join (added on the FBS development half) | +4, at least Medium |
+| `sms.album_link` | Photos, an album or "you're in the news" with a hook to look ("你自己看", "看看我们…") and a link outside the official domains (added on the FBS development half) | +4, at least Medium |
+
+The Chinese rules read the text with traditional and look-alike characters made plain (註冊,
+婇票, 氺) and spaces between Chinese characters removed.
 
 The two lures have their own codes because the Chinese wording of `content.fine_lure` and
 `content.delivery_lure` says "邮件" (email).
@@ -249,6 +261,11 @@ results will be recorded in `docs/evaluation.md` and the rules updated then.
 Update, 2026-10-08: with the owner's batch 3 and its supplement, normal texts meet the gate in both
 regions (US 0 of 69, Chinese 0 of 52 at Medium or above). US scams meet it (11 of 12). Chinese scams do
 not (2 of 5), so the mode stays a test until more Chinese scam texts are calibrated and held out.
+
+Update, 2026-10-09: six Chinese scam rules were calibrated on the development half of the public
+FBS fake-base-station texts. On its sealed test half, 64.9% of Chinese scam texts reach Medium
+(bank phishing 89%, gambling 51%); 3 of the owner's 6 held-out Chinese scams do. Both are below
+70%, so the mode stays a test. No normal text changed.
 
 ## Tests
 

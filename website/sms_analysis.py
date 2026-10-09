@@ -231,6 +231,76 @@ _JOB_PAY = re.compile(r"\$\s?\d|\b(?:salary|income|daily pay|bonus|commission)\b
 _JOB_CONTACT = re.compile(r"\b(?:send|text|message|reply|contact|call)\b[^.!?\n]{0,30}\b(?:this|my|our) number\b", re.IGNORECASE)
 _SHORTENERS = frozenset({'bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'is.gd', 'cutt.ly', 'rb.gy', 't.ly', 'shorturl.at',
                          'ow.ly', 'buff.ly', 'rebrand.ly', 's.id', 't.cn', 'url.cn', 'dwz.cn', 'tiny.cc'})
+# Chinese scam texts, calibrated on the development half of the FBS spam texts (CCS 2020,
+# fake base stations in China; docs/evaluation.md). They read a view of the text with
+# traditional and look-alike characters made plain (註冊 注册, 婇票 彩票, 氺 水) and spaces
+# between Chinese characters removed.
+_VARIANTS = str.maketrans({
+    '註': '注', '冊': '册', '贈': '赠', '專': '专', '員': '员', '網': '网', '樂': '乐', '楽': '乐', '婇': '彩', '倸': '彩',
+    '唫': '金', '氺': '水', '氷': '水', '囍': '喜', '僖': '喜', '萬': '万', '領': '领', '獎': '奖', '驗': '验', '證': '证',
+    '碼': '码', '號': '号', '戶': '户', '開': '开', '凱': '开', '體': '体', '錢': '钱', '為': '为', '選': '选', '寳': '宝',
+    '記': '记', '査': '查', '內': '内', '現': '现', '賭': '赌', '歀': '款', '餸': '送', '囎': '赠', '賽': '赛', '緹': '提',
+    '優': '优', '會': '会', '國': '国', '際': '际', '時': '时', '盤': '盘', '賠': '赔', '視': '视', '訊': '讯', '腦': '脑',
+    '請': '请', '進': '进', '詳': '详', '節': '节', '凍': '冻',
+})
+_CJK_GAP = re.compile(r'(?<=[㐀-鿿0-9])\s+(?=[㐀-鿿])|(?<=[㐀-鿿])\s+(?=[0-9])')
+# A notice about a bank account, points or security token that sends the reader to a link or
+# a mobile number: "积分可兑换现金，请登录…", "电子密码器将于今日失效，请登入我行网站…",
+# "信用卡已冻结，请致电138…". Banks point to their own app, site or 95 number.
+_ACCOUNT_SUBJECT = re.compile(r'银行|我行|网银|手机银行|银联|信用卡|储蓄卡|[工建农中交招]行|邮储|工银')
+_ACCOUNT_LURE = re.compile(
+    r'积分.{0,30}?(?:兑换|兑现|清零|失效|过期|现金|礼包|礼品)'
+    r'|(?:密码器|电子密码|u盾|证书|动态口令|口令卡|e令).{0,12}?(?:失效|过期|冻结|停用|升级|激活|效验|校验|更新|维护|到期)'
+    r'|(?:账户|帐户|银行卡|信用卡|网银|网上银行|手机银行).{0,12}?(?:冻结|异常|失效|过期|升级|停用|注销|激活|提额|锁定)'
+    r'|额度.{0,6}?(?:提升|上调|调整|提高)|(?:提升|上调|调整|提高).{0,10}?额度|实名.{0,8}?补录|资料不全')
+# An online gambling site: two of its terms, or one and a sign-up, deposit, payout or bonus
+# offer. A top-up offer (充100送20), a game's first-purchase bonus or a bank's deposit and
+# withdrawal notice has no gambling term, rebate or deposit bonus.
+_GAMBLING_GROUPS = {
+    'games': re.compile(r'彩金|菜金|彩票|采票|菜票|娱乐城|娱乐场|娱乐成|乐城|棋牌|百家乐|佰家|百稼|真人(?:视讯|娱乐|荷官|发牌|真钱|游戏|游艺)'
+                        r'|荷官|视讯|电子游艺|老虎机|捕鱼|投注|网投|下注|博彩|赌|六合|时时彩|时时采|快三|一肖|特码|赔率|滚球|盘口'
+                        r'|bbin|xpj|葡京|威尼斯人|太阳城|vip\s*厅|机麻|爆分|收米'),
+    'turnover': re.compile(r'流水|倍水|返水|反水|回水|打码|转码|洗码|水位'),
+    'deposit': re.compile(r'首存|续存|存\d*送|存赠|首次入款|入款|多存多送'),
+    'signup': re.compile(r'注册.{0,3}送|开户.{0,4}送|新会员|开户'),
+    'payout': re.compile(r'提款|取款|出款|出账|秒到'),
+    'bonus': re.compile(r'红包|最高送|送[一二三四五六七八九十百千万\d]|豪礼|首充|充\d*送|赠'),
+}
+_PHONE_NUMBER = re.compile(r'(?<!\d)(?:1[3-9]\d{9}|400\d{7}|0\d{9,11})(?!\d)')
+_MOBILE_NUMBER = re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)')
+_REACH_OUT = re.compile(r'(?<!\d)(?:1[3-9]\d{9}|400\d{7}|0\d{9,11})(?!\d)|客服|专员|qq|微信|wx|vx|网址|官网|登入|登录|注册')
+# Being picked or winning something large, with a link to claim it ("您已被选为幸运观众，将获得
+# 8万元及笔记本电脑，请登录…领取"). Shops' coupons ("恭喜获得10元券") are no selection.
+_PRIZE_PICKED = re.compile(r'(?:中奖|获奖|抽中|抽选|选为|选定|选中|幸运(?:观众|用户|号码|号|者)|中了|您中|互动者|得主).{0,40}?'
+                           r'(?:万|奖金|笔记本|笔极本|电脑|苹果|apple|iphone|汽车|现金|大礼|大奖)', re.DOTALL)
+_PRIZE_CLAIM = re.compile(r'领取|兑奖|领奖|查收|查看|验证码|验码|详进|详情')
+# A cancelled or delayed flight with compensation through a number: airlines announce changes
+# in their app and from their service numbers, and do not pay out by phone.
+_FLIGHT_CHANGE = re.compile(r'航班.{0,40}?(?:取消|延误|故障|停飞|无法.{0,4}起飞)', re.DOTALL)
+_FLIGHT_PAYOUT = re.compile(r'补偿|赔偿|延误费|误机费')
+# A stock-tip group on a messenger ("前私募操盘手建群了，长线牛股今晚公布，进QQ…").
+_STOCK = re.compile(r'牛股|股票|炒股|股市|股友|讲股|荐股|操盘|私募|涨停|拉升|主力|黑马|个股')
+_GROUP = re.compile(r'进群|建群|开群|入群|加群|群内|群里|(?:qq|微信|wx)群|人满')
+# "Look at our old album", "you're in the news, see for yourself", with a link: a lure to
+# install malware.
+_ALBUM = re.compile(r'相册|影集|照片|留念照|艺术照|视频|录像|上新闻')
+_ALBUM_HOOK = re.compile(r'自己看|认真看|看看我们|看完|打开看|瞧瞧|这是怎么回事|上新闻了')
+
+
+def _chinese_view(text: str) -> str:
+    return _CJK_GAP.sub('', unicodedata.normalize('NFKC', text).translate(_VARIANTS).casefold())
+
+
+def _gambling(text: str) -> bool:
+    groups = {name for name, pattern in _GAMBLING_GROUPS.items() if pattern.search(text)}
+    games = {match.group() for match in _GAMBLING_GROUPS['games'].finditer(text)}
+    return len(games) >= 2 or (bool(groups & {'games', 'turnover', 'deposit'}) and len(groups) >= 2)
+
+
+def _official_host(host: str) -> bool:
+    return any(host == domain or host.endswith('.' + domain) for brand in BRANDS for domain in brand['domains'])
+
+
 # Senders each region's organisations text from; "none" and "alphanumeric" say nothing.
 _EXPECTED_SENDERS = {'cn': frozenset({'short_code', 'cn_port_106'}),
                      'intl': frozenset({'short_code', 'nanp_toll_free'})}
@@ -293,6 +363,23 @@ def sms_findings(sender: str, text: str) -> dict:
         score += 4
         floor = 'medium'
         found.append(indicator('high', 'sms.premium_callback', number=premium))
+    zh = _chinese_view(joined)
+    off_platform = any(not _official_host(link_host(url)) for _label, url in links)
+    chinese_rules = (
+        ('sms.account_lure', _ACCOUNT_SUBJECT.search(zh) and _ACCOUNT_LURE.search(zh)
+         and (off_platform or _MOBILE_NUMBER.search(zh))),
+        ('sms.gambling_promo', _gambling(zh) and (links or messenger or _REACH_OUT.search(zh))),
+        ('sms.prize_link', _PRIZE_PICKED.search(zh) and _PRIZE_CLAIM.search(zh) and off_platform),
+        ('sms.flight_compensation', _FLIGHT_CHANGE.search(zh) and _FLIGHT_PAYOUT.search(zh)
+         and _PHONE_NUMBER.search(zh) and ('客服' in zh or '联系' in zh or '致电' in zh)),
+        ('sms.stock_group', _STOCK.search(zh) and _GROUP.search(zh)),
+        ('sms.album_link', _ALBUM.search(zh) and _ALBUM_HOOK.search(zh) and off_platform),
+    )
+    for code, fired in chinese_rules:
+        if fired:
+            score += 4
+            floor = 'medium'
+            found.append(indicator('high', code))
     return {'score': score, 'floor': floor, 'indicators': found, 'sender_kind': kind,
             'claimed_brand': brand['name'] if brand else None, 'claimed_names': brand['names'] if brand else (),
             'links': links}
