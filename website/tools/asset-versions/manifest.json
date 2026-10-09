@@ -48,8 +48,8 @@
     "sha256": "5c0dd965535ee263621d393df0e99e5b0443d0b778c95e7bcfe656c864f4dfb1"
   },
   "app.js": {
-    "version": "55",
-    "sha256": "b7617cc0fce7df05e97d46fc541b4138bcaa2ce89580af5b69d3366935fa16ac"
+    "version": "56",
+    "sha256": "b645dce8ca3b01829706ac6c673bd3d57872e4668aa412a6de609cde7dcaebb1"
   },
   "cases-theme.js": {
     "version": "1",
@@ -63,13 +63,17 @@
     "version": "27",
     "sha256": "4cfbf25cee76f9590df789cbce8e941efa3e714718cded839971d4bcba058a6b"
   },
+  "compat.js": {
+    "version": "1",
+    "sha256": "1b8384f5cef430c837e42766fd0ea80c3f2ccdf603e755c2c213ae8758f211eb"
+  },
   "confirm-dialog.js": {
     "version": "3",
     "sha256": "d7878504dee780bfb81f3a1f80d8058bf66c1a58234fe9c4b99b8b75c4c319e2"
   },
   "feedback.js": {
-    "version": "10",
-    "sha256": "bea170a76969a8013677352c46be33e5e82de8abf7b81af4b8c45f86829167ec"
+    "version": "11",
+    "sha256": "a2833796d0036cac48f1aeb354383468318e6af427d1d1e229bb2a4260c6736f"
   },
   "file-intake.js": {
     "version": "3",

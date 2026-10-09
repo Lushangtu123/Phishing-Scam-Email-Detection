@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 10:23 PT] — The Text Message tab on older phone browsers
+
+### Why
+- The owner could not see the SMS test on a phone browser. The tab starts hidden and is shown by the configuration request, which ran after thirteen setup steps. On older phone browsers (iOS Safari before 15.4, older Android WebViews and in-app browsers) a setup step throws, because `Object.hasOwn` (every translation lookup), `matchMedia(...).addEventListener` (theme) or `crypto.randomUUID` is missing, or `feedback.js` does not parse (`||=`). The email tabs, plain HTML, still showed; the Text Message tab never did.
+
+### Files changed
+- `website/static/compat.js` (new, ES5) — polyfills `Object.hasOwn`, `MediaQueryList.addEventListener` and `crypto.randomUUID` where missing; the first script of `index.html`, `cases.html` and `404.html`.
+- `website/static/app.js` — each setup step runs on its own (`runSetupSteps`), so one failing step no longer stops the others or the configuration.
+- `website/static/feedback.js` — the one `||=` written out, so the file parses before Safari 14 and Chrome 85.
+- `website/static/app.test.mjs`, `cases.test.mjs`, `i18n.test.mjs` — an older browser without these APIs gets them from compat.js; compat.js is first on every page and ES5; a failing step does not stop the rest; script counts include compat.js. Static asset versions bumped.
+
+### Effect
+- On modern browsers nothing changes (checked at phone width locally: compat.js first, Text Message tab shown, no console errors). On older ones the page setup and the Text Message tab no longer depend on these newer APIs. Optional chaining (`?.`) still needs iOS 13.4 or Chrome 80.
+
 ## [2026-10-09 10:03 PT] — SMS mode: Chinese rules from the IMC 2025 Chinese reports
 
 ### Why

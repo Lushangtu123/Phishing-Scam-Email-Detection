@@ -2323,3 +2323,41 @@ test('scroll reveal replays on every entry, from the side the element arrives on
   assert.ok(has('in-view') && has('from-above') && !has('settled'));
   assert.deepEqual(unobserved, []);
 });
+
+test('compat.js gives older phone browsers the APIs the page setup calls', () => {
+  // An older WebView: no Object.hasOwn, MediaQueryList with addListener only, crypto without randomUUID.
+  const added = [];
+  class MediaQueryList { addListener(listener) { added.push(listener); } removeListener() {} }
+  const crypto = { getRandomValues: bytes => bytes.fill(7) };
+  const context = vm.createContext({ MediaQueryList, crypto });
+  vm.runInContext('delete Object.hasOwn;', context);
+  assert.equal(vm.runInContext('typeof Object.hasOwn', context), 'undefined');
+  vm.runInContext(appSource('compat.js'), context, { filename: 'compat.js' });
+  assert.equal(vm.runInContext("Object.hasOwn({ a: 1 }, 'a') && !Object.hasOwn({}, 'toString')", context), true);
+  const listener = () => {};
+  new MediaQueryList().addEventListener('change', listener);
+  assert.deepEqual(added, [listener]);
+  assert.match(crypto.randomUUID(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+});
+
+test('compat.js is the first script of every page and parses as ES5', () => {
+  for (const page of ['index.html', 'cases.html', '404.html']) {
+    const html = readFileSync(new URL(`./${page}`, import.meta.url), 'utf8');
+    const first = html.match(/<script src="\/static\/([^"?]+)/)[1];
+    assert.equal(first, 'compat.js', page);
+  }
+  const source = appSource('compat.js');
+  assert.doesNotMatch(source, /=>|\b(?:let|const|class)\b|`|\?\.|\?\?/);
+});
+
+test('one failing setup step does not stop the others', () => {
+  const errors = [];
+  const { context } = loadFrontend({ console: { ...console, error: (...args) => errors.push(args) } });
+  const ran = [];
+  context.runSetupSteps([
+    function setupTheme() { throw new TypeError('matchMedia(...).addEventListener is not a function'); },
+    function setupSmsInput() { ran.push('sms'); },
+  ]);
+  assert.deepEqual(ran, ['sms']);
+  assert.match(errors[0][0], /setupTheme failed/);
+});

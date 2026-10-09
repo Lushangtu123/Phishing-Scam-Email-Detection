@@ -8,20 +8,26 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 // ── Init ─────────────────────────────────────────────────────────────────────
+// Each step runs on its own: on an older phone browser one step can throw, and
+// that must not stop the others or the configuration that shows the SMS tab.
+const SETUP_STEPS = [
+  setupPageActions, setupDemoTabs, setupRecentChecks, setupTheme, setupScrollReveal, setupCountUps,
+  setupInputEvents, setupSmsInput, setupMobileNav, setupCaseLoginLink, setupShortcuts, setupSmoothScroll,
+  setupMetricsChartLoader,
+];
+
+function runSetupSteps(steps = SETUP_STEPS) {
+  steps.forEach(step => {
+    try {
+      step();
+    } catch (error) {
+      console.error(`Page setup step ${step.name} failed.`, error);
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  setupPageActions();
-  setupDemoTabs();
-  setupRecentChecks();
-  setupTheme();
-  setupScrollReveal();
-  setupCountUps();
-  setupInputEvents();
-  setupSmsInput();
-  setupMobileNav();
-  setupCaseLoginLink();
-  setupShortcuts();
-  setupSmoothScroll();
-  setupMetricsChartLoader();
+  runSetupSteps();
   // Independent requests: each renders its own part of the page and handles
   // its own errors, so they run in parallel and no page control waits on them.
   return Promise.all([loadPublicConfig(), loadMetrics()]);
