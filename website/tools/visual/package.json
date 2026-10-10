@@ -5,6 +5,6 @@
   "description": "Screenshot tests for the homepage. Keep @playwright/test equal to the Playwright container tag in .github/workflows.",
   "type": "module",
   "devDependencies": {
-    "@playwright/test": "1.62.1"
+    "@playwright/test": "1.63.0"
   }
 }

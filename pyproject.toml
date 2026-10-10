@@ -7,8 +7,8 @@ version = "0.0.0"
 # The committed model artifact was built with Python 3.12 (.python-version).
 requires-python = "~=3.12.0"
 dependencies = [
-    "fastapi==0.141.1",
-    "uvicorn==0.52.4",
+    "fastapi==0.142.2",
+    "uvicorn==0.54.0",
     "pydantic==2.13.5",
     "scikit-learn==1.9.0",
     "numpy==2.5.3",

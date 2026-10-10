@@ -33,7 +33,7 @@ jobs:
 
       - name: Install the tested Playwright version and Chromium
         run: |
-          npm install --prefix "$RUNNER_TEMP/phishguard-browser-deps" --no-save --package-lock=false playwright@1.62.1
+          npm install --prefix "$RUNNER_TEMP/phishguard-browser-deps" --no-save --package-lock=false playwright@1.63.0
           PLAYWRIGHT_BROWSERS_PATH="$RUNNER_TEMP/phishguard-browser-binaries" \
             node "$RUNNER_TEMP/phishguard-browser-deps/node_modules/playwright/cli.js" install --with-deps chromium
 
