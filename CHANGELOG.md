@@ -20,6 +20,42 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 22:10 PT] — CI syntax-checks every tracked script
+
+### Why
+- The "Check JavaScript syntax" step listed 38 files by hand and had missed six: `app-sms.js`, `compat.js`, `analytics-init.js`, `theme-init.js`, `vision-cid.mjs` and `vision-html.mjs`.
+
+### Files changed
+- `.github/workflows/ci.yml` — the step runs `node --check` on every tracked `.js` and `.mjs` file outside `website/static/vendor/`.
+- `docs/testing.md` — the local commands use the same check and `node --test website/static/*.test.mjs`, as CI does, instead of five named test files.
+
+### Effect
+- 73 files are checked (38 before), all passing on Node 23. Appending `function (` to `app-sms.js` makes the step fail (negative control).
+
+## [2026-10-09 22:10 PT] — Refresh the development lock snapshot
+
+### Why
+- `requirements-dev-py312-macos-arm64.lock.txt` lacked `phonenumberslite==9.0.40`, which the SMS mode added to `requirements.txt`.
+
+### Files changed
+- `requirements-dev-py312-macos-arm64.lock.txt` — re-resolved from `requirements-dev.txt` in a fresh CPython 3.12.9 venv (pip 24.3.1).
+
+### Effect
+- Adds `phonenumberslite==9.0.40`; transitive `charset-normalizer` 3.5.1 → 3.5.2 and `filelock` 4.0.4 → 4.1.0. Direct pins are unchanged. `pip check` is clean and the backend unittest suite passes in that venv.
+
+## [2026-10-09 22:10 PT] — Document the text-message mode
+
+### Why
+- The SMS mode has run in production as a test since 2026-10-08, but the README, the API overview and the deployment settings did not mention it.
+
+### Files changed
+- `README.md` — the mode in the introduction, "What it checks", "Limitations" (gate status: Chinese scams 64.9% against 70%) and the project structure (`sms_analysis.py`).
+- `docs/api.md` — `POST /api/analyze-sms`: request bounds, the 404 when off, the response fields (`sender_kind`, `claimed_brand`, `official_channels`, `domain_registrations`), the `unknown` level and SMS feedback.
+- `docs/deployment.md` — `SMS_ANALYSIS_ENABLED` in the settings table.
+
+### Effect
+- Documentation only; no behaviour changes.
+
 ## [2026-10-09 14:50 PT] — CI pulls Redis from Amazon ECR Public
 
 ### Why

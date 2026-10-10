@@ -103,45 +103,8 @@ jobs:
         run: node --test website/tools/visual/server.test.mjs
 
       - name: Check JavaScript syntax
-        run: |
-          node --check website/static/lang-init.js
-          node --check website/static/i18n.js
-          node --check website/static/i18n-zh.js
-          node --check website/static/request.js
-          node --check website/static/app-core.js
-          node --check website/static/app-theme.js
-          node --check website/static/app-layout.js
-          node --check website/static/app-config.js
-          node --check website/static/app-sender.js
-          node --check website/static/app-verify.js
-          node --check website/static/app-content.js
-          node --check website/static/app-content-render.js
-          node --check website/static/app-reports.js
-          node --check website/static/app-metrics.js
-          node --check website/static/app.js
-          node --check website/static/cases.js
-          node --check website/static/cases-theme.js
-          node --check website/static/vision.js
-          node --check website/static/file-intake.js
-          node --check website/static/confirm-dialog.js
-          node --check website/static/feedback.js
-          node --check website/tests/fixtures/i18n/cases-scenarios.mjs
-          node --check website/tests/fixtures/i18n/capture-cases.mjs
-          node --check website/static/vision-core.mjs
-          node --check website/static/vision-email.mjs
-          node --check website/static/vision-worker.mjs
-          node --check website/tools/vision-benchmark/harness.mjs
-          node --check website/tools/vision-benchmark/metrics.mjs
-          node --check website/tools/vision-benchmark/evaluate-service.mjs
-          node --check website/tools/vision-benchmark/compare-engines.mjs
-          node --check website/tools/vision-benchmark/holdout.mjs
-          node --check website/tools/visual/server.mjs
-          node --check website/tools/visual/scenarios.mjs
-          node --check website/tools/visual/visual.spec.mjs
-          node --check website/tools/visual/playwright.config.mjs
-          node --check website/tools/visual/run.mjs
-          node --check website/tools/visual/capture-fixtures.mjs
-          node --check website/tools/visual/server.test.mjs
+        # Every tracked script except vendored copies, so a new file cannot be missed.
+        run: git ls-files -z -- '*.js' '*.mjs' ':!:website/static/vendor/**' | xargs -0 -n1 node --check
 
   visual:
     name: Visual regression (Playwright container)

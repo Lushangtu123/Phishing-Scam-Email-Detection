@@ -42,8 +42,8 @@ only from that container, through the manual **Visual baselines** workflow; see
 python -m unittest discover -s website/tests -v
 python -m compileall -q website phishing-detection/src
 python -m pip install ruff==0.16.9 && ruff check .   # optional local lint gate
-node --test website/static/app.test.mjs website/static/i18n.test.mjs website/static/cases.test.mjs website/static/page-loading.test.mjs website/static/request.test.mjs
-for f in website/static/app*.js website/static/i18n.js website/static/i18n-zh.js website/static/lang-init.js website/static/request.js website/static/cases.js website/tests/fixtures/i18n/*cases*.mjs; do node --check "$f"; done
+node --test website/static/*.test.mjs
+git ls-files -z -- '*.js' '*.mjs' ':!:website/static/vendor/**' | xargs -0 -n1 node --check
 node website/tools/asset-versions/update.mjs   # after editing a versioned static file
 git diff --check
 ```

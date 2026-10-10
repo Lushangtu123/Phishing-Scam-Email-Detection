@@ -5,10 +5,37 @@
 | `POST /api/analyze-email` | Explainable sender/domain risk |
 | `POST /api/analyze-content` | Subject/body or raw-message analysis |
 | `POST /api/analyze-eml` | Original MIME bytes, maximum 60,000 bytes |
+| `POST /api/analyze-sms` | A pasted text message and its sender; 404 unless `SMS_ANALYSIS_ENABLED` |
 | `POST /api/verify-email` | Lite domain checks or local full mailbox checks, depending on configuration |
 | `GET /api/metrics` | Archived UCI website benchmark and optional live text-model metrics |
 | `GET /api/config` | Public feature flags |
 | `GET /health` | Detector availability and deployment profile |
+
+## Text messages
+
+`POST /api/analyze-sms` takes JSON `{"sender": "...", "text": "..."}`: `sender` at most
+64 characters and optional, `text` at most 2,000 characters and required (400 when blank).
+The request body is capped at 16,000 bytes. The endpoint returns 404 and `/api/config`
+reports `"sms_analysis_enabled": false` unless `SMS_ANALYSIS_ENABLED` is set; production
+runs it as a test before its launch gate
+([design](superpowers/specs/2026-10-08-sms-scam-detection-design.md)).
+
+The response has the content fields `risk_level`, `risk_label`, `total_score`,
+`category_results` and `extra_indicators` (codes `sms.*` beside the shared `content.*` and
+`link.*`), plus:
+
+- `sender_kind`: `short_code`, `cn_port_106`, `cn_mobile`, `nanp_toll_free`,
+  `nanp_long_code`, `premium_rate`, `international`, `other_number`, `email`,
+  `alphanumeric` or `none`;
+- `claimed_brand` and `official_channels`: the organisation the text names and its
+  official website, service numbers and verified statement, from the official-brand
+  registry;
+- `domain_registrations`: registration dates of the links' domains when RDAP lookups are
+  on (context only, no points).
+
+No text model runs. With no finding the level is `unknown` ("No Known Scam Signs Found"),
+never `safe`, because a text's sender cannot be verified. `POST /api/feedback` accepts
+`input_mode: "sms"` with `source` fields `sender` and `text`.
 
 ## Message codes
 
