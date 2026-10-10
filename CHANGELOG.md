@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 22:10 PT] — CI syntax-checks every tracked script
+
+### Why
+- The "Check JavaScript syntax" step listed 38 files by hand and had missed six: `app-sms.js`, `compat.js`, `analytics-init.js`, `theme-init.js`, `vision-cid.mjs` and `vision-html.mjs`.
+
+### Files changed
+- `.github/workflows/ci.yml` — the step runs `node --check` on every tracked `.js` and `.mjs` file outside `website/static/vendor/`.
+- `docs/testing.md` — the local commands use the same check and `node --test website/static/*.test.mjs`, as CI does, instead of five named test files.
+
+### Effect
+- 73 files are checked (38 before), all passing on Node 23. Appending `function (` to `app-sms.js` makes the step fail (negative control).
+
 ## [2026-10-09 22:10 PT] — Refresh the development lock snapshot
 
 ### Why
