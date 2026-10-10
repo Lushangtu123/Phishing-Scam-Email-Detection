@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 11:35 PT] — Move the domain checks out of app.py
+
+### Why
+- `website/app.py` had grown to 4,922 lines. The owner chose to split it one area per PR, starting with the least coupled one: the `/api/verify-email` checks.
+
+### Files changed
+- `website/domain_verification.py` (new, 417 lines) — `_verify_message`, `_resolve_public_smtp_addresses`, `_smtp_probe`, `_check_spf`, `_check_dmarc`, `_check_domain_age`, `_check_mx_ptr`, `_lookup_mail_domain` and `_summarize_verification`, moved verbatim.
+- `website/app.py` (4,922 → 4,526 lines) — imports them back, so `app._smtp_probe` and the rest still work and tests that patch them on `app` still reach the endpoint. The endpoint, `VERIFICATION_TIMEOUT`, the worker pool and `VerifyRequest` stay. `socket` and `smtplib` stay imported for tests that use `app.socket` and `app.smtplib`.
+- `README.md` — project structure.
+
+### Effect
+- No behaviour change: the moved block is byte-identical (`cmp` against `main`); backend unittest 1284 tests OK (10 Redis skips); `vercel_runtime_smoke.py` and `ruff` pass. Planting three bugs in `domain_verification.py` fails 7 tests, so the suite exercises the new module. A Lite-mode `/api/verify-email` call with real DNS returns a complete domain result.
+
 ## [2026-10-09 22:51 PT] — Upgrade FastAPI, uvicorn and Playwright (7-day cooling period)
 
 ### Why
