@@ -23,6 +23,9 @@ PROJECT_ROOT = WEBSITE_DIR.parent
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app
+import domain_verification  # noqa: E402
+import smtplib  # noqa: E402
+import socket  # noqa: E402
 import content_model
 from config import Settings
 
@@ -382,7 +385,7 @@ class VerificationFeatureGateTests(unittest.TestCase):
 
     def test_smtp_probe_rejects_private_target_before_opening_a_socket(self):
         with patch.object(
-            app.smtplib,
+            smtplib,
             "SMTP",
             side_effect=AssertionError("private target must not open SMTP"),
         ):
@@ -398,12 +401,12 @@ class VerificationFeatureGateTests(unittest.TestCase):
 
     def test_mixed_dns_answers_keep_only_global_smtp_targets(self):
         answers = [
-            (app.socket.AF_INET, app.socket.SOCK_STREAM, 6, "", ("10.0.0.5", 25)),
-            (app.socket.AF_INET, app.socket.SOCK_STREAM, 6, "", ("8.8.8.8", 25)),
-            (app.socket.AF_INET6, app.socket.SOCK_STREAM, 6, "", ("::1", 25, 0, 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", 25)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 25)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 25, 0, 0)),
         ]
 
-        addresses = app._resolve_public_smtp_addresses(
+        addresses = domain_verification._resolve_public_smtp_addresses(
             "mail.example.com",
             resolver=lambda *_args, **_kwargs: answers,
         )

@@ -23,8 +23,6 @@ import base64
 import json
 import hashlib
 import re
-import socket  # noqa: F401 -- tests use app.socket (domain_verification.py does the probing)
-import smtplib  # noqa: F401 -- tests patch app.smtplib.SMTP
 import threading
 import time
 import unicodedata
@@ -32,7 +30,6 @@ import warnings
 from collections import deque
 from datetime import datetime, timezone
 from email.utils import getaddresses, parseaddr
-from html.parser import HTMLParser  # noqa: F401 -- tests patch app.HTMLParser, the class html_visibility uses
 from itertools import product
 from functools import lru_cache, partial
 from urllib.parse import parse_qs, unquote, urljoin
@@ -52,7 +49,6 @@ import domain_age
 import sms_analysis
 from case_api import build_case_service, make_case_router, public_jev_status
 from feedback_api import make_feedback_router
-from disposable_registry import REGISTRY_DOMAIN_RE as _REGISTRY_DOMAIN_RE  # noqa: F401 -- used by tests via app._REGISTRY_DOMAIN_RE
 from request_limits import RequestBodyLimitMiddleware
 from rate_limits import DisabledRateLimitStore, build_rate_limit_store
 from verification_runtime import BoundedExecutor
@@ -68,15 +64,6 @@ from html_visibility import (  # the HTML/CSS visibility reader
     _SAME_COLOUR_MODEL_LETTERS, _STYLESHEET_VISIBILITY_WARNING, _collect_html,
     _first_html_attributes, _parse_link_target, _strip_invisible_format_controls, _unescape_css,
     _visible_content_text
-)
-from html_visibility import (  # noqa: F401 -- re-exported for tests that reach them through app
-    _MAX_MEDIA_CONTEXTS, _background_clip, _background_clip_valid, _background_parts,
-    _background_tiling_valid, _background_uncertain, _background_valid, _color_class, _color_state,
-    _colour_rgba, _colours_may_match, _css_math_type, _css_words, _declared_values,
-    _document_features, _expand_mso_comments, _font_size_class, _font_size_state, _geometry_hidden,
-    _gradient_stops, _hiding_value, _inline_text_state, _legacy_colour, _parse_selector,
-    _same_colour, _style_values, _stylesheet_cascade, _stylesheet_may_hide_text,
-    _with_custom_properties
 )
 from language_coverage import has_substantial_han_text as _has_substantial_han_text
 from sender_history import (
@@ -124,78 +111,33 @@ from email_structure import (
     _domains_align,
     analyze_raw_email,
 )
-from sender_features import (  # noqa: F401 -- re-exported for app callers and tests
-    LEGIT_PROVIDERS,
-    HIGH_TRAFFIC,
+from sender_features import (
     SUSPICIOUS_KEYWORDS,
-    ROUTINE_MAILBOX_NAMES,
-    BRAND_DOMAINS,
-    FINANCIAL_DOMAIN_KEYWORDS,
-    BUSINESS_SUFFIX_KEYWORDS,
-    SPAM_TLDS,
-    COMMON_TLDS,
-    ABUSED_CCTLDS,
-    SHORT_SERVICES,
-    _DISPOSABLE_DOMAIN_SOURCE,
-    DISPOSABLE_REGISTRY_METADATA,
-    PRIVACY_RELAY_DOMAINS,
-    PRIVACY_RELAY_REGISTRY_METADATA,
-    DISPOSABLE_DOMAINS,
-    _DOMAIN_EXTRACTOR,
-    _DISPOSABLE_DOMAIN_PATTERNS,
     _match_domain_registry,
-    _matches_disposable_domain_pattern,
     normalize_homoglyphs,
-    _shannon_entropy,
     extract_email_features,
-    _RAW_SENDER_LOCAL_RE,
-    _RAW_SENDER_DOMAIN_LABEL_RE,
     _normalize_sender_address,
 )
-from http_policy import (  # noqa: F401 -- re-exported for app callers and tests
+from http_policy import (
     _build_allowed_hosts,
-    _RateLimitBucket,
-    _RATE_LIMIT_PATHS,
     _rate_limit_key,
     _record_rate_limit_hit,
     VERSIONED_ASSET_CACHE_CONTROL,
-    SECURITY_HEADERS,
     WORKER_SCRIPT_PATHS,
     WORKER_CONTENT_SECURITY_POLICY,
     _with_security_headers,
     _revalidated_file,
-    _NOT_FOUND_JSON_PREFIXES,
-    _NOT_FOUND_JSON_PATHS,
     _wants_not_found_page,
 )
-from link_analysis import (  # noqa: F401 -- re-exported for app callers and tests
+from link_analysis import (
     _analyze_link_destinations,
-    _ASCII_BRAND_TRANSLATION,
-    _BENIGN_BRAND_LABELS,
-    _brand_in_site_name,
     _count_urls,
-    _DEV_HOSTING_SUFFIXES,
-    _display_host_aligns,
     _extract_links,
-    _free_hosting_suffix,
-    _FREE_HOSTING_SUFFIXES,
     _has_ip_url,
-    _has_mismatched_link_text,
     _has_shortener_url,
-    _IPFS_GATEWAY_HOSTS,
-    _IPFS_PATH,
-    _IPFS_SUBDOMAIN,
     _is_ip_host,
-    _is_ipfs_gateway,
-    _known_link_host,
-    _label_uses_brand_lookalike,
-    _link_host,
     _link_hosts,
-    _PRIVATE_SUFFIX_DOMAINS,
     _SENSITIVE_HOST_TERMS,
-    _trim_bare_url,
-    _visible_link_host,
-    SHORTENER_DOMAINS,
 )
 
 RATE_LIMIT_PER_MINUTE = max(1, int(os.getenv("RATE_LIMIT_PER_MINUTE", "20")))
@@ -3799,10 +3741,16 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
 # ── Email Authenticity Verification ──────────────────────────────────────────
 
 from concurrent.futures import TimeoutError as FutureTimeout, wait as futures_wait
-# The checks themselves; tests patch them (and reach _resolve_public_smtp_addresses) through app.
-from domain_verification import (  # noqa: F401
-    _check_dmarc, _check_domain_age, _check_mx_ptr, _check_spf, _lookup_mail_domain,
-    _resolve_public_smtp_addresses, _smtp_probe, _summarize_verification, _verify_message,
+# The checks themselves; the endpoint below calls them, and tests patch them on app.
+from domain_verification import (
+    _check_dmarc,
+    _check_domain_age,
+    _check_mx_ptr,
+    _check_spf,
+    _lookup_mail_domain,
+    _smtp_probe,
+    _summarize_verification,
+    _verify_message,
 )
 
 VERIFICATION_TIMEOUT = 12.0

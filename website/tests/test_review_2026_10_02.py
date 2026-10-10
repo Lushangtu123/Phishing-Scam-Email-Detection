@@ -16,6 +16,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import email_structure as es  # noqa: E402
 
@@ -58,19 +59,19 @@ class GradientTests(unittest.TestCase):
     def test_an_unresolved_stop_keeps_the_text(self):
         result = analyze(styled_callback('linear-gradient(black 0%,color-mix(in srgb,white,white) 0%)'))
         self.assertEqual(result['risk_level'], 'high')
-        self.assertEqual(app._gradient_stops('linear-gradient(black 0%,color-mix(in srgb,white,white) 0%)'),
+        self.assertEqual(html_visibility._gradient_stops('linear-gradient(black 0%,color-mix(in srgb,white,white) 0%)'),
                          ['black', None])
 
     def test_a_one_colour_gradient_still_paints_that_colour(self):
         # Browsers accept linear-gradient(black): black text on it cannot be read.
-        self.assertEqual(app._background_parts('linear-gradient(black)'), (None, False, 'black'))
+        self.assertEqual(html_visibility._background_parts('linear-gradient(black)'), (None, False, 'black'))
 
     def test_backgrounds_browsers_reject_are_dropped(self):
         # Each value below was checked with Chromium's CSS.supports('background', value).
         for value in ('linear-gradient(banana,black,black)', 'linear-gradient(black banana,black)',
                       'left left black', 'repeat repeat repeat black', 'none none black'):
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
+                self.assertFalse(html_visibility._background_valid(value))
                 self.assertEqual(analyze(styled_callback(value))['risk_level'], 'high')
 
     def test_what_browsers_accept(self):
@@ -85,14 +86,14 @@ class GradientTests(unittest.TestCase):
                    'linear-gradient(top, red, blue)', 'url(x) 10px fixed 20px', 'url(a b)')
         for value in valid:
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
         for value in invalid:
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
+                self.assertFalse(html_visibility._background_valid(value))
 
     def test_whitespace_inside_a_value(self):
         # CSS reads any run of whitespace as one space; the colour stays white.
-        self.assertEqual(app._style_values('color: rgb(255,\n255,255)')['color'][0], 'rgb(255, 255,255)')
+        self.assertEqual(html_visibility._style_values('color: rgb(255,\n255,255)')['color'][0], 'rgb(255, 255,255)')
 
 
 class RenderingViewTests(unittest.TestCase):

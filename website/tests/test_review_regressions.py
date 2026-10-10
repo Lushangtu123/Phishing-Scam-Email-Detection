@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import app
+import html_visibility  # noqa: E402
 from config import Settings
 
 
@@ -235,7 +236,7 @@ class HtmlRecoveryTests(unittest.TestCase):
                         self.assertTrue(result['analysis_complete'])
 
     def test_recovery_does_not_depend_on_stdlib_raising(self):
-        original = app.HTMLParser.parse_html_declaration
+        original = html_visibility.HTMLParser.parse_html_declaration
 
         def tolerant_declaration(parser, index):
             # New CPython releases consume unknown declarations as bogus
@@ -244,7 +245,7 @@ class HtmlRecoveryTests(unittest.TestCase):
                 return parser.parse_bogus_comment(index)
             return original(parser, index)
 
-        with patch.object(app.HTMLParser, 'parse_html_declaration', tolerant_declaration):
+        with patch.object(html_visibility.HTMLParser, 'parse_html_declaration', tolerant_declaration):
             self.test_malformed_html_preserves_evidence_and_marks_incomplete()
             self.test_nested_html_recovery_propagates_and_valid_plain_text_is_unchanged()
 

@@ -10,6 +10,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
@@ -110,7 +111,7 @@ class SameColourTests(CallbackTestCase):
         css = ''.join(f'@media (max-width:{width}px){{.m{width}{{display:none}}}}' for width in (300, 400, 500, 600, 700))
         html = (f'<style>{css}@media (min-width:900px){{.pad{{color:#fff}}}}</style>'
                 + ''.join(f'<p class="m{width}">{width}</p>' for width in (300, 400, 500, 600, 700)) + salted())
-        found = app._stylesheet_cascade(html[7:html.index('</style>')], html, colours=True)
+        found = html_visibility._stylesheet_cascade(html[7:html.index('</style>')], html, colours=True)
         self.assertEqual(len(found['conditions']), 5)
         self.assertTrue(readings(html)['resolved'])
         self.assert_callback(html)
@@ -128,10 +129,10 @@ class SameColourTests(CallbackTestCase):
         self.assert_callback(html)
 
     def test_link_states(self):
-        features = app._document_features('<a href="https://example.com">x</a>')
-        self.assertEqual(app._parse_selector('a:link', features)[1]['specificity'], (0, 0, 1, 1))
+        features = html_visibility._document_features('<a href="https://example.com">x</a>')
+        self.assertEqual(html_visibility._parse_selector('a:link', features)[1]['specificity'], (0, 0, 1, 1))
         # :visited styles only links the reader followed: never this message's padding.
-        self.assertEqual(app._parse_selector('a:visited', features), ('skip',))
+        self.assertEqual(html_visibility._parse_selector('a:visited', features), ('skip',))
         self.assert_padding_read(f'<style>a:visited{{color:#fff}}</style><p>{FIRST}<a href="https://example.com/notes">'
                                  f'{PADDING}</a>{SECOND}</p>')
         self.assert_callback(f'<style>a:link{{color:#fff}}</style><p>{FIRST}<a href="https://example.com/notes">'
@@ -149,39 +150,39 @@ class ColourTests(unittest.TestCase):
                                 ('oklch(0.627955 0.257683 29.2339)', (255, 0, 0, 1.0)),
                                 ('color(display-p3 1 1 1)', (255, 255, 255, 1.0))):
             with self.subTest(value=value):
-                self.assertEqual(app._colour_rgba(value), expected)
+                self.assertEqual(html_visibility._colour_rgba(value), expected)
         # System colours depend on the client.
-        self.assertIsNone(app._colour_rgba('canvas'))
+        self.assertIsNone(html_visibility._colour_rgba('canvas'))
 
     def test_legacy_colours_as_browsers_parse_them(self):
         for value, expected in (('ffffff', '#ffffff'), ('fff', '#0f0f0f'), ('#fff', '#ffffff'), ('White', '#ffffff'),
                                 ('chucknorris', '#c00000'), ('transparent', None), ('', None)):
             with self.subTest(value=value):
-                self.assertEqual(app._legacy_colour(value), expected)
+                self.assertEqual(html_visibility._legacy_colour(value), expected)
 
     def test_the_contrast_that_counts_as_the_same_colour(self):
-        self.assertTrue(app._same_colour((250, 250, 250, 1.0), (255, 255, 255)))
-        self.assertFalse(app._same_colour((240, 240, 240, 1.0), (255, 255, 255)))
-        self.assertFalse(app._same_colour((255, 255, 255, 1.0), (26, 115, 232)))
-        self.assertTrue(app._same_colour((0, 0, 0, 0.0), (26, 115, 232)))
-        self.assertFalse(app._same_colour((255, 255, 255, 1.0), None))
+        self.assertTrue(html_visibility._same_colour((250, 250, 250, 1.0), (255, 255, 255)))
+        self.assertFalse(html_visibility._same_colour((240, 240, 240, 1.0), (255, 255, 255)))
+        self.assertFalse(html_visibility._same_colour((255, 255, 255, 1.0), (26, 115, 232)))
+        self.assertTrue(html_visibility._same_colour((0, 0, 0, 0.0), (26, 115, 232)))
+        self.assertFalse(html_visibility._same_colour((255, 255, 255, 1.0), None))
 
     def test_the_background_shorthand(self):
-        self.assertEqual(app._background_parts('#fff url(x.png) no-repeat'), ('#fff', True, None))
-        self.assertEqual(app._background_parts('url(a.png), url(b.png) red'), ('red', True, None))
-        self.assertEqual(app._background_parts('none'), (None, False, None))
+        self.assertEqual(html_visibility._background_parts('#fff url(x.png) no-repeat'), ('#fff', True, None))
+        self.assertEqual(html_visibility._background_parts('url(a.png), url(b.png) red'), ('red', True, None))
+        self.assertEqual(html_visibility._background_parts('none'), (None, False, None))
         # The shorthand resets the colour it does not give: nothing behind the image.
-        values = app._style_values('background-color:#000; background:url(x.png)')
-        self.assertEqual(app._background_parts(values['background-color'][0]), (None, True, None))
+        values = html_visibility._style_values('background-color:#000; background:url(x.png)')
+        self.assertEqual(html_visibility._background_parts(values['background-color'][0]), (None, True, None))
         # A gradient of one colour paints that colour.
-        self.assertEqual(app._background_parts('linear-gradient(to right, #fff, #fefefe)'), (None, False, '#fff'))
-        self.assertEqual(app._background_parts('linear-gradient(white, black)'), (None, True, None))
+        self.assertEqual(html_visibility._background_parts('linear-gradient(to right, #fff, #fefefe)'), (None, False, '#fff'))
+        self.assertEqual(html_visibility._background_parts('linear-gradient(white, black)'), (None, True, None))
 
     def test_colours_that_cannot_match_need_no_colour_views(self):
-        self.assertFalse(app._colours_may_match({'#333'}, {'#f4f4f4', '#1a73e8'}))
-        self.assertTrue(app._colours_may_match({'#fefefe'}, set()))
-        self.assertTrue(app._colours_may_match(set(), {'#000'}))
-        self.assertTrue(app._colours_may_match({'var(--text)'}, set()))
+        self.assertFalse(html_visibility._colours_may_match({'#333'}, {'#f4f4f4', '#1a73e8'}))
+        self.assertTrue(html_visibility._colours_may_match({'#fefefe'}, set()))
+        self.assertTrue(html_visibility._colours_may_match(set(), {'#000'}))
+        self.assertTrue(html_visibility._colours_may_match({'var(--text)'}, set()))
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 import email_structure as es  # noqa: E402
 
 CALLBACK = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
@@ -33,15 +34,15 @@ def callback_shown(declarations):
 
 def accepted(name, value):
     if name in ('background-size', 'background-repeat'):
-        return app._background_tiling_valid(name, value)
+        return html_visibility._background_tiling_valid(name, value)
     if name == 'background-clip':
-        return app._background_clip_valid(value)
-    return app._background_valid(value, name)
+        return html_visibility._background_clip_valid(value)
+    return html_visibility._background_valid(value, name)
 
 
 def paints_nothing_known(value):
     """Whether the value's colour and gradients are unknown, so it can hide no text."""
-    colour, _painted, solid = app._background_parts(value)
+    colour, _painted, solid = html_visibility._background_parts(value)
     return colour is None and solid is None
 
 
@@ -73,13 +74,13 @@ class Atan2Tests(unittest.TestCase):
     """R1: an angle mixed with a percentage in atan2() is invalid wherever it stands."""
 
     def test_types(self):
-        self.assertIsNone(app._css_math_type('atan2(1deg, 1%)'))
-        self.assertIsNone(app._css_math_type('atan2(1deg, calc(1deg + 1%))'))
-        self.assertIsNone(app._css_math_type('atan2(1px, 1%)'))
-        self.assertEqual(app._css_math_type('atan2(1px, 2px)'), 'angle')
+        self.assertIsNone(html_visibility._css_math_type('atan2(1deg, 1%)'))
+        self.assertIsNone(html_visibility._css_math_type('atan2(1deg, calc(1deg + 1%))'))
+        self.assertIsNone(html_visibility._css_math_type('atan2(1px, 1%)'))
+        self.assertEqual(html_visibility._css_math_type('atan2(1px, 2px)'), 'angle')
         # Two percentages resolve against the place's basis: none in a direction.
-        self.assertEqual(app._css_math_type('atan2(1%, 1%)'), 'angle-percentage')
-        self.assertFalse(app._background_valid('linear-gradient(atan2(1%, 1%), black, black)'))
+        self.assertEqual(html_visibility._css_math_type('atan2(1%, 1%)'), 'angle-percentage')
+        self.assertFalse(html_visibility._background_valid('linear-gradient(atan2(1%, 1%), black, black)'))
 
     def test_the_callback_stays_visible(self):
         for value in ('linear-gradient(atan2(1deg,1%),black,black)', 'linear-gradient(atan2(1deg,calc(1deg + 1%)),black,black)'):
@@ -93,15 +94,15 @@ class ClampNoneTests(unittest.TestCase):
     def test_types(self):
         for word in ('clamp(none, 10px, none)', 'clamp(0px, 10px, none)', 'clamp(none, 10px, 20px)', 'clamp(none, 1px + 2px, none)'):
             with self.subTest(word=word):
-                self.assertEqual(app._css_math_type(word), 'length')
+                self.assertEqual(html_visibility._css_math_type(word), 'length')
         for word in ('clamp(none, none, 10px)', 'max(none, 1px)', 'calc(none + 1px)', 'clamp(none, 10px)'):
             with self.subTest(word=word):
-                self.assertIsNone(app._css_math_type(word))
+                self.assertIsNone(html_visibility._css_math_type(word))
 
     def test_white_text_on_the_black_gradient_is_read(self):
         for value in ('linear-gradient(black clamp(none,10px,none),black)', 'linear-gradient(black clamp(0px,10px,none),black)'):
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
                 self.assertTrue(callback_shown(f'color:white;background:{value}'))
 
 
@@ -113,19 +114,19 @@ class MathTypeTests(unittest.TestCase):
                            ('calc(sign(10%) * 1px)', 'length-percentage'), ('sqrt(1vw)', 'unknown'),
                            ('calc(sin(10%) * 1px)', 'unknown')):
             with self.subTest(word=word):
-                self.assertEqual(app._css_math_type(word), kind)
+                self.assertEqual(html_visibility._css_math_type(word), kind)
 
     def test_substitution_functions(self):
         # env() is accepted when the declaration is parsed, like var(); its colours are unknown.
         for value in ('black env(safe-area-inset-top) 0', 'linear-gradient(black env(safe-area-inset-top), black)'):
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
                 self.assertTrue(paints_nothing_known(value))
         self.assertTrue(callback_shown('color:white;background:black env(safe-area-inset-top) 0'))
 
     def test_mixed_conic_stops_leave_the_colours_unknown(self):
         # Chromium 154 accepts calc(1deg + 1%) in a conic stop; 148 does not.
-        self.assertIn(None, app._gradient_stops('conic-gradient(black calc(1deg + 1%), black)'))
+        self.assertIn(None, html_visibility._gradient_stops('conic-gradient(black calc(1deg + 1%), black)'))
 
 
 class NestingTests(unittest.TestCase):
@@ -135,9 +136,9 @@ class NestingTests(unittest.TestCase):
         for depth in (40, 250, 3000):
             word = 'calc(' * depth + '45deg' + ')' * depth
             with self.subTest(depth=depth):
-                self.assertEqual(app._css_math_type(word), 'unknown')
+                self.assertEqual(html_visibility._css_math_type(word), 'unknown')
                 self.assertTrue(callback_shown(f'color:black;background:linear-gradient({word},black,black)'))
-        self.assertEqual(app._css_math_type('calc(' * 20 + '45deg' + ')' * 20), 'angle')
+        self.assertEqual(html_visibility._css_math_type('calc(' * 20 + '45deg' + ')' * 20), 'angle')
 
     def test_other_deep_structures(self):
         for body in ('<p style="color:' + ''.join(f'var(--v{i}, ' for i in range(1000)) + 'black' + ')' * 1000 + '">x</p>',

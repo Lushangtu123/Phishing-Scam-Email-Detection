@@ -13,6 +13,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app
+import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes
 
 
@@ -1072,7 +1073,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
     def test_nested_stylesheet_scan_stays_bounded_near_body_limit(self):
         css = '@media screen {' * 2000 + 'p{color:red}' + '}' * 2000
         start = time.perf_counter()
-        self.assertFalse(app._stylesheet_may_hide_text(css))
+        self.assertFalse(html_visibility._stylesheet_may_hide_text(css))
         self.assertLess(time.perf_counter() - start, 1.0)
 
     def test_inert_template_stylesheet_does_not_abstain(self):

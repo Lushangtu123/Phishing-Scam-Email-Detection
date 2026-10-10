@@ -13,6 +13,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 
 CALLBACK = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
@@ -41,15 +42,15 @@ class VisibleTextTests(unittest.TestCase):
 
     def test_a_percentage_with_no_basis(self):
         # S2: 1s + 1% has no basis, though the units cancel later.
-        self.assertIsNone(app._css_math_type('calc((1s + 1%) * 1px / 1s)'))
+        self.assertIsNone(html_visibility._css_math_type('calc((1s + 1%) * 1px / 1s)'))
         self.assertTrue(callback_shown('color:black;background:linear-gradient(black calc((1s + 1%) * 1px / 1s),black)'))
 
     def test_a_bracketed_none(self):
         # R1: only a bare none is a missing bound.
         for word in ('clamp((none), 10px, none)', 'clamp((none),10deg,(none))', 'calc((none))'):
             with self.subTest(word=word):
-                self.assertIsNone(app._css_math_type(word))
-        self.assertEqual(app._css_math_type('clamp(none, 10px, none)'), 'length')
+                self.assertIsNone(html_visibility._css_math_type(word))
+        self.assertEqual(html_visibility._css_math_type('clamp(none, 10px, none)'), 'length')
         for value in ('linear-gradient(black clamp((none),10px,none),black)', 'linear-gradient(clamp((none),10deg,(none)),black,black)'):
             with self.subTest(value=value):
                 self.assertTrue(callback_shown(f'color:black;background:{value}'))
@@ -65,10 +66,10 @@ class VisibleTextTests(unittest.TestCase):
         for value in ('linear-gradient(sqrt(4px),black,black) text', 'black env(safe-area-inset-top) 0',
                       'conic-gradient(black calc(1deg + 1%),black)'):
             with self.subTest(value=value):
-                self.assertTrue(app._background_uncertain(value))
+                self.assertTrue(html_visibility._background_uncertain(value))
         for value in ('linear-gradient(black,black) text', 'black 0 0 / 10px', 'conic-gradient(black 10%,black)'):
             with self.subTest(value=value):
-                self.assertFalse(app._background_uncertain(value))
+                self.assertFalse(html_visibility._background_uncertain(value))
 
 
 class HiddenTextTests(unittest.TestCase):
@@ -95,7 +96,7 @@ class PercentBasisTests(unittest.TestCase):
                            ('calc((1px + 1%) * (1deg + 1%))', None), ('calc((1px + 1%) / 1px * 1deg)', None),
                            ('calc(sign(1px + 1%) * 1deg)', None), ('calc(1x + 1%)', None)):
             with self.subTest(word=word):
-                self.assertEqual(app._css_math_type(word), kind)
+                self.assertEqual(html_visibility._css_math_type(word), kind)
 
 
 if __name__ == '__main__':

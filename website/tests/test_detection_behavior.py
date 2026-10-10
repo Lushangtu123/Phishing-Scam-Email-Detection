@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app
+import disposable_registry  # noqa: E402
+import sender_features  # noqa: E402
 import content_model
 from config import Settings
 
@@ -234,7 +236,7 @@ class DisposableEmailClassificationTests(unittest.TestCase):
                 self.assertEqual(result["risk_score"], 0)
 
     def test_privacy_relays_are_informational_not_phishing_evidence(self):
-        for matched_domain in sorted(app.PRIVACY_RELAY_DOMAINS):
+        for matched_domain in sorted(sender_features.PRIVACY_RELAY_DOMAINS):
             address = f"user@{matched_domain}"
             with self.subTest(address=address):
                 result = self.analyze(address)
@@ -346,23 +348,23 @@ class DisposableEmailClassificationTests(unittest.TestCase):
                 self.assertTrue(result["is_suspected_disposable"])
 
     def test_domain_registries_are_normalized_and_disjoint(self):
-        privacy_relays = getattr(app, "PRIVACY_RELAY_DOMAINS", set())
+        privacy_relays = getattr(sender_features, "PRIVACY_RELAY_DOMAINS", set())
 
         self.assertTrue(privacy_relays)
         self.assertTrue(all(domain == domain.strip().lower().rstrip(".")
-                            for domain in app._DISPOSABLE_DOMAIN_SOURCE))
-        self.assertTrue(all(app._REGISTRY_DOMAIN_RE.fullmatch(domain)
-                            for domain in app._DISPOSABLE_DOMAIN_SOURCE))
-        self.assertTrue(all(domain == domain.lower() for domain in app.DISPOSABLE_DOMAINS))
+                            for domain in sender_features._DISPOSABLE_DOMAIN_SOURCE))
+        self.assertTrue(all(disposable_registry.REGISTRY_DOMAIN_RE.fullmatch(domain)
+                            for domain in sender_features._DISPOSABLE_DOMAIN_SOURCE))
+        self.assertTrue(all(domain == domain.lower() for domain in sender_features.DISPOSABLE_DOMAINS))
         self.assertTrue(all(domain == domain.lower() for domain in privacy_relays))
-        self.assertTrue(app.DISPOSABLE_DOMAINS.isdisjoint(privacy_relays))
+        self.assertTrue(sender_features.DISPOSABLE_DOMAINS.isdisjoint(privacy_relays))
 
     def test_disposable_registry_has_versioned_provenance(self):
-        metadata = getattr(app, "DISPOSABLE_REGISTRY_METADATA", None)
+        metadata = getattr(sender_features, "DISPOSABLE_REGISTRY_METADATA", None)
         self.assertIsNotNone(metadata, "disposable registry metadata is missing")
         self.assertEqual(metadata.get("schema"), "phishguard-disposable-domains-v1")
         self.assertRegex(metadata.get("version", ""), r"^\d{4}\.\d{2}\.\d{2}$")
-        self.assertEqual(metadata.get("domain_count"), len(app._DISPOSABLE_DOMAIN_SOURCE))
+        self.assertEqual(metadata.get("domain_count"), len(sender_features._DISPOSABLE_DOMAIN_SOURCE))
         self.assertTrue(metadata.get("provenance"))
 
 

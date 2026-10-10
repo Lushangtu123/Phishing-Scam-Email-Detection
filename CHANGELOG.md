@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 14:17 PT] — Tests use the modules that define what they test; app.py stops re-exporting
+
+### Why
+- `app.py` imported 79 names it never used, only so that tests could reach them as `app.X`: the HTML/CSS reader's internals, sender registries, link and HTTP helpers, and `socket`, `smtplib` and `HTMLParser`. The module boundaries from the split existed only on paper, and every move risked a test reaching a name through the wrong module.
+
+### Files changed
+- `website/app.py` — the nine `noqa: F401` re-export imports become plain imports of what `app.py` uses (79 names dropped, 3,996 lines).
+- 24 files in `website/tests/` — `app.X` (and two `getattr(app, ...)`) become `html_visibility.X`, `sender_features.X`, `disposable_registry.REGISTRY_DOMAIN_RE`, `link_analysis.X`, `http_policy.X`, `domain_verification.X`, `socket` or `smtplib`, each importing its module. Patches on `app` stay: they patch what `app.py` itself calls.
+
+### Effect
+- No behaviour change in the served code: only imports were removed. Every `app.X`, `getattr(app, …)`, `patch.object(app, …)`, aliased and `from app import` reference in the tests and tools still resolves. Backend unittest 1284 tests OK; `ruff`, `compileall` and `vercel_runtime_smoke.py` pass.
+
 ## [2026-10-10 14:10 PT] — One test file for the official-brand registry additions
 
 ### Why

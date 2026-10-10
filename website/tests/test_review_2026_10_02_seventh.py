@@ -12,6 +12,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 CALLBACK = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
             'call 1-888-555-0199 immediately.')
@@ -34,12 +35,12 @@ class UrlTokenTests(unittest.TestCase):
     def test_bad_urls_drop_the_declaration(self):
         for value in BAD:
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
+                self.assertFalse(html_visibility._background_valid(value))
 
     def test_valid_urls(self):
         for value in GOOD:
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
 
     def test_the_background_before_stays(self):
         # The black background stays under the white text, which browsers show.

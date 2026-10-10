@@ -10,6 +10,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
@@ -26,8 +27,8 @@ def salted(style='', css=''):
 
 
 def geometry(style):
-    values = app._style_values(style)
-    return app._geometry_hidden(lambda name: values.get(name, ('', False))[0])
+    values = html_visibility._style_values(style)
+    return html_visibility._geometry_hidden(lambda name: values.get(name, ('', False))[0])
 
 
 class SaltingTests(unittest.TestCase):
@@ -74,14 +75,14 @@ class GeometryTests(unittest.TestCase):
                                 ('max(1px,2px)', 'tiny'), ('max(-1px,0px)', 'zero'), ('max(16px,1rem)', 'visible'),
                                 ('1em', 'inherit')):
             with self.subTest(value=value):
-                self.assertEqual(app._font_size_class(value), expected)
+                self.assertEqual(html_visibility._font_size_class(value), expected)
         for style, expected in (('opacity:0', True), ('opacity:0.05', 'faint'), ('opacity:5%', 'faint'),
                                 ('opacity:0.5', False)):
             with self.subTest(style=style):
-                self.assertEqual(app._declared_values(style), [('opacity', expected, False)])
+                self.assertEqual(html_visibility._declared_values(style), [('opacity', expected, False)])
         # Unlike a zero size, they are not inline uncertainty: the text stays in the visible reading.
-        self.assertFalse(app._inline_text_state('font-size:1px')[0])
-        self.assertFalse(app._inline_text_state('opacity:0.05')[2])
+        self.assertFalse(html_visibility._inline_text_state('font-size:1px')[0])
+        self.assertFalse(html_visibility._inline_text_state('opacity:0.05')[2])
 
 
 if __name__ == '__main__':
