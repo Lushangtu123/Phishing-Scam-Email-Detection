@@ -1,7 +1,7 @@
 # Visual regression tests
 
 Screenshot tests for the homepage, so a CSS or markup change that breaks layout
-fails CI. They use Playwright's `toHaveScreenshot` (`@playwright/test` 1.62.1,
+fails CI. They use Playwright's `toHaveScreenshot` (`@playwright/test` 1.63.0,
 pinned in `package.json` and `package-lock.json`).
 
 ## What is captured (17 screenshots)
@@ -49,7 +49,7 @@ Text rasterisation depends on the installed fonts, FreeType and Chromium
 build, so screenshots taken on a laptop or on a plain GitHub runner differ from
 each other by thousands of pixels without any page change. The CI job and the
 baseline workflow therefore both run in the same pinned image,
-`mcr.microsoft.com/playwright:v1.62.1-noble`, with the same `@playwright/test`
+`mcr.microsoft.com/playwright:v1.63.0-noble`, with the same `@playwright/test`
 version, and only baselines rendered there are committed. `run.mjs --committed
 --update` refuses to run outside that image (it checks
 `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`). Any other machine compares against
@@ -146,7 +146,7 @@ changes. `PHISHGUARD_VISUAL_STATIC_DIR=/path/to/copy` serves a copy of
 To compare with the committed baselines exactly as CI does, run the same image:
 
 ```sh
-docker run --rm --ipc=host -v "$PWD":/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble \
+docker run --rm --ipc=host -v "$PWD":/work -w /work mcr.microsoft.com/playwright:v1.63.0-noble \
   sh -c 'npm ci --prefix website/tools/visual && node website/tools/visual/run.mjs --committed'
 ```
 

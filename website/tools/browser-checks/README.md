@@ -26,7 +26,7 @@ server. The script verifies that the token is absent from browser storage.
 ## Run from the repository root
 
 Prerequisites: Node.js 20 or newer, Python with the project's development
-requirements installed, Playwright 1.62.1, and its Chromium browser. Use a local
+requirements installed, Playwright 1.63.0, and its Chromium browser. Use a local
 virtual environment and browser dependency directory rather than a global install:
 
 The Playwright pin is the version read from the installed package used in the
@@ -36,7 +36,7 @@ report. A locally supplied Chromium can differ from Playwright's packaged browse
 ```sh
 python3 -m venv ../work/browser-venv
 ../work/browser-venv/bin/python -m pip install -r requirements-dev.txt
-npm install --prefix ../work/browser-deps --no-save --package-lock=false playwright@1.62.1
+npm install --prefix ../work/browser-deps --no-save --package-lock=false playwright@1.63.0
 PLAYWRIGHT_BROWSERS_PATH="$PWD/../work/browser-binaries" node ../work/browser-deps/node_modules/playwright/cli.js install chromium
 PLAYWRIGHT_BROWSERS_PATH="$PWD/../work/browser-binaries" node website/tools/browser-checks/run.mjs \
   --python "$PWD/../work/browser-venv/bin/python" \
@@ -159,7 +159,7 @@ After the workflow is available on GitHub, select it in the Actions tab and use
 **Run workflow**. It does not run automatically for pushes or pull requests and
 does not deploy anything.
 
-The job uses Python 3.12, Node 22 and Playwright 1.62.1, installing browser packages
+The job uses Python 3.12, Node 22 and Playwright 1.63.0, installing browser packages
 and reports only in the runner's temporary directory. It uses the same synthetic
 fixtures and isolated local APIs as the command above. Both report JSON files are
 uploaded for 14 days, including when a browser check fails, and tracked source

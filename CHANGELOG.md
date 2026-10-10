@@ -20,6 +20,23 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 22:51 PT] — Upgrade FastAPI, uvicorn and Playwright (7-day cooling period)
+
+### Why
+- Dependency refresh. The owner chose to take only releases published at least 7 days earlier (on or before 2026-10-02), so fastapi 0.143.0, pydantic 2.14.0, dnspython 2.9.0, tldextract 5.4.0, phonenumberslite 9.0.41 and Playwright 1.64.0 (all 2026-10-03 to 10-09) wait for a later round.
+- scikit-learn stays 1.9.0: the committed artifact was pickled with 1.9.0 and the loaders reject another patch version (`test_artifact_loaders_reject_different_sklearn_patch`), so 1.9.1 needs a rebuilt and re-evaluated model.
+
+### Files changed
+- `requirements.txt`, `pyproject.toml` — fastapi 0.141.1 → 0.142.2, uvicorn 0.52.4 → 0.54.0.
+- `requirements-dev-py312-macos-arm64.lock.txt` — re-resolved in a fresh CPython 3.12.9 venv with transitive packages held to the same cutoff: adds `opentelemetry-api==1.45.0` (Apache-2.0, now required by FastAPI; API only, no SDK or exporter, so nothing is sent), `filelock` back to 4.0.4.
+- `website/tools/visual/package.json`, `package-lock.json` — `@playwright/test` 1.62.1 → 1.63.0 (upstream dropped the optional `fsevents`).
+- `.github/workflows/ci.yml`, `visual-baselines.yml` — container `mcr.microsoft.com/playwright:v1.63.0-noble`; `browser-checks.yml` installs `playwright@1.63.0`.
+- `website/tools/visual/README.md`, `website/tools/browser-checks/README.md` — the version mentions.
+
+### Effect
+- In the fresh venv: `pip check` clean; backend unittest 1284 tests OK (10 Redis skips); `vercel_runtime_smoke.py` passes with the committed model (sha256:a0a503a0cd61); the synthetic evaluation still passes `compare_evaluations.py` against `baseline.json`; uvicorn serves `/health`, `/api/analyze-sms` and `/api/analyze-content` with no server errors.
+- Only direct pins are fixed: CI and Vercel still resolve transitive packages to their newest releases.
+
 ## [2026-10-09 22:10 PT] — CI syntax-checks every tracked script
 
 ### Why
