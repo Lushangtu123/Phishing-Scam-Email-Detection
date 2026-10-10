@@ -3278,15 +3278,10 @@ async def analyze_eml_endpoint(request: Request):
     return await _analyze_content(ContentRequest(requested=requested), structure)
 
 
-async def _analyze_content(
-    request: ContentRequest,
-    structure: dict | None = None,
-    *,
-    observe_sender_history: bool = True,
-    plain_text: bool = False,
-    allow_empty: bool = False,
-    raw_message: bool | None = None,
-):
+async def _resolve_content_input(request: ContentRequest, structure: dict | None, *, plain_text: bool,
+                                 allow_empty: bool, raw_message: bool | None):
+    """The subject, body and parsed structure to analyze, and whether they came with an
+    original message. An uploaded message wins over the subject and body fields."""
     subject = request.subject.strip()
     body    = request.body.strip()
     if structure is not None or request.raw_email.strip():
@@ -3310,6 +3305,221 @@ async def _analyze_content(
     )
     if not subject and not body and not has_structure and not allow_empty:
         raise HTTPException(status_code=400, detail="Subject, body, or message structure is required")
+    return subject, body, structure, raw_message
+
+
+def _add_structure_evidence(result: dict, structure: dict) -> None:
+    """The message structure's indicators, score and floor, and its summary for display."""
+    result["extra_indicators"].extend(structure["indicators"])
+    result["total_score"] += structure["structure_score"]
+    result["message_structure"] = {
+        key: structure[key]
+        for key in (
+            "from", "reply_to", "return_path", "auth_results",
+            "authentication_trusted", "authentication_results_trusted",
+            "untrusted_authentication_claims", "attachments", "risk_floor", "parse_warnings", "header_candidates",
+            "sending_server",
+        )
+    }
+    if _FLOOR_RANK[structure["risk_floor"]] > _FLOOR_RANK[result["risk_floor"]]:
+        result["risk_floor"] = structure["risk_floor"]
+
+
+def _add_attachment_links(result: dict, structure: dict) -> None:
+    """Link annotations read from PDF attachments and hyperlinks read from Word
+    attachments go through the same destination checks as message links."""
+    for is_docx, prefix in ((False, 'prefix.pdf_attachment'), (True, 'prefix.docx_attachment')):
+        attachment_links = [('', target) for attachment in structure['attachments']
+                            if _is_docx(attachment) == is_docx
+                            for target in attachment.get('extracted_links', ())]
+        if not attachment_links:
+            continue
+        link_score, link_findings, link_floor = _analyze_link_destinations('', links=attachment_links)
+        if _has_shortener_url('', links=attachment_links):
+            link_score += 2
+            link_findings.append(indicator('high', 'content.shortened_urls'))
+        result["total_score"] += link_score
+        result["extra_indicators"].extend(
+            wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes') if key in item},
+                         prefix)
+            for item in link_findings)
+        if _FLOOR_RANK[link_floor] > _FLOOR_RANK[result["risk_floor"]]:
+            result["risk_floor"] = link_floor
+        result["docx_link_count" if is_docx else "pdf_link_count"] = len(attachment_links)
+
+
+def _add_attachment_text(result: dict, structure: dict) -> None:
+    """Word and PDF attachment text: lures often sit in the attachment while the body
+    has a line or none (a callback "invoice"). Only strong requests are scored here,
+    never keyword categories: genuine contracts, quotes and invoices are full of
+    "payment", "invoice" and "urgent". An account-hold lure also needs the
+    attachment's own link to leave the sender's domain."""
+    text_findings = []
+    sender_domain = parseaddr(structure['from'])[1].rpartition('@')[2].lower()
+    for is_docx, prefix in ((True, 'prefix.docx_text'), (False, 'prefix.pdf_text')):
+        attachment_text = '\n'.join(attachment['extracted_text'] for attachment in structure['attachments']
+                                     if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)
+        if attachment_text:
+            text_findings.extend(wrap_message(item, prefix) for item in _attachment_text_findings(attachment_text))
+        lure_host = next(filter(None, (_attachment_account_lure(attachment, sender_domain)
+                                       for attachment in structure['attachments']
+                                       if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)), None)
+        if lure_host:
+            text_findings.append(wrap_message(indicator('high', 'content.attachment_account_lure', domain=lure_host),
+                                              prefix))
+        mailbox_host = next(filter(None, (_attachment_mailbox_lure(attachment, sender_domain)
+                                          for attachment in structure['attachments']
+                                          if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)),
+                            None)
+        if mailbox_host:
+            text_findings.append(wrap_message(indicator('high', 'content.attachment_mailbox_lure', domain=mailbox_host),
+                                              prefix))
+    if text_findings:
+        result["total_score"] += 4
+        result["risk_floor"] = max(result["risk_floor"], 'high', key=_FLOOR_RANK.__getitem__)
+        result["extra_indicators"].extend(text_findings)
+
+
+async def _add_sender_evidence(result: dict, structure: dict, observe_sender_history: bool) -> None:
+    """The sender that drives the result: its analysis, relaxed for an authenticated or
+    service-domain sender and set aside for a verified official one, and its score and floor."""
+    selected_sender = await _run_analysis(
+        _select_message_sender, structure['header_candidates']['From'])
+    verified_sender = structure.get('verified_official_sender')
+    if selected_sender is not None and verified_sender:
+        # A DMARC-verified official domain makes address-shape heuristics
+        # (unknown provider, long labels) moot; keep the analysis for display only.
+        result["sender_analysis"] = selected_sender
+        result["sender_score"] = 0
+    elif selected_sender is not None:
+        authenticated = structure.get('authenticated_sender')
+        if (authenticated and (authenticated["display_name_matches"] or not _AUTHENTICATED_SENDER_NEEDS_NAME_MATCH)
+                and selected_sender["email"].rpartition("@")[2].lower() == authenticated["domain"]):
+            selected_sender = _relax_authenticated_sender(selected_sender, authenticated)
+        service_domain = structure.get('service_domain_sender')
+        if service_domain and selected_sender["email"].rpartition("@")[2].lower() == service_domain["domain"]:
+            selected_sender = _relax_authenticated_sender(selected_sender, service_domain,
+                                                          'sender.service_domain')
+        # Select locally before touching the external history store. An
+        # attacker can inject many ambiguous From values into one message;
+        # only the sender that actually drives the result gets one bounded
+        # observation request.
+        sender_analysis = (
+            await _analyze_and_observe_sender(selected_sender["email"], analysis=selected_sender)
+            if observe_sender_history
+            else selected_sender
+        )
+        result["sender_analysis"] = sender_analysis
+        sender_verdict = sender_analysis["verdict"]
+        sender_contribution = {
+            "critical": 6,
+            "high": 5,
+            "medium": 3,
+        }.get(sender_verdict, 1 if sender_analysis["risk_score"] else 0)
+        result["total_score"] += sender_contribution
+        result["sender_score"] = sender_contribution
+        result["extra_indicators"].extend(
+            wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes')
+                          if key in item}, 'prefix.sender')
+            for item in sender_analysis["risk_indicators"]
+        )
+        sender_floor = (
+            "high" if sender_verdict in {"critical", "high"}
+            else "medium" if sender_verdict == "medium"
+            else "safe"
+        )
+        if _FLOOR_RANK[sender_floor] > _FLOOR_RANK[result["risk_floor"]]:
+            result["risk_floor"] = sender_floor
+
+
+def _apply_structure_verdict(result: dict) -> None:
+    """The level once structure, attachment and sender evidence is in. Unlike
+    _content_verdict, a Medium floor holds at any score, and the level is never lowered."""
+    if result["total_score"] > 15:
+        result["risk_level"], result["risk_label"] = "critical", "Critical Risk — Very Likely Phishing"
+    elif result["risk_floor"] == "high":
+        result["risk_level"], result["risk_label"] = "high", "High Risk — Likely Phishing"
+    elif result["risk_floor"] == "medium":
+        result["risk_level"], result["risk_label"] = "medium", "Medium Risk — Suspicious Content"
+    elif result["total_score"] > 8:
+        result["risk_level"], result["risk_label"] = "high", "High Risk — Likely Phishing"
+    elif result["total_score"] > 3:
+        result["risk_level"], result["risk_label"] = "medium", "Medium Risk — Suspicious Content"
+
+
+def _add_nested_coverage(result: dict, nested_result: dict, key: str) -> None:
+    coverage = result[key]
+    coverage['count'] = min(20, coverage['count'] + nested_result[key]['count'])
+    if coverage['count']:
+        coverage['inspection_status'] = 'metadata_only'
+
+
+async def _merge_nested_messages(result: dict, structure: dict) -> bool:
+    """Analyze each attached message and merge its warnings, image coverage, score, level and
+    indicators, marked as from the attached message. True if one is an unchecked remote image."""
+    remote_image_dominant = False
+    nested_summaries = []
+    floor_rank = {'safe': 0, 'unknown': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+    for nested in structure['nested_messages']:
+        nested_result = json.loads((await _analyze_content(
+            ContentRequest(), nested, observe_sender_history=False,
+        )).body)
+        result['analysis_warnings'].extend(message_text('prefix.attached_message', text=warning)
+                                            for warning in nested_result['analysis_warnings']
+                                            if warning not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
+                                                               _UNRESOLVED_IMAGE_WARNING})
+        for key in ('inline_image_coverage', 'remote_image_coverage', 'unresolved_image_coverage'):
+            _add_nested_coverage(result, nested_result, key)
+        if (nested_result['remote_image_coverage']['count']
+                and nested_result['risk_level'] == 'unknown'):
+            remote_image_dominant = True
+        result['total_score'] = max(result['total_score'], nested_result['total_score'])
+        nested_floor = 'safe' if nested_result['risk_level'] == 'unknown' else nested_result['risk_level']
+        result['risk_floor'] = max((result['risk_floor'], nested_floor), key=floor_rank.get)
+        result['extra_indicators'].extend(
+            wrap_message({key: item[key] for key in ('level', 'msg', 'rule_id', 'code', 'params', 'prefixes')
+                          if key in item}, 'prefix.attached_message')
+            for item in nested_result['extra_indicators']
+            if item['msg'] not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
+                                  _UNRESOLVED_IMAGE_WARNING})
+        # Categories are not parent-body matches; expose their provenance.
+        result['extra_indicators'].extend(
+            wrap_message(indicator(cat['level'], 'content.nested_category', label=cat['label'],
+                                   matched=', '.join(cat['matched']), category=cat['key']),
+                         'prefix.attached_message')
+            for cat in nested_result['category_results'])
+        nested_summaries.append({
+            'from': nested['from'], 'subject': nested['subject'],
+            'risk_level': nested_result['risk_level'],
+            'analysis_complete': nested_result['analysis_complete'],
+            'authentication_results_trusted': nested['authentication_results_trusted'],
+            'nested_messages': nested_result['message_structure']['nested_messages'],
+        })
+    result['message_structure']['nested_messages'] = nested_summaries
+    return remote_image_dominant
+
+
+def _ensure_image_warnings(result: dict) -> None:
+    """Each image kind counted (here or in an attached message) is warned about once."""
+    for key, warning, code in (('inline_image_coverage', _INLINE_IMAGE_WARNING, 'warning.inline_images'),
+                               ('remote_image_coverage', _REMOTE_IMAGE_WARNING, 'warning.remote_images'),
+                               ('unresolved_image_coverage', _UNRESOLVED_IMAGE_WARNING, 'warning.unresolved_images')):
+        if result[key]['count'] and warning not in result['analysis_warnings']:
+            result['analysis_warnings'].append(warning)
+            result['extra_indicators'].append(indicator('info', code))
+
+
+async def _analyze_content(
+    request: ContentRequest,
+    structure: dict | None = None,
+    *,
+    observe_sender_history: bool = True,
+    plain_text: bool = False,
+    allow_empty: bool = False,
+    raw_message: bool | None = None,
+):
+    subject, body, structure, raw_message = await _resolve_content_input(
+        request, structure, plain_text=plain_text, allow_empty=allow_empty, raw_message=raw_message)
 
     # 1. Rule-based heuristic scan (explainable categories + extra indicators)
     model_view = {}
@@ -3325,193 +3535,13 @@ async def _analyze_content(
     result["input_mode"] = "raw-email" if structure else "subject-body"
     result["structure_score"] = structure["structure_score"] if structure else 0
     if structure:
-        result["extra_indicators"].extend(structure["indicators"])
-        result["total_score"] += structure["structure_score"]
-        result["message_structure"] = {
-            key: structure[key]
-            for key in (
-                "from", "reply_to", "return_path", "auth_results",
-                "authentication_trusted", "authentication_results_trusted",
-                "untrusted_authentication_claims", "attachments", "risk_floor", "parse_warnings", "header_candidates",
-                "sending_server",
-            )
-        }
-        floor_rank = {"safe": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
-        if floor_rank[structure["risk_floor"]] > floor_rank[result["risk_floor"]]:
-            result["risk_floor"] = structure["risk_floor"]
-
-        # Link annotations read from PDF attachments and hyperlinks read from Word
-        # attachments go through the same destination checks as message links.
-        for is_docx, prefix in ((False, 'prefix.pdf_attachment'), (True, 'prefix.docx_attachment')):
-            attachment_links = [('', target) for attachment in structure['attachments']
-                                if _is_docx(attachment) == is_docx
-                                for target in attachment.get('extracted_links', ())]
-            if not attachment_links:
-                continue
-            link_score, link_findings, link_floor = _analyze_link_destinations('', links=attachment_links)
-            if _has_shortener_url('', links=attachment_links):
-                link_score += 2
-                link_findings.append(indicator('high', 'content.shortened_urls'))
-            result["total_score"] += link_score
-            result["extra_indicators"].extend(
-                wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes') if key in item},
-                             prefix)
-                for item in link_findings)
-            if floor_rank[link_floor] > floor_rank[result["risk_floor"]]:
-                result["risk_floor"] = link_floor
-            result["docx_link_count" if is_docx else "pdf_link_count"] = len(attachment_links)
-
-        # Word and PDF attachment text: lures often sit in the attachment while the body
-        # has a line or none (a callback "invoice"). Only strong requests are scored here,
-        # never keyword categories: genuine contracts, quotes and invoices are full of
-        # "payment", "invoice" and "urgent". An account-hold lure also needs the
-        # attachment's own link to leave the sender's domain.
-        text_findings = []
-        sender_domain = parseaddr(structure['from'])[1].rpartition('@')[2].lower()
-        for is_docx, prefix in ((True, 'prefix.docx_text'), (False, 'prefix.pdf_text')):
-            attachment_text = '\n'.join(attachment['extracted_text'] for attachment in structure['attachments']
-                                         if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)
-            if attachment_text:
-                text_findings.extend(wrap_message(item, prefix) for item in _attachment_text_findings(attachment_text))
-            lure_host = next(filter(None, (_attachment_account_lure(attachment, sender_domain)
-                                           for attachment in structure['attachments']
-                                           if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)), None)
-            if lure_host:
-                text_findings.append(wrap_message(indicator('high', 'content.attachment_account_lure', domain=lure_host),
-                                                  prefix))
-            mailbox_host = next(filter(None, (_attachment_mailbox_lure(attachment, sender_domain)
-                                              for attachment in structure['attachments']
-                                              if attachment.get('extracted_text') and _is_docx(attachment) == is_docx)),
-                                None)
-            if mailbox_host:
-                text_findings.append(wrap_message(indicator('high', 'content.attachment_mailbox_lure', domain=mailbox_host),
-                                                  prefix))
-        if text_findings:
-            result["total_score"] += 4
-            result["risk_floor"] = max(result["risk_floor"], 'high', key=floor_rank.__getitem__)
-            result["extra_indicators"].extend(text_findings)
-
-        selected_sender = await _run_analysis(
-            _select_message_sender, structure['header_candidates']['From'])
-        verified_sender = structure.get('verified_official_sender')
-        if selected_sender is not None and verified_sender:
-            # A DMARC-verified official domain makes address-shape heuristics
-            # (unknown provider, long labels) moot; keep the analysis for display only.
-            result["sender_analysis"] = selected_sender
-            result["sender_score"] = 0
-        elif selected_sender is not None:
-            authenticated = structure.get('authenticated_sender')
-            if (authenticated and (authenticated["display_name_matches"] or not _AUTHENTICATED_SENDER_NEEDS_NAME_MATCH)
-                    and selected_sender["email"].rpartition("@")[2].lower() == authenticated["domain"]):
-                selected_sender = _relax_authenticated_sender(selected_sender, authenticated)
-            service_domain = structure.get('service_domain_sender')
-            if service_domain and selected_sender["email"].rpartition("@")[2].lower() == service_domain["domain"]:
-                selected_sender = _relax_authenticated_sender(selected_sender, service_domain,
-                                                              'sender.service_domain')
-            # Select locally before touching the external history store. An
-            # attacker can inject many ambiguous From values into one message;
-            # only the sender that actually drives the result gets one bounded
-            # observation request.
-            sender_analysis = (
-                await _analyze_and_observe_sender(selected_sender["email"], analysis=selected_sender)
-                if observe_sender_history
-                else selected_sender
-            )
-            result["sender_analysis"] = sender_analysis
-            sender_verdict = sender_analysis["verdict"]
-            sender_contribution = {
-                "critical": 6,
-                "high": 5,
-                "medium": 3,
-            }.get(sender_verdict, 1 if sender_analysis["risk_score"] else 0)
-            result["total_score"] += sender_contribution
-            result["sender_score"] = sender_contribution
-            result["extra_indicators"].extend(
-                wrap_message({key: item[key] for key in ('level', 'msg', 'code', 'params', 'prefixes')
-                              if key in item}, 'prefix.sender')
-                for item in sender_analysis["risk_indicators"]
-            )
-            sender_floor = (
-                "high" if sender_verdict in {"critical", "high"}
-                else "medium" if sender_verdict == "medium"
-                else "safe"
-            )
-            if floor_rank[sender_floor] > floor_rank[result["risk_floor"]]:
-                result["risk_floor"] = sender_floor
-
-        if result["total_score"] > 15:
-            result["risk_level"], result["risk_label"] = "critical", "Critical Risk — Very Likely Phishing"
-        elif result["risk_floor"] == "high":
-            result["risk_level"], result["risk_label"] = "high", "High Risk — Likely Phishing"
-        elif result["risk_floor"] == "medium":
-            result["risk_level"], result["risk_label"] = "medium", "Medium Risk — Suspicious Content"
-        elif result["total_score"] > 8:
-            result["risk_level"], result["risk_label"] = "high", "High Risk — Likely Phishing"
-        elif result["total_score"] > 3:
-            result["risk_level"], result["risk_label"] = "medium", "Medium Risk — Suspicious Content"
-
-    if structure:
-        nested_summaries = []
-        floor_rank = {'safe': 0, 'unknown': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
-        for nested in structure['nested_messages']:
-            nested_result = json.loads((await _analyze_content(
-                ContentRequest(), nested, observe_sender_history=False,
-            )).body)
-            result['analysis_warnings'].extend(message_text('prefix.attached_message', text=warning)
-                                                for warning in nested_result['analysis_warnings']
-                                                if warning not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
-                                                                   _UNRESOLVED_IMAGE_WARNING})
-            coverage = result['inline_image_coverage']
-            coverage['count'] = min(20, coverage['count'] + nested_result['inline_image_coverage']['count'])
-            if coverage['count']:
-                coverage['inspection_status'] = 'metadata_only'
-            remote_coverage = result['remote_image_coverage']
-            remote_coverage['count'] = min(20, remote_coverage['count']
-                                          + nested_result['remote_image_coverage']['count'])
-            if remote_coverage['count']:
-                remote_coverage['inspection_status'] = 'metadata_only'
-            unresolved_coverage = result['unresolved_image_coverage']
-            unresolved_coverage['count'] = min(20, unresolved_coverage['count']
-                                               + nested_result['unresolved_image_coverage']['count'])
-            if unresolved_coverage['count']:
-                unresolved_coverage['inspection_status'] = 'metadata_only'
-            if (nested_result['remote_image_coverage']['count']
-                    and nested_result['risk_level'] == 'unknown'):
-                remote_image_dominant = True
-            result['total_score'] = max(result['total_score'], nested_result['total_score'])
-            nested_floor = 'safe' if nested_result['risk_level'] == 'unknown' else nested_result['risk_level']
-            result['risk_floor'] = max((result['risk_floor'], nested_floor), key=floor_rank.get)
-            result['extra_indicators'].extend(
-                wrap_message({key: item[key] for key in ('level', 'msg', 'rule_id', 'code', 'params', 'prefixes')
-                              if key in item}, 'prefix.attached_message')
-                for item in nested_result['extra_indicators']
-                if item['msg'] not in {_INLINE_IMAGE_WARNING, _REMOTE_IMAGE_WARNING,
-                                      _UNRESOLVED_IMAGE_WARNING})
-            # Categories are not parent-body matches; expose their provenance.
-            result['extra_indicators'].extend(
-                wrap_message(indicator(cat['level'], 'content.nested_category', label=cat['label'],
-                                       matched=', '.join(cat['matched']), category=cat['key']),
-                             'prefix.attached_message')
-                for cat in nested_result['category_results'])
-            nested_summaries.append({
-                'from': nested['from'], 'subject': nested['subject'],
-                'risk_level': nested_result['risk_level'],
-                'analysis_complete': nested_result['analysis_complete'],
-                'authentication_results_trusted': nested['authentication_results_trusted'],
-                'nested_messages': nested_result['message_structure']['nested_messages'],
-            })
-        result['message_structure']['nested_messages'] = nested_summaries
-
-    if result['inline_image_coverage']['count'] and _INLINE_IMAGE_WARNING not in result['analysis_warnings']:
-        result['analysis_warnings'].append(_INLINE_IMAGE_WARNING)
-        result['extra_indicators'].append(indicator('info', 'warning.inline_images'))
-    if result['remote_image_coverage']['count'] and _REMOTE_IMAGE_WARNING not in result['analysis_warnings']:
-        result['analysis_warnings'].append(_REMOTE_IMAGE_WARNING)
-        result['extra_indicators'].append(indicator('info', 'warning.remote_images'))
-    if (result['unresolved_image_coverage']['count']
-            and _UNRESOLVED_IMAGE_WARNING not in result['analysis_warnings']):
-        result['analysis_warnings'].append(_UNRESOLVED_IMAGE_WARNING)
-        result['extra_indicators'].append(indicator('info', 'warning.unresolved_images'))
+        _add_structure_evidence(result, structure)
+        _add_attachment_links(result, structure)
+        _add_attachment_text(result, structure)
+        await _add_sender_evidence(result, structure, observe_sender_history)
+        _apply_structure_verdict(result)
+        remote_image_dominant = await _merge_nested_messages(result, structure) or remote_image_dominant
+    _ensure_image_warnings(result)
 
     # 2. Optional ML text classifier (TF-IDF + selected linear model)
     rendering_uncertain = any(warning in result['analysis_warnings'] for warning in (
