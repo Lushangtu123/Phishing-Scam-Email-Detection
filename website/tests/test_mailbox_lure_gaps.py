@@ -8,16 +8,17 @@ from pathlib import Path
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
-import app  # noqa: E402
+
+import content_rules  # noqa: E402
 
 OFF = 'https://mail-portal.workers.dev/x'
 
 
 class MailboxLureGapTests(unittest.TestCase):
     def test_the_readers_address_inside_the_sentence(self):
-        self.assertTrue(app._mailbox_lure('Попередження: квота jose@example.org перевищена!',
+        self.assertTrue(content_rules._mailbox_lure('Попередження: квота jose@example.org перевищена!',
                                           [('Оновіть електронну пошту зараз', OFF)]))
-        self.assertTrue(app._mailbox_lure('كلمة السر الخاصة بك لـ jose@example.org تنتهي اليوم',
+        self.assertTrue(content_rules._mailbox_lure('كلمة السر الخاصة بك لـ jose@example.org تنتهي اليوم',
                                           [('استخدام كلمة المرور الحالية', OFF)]))
 
     def test_new_wording(self):
@@ -29,7 +30,7 @@ class MailboxLureGapTests(unittest.TestCase):
                  'Confirm your Email'),
                 ('There is a new version update of your webmail box.', 'Login to Update Now')):
             with self.subTest(text=text):
-                self.assertTrue(app._mailbox_lure(text, [(label, OFF)]))
+                self.assertTrue(content_rules._mailbox_lure(text, [(label, OFF)]))
 
     def test_new_labels(self):
         for text, label in (
@@ -38,17 +39,17 @@ class MailboxLureGapTests(unittest.TestCase):
                 ('Due to a server error on your e-mail, incoming messages were delayed.', 'Read Delayed Messages'),
                 ('The current password for jose@example.org expired today.', 'Cᴏɴғɪʀᴍ ᴀᴄᴄᴏᴜɴᴛ Hᴇʀᴇ')):
             with self.subTest(label=label):
-                self.assertTrue(app._mailbox_lure(text, [(label, OFF)]))
+                self.assertTrue(content_rules._mailbox_lure(text, [(label, OFF)]))
 
     def test_genuine_notices_still_pass(self):
         # A company's own password reminder links to its own domain.
-        self.assertFalse(app._mailbox_lure('Your email password expires in 5 days.',
+        self.assertFalse(content_rules._mailbox_lure('Your email password expires in 5 days.',
                                            [('Change password', 'https://password.example.org/')], 'it@example.org'))
         # An address near an expiry that is not the mailbox's.
-        self.assertFalse(app._mailbox_lure('The invitation sent to jose@example.org expires in 7 days.',
+        self.assertFalse(content_rules._mailbox_lure('The invitation sent to jose@example.org expires in 7 days.',
                                            [('View invitation', OFF)]))
         # "Read more" is not "read messages".
-        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Read more', OFF)]))
+        self.assertFalse(content_rules._mailbox_lure('Your mailbox is almost full.', [('Read more', OFF)]))
 
 
 if __name__ == '__main__':

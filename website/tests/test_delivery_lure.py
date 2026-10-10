@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 OFF = 'https://parcel-check.example.net/pay'
@@ -35,21 +37,21 @@ class DeliveryLureTests(unittest.TestCase):
                  'to deliver your package.', 'Update Address'),
                 ('Your shipment is held. Pay the customs duty of $2.99 to release it.', 'Pay now')):
             with self.subTest(text=text):
-                self.assertEqual(app._delivery_lure(text, [(label, OFF)]), 'parcel-check.example.net')
+                self.assertEqual(content_rules._delivery_lure(text, [(label, OFF)]), 'parcel-check.example.net')
 
     def test_genuine_notices(self):
         address = 'We could not deliver your package: incomplete address. Please update your delivery address.'
         # A carrier's official site, the sender's own, and a retailer's tracking platform.
-        self.assertIsNone(app._delivery_lure(address, [('Update address', 'https://www.ups.com/track')]))
-        self.assertIsNone(app._delivery_lure(address, [('Update address', 'https://shop.example.org/a')],
+        self.assertIsNone(content_rules._delivery_lure(address, [('Update address', 'https://www.ups.com/track')]))
+        self.assertIsNone(content_rules._delivery_lure(address, [('Update address', 'https://shop.example.org/a')],
                                              'orders@example.org'))
-        self.assertIsNone(app._delivery_lure(address, [('Update address', 'https://shop.narvar.com/x')]))
+        self.assertIsNone(content_rules._delivery_lure(address, [('Update address', 'https://shop.narvar.com/x')]))
         # A missed delivery, a paid order, and an order total that mentions shipping.
         for text in ('Sorry we missed you! Schedule your next delivery date.',
                      'Your order has shipped. Shipping fee: paid. Track your package below.',
                      'Order total $54.00 including shipping costs. Your delivery arrives Tuesday.'):
             with self.subTest(text=text):
-                self.assertIsNone(app._delivery_lure(text, [('Track package', OFF)]))
+                self.assertIsNone(content_rules._delivery_lure(text, [('Track package', OFF)]))
 
     def test_analysis(self):
         result = analyze_eml('South African post office <7011870@notice-mail.com>',

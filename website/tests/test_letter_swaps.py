@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 
@@ -28,22 +30,22 @@ def obfuscation(result):
 
 class LetterSwapTests(unittest.TestCase):
     def test_swapped_words(self):
-        self.assertEqual(app._letter_swaps('Trust WaIIet Support'), ['Wallet'])
-        self.assertEqual(app._letter_swaps('PayPaI Service'), ['PayPal'])
-        self.assertEqual(app._letter_swaps('AppIe ltunes receipt'), ['Apple', 'iTunes'])
-        self.assertEqual(app._letter_swaps('WeIIs Fargo: biIIing alert, DeIivery FaiIed'),
+        self.assertEqual(content_rules._letter_swaps('Trust WaIIet Support'), ['Wallet'])
+        self.assertEqual(content_rules._letter_swaps('PayPaI Service'), ['PayPal'])
+        self.assertEqual(content_rules._letter_swaps('AppIe ltunes receipt'), ['Apple', 'iTunes'])
+        self.assertEqual(content_rules._letter_swaps('WeIIs Fargo: biIIing alert, DeIivery FaiIed'),
                          ['Billing', 'Delivery', 'Failed', 'Wells'])
-        self.assertEqual(app._letter_swaps('Your lnvoice is ready'), ['Invoice'])
+        self.assertEqual(content_rules._letter_swaps('Your lnvoice is ready'), ['Invoice'])
 
     def test_words_that_are_not_swaps(self):
         for text in ('LinkedIn', 'McIntyre', 'TransactionId', 'TicketInfo', 'PayPal', 'WALLET', 'MAIL',
                      'large label', 'iTunes and iCloud', 'loan claim', 'OpenID Connect', 'CanIt PRO'):
             with self.subTest(text=text):
-                self.assertEqual(app._letter_swaps(text), [])
+                self.assertEqual(content_rules._letter_swaps(text), [])
 
     def test_leetspeak_is_still_found(self):
-        self.assertEqual(app._detect_obfuscation('Your P@yP@l account'), ['PayPal'])
-        self.assertEqual(app._detect_obfuscation('Your P@yP@l and PayPaI account'), ['PayPal'])
+        self.assertEqual(content_rules._detect_obfuscation('Your P@yP@l account'), ['PayPal'])
+        self.assertEqual(content_rules._detect_obfuscation('Your P@yP@l and PayPaI account'), ['PayPal'])
 
 
 class AnalysisTests(unittest.TestCase):

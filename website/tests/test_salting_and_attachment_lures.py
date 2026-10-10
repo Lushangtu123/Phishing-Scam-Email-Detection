@@ -14,6 +14,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 FILLER = ('The first game was played on November 6, 1869, between Rutgers and Princeton, two college teams. '
@@ -124,24 +126,24 @@ class WordingTests(unittest.TestCase):
                      'A file located in Google Drive was shared with you.',
                      'You have pending docs shared with you via Google Drive.'):
             with self.subTest(text=text):
-                self.assertTrue(app._FILE_SHARE_NOTICE.search(text))
-        self.assertEqual(app._file_share_elsewhere(
+                self.assertTrue(content_rules._FILE_SHARE_NOTICE.search(text))
+        self.assertEqual(content_rules._file_share_elsewhere(
             'Remittance Document Shared With You. You have received this email because a file located in Google '
             'Drive was shared with you.', '', [('Open', 'https://keap.example.app/contact-us/1')]),
             ('Google Drive', 'keap.example.app'))
 
     def test_account_hold(self):
-        self.assertTrue(app._account_hold_lure(
+        self.assertTrue(content_rules._account_hold_lure(
             'Due to recent fraudulent activities, to regain full access to your account kindly log in below.'))
         # A genuine reset: "regain access" without the threat.
-        self.assertFalse(app._account_hold_lure(
+        self.assertFalse(content_rules._account_hold_lure(
             'To complete this process and regain access to your account, please click the secure link below to log in.'))
 
     def test_mailbox_states(self):
         for text in ('Your email account mailbox requires immediate update.',
                      'Click here for reactivation of your web-mail account.'):
             with self.subTest(text=text):
-                self.assertTrue(app._MAILBOX_LURE_OTHER.search(text))
+                self.assertTrue(content_rules._MAILBOX_LURE_OTHER.search(text))
 
 
 if __name__ == '__main__':

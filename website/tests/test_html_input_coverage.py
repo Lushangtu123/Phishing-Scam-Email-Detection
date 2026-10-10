@@ -13,6 +13,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app
+
+import content_rules  # noqa: E402
 import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes
 
@@ -58,14 +60,14 @@ class HTMLInputCoverageTests(unittest.TestCase):
         for tag in ('textarea', 'xmp'):
             with self.subTest(tag=tag):
                 html, warnings = f'<{tag}>{literal}</{tag}>', []
-                self.assertEqual(app._image_reference_counts(html, warnings), (0, 0, 0))
-                self.assertFalse(app._has_password_form(html, warnings))
+                self.assertEqual(content_rules._image_reference_counts(html, warnings), (0, 0, 0))
+                self.assertFalse(content_rules._has_password_form(html, warnings))
                 self.assertNotIn('https://base.example/reset',
                                  [target for _, target in app._extract_links(html, parse_warnings=warnings)])
                 self.assertIn(literal, app._visible_content_text(html, warnings))
                 self.assertEqual(warnings, [])
-        self.assertTrue(app._has_password_form('<form><input type="password"></form>'))
-        self.assertEqual(app._image_reference_counts('<img src="data:image/png;base64,AA==">'), (1, 0, 0))
+        self.assertTrue(content_rules._has_password_form('<form><input type="password"></form>'))
+        self.assertEqual(content_rules._image_reference_counts('<img src="data:image/png;base64,AA==">'), (1, 0, 0))
 
     def test_literal_elements_handle_self_closing_syntax_wrong_end_names_and_eof(self):
         for tag in ('textarea', 'xmp'):
@@ -76,7 +78,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
                     self.assertIn(inner, app._visible_content_text(opening + inner + f'</{tag}><p>After</p>'))
 
     def test_literal_text_is_retained_across_incremental_parser_feeds(self):
-        class Collector(app._AnalysisHTMLParser):
+        class Collector(html_visibility._AnalysisHTMLParser):
             def __init__(self):
                 super().__init__()
                 self.text = []
@@ -92,7 +94,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
         self.assertEqual(''.join(parser.text), '<style>Password & code</style>After')
 
     def test_literal_text_accepts_new_runtime_cdata_callback_without_double_decoding(self):
-        class Collector(app._AnalysisHTMLParser):
+        class Collector(html_visibility._AnalysisHTMLParser):
             def __init__(self):
                 super().__init__()
                 self.text = []
@@ -523,14 +525,14 @@ class HTMLInputCoverageTests(unittest.TestCase):
                         self.assertIn(destination, [target for _, target in app._extract_links(html)])
 
     def test_password_type_uses_first_attribute_in_both_orders(self):
-        self.assertTrue(app._has_password_form('<form><input type="password" type="text"></form>'))
-        self.assertFalse(app._has_password_form('<form><input type="text" type="password"></form>'))
+        self.assertTrue(content_rules._has_password_form('<form><input type="password" type="text"></form>'))
+        self.assertFalse(content_rules._has_password_form('<form><input type="text" type="password"></form>'))
 
     def test_ignored_duplicate_image_attributes_do_not_claim_coverage(self):
         html = '<img src="" src="https://images.example.org/a.png">'
-        self.assertEqual(app._image_reference_counts(html), (0, 0, 0))
+        self.assertEqual(content_rules._image_reference_counts(html), (0, 0, 0))
         reversed_html = '<img src="https://images.example.org/a.png" src="">'
-        self.assertEqual(app._image_reference_counts(reversed_html), (0, 1, 0))
+        self.assertEqual(content_rules._image_reference_counts(reversed_html), (0, 1, 0))
 
     def test_mso_conditional_text_links_and_forms_are_inspected(self):
         prose = '<p>Our project meeting is tomorrow at noon in the library.</p>'
@@ -553,7 +555,7 @@ class HTMLInputCoverageTests(unittest.TestCase):
                         self.assertFalse(result['analysis_complete'])
                         self.assertTrue(any('conditional' in w.lower() for w in result['analysis_warnings']))
             self.assertIn('Immediately send your password', app._visible_content_text(html))
-            self.assertTrue(app._has_password_form(html))
+            self.assertTrue(content_rules._has_password_form(html))
 
     def test_mso_conditional_rendering_is_scored_when_every_client_view_agrees(self):
         html = ('<p>Please review the detailed project notes before our meeting tomorrow.</p>'

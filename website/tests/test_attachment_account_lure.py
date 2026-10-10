@@ -13,6 +13,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 
@@ -63,7 +65,7 @@ class AccountHoldWordingTests(unittest.TestCase):
                      # A line break inside the sentence, as PDF text has.
                      'your access to online banking\nis limited. You are required to verify your details.'):
             with self.subTest(text=text):
-                self.assertTrue(app._account_hold_lure(text))
+                self.assertTrue(content_rules._account_hold_lure(text))
 
     def test_genuine_wording(self):
         for text in ('Your card expired last month. Update your payment method to keep your plan.',
@@ -74,7 +76,7 @@ class AccountHoldWordingTests(unittest.TestCase):
                      # A held account with nothing to do about it.
                      'Your account has been closed as you requested. Thank you for banking with us.'):
             with self.subTest(text=text):
-                self.assertFalse(app._account_hold_lure(text))
+                self.assertFalse(content_rules._account_hold_lure(text))
 
 
 class AttachmentAccountLureTests(unittest.TestCase):

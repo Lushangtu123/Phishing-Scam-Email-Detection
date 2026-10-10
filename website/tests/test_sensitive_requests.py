@@ -9,6 +9,10 @@ sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
 
+import content_rules  # noqa: E402
+
+import email_structure  # noqa: E402
+
 # (text, should flag). Negatives cover genuine one-time-code emails, reminders not to
 # share codes, retail gift cards, and warnings that quote what scammers ask for.
 CASES = [
@@ -52,7 +56,7 @@ class SensitiveRequestTests(unittest.TestCase):
     def test_requests_to_hand_over_codes_secrets_or_payment_are_flagged_and_reminders_are_not(self):
         for text, expected in CASES:
             with self.subTest(text=text):
-                self.assertEqual(bool(app._sensitive_requests(text)), expected)
+                self.assertEqual(bool(content_rules._sensitive_requests(text)), expected)
 
     def test_each_kind_has_its_own_explainable_code(self):
         expected = {
@@ -65,8 +69,8 @@ class SensitiveRequestTests(unittest.TestCase):
         }
         for text, kind in expected.items():
             with self.subTest(text=text):
-                self.assertEqual(app._sensitive_requests(text), [f'content.sensitive_request.{kind}'])
-        self.assertEqual(set(app._SENSITIVE_REQUEST_CODES.values()),
+                self.assertEqual(content_rules._sensitive_requests(text), [f'content.sensitive_request.{kind}'])
+        self.assertEqual(set(content_rules._SENSITIVE_REQUEST_CODES.values()),
                          {f'content.sensitive_request.{kind}' for kind in expected.values()})
 
     def test_rule_adds_one_high_signal_with_every_kind_listed(self):
@@ -111,17 +115,17 @@ class CallbackRequestTests(unittest.TestCase):
     def test_phone_numbers_with_unexpected_charge_framing_are_flagged_and_receipts_are_not(self):
         for text, expected in CALLBACK_CASES:
             with self.subTest(text=text[:60]):
-                self.assertEqual(bool(app._callback_request(text)), expected)
+                self.assertEqual(bool(content_rules._callback_request(text)), expected)
 
     def test_official_service_numbers_never_count(self):
         text = '您的账户已自动续费，如非本人操作，请拨打 95588 或 400-123-4567。'
-        self.assertEqual(app._callback_request(text, frozenset({'4001234567'})), None)
-        self.assertIn('95588', app._OFFICIAL_SERVICE_NUMBERS)
+        self.assertEqual(content_rules._callback_request(text, frozenset({'4001234567'})), None)
+        self.assertIn('95588', email_structure.OFFICIAL_SERVICE_NUMBERS)
 
     def test_the_finding_quotes_the_number_as_written(self):
         text = "Don't recognize this seller? Please contact PayPal at I(888) 673-593I."
-        self.assertEqual(app._callback_request(text), 'I(888) 673-593I')
-        self.assertIsNone(app._callback_request(text, frozenset({'8886735931'})))
+        self.assertEqual(content_rules._callback_request(text), 'I(888) 673-593I')
+        self.assertIsNone(content_rules._callback_request(text, frozenset({'8886735931'})))
 
     def test_callback_request_is_a_high_signal_with_the_number(self):
         body = ('Your McAfee plan has been renewed and you have been charged $349.99. '

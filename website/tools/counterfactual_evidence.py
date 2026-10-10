@@ -44,6 +44,7 @@ def _decision(level: str) -> str:
 def reanalyze_without(row: dict, family: str) -> dict:
     """Rerun the same local serving path with one evidence family or rule absent."""
     import app
+    import content_rules
     import link_analysis
     from tools.evaluate_serving_pipeline import analyze_record
 
@@ -76,8 +77,8 @@ def reanalyze_without(row: dict, family: str) -> dict:
             # Retain its shape while removing all keyword matches, including
             # pressure that depends on those matches.
             empty_keywords = {key: {**rule, 'keywords': []}
-                              for key, rule in app.CONTENT_RULES.items()}
-            stack.enter_context(patch.dict(app.CONTENT_RULES, empty_keywords, clear=True))
+                              for key, rule in content_rules.CONTENT_RULES.items()}
+            stack.enter_context(patch.dict(content_rules.CONTENT_RULES, empty_keywords, clear=True))
         elif family == 'content_model':
             stack.enter_context(patch.object(app, '_content_pipeline', None))
         return analyze_record(row)
