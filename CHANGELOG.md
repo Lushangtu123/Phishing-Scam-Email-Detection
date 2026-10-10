@@ -20,6 +20,21 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 14:40 PT] — Move the content rules out of app.py
+
+### Why
+- The content rules were the last large area inside `website/app.py` (3,996 lines). Their dependency closure (108 definitions: `CONTENT_RULES` and the Chinese keywords, the request patterns, the mailbox, delivery, fine, account-hold, file-share and subsidy lures, presentation cues, attachment-text rules, `_text_rule_findings`, registration-date findings) uses no app state.
+
+### Files changed
+- `website/content_rules.py` (new, 1,364 lines) — those definitions moved verbatim, with the three import-time statements that build them (merging the Chinese keywords into `CONTENT_RULES`, adding three patterns to `_SENSITIVE_REQUEST_EN`). It imports nothing from `app.py`.
+- `website/app.py` (3,996 → 2,684 lines) — imports back the 23 names its own code calls; drops 20 imports only the rules used.
+- 19 files in `website/tests/` and `website/tools/counterfactual_evidence.py` — use `content_rules.X` (and `html_visibility._AnalysisHTMLParser`, `email_structure.OFFICIAL_SERVICE_NUMBERS`) instead of reaching them through `app`. `evaluate_jev.py` keeps taking its helpers from `app`, which its test pins.
+- `website/static/i18n.test.mjs` — the check that the category labels match the backend reads `CONTENT_RULES` from `content_rules.py`.
+- `README.md` — project structure.
+
+### Effect
+- No behaviour change: an AST comparison with `main` shows the 111 moved statements and the 138 remaining ones unchanged and in order. The golden replay of 7,321 email inputs is identical with the model off, on and with stubbed RDAP dates, and every `analyze_sms` call the tests make (118, plus 6 synthetic texts) gives identical output. A planted bug in `content_rules.py` changes 73-83 email and 8 SMS outputs. Backend unittest 1284 tests OK.
+
 ## [2026-10-10 14:17 PT] — Tests use the modules that define what they test; app.py stops re-exporting
 
 ### Why

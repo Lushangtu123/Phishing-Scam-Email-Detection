@@ -15,6 +15,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import domain_age  # noqa: E402
@@ -212,7 +214,7 @@ class SubscriptionLinkTests(unittest.TestCase):
                      'https://portal.example.net/view?email=recipient%40example.org#unsubscribe',
                      'https://list-manage-login.example.top/view?email=recipient@example.org'):
             with self.subTest(link=link):
-                self.assertIsNotNone(app._recipient_prefilled_link([('Open document', link)], self.ME))
+                self.assertIsNotNone(content_rules._recipient_prefilled_link([('Open document', link)], self.ME))
 
     def test_unsubscribe_links(self):
         for label, link in (('', 'https://news.example.net/email/preferences?email=recipient@example.org'),
@@ -220,7 +222,7 @@ class SubscriptionLinkTests(unittest.TestCase):
                             ('Manage preferences', 'https://click.example.net/p?email=recipient@example.org'),
                             ('', 'https://us1.list-manage.com/profile?e=recipient@example.org')):
             with self.subTest(link=link):
-                self.assertIsNone(app._recipient_prefilled_link([(label, link)], self.ME))
+                self.assertIsNone(content_rules._recipient_prefilled_link([(label, link)], self.ME))
 
     def test_analysis(self):
         raw = ('From: Docs <share@portal-mailer.example.com>\r\nTo: recipient@example.org\r\nSubject: Document\r\n'

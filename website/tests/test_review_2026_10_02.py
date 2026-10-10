@@ -16,6 +16,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import email_structure as es  # noqa: E402
@@ -131,13 +133,13 @@ class ClaimedPlatformSenderTests(unittest.TestCase):
         for sender in ('Test Sender <test.sender@gmail.com>', 'Account Team <test.sender@google.com>'):
             with self.subTest(sender=sender):
                 self.assertIn('content.mailbox_lure', codes(analyze_eml(eml(sender, body))))
-        self.assertEqual(app._unlisted_off_sender_host('https://docs.google.com/document/d/x/view', 'google.com'),
+        self.assertEqual(content_rules._unlisted_off_sender_host('https://docs.google.com/document/d/x/view', 'google.com'),
                          'docs.google.com')
         # The platform's own pages stay the sender's.
-        self.assertIsNone(app._unlisted_off_sender_host('https://accounts.google.com/', 'google.com'))
+        self.assertIsNone(content_rules._unlisted_off_sender_host('https://accounts.google.com/', 'google.com'))
 
     def test_an_encoded_path(self):
-        self.assertTrue(app._user_content_location('https://docs.google.com/%64ocument/d/x/view', actions=True))
+        self.assertTrue(content_rules._user_content_location('https://docs.google.com/%64ocument/d/x/view', actions=True))
 
 
 def two_page_pdf(first_font_name: bytes) -> bytes:

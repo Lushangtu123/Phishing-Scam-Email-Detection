@@ -12,6 +12,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -89,13 +91,13 @@ class SubsidyLureTests(unittest.TestCase):
         for text in ('2023年个人劳动补贴，当天未完成视为放弃申领！', '《高温补助-请今日立即申请》',
                      '一般纳税人退税申请：请扫码办理', '劳 动 补 贴 已下发，扫 码 领取'):
             with self.subTest(text=text):
-                self.assertTrue(app._subsidy_lure(text))
+                self.assertTrue(content_rules._subsidy_lure(text))
 
     def test_genuine_allowance_notices_do_not(self):
         for text in ('关于发放2023年高温补贴的通知：高温补贴将随7月工资一并发放。',
                      '个人所得税年度汇算可在个人所得税App办理退税。', '本月工资条已发送，请登录内网查看。'):
             with self.subTest(text=text):
-                self.assertFalse(app._subsidy_lure(text))
+                self.assertFalse(content_rules._subsidy_lure(text))
 
 
 class DocxAttachmentAnalysisTests(unittest.TestCase):

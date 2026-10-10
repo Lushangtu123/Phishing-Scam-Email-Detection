@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 OFF = 'https://pay-toll-now.example.net/p'
@@ -25,19 +27,19 @@ class FineLureTests(unittest.TestCase):
                      '您有一条交通违法记录未处理，请尽快缴纳罚款。',
                      '您的ETC已失效，请及时认证。'):
             with self.subTest(text=text):
-                self.assertEqual(app._fine_lure(text, [('', OFF)]), 'pay-toll-now.example.net')
+                self.assertEqual(content_rules._fine_lure(text, [('', OFF)]), 'pay-toll-now.example.net')
 
     def test_genuine_notices(self):
         toll = 'Your unpaid toll balance is due on 10 October.'
         # The operator's own site, a government site, and no link at all.
-        self.assertIsNone(app._fine_lure(toll, [('Pay', 'https://pay.tolloperator.example.org/')], 'billing@tolloperator.example.org'))
-        self.assertIsNone(app._fine_lure(toll, [('Pay', 'https://www.cityofexample.gov/parking')]))
-        self.assertIsNone(app._fine_lure(toll, [('Pay', 'https://www.dgt.gob.es/multas')]))
-        self.assertIsNone(app._fine_lure(toll, []))
+        self.assertIsNone(content_rules._fine_lure(toll, [('Pay', 'https://pay.tolloperator.example.org/')], 'billing@tolloperator.example.org'))
+        self.assertIsNone(content_rules._fine_lure(toll, [('Pay', 'https://www.cityofexample.gov/parking')]))
+        self.assertIsNone(content_rules._fine_lure(toll, [('Pay', 'https://www.dgt.gob.es/multas')]))
+        self.assertIsNone(content_rules._fine_lure(toll, []))
         # Fines in another sense, or tolls that are paid.
         for text in ('The library waives fines for overdue books this month.', 'Thanks, your toll balance is paid in full.'):
             with self.subTest(text=text):
-                self.assertIsNone(app._fine_lure(text, [('Read more', OFF)]))
+                self.assertIsNone(content_rules._fine_lure(text, [('Read more', OFF)]))
 
     def test_analysis(self):
         raw = ('From: Ministerio del Interior <notificaciones@interior.gob.es>\r\nTo: user@example.org\r\n'

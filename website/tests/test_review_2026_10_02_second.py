@@ -17,6 +17,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import domain_age  # noqa: E402
@@ -240,10 +242,10 @@ class GovernmentSuffixTests(unittest.TestCase):
     def test_suffixes(self):
         for host in ('www.go.jp', 'tax.service.gov.uk', 'x.gc.ca', 'x.nsw.gov.au', 'x.gob.mx', 'irs.gov', 'www.admin.ch'):
             with self.subTest(host=host):
-                self.assertTrue(app._government_host(host))
+                self.assertTrue(content_rules._government_host(host))
         for host in ('local-test.go.to', 'pay.go.com', 'tolls.example.com'):
             with self.subTest(host=host):
-                self.assertFalse(app._government_host(host))
+                self.assertFalse(content_rules._government_host(host))
 
     def test_a_toll_notice_linking_to_a_registrable_go_domain(self):
         result = analyze('<p>Your unpaid toll balance is due on 10 October.</p>'

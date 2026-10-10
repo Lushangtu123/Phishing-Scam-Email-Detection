@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app
+
+import content_rules  # noqa: E402
 import disposable_registry  # noqa: E402
 import sender_features  # noqa: E402
 import content_model
@@ -918,10 +920,10 @@ class ContentRuleRobustnessTests(unittest.TestCase):
     def test_plain_security_words_are_not_character_obfuscation(self):
         for text in ("login", "verify", "account", "password", "bank", "Microsoft"):
             with self.subTest(text=text):
-                self.assertEqual(app._detect_obfuscation(text), [])
+                self.assertEqual(content_rules._detect_obfuscation(text), [])
 
     def test_later_obfuscated_word_is_not_hidden_by_plain_occurrence(self):
-        self.assertIn("login", app._detect_obfuscation("login or l0gin"))
+        self.assertIn("login", content_rules._detect_obfuscation("login or l0gin"))
 
     def test_ip_destination_sets_high_risk_floor(self):
         result = app.analyze_email_content(
@@ -986,7 +988,7 @@ class ContentRuleRobustnessTests(unittest.TestCase):
             ("Your account will be suspended. Don't ignore this.", 'will be suspended'),
         ):
             with self.subTest(text=text, keyword=keyword):
-                self.assertTrue(app._keyword_matches(text, keyword))
+                self.assertTrue(content_rules._keyword_matches(text, keyword))
                 result = app.analyze_email_content('Notice', text)
                 self.assertTrue(any(keyword in c['matched'] for c in result['category_results']))
 

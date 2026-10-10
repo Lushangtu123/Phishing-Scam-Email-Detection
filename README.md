@@ -131,7 +131,8 @@ Phishing-Scam-Email-Detection/
 ├── pyproject.toml              # Vercel settings and the serving pins it installs
 ├── requirements*.txt           # pinned runtime and development dependencies
 ├── website/
-│   ├── app.py                  # API, content rules, fusion
+│   ├── app.py                  # API, analysis steps and fusion
+│   ├── content_rules.py        # keyword categories, requests, lures, attachment-text rules
 │   ├── link_analysis.py        # link extraction and destination checks (email and texts)
 │   ├── http_policy.py          # allowed hosts, rate-limit keys, security and cache headers
 │   ├── domain_verification.py  # MX, SPF, DMARC, PTR, WHOIS and SMTP checks for /api/verify-email

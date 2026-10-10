@@ -12,6 +12,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 ME = ['jose@example.org']
@@ -25,7 +27,7 @@ class PrefilledLinkTests(unittest.TestCase):
                      'https://glitch-page.example.me/har.html#jose@example.org',
                      f'https://portal.example.top/index.php?u={encoded}'):
             with self.subTest(link=link):
-                self.assertIsNotNone(app._recipient_prefilled_link([('Open', link)], ME))
+                self.assertIsNotNone(content_rules._recipient_prefilled_link([('Open', link)], ME))
 
     def test_links_that_are_no_lure(self):
         for label, link, sender in (
@@ -36,8 +38,8 @@ class PrefilledLinkTests(unittest.TestCase):
                 ('Reply', 'mailto:jose@example.org', ''),
                 ('Open', 'https://portal.example.top/index.php?u=someone-else', '')):
             with self.subTest(link=link):
-                self.assertIsNone(app._recipient_prefilled_link([(label, link)], ME, sender.rpartition('@')[2]))
-        self.assertIsNone(app._recipient_prefilled_link([('Open', 'https://x.example.top/?email=jose@example.org')], []))
+                self.assertIsNone(content_rules._recipient_prefilled_link([(label, link)], ME, sender.rpartition('@')[2]))
+        self.assertIsNone(content_rules._recipient_prefilled_link([('Open', 'https://x.example.top/?email=jose@example.org')], []))
 
     def test_analysis(self):
         raw = ('From: Joyt Master <billing@vps-mailer.example.com>\r\nTo: jose@example.org\r\nSubject: Document\r\n'

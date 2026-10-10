@@ -15,6 +15,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(WEBSITE_DIR / 'tools'))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import config  # noqa: E402
 import domain_age  # noqa: E402
 import email_structure as es  # noqa: E402
@@ -84,18 +86,18 @@ class CandidateTests(unittest.TestCase):
     def test_what_is_asked(self):
         hosts = ['login.secure-verify.com', 'www.paypal.com', 'mail.google.com', 'alice.github.io', '93.184.216.34',
                  'drive.google.com', 'cdn.secure-verify.com', 'a.one.net', 'b.two.net', 'c.three.net', 'd.four.net']
-        self.assertEqual(app._registration_candidates('Billing <billing@notice-center.co.uk>', hosts),
+        self.assertEqual(content_rules._registration_candidates('Billing <billing@notice-center.co.uk>', hosts),
                          [('sender', 'notice-center.co.uk'), ('link', 'secure-verify.com'), ('link', 'one.net'),
                           ('link', 'two.net'), ('link', 'three.net')])
         # A consumer mailbox or an official sender is not asked about.
-        self.assertEqual(app._registration_candidates('A <a@gmail.com>', []), [])
-        self.assertEqual(app._registration_candidates('PayPal <service@paypal.com>', []), [])
+        self.assertEqual(content_rules._registration_candidates('A <a@gmail.com>', []), [])
+        self.assertEqual(content_rules._registration_candidates('PayPal <service@paypal.com>', []), [])
 
     def test_what_is_reported(self):
         candidates = [('sender', 'new-sender.com'), ('link', 'new-link.com'), ('link', 'old-link.com'), ('link', 'unknown.com')]
         dates = {'new-sender.com': NOW - timedelta(days=3), 'new-link.com': NOW - timedelta(days=89),
                  'old-link.com': NOW - timedelta(days=400), 'unknown.com': None}
-        findings = app._registration_findings(candidates, dates, now=NOW)
+        findings = content_rules._registration_findings(candidates, dates, now=NOW)
         self.assertEqual([(item['code'], item['params']) for item in findings], [
             ('sender.recently_registered', {'domain': 'new-sender.com', 'date': '2026-09-29', 'days': 3}),
             ('link.recently_registered', {'domain': 'new-link.com', 'date': '2026-07-05', 'days': 89})])

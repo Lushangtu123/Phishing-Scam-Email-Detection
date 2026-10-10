@@ -12,6 +12,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
 
+import content_rules  # noqa: E402
+
 PRIME = ('<p>Your Amazon Prime Membership is set to renew on Wed, June 19. However, the payment method associated '
          'with your membership is no longer valid.</p><a href="{url}">{label}</a>')
 
@@ -47,7 +49,7 @@ class UserContentButtonTests(unittest.TestCase):
 
     def test_a_mailbox_lure_on_a_trusted_platforms_form_is_not_exempt(self):
         lure = '<p>Your mailbox storage is full and incoming messages are on hold.</p><a href="{}">Release messages</a>'
-        self.assertTrue(app._mailbox_lure('Your mailbox storage is full and incoming messages are on hold.',
+        self.assertTrue(content_rules._mailbox_lure('Your mailbox storage is full and incoming messages are on hold.',
                                           [('Release messages', 'https://forms.office.com/r/abc')]))
         self.assertIn('content.mailbox_lure', codes(analyze(lure.format('https://forms.office.com/r/abc'), 'Mailbox')))
         # The provider's own sign-in stays exempt.

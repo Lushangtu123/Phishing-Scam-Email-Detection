@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 
@@ -48,8 +50,8 @@ class PlainTextFileShareTests(unittest.TestCase):
         for text in ('Signed revised agreements has been sent using Dropbox file viewer.',
                      'The invoice has been shared via OneDrive.', 'Documents have been uploaded through Google Drive.'):
             with self.subTest(text=text):
-                self.assertTrue(app._FILE_SHARE_NOTICE.search(text))
-        self.assertFalse(app._FILE_SHARE_NOTICE.search('The parcel has been sent using our courier.'))
+                self.assertTrue(content_rules._FILE_SHARE_NOTICE.search(text))
+        self.assertFalse(content_rules._FILE_SHARE_NOTICE.search('The parcel has been sent using our courier.'))
 
 
 if __name__ == '__main__':

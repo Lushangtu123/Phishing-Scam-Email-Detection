@@ -9,6 +9,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
 
+import content_rules  # noqa: E402
+
 
 def categories(subject, body):
     result = json.loads(asyncio.run(app.analyze_content_endpoint(
@@ -18,14 +20,14 @@ def categories(subject, body):
 
 class ChineseKeywordMatchingTests(unittest.TestCase):
     def test_phrases_match_inside_running_text_and_across_inserted_spaces(self):
-        self.assertTrue(app._keyword_matches('您的邮箱配额已满，请处理', '邮箱配额已满'))
-        self.assertTrue(app._keyword_matches('确 认有效账户', '确认有效账户'))
-        self.assertTrue(app._keyword_matches('保持\n相同的密码', '保持相同的密码'))
-        self.assertFalse(app._keyword_matches('您的邮箱空间充足', '邮箱配额已满'))
+        self.assertTrue(content_rules._keyword_matches('您的邮箱配额已满，请处理', '邮箱配额已满'))
+        self.assertTrue(content_rules._keyword_matches('确 认有效账户', '确认有效账户'))
+        self.assertTrue(content_rules._keyword_matches('保持\n相同的密码', '保持相同的密码'))
+        self.assertFalse(content_rules._keyword_matches('您的邮箱空间充足', '邮箱配额已满'))
 
     def test_english_keywords_keep_their_word_boundaries(self):
-        self.assertTrue(app._keyword_matches('please act now', 'act now'))
-        self.assertFalse(app._keyword_matches('react nowhere', 'act now'))
+        self.assertTrue(content_rules._keyword_matches('please act now', 'act now'))
+        self.assertFalse(content_rules._keyword_matches('react nowhere', 'act now'))
 
 
 class ChineseContentRuleTests(unittest.TestCase):
@@ -47,7 +49,7 @@ class ChineseContentRuleTests(unittest.TestCase):
         ):
             with self.subTest(subject=subject):
                 found = categories(subject, body)
-                zh = {key: [kw for kw in kws if app._HAN.match(kw)] for key, kws in found.items()}
+                zh = {key: [kw for kw in kws if content_rules._HAN.match(kw)] for key, kws in found.items()}
                 self.assertEqual({key: kws for key, kws in zh.items() if kws}, {})
 
 

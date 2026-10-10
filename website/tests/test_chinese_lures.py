@@ -11,6 +11,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+
+import content_rules  # noqa: E402
 import email_structure as es  # noqa: E402
 
 LURE = '<p>亲爱的用户：为了提高邮件系统的安全性，用户需登录新邮件系统将原有数据备案进行升级，逾期将停止服务。</p>'
@@ -39,17 +41,17 @@ class SplitWordTests(unittest.TestCase):
     def test_keywords_match_through_inserted_symbols(self):
         for text in ('将被〈关闭', '将被（关）闭', '将 被 关 闭', '将被*关#闭'):
             with self.subTest(text=text):
-                self.assertTrue(app._keyword_matches(text, '将被关闭'))
+                self.assertTrue(content_rules._keyword_matches(text, '将被关闭'))
         # Sentence punctuation still separates words.
-        self.assertFalse(app._keyword_matches('将被。关闭', '将被关闭'))
+        self.assertFalse(content_rules._keyword_matches('将被。关闭', '将被关闭'))
 
     def test_a_subsidy_lure_split_by_brackets_is_found(self):
-        self.assertTrue(app._subsidy_lure('2023年第一季度《财 政》补〉贴已发放，扫码领取'))
-        self.assertTrue(app._subsidy_lure('个人劳动（补贴））今日立即申请'))
-        self.assertFalse(app._subsidy_lure('财政补贴已发放，请查收'))
+        self.assertTrue(content_rules._subsidy_lure('2023年第一季度《财 政》补〉贴已发放，扫码领取'))
+        self.assertTrue(content_rules._subsidy_lure('个人劳动（补贴））今日立即申请'))
+        self.assertFalse(content_rules._subsidy_lure('财政补贴已发放，请查收'))
 
     def test_compaction_keeps_letters_digits_and_sentence_breaks(self):
-        self.assertEqual(app._han_compact('《财 政》补〉贴 2023 年。下 发'), '《财政补贴2023年。下发')
+        self.assertEqual(content_rules._han_compact('《财 政》补〉贴 2023 年。下 发'), '《财政补贴2023年。下发')
 
 
 class MailboxLureTests(unittest.TestCase):
@@ -77,7 +79,7 @@ class MailboxLureTests(unittest.TestCase):
         self.assertNotIn('content.mailbox_lure', codes(analyze(
             '<p>欢迎订阅我们的新闻。</p><a href="https://example.org/login">点此登录</a>', subject='新闻')))
         # Mailbox and upgrade in different sentences are no lure.
-        self.assertFalse(app._mailbox_lure('邮箱很好用。系统将在周末升级。', [('点此登录', 'https://example.org/')]))
+        self.assertFalse(content_rules._mailbox_lure('邮箱很好用。系统将在周末升级。', [('点此登录', 'https://example.org/')]))
 
 
 class OtherLanguageMailboxLureTests(unittest.TestCase):
@@ -93,19 +95,19 @@ class OtherLanguageMailboxLureTests(unittest.TestCase):
                 ('Ваш почтовый ящик истекает сегодня.', 'Обновить'),
                 ('Vous avez 4 messages bloqués.', 'Lire les messages')):
             with self.subTest(text=text):
-                self.assertTrue(app._mailbox_lure(text, [(label, off)]))
+                self.assertTrue(content_rules._mailbox_lure(text, [(label, off)]))
 
     def test_genuine_notices(self):
         # Sign-up confirmations through a mailing service's tracking domain.
-        self.assertFalse(app._mailbox_lure('Please verify your email address to finish signing up.',
+        self.assertFalse(content_rules._mailbox_lure('Please verify your email address to finish signing up.',
                                            [('Verify email', 'https://u123.ct.sendgrid.net/ls/click?x')]))
         # A provider's own storage notice, or a link to a known provider's sign-in.
-        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Upgrade', 'https://one.google.com/storage')]))
-        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Sign in', 'https://outlook.live.com/')]))
-        self.assertFalse(app._mailbox_lure('Your mailbox is almost full.', [('Upgrade', 'https://mail.example.org/plans')],
+        self.assertFalse(content_rules._mailbox_lure('Your mailbox is almost full.', [('Upgrade', 'https://one.google.com/storage')]))
+        self.assertFalse(content_rules._mailbox_lure('Your mailbox is almost full.', [('Sign in', 'https://outlook.live.com/')]))
+        self.assertFalse(content_rules._mailbox_lure('Your mailbox is almost full.', [('Upgrade', 'https://mail.example.org/plans')],
                                            'it@example.org'))
         # Newsletter boilerplate.
-        self.assertFalse(app._mailbox_lure('If this email is not displayed correctly, view it in your browser.',
+        self.assertFalse(content_rules._mailbox_lure('If this email is not displayed correctly, view it in your browser.',
                                            [('View in browser', 'https://news.example.org/view')]))
 
 
