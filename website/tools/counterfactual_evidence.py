@@ -44,6 +44,7 @@ def _decision(level: str) -> str:
 def reanalyze_without(row: dict, family: str) -> dict:
     """Rerun the same local serving path with one evidence family or rule absent."""
     import app
+    import link_analysis
     from tools.evaluate_serving_pipeline import analyze_record
 
     if family not in FAMILIES:
@@ -64,10 +65,11 @@ def reanalyze_without(row: dict, family: str) -> dict:
         elif family == 'link_destinations':
             stack.enter_context(patch.object(app, '_analyze_link_destinations',
                                              return_value=(0, [], 'safe')))
+        # Only link_analysis calls these two, so they are patched there, not on app.
         elif family == 'link_display_mismatch':
-            stack.enter_context(patch.object(app, '_visible_link_host', return_value=''))
+            stack.enter_context(patch.object(link_analysis, '_visible_link_host', return_value=''))
         elif family == 'link_brand_lookalike':
-            stack.enter_context(patch.object(app, '_label_uses_brand_lookalike',
+            stack.enter_context(patch.object(link_analysis, '_label_uses_brand_lookalike',
                                              return_value=False))
         elif family == 'content_keywords':
             # Credential-pressure detection reads the same registry by key.

@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 12:13 PT] — Move link analysis out of app.py
+
+### Why
+- Second step of splitting `website/app.py`, one area per PR: link extraction and destination checks, which email and text messages share.
+
+### Files changed
+- `website/link_analysis.py` (new, 536 lines) — 27 definitions moved verbatim: `_extract_links`, `_analyze_link_destinations`, `_visible_link_host`, `_label_uses_brand_lookalike`, shortener/IP/IPFS/free-hosting checks, `_link_hosts` and their constants. They depend on nothing left in `app.py`.
+- `website/app.py` (4,526 → 4,047 lines) — imports them back for callers and tests; drops the imports only the moved code used (`escape_html`, `tldextract`, `_BRAND_SITE_LABELS`, `_confusable_skeleton`).
+- `website/tools/counterfactual_evidence.py` — the `link_display_mismatch` and `link_brand_lookalike` replays patch `_visible_link_host` and `_label_uses_brand_lookalike` on `link_analysis`, where they are now called; a patch on `app` no longer reached them (`test_specific_link_rule_replay_keeps_other_link_rules` caught it).
+- `README.md` — project structure.
+
+### Effect
+- No behaviour change: an AST comparison with `main` shows the 27 moved statements and the 235 remaining ones unchanged and in order. Backend unittest 1284 tests OK (10 Redis skips); `vercel_runtime_smoke.py`, the synthetic evaluation comparison and `ruff` pass. Planting two bugs in `link_analysis.py` fails 13 tests.
+
 ## [2026-10-10 11:35 PT] — Move the domain checks out of app.py
 
 ### Why
