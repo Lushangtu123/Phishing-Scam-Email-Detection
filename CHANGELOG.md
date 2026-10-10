@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 13:43 PT] — Split _analyze_content, part 1: input, structure, attachments, sender, attached messages
+
+### Why
+- Third of four PRs breaking `analyze_email_content` and `_analyze_content` into named steps, behaviour unchanged.
+
+### Files changed
+- `website/app.py` — new `_resolve_content_input`, `_add_structure_evidence`, `_add_attachment_links`, `_add_attachment_text`, `_add_sender_evidence`, `_apply_structure_verdict`, `_merge_nested_messages` (with `_add_nested_coverage` for its three repeated image-count merges) and `_ensure_image_warnings` (its three repeated blocks as one loop). `_analyze_content` goes from 390 to 189 lines. The structure verdict keeps its own rules (a Medium floor holds at any score), separate from `_content_verdict`; its docstring says how they differ. All stay in `app.py`.
+
+### Effect
+- No behaviour change: the golden replay of 7,321 inputs against `main` is identical with the text model off, on, and with stubbed RDAP dates. Planting two bugs in the new helpers changes 159 outputs. Backend unittest 1284 tests OK.
+
 ## [2026-10-10 13:29 PT] — Split analyze_email_content, part 2: links, readings, lures and verdict
 
 ### Why
