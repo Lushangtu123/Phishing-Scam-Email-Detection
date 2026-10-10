@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 22:10 PT] — Refresh the development lock snapshot
+
+### Why
+- `requirements-dev-py312-macos-arm64.lock.txt` lacked `phonenumberslite==9.0.40`, which the SMS mode added to `requirements.txt`.
+
+### Files changed
+- `requirements-dev-py312-macos-arm64.lock.txt` — re-resolved from `requirements-dev.txt` in a fresh CPython 3.12.9 venv (pip 24.3.1).
+
+### Effect
+- Adds `phonenumberslite==9.0.40`; transitive `charset-normalizer` 3.5.1 → 3.5.2 and `filelock` 4.0.4 → 4.1.0. Direct pins are unchanged. `pip check` is clean and the backend unittest suite passes in that venv.
+
 ## [2026-10-09 22:10 PT] — Document the text-message mode
 
 ### Why
