@@ -11,6 +11,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
@@ -42,14 +43,14 @@ class FontSizeMathTests(CallbackTestCase):
     def test_a_number_is_no_length_so_the_declaration_is_dropped(self):
         for value in ('max(16px,1)', 'max(16px,0)', 'clamp(16px,1,32px)', 'max(16px,garbage)'):
             with self.subTest(value=value):
-                self.assertEqual(app._font_size_class(value), 'invalid')
+                self.assertEqual(html_visibility._font_size_class(value), 'invalid')
                 self.assert_callback(f'<p>{FIRST}<span style="font-size:0"><span style="font-size:{value}">'
                                      f'{PADDING}</span></span>{SECOND}</p>')
 
     def test_negative_arguments_are_computed(self):
         for value in ('max(-1px,0px)', 'min(-1px,16px)', 'clamp(-1px,0px,1px)'):
             with self.subTest(value=value):
-                self.assertEqual(app._font_size_class(value), 'zero')
+                self.assertEqual(html_visibility._font_size_class(value), 'zero')
                 self.assert_callback(f'<p>{FIRST}<span><span style="font-size:{value}">{PADDING}</span></span>'
                                      f'{SECOND}</p>')
 
@@ -58,7 +59,7 @@ class FontSizeMathTests(CallbackTestCase):
                                 ('max(1em,0px)', 'inherit'), ('min(1em,16px)', 'inherit'),
                                 ('max(1lh,0px)', 'unresolved'), ('max(16px, 1rem + 2px)', 'unresolved')):
             with self.subTest(value=value):
-                self.assertEqual(app._font_size_class(value), expected)
+                self.assertEqual(html_visibility._font_size_class(value), expected)
 
 
 class ExactMatchingTests(CallbackTestCase):
@@ -82,13 +83,13 @@ class ExactMatchingTests(CallbackTestCase):
         html = ('<style>[data-ogsc] .x{display:none} [data-ogsb] .y{display:none} u + .body .z{display:none}'
                 ' .card .x{display:none}</style><div class="body"><p class="x">x</p><p class="y">y</p>'
                 '<p class="z">z</p></div>')
-        found = app._stylesheet_cascade(html[7:html.index('</style>')], html)
+        found = html_visibility._stylesheet_cascade(html[7:html.index('</style>')], html)
         self.assertEqual(found['conditions'], ['outlook-dark', 'gmail'])
         self.assertEqual(len(found['views']), 3)
 
     def test_a_client_rule_sharing_a_selector_with_a_plain_rule_stays_a_client(self):
         html = '<style>.x{display:none} [data-ogsc] .x{display:block}</style><p class="x">x</p>'
-        found = app._stylesheet_cascade(html[7:html.index('</style>')], html)
+        found = html_visibility._stylesheet_cascade(html[7:html.index('</style>')], html)
         self.assertEqual(found['conditions'], ['outlook-dark'])
         self.assertEqual(len(found['views']), 2)
 
@@ -122,7 +123,7 @@ class DroppedCssTests(CallbackTestCase):
 
     def test_cascade_layers_are_not_modelled(self):
         css = '.scam{display:block} @layer x { .scam{display:none} .pad{display:none} }'
-        self.assertIsNone(app._stylesheet_cascade(css, '<p class="scam">s</p><div class="pad">p</div>'))
+        self.assertIsNone(html_visibility._stylesheet_cascade(css, '<p class="scam">s</p><div class="pad">p</div>'))
         self.assertNotIn(analyze(self.html(f'<style>{css}</style>'))['risk_level'], {'safe', 'low'})
 
     def test_content_a_browser_moves_out_of_a_table_inherits_from_outside_it(self):
@@ -139,7 +140,7 @@ class DroppedCssTests(CallbackTestCase):
 
         def color(value):
             winners = {'color': (False, (0, 0, 1, 0), 1, ('var', value))}
-            return app._with_custom_properties(winners, custom)[0]['color'][3]
+            return html_visibility._with_custom_properties(winners, custom)[0]['color'][3]
         self.assertEqual(color('var(--body)'), 'visible')
         self.assertEqual(color('var(--clear)'), 'transparent')
         self.assertEqual(color('var(--missing)'), 'inherit')

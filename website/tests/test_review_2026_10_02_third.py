@@ -66,7 +66,7 @@ class CssMathTests(unittest.TestCase):
                            ('calc(1px+1px)', None), ('calc(1px * 2px)', None), ('round(1px)', None),
                            ('clamp(1px, 2px)', None), ('calc(1px + 1)', None)):
             with self.subTest(word=word):
-                self.assertEqual(app._css_math_type(word), kind)
+                self.assertEqual(html_visibility._css_math_type(word), kind)
 
     def test_gradients_browsers_reject(self):
         for value in ('linear-gradient(calc(1px),black,black)', 'linear-gradient(black calc(1deg),black)',
@@ -74,29 +74,29 @@ class CssMathTests(unittest.TestCase):
                       'radial-gradient(circle calc(10px + 5%),black,black)',
                       'linear-gradient(clamp(1px, 2px),black,black)'):
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
+                self.assertFalse(html_visibility._background_valid(value))
                 self.assertTrue(callback_shown(f'background:{value}'))
 
     def test_gradients_browsers_accept(self):
         for value in ('linear-gradient(calc(45deg),black,black)', 'linear-gradient(black calc(10px + 5%),black)',
                       'conic-gradient(from calc(10px / 2px * 1deg),black,black)', 'linear-gradient(black calc(1px)calc(2px),black)'):
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
         # A valid one-colour gradient still hides black text, which is read as hidden text.
         self.assertFalse(callback_shown('background:linear-gradient(calc(45deg),black,black)'))
         self.assertTrue(callback_hidden('background:linear-gradient(calc(45deg),black,black)'))
 
     def test_a_mixed_conic_stop_leaves_the_colours_unknown(self):
         # Chromium 148 rejects calc(10% + 1deg) in a conic stop; 154 accepts it.
-        self.assertIn(None, app._gradient_stops('conic-gradient(black calc(10% + 1deg),black)'))
+        self.assertIn(None, html_visibility._gradient_stops('conic-gradient(black calc(10% + 1deg),black)'))
         self.assertTrue(callback_shown('background:conic-gradient(black calc(10% + 1deg),black)'))
 
     def test_an_untyped_function_leaves_the_colours_unknown(self):
-        self.assertIn(None, app._gradient_stops('linear-gradient(black calc(env(x)),black)'))
+        self.assertIn(None, html_visibility._gradient_stops('linear-gradient(black calc(env(x)),black)'))
         self.assertTrue(callback_shown('background:linear-gradient(black calc(env(x)),black)'))
 
     def test_words_end_at_a_closing_bracket(self):
-        self.assertEqual(app._css_words('calc(1px)calc(2px) url(a.png)no-repeat'),
+        self.assertEqual(html_visibility._css_words('calc(1px)calc(2px) url(a.png)no-repeat'),
                          ['calc(1px)', 'calc(2px)', 'url(a.png)', 'no-repeat'])
 
 
@@ -129,7 +129,7 @@ class CoverageTests(unittest.TestCase):
                                    ('background-repeat', 'repeat-x repeat', False), ('background-repeat', 'space round', True),
                                    ('background-repeat', 'repeat repeat repeat', False)):
             with self.subTest(name=name, value=value):
-                self.assertEqual(app._background_tiling_valid(name, value), valid)
+                self.assertEqual(html_visibility._background_tiling_valid(name, value), valid)
 
 
 class RdapQueueTests(unittest.TestCase):

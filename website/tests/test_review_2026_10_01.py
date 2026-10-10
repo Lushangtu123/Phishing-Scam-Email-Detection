@@ -11,6 +11,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 import email_structure as es  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
@@ -71,22 +72,22 @@ class InvalidDeclarationTests(unittest.TestCase):
                       'opacity:0;opacity:garbage'):
             with self.subTest(style=style):
                 self.assert_callback_alerts('', style)
-                self.assertTrue(app._inline_text_state(style)[2])
+                self.assertTrue(html_visibility._inline_text_state(style)[2])
 
     def test_valid_functions_still_show_text(self):
-        self.assertFalse(app._color_state('rgb(0,0,0)'))
-        self.assertFalse(app._color_state('rgb(0 0 0 / 50%)'))
-        self.assertFalse(app._color_state('hsl(120deg 50% 50%)'))
-        self.assertFalse(app._color_state('color(display-p3 1 0 0)'))
-        self.assertFalse(app._color_state('buttonface'))
-        self.assertEqual(app._font_size_state('max(16px,1rem)'), (False, False))
-        self.assertEqual(app._font_size_state('clamp(14px,2vw,18px)'), (False, False))
-        self.assertEqual(app._font_size_state('0'), (True, False))
+        self.assertFalse(html_visibility._color_state('rgb(0,0,0)'))
+        self.assertFalse(html_visibility._color_state('rgb(0 0 0 / 50%)'))
+        self.assertFalse(html_visibility._color_state('hsl(120deg 50% 50%)'))
+        self.assertFalse(html_visibility._color_state('color(display-p3 1 0 0)'))
+        self.assertFalse(html_visibility._color_state('buttonface'))
+        self.assertEqual(html_visibility._font_size_state('max(16px,1rem)'), (False, False))
+        self.assertEqual(html_visibility._font_size_state('clamp(14px,2vw,18px)'), (False, False))
+        self.assertEqual(html_visibility._font_size_state('0'), (True, False))
         # A missing or negative alpha computes to zero.
-        self.assertTrue(app._color_state('rgb(0 0 0 / none)'))
-        self.assertTrue(app._color_state('rgba(0,0,0,-1)'))
-        self.assertIsNone(app._color_state('rgb(nope)'))
-        self.assertEqual(app._inline_text_state('display:none;display:inline-block'), (None, None, False))
+        self.assertTrue(html_visibility._color_state('rgb(0 0 0 / none)'))
+        self.assertTrue(html_visibility._color_state('rgba(0,0,0,-1)'))
+        self.assertIsNone(html_visibility._color_state('rgb(nope)'))
+        self.assertEqual(html_visibility._inline_text_state('display:none;display:inline-block'), (None, None, False))
 
 
 class MediaSourceOrderTests(unittest.TestCase):

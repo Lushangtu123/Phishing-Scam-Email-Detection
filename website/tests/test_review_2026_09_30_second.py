@@ -10,6 +10,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 import email_structure as es  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
@@ -42,23 +43,23 @@ class InlineStyleInheritanceTests(unittest.TestCase):
         self.assertIn(analyze(html)['risk_level'], {'high', 'critical'})
 
     def test_colour_and_size_values_are_read_as_css_does(self):
-        self.assertIsNone(app._color_state('not-a-color'))
-        self.assertIsNone(app._color_state('currentcolor'))
-        self.assertFalse(app._color_state('red'))
-        self.assertFalse(app._color_state('#112233'))
-        self.assertFalse(app._color_state('rgba(0,0,0,.5)'))
+        self.assertIsNone(html_visibility._color_state('not-a-color'))
+        self.assertIsNone(html_visibility._color_state('currentcolor'))
+        self.assertFalse(html_visibility._color_state('red'))
+        self.assertFalse(html_visibility._color_state('#112233'))
+        self.assertFalse(html_visibility._color_state('rgba(0,0,0,.5)'))
         for transparent in ('transparent', '#0000', '#11223300', 'rgb(0 0 0 / 0)', 'hsl(0 0% 0% / 0%)'):
             with self.subTest(colour=transparent):
-                self.assertTrue(app._color_state(transparent))
+                self.assertTrue(html_visibility._color_state(transparent))
         # Values the parser cannot compute leave the text unresolved, whatever the parent.
         for style in ('color:color-mix(in srgb, red, blue)', 'color:rgb(var(--x))', 'font-size:calc(1em + 10px)',
                       'font-size:max(1lh, 0px)'):
             with self.subTest(style=style):
-                self.assertTrue(app._inline_text_state(style)[2])
+                self.assertTrue(html_visibility._inline_text_state(style)[2])
         # min(), max() and clamp() over plain lengths are computed.
-        self.assertEqual(app._font_size_state('max(16px,1rem)'), (False, False))
-        self.assertEqual(app._font_size_state('clamp(0px, 0px, 0px)'), (True, False))
-        self.assertEqual(app._font_size_state('min(0px, 16px)'), (True, False))
+        self.assertEqual(html_visibility._font_size_state('max(16px,1rem)'), (False, False))
+        self.assertEqual(html_visibility._font_size_state('clamp(0px, 0px, 0px)'), (True, False))
+        self.assertEqual(html_visibility._font_size_state('min(0px, 16px)'), (True, False))
 
 
 class MediaCombinationTests(unittest.TestCase):
@@ -73,9 +74,9 @@ class MediaCombinationTests(unittest.TestCase):
         self.assertIn(analyze(html)['risk_level'], {'high', 'critical'})
 
     def test_too_many_media_contexts_are_not_modelled(self):
-        widths = range(100, 100 * (app._MAX_MEDIA_CONTEXTS + 2), 100)
+        widths = range(100, 100 * (html_visibility._MAX_MEDIA_CONTEXTS + 2), 100)
         css = ' '.join(f'@media (min-width:{w}px){{.c{w}{{display:none}}}}' for w in widths)
-        self.assertIsNone(app._stylesheet_cascade(css, ''.join(f'<p class="c{w}">x</p>' for w in widths)))
+        self.assertIsNone(html_visibility._stylesheet_cascade(css, ''.join(f'<p class="c{w}">x</p>' for w in widths)))
 
 
 class AuthenticationPropertyTests(unittest.TestCase):

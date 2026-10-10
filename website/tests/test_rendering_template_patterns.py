@@ -10,6 +10,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
@@ -79,7 +80,7 @@ class InteractionStateTests(unittest.TestCase):
         html = (f'<style>{self.MENU}</style><input class="mj-menu-checkbox" type="checkbox">'
                 '<div class="mj-inline-links"><a href="https://example.com/orders">Orders</a></div>'
                 '<p>Your order has shipped and is on its way.</p>')
-        found = app._stylesheet_cascade(self.MENU, html)
+        found = html_visibility._stylesheet_cascade(self.MENU, html)
         self.assertTrue(any(isinstance(condition, tuple) and condition[1] == 'checked'
                             for condition in found['conditions']))
         views = readings(html)
@@ -99,7 +100,7 @@ class InteractionStateTests(unittest.TestCase):
                  f' {SECOND}</div></div>')):
             with self.subTest(css=css[:30]):
                 html = f'<style>{css}</style><p>Please review the agenda.</p>{body}'
-                self.assertEqual(len(app._stylesheet_cascade(css, html)['views']), 4)
+                self.assertEqual(len(html_visibility._stylesheet_cascade(css, html)['views']), 4)
                 result = analyze(html)
                 self.assertIn(result['risk_level'], {'high', 'critical'})
                 self.assertEqual(result['mail_type']['tactics'], ['callback'])
@@ -139,7 +140,7 @@ class FallbackAndConditionalTests(unittest.TestCase):
                 '</o:PixelsPerInch></o:OfficeDocumentSettings></xml><!\r\n [endif]--></head>'
                 '<body><p>Your weekly summary is ready.</p></body></html>')
         unresolved = []
-        app._expand_mso_comments(html, [], mark=True, unresolved=unresolved)
+        html_visibility._expand_mso_comments(html, [], mark=True, unresolved=unresolved)
         self.assertEqual(unresolved, [])
 
 

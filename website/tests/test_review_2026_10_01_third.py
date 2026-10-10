@@ -12,6 +12,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
@@ -64,7 +65,7 @@ class CustomPropertyTests(CallbackTestCase):
         self.assert_callback(salted(':root{--z:transparent}.pad{color:var(--z)}'))
         self.assert_callback(salted(':root{--off:-9999px}.pad{position:absolute;left:var(--off)}'))
         self.assert_callback(salted(':root{--off:-9999px}', inner=' style="position:absolute;left:var(--off)"'))
-        self.assertTrue(app._hiding_value('left', 'var(--off)'))
+        self.assertTrue(html_visibility._hiding_value('left', 'var(--off)'))
 
     def test_a_variable_that_cannot_be_substituted_unsets_the_declaration(self):
         # Invalid at computed-value time: the size inherits, as in browsers.
@@ -75,11 +76,11 @@ class CustomPropertyTests(CallbackTestCase):
     def test_substitution_reads_the_elements_own_values_first(self):
         winners = {'--a': (False, (0, 0, 1, 0), 1, 'var(--b)'), '--b': (False, (0, 0, 1, 0), 2, '0px'),
                    'font-size': (False, (0, 0, 1, 0), 3, ('var', 'var(--a)'))}
-        resolved, custom = app._with_custom_properties(winners, {'--b': '16px'})
+        resolved, custom = html_visibility._with_custom_properties(winners, {'--b': '16px'})
         self.assertEqual(resolved['font-size'][3], 'zero')
         self.assertEqual(custom, {'--a': '0px', '--b': '0px'})
         # A box value without a value to substitute is unset.
-        self.assertEqual(app._with_custom_properties({'left': (False, (0, 0, 1, 0), 1, 'var(--x)')}, {})[0], {})
+        self.assertEqual(html_visibility._with_custom_properties({'left': (False, (0, 0, 1, 0), 1, 'var(--x)')}, {})[0], {})
 
     def test_a_rule_this_reader_cannot_match_that_sets_a_variable_in_use_is_undecidable(self):
         found = readings('<style>.pad{color:var(--c)} p:not(.x){--c:transparent}</style>'
@@ -127,12 +128,12 @@ class DecodedAttributeTests(CallbackTestCase):
             with self.subTest(attribute=attribute):
                 self.assert_callback(f'<style>{css}{{display:none}}</style>'
                                      f'<p>{FIRST}<span {attribute}>{PADDING}</span>{SECOND}</p>')
-        features = app._document_features('<p class="p&#97;d" id="&#x41;" data-x="y&amp;s">x</p>')
+        features = html_visibility._document_features('<p class="p&#97;d" id="&#x41;" data-x="y&amp;s">x</p>')
         self.assertEqual((features['classes'], features['ids']), ({'pad'}, {'a'}))
         self.assertEqual(features['nodes'][0][3]['data-x'], 'y&s')
 
     def test_the_first_of_a_repeated_attribute_counts(self):
-        features = app._document_features('<p class="pad" class="other">x</p>')
+        features = html_visibility._document_features('<p class="pad" class="other">x</p>')
         self.assertEqual(features['classes'], {'pad'})
 
 
@@ -178,10 +179,10 @@ class DroppedListTests(CallbackTestCase):
     def test_an_unknown_pseudo_element_makes_its_list_undecidable(self):
         self.assert_callback(f'<style>.pad{{display:none}} .attack, p::unknown{{display:none}}</style>'
                              f'<p class="attack">{FIRST} {SECOND}</p><p>{PADDING}</p>')
-        features = app._document_features('<p>x</p>')
-        self.assertEqual(app._parse_selector('p::unknown', features)[0], 'maybe')
-        self.assertEqual(app._parse_selector('p::-webkit-scrollbar', features)[0], 'maybe')
-        self.assertEqual(app._parse_selector('p::before', features), ('skip',))
+        features = html_visibility._document_features('<p>x</p>')
+        self.assertEqual(html_visibility._parse_selector('p::unknown', features)[0], 'maybe')
+        self.assertEqual(html_visibility._parse_selector('p::-webkit-scrollbar', features)[0], 'maybe')
+        self.assertEqual(html_visibility._parse_selector('p::before', features), ('skip',))
 
 
 if __name__ == '__main__':

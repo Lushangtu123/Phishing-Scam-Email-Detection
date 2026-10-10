@@ -11,6 +11,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import link_analysis  # noqa: E402
 import email_structure as es  # noqa: E402
 
 
@@ -86,11 +87,11 @@ class IpfsGatewayLinkTests(unittest.TestCase):
                            (f'{cid}.ipfs.dweb.link', '/'), ('abc.mypinata.cloud', '/'),
                            (f'{cid}.ipfs.w3s.link', '/'), ('files.example.net', f'/ipfs/{cid}')):
             with self.subTest(host=host, path=path):
-                self.assertTrue(app._is_ipfs_gateway(host, path))
+                self.assertTrue(link_analysis._is_ipfs_gateway(host, path))
         for host, path in (('ipfsnews.com', '/'), ('example.com', '/ipfs-guide'), ('docs.ipfs.tech', '/concepts'),
                            ('example.com', '/ipfs/short')):
             with self.subTest(host=host, path=path):
-                self.assertFalse(app._is_ipfs_gateway(host, path))
+                self.assertFalse(link_analysis._is_ipfs_gateway(host, path))
 
     def test_ipfs_links_raise_a_high_floor_in_messages_and_pdfs(self):
         body = '<p>Review the shared document.</p><a href="https://ipfs.io/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi">Open</a>'

@@ -6,6 +6,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import link_analysis  # noqa: E402
 from email_structure import analyze_raw_email  # noqa: E402
 
 AUTH = ('Authentication-Results: mx.google.com;\r\n'
@@ -67,8 +68,8 @@ class BareUrlTrimTests(unittest.TestCase):
         self.assertNotIn('link.malformed_target', [finding.get('code') for finding in findings])
 
     def test_bracketed_ipv6_hosts_keep_their_brackets(self):
-        self.assertEqual(app._trim_bare_url('http://[2001:db8::1]/login.'), 'http://[2001:db8::1]/login')
-        self.assertEqual(app._trim_bare_url('http://[2001:db8::1]'), 'http://[2001:db8::1]')
+        self.assertEqual(link_analysis._trim_bare_url('http://[2001:db8::1]/login.'), 'http://[2001:db8::1]/login')
+        self.assertEqual(link_analysis._trim_bare_url('http://[2001:db8::1]'), 'http://[2001:db8::1]')
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 from email_structure import analyze_raw_email  # noqa: E402
 
 SCAM = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
@@ -34,10 +35,10 @@ def message(sender, name, subject, body, *, auth=None, content_type='text/plain'
 
 class RenderingReviewTests(unittest.TestCase):
     def test_a_comment_opener_inside_a_css_string_does_not_hide_the_following_rule(self):
-        found = app._stylesheet_cascade('.decoration::before{content:"/*"} .padding{display:none}',
+        found = html_visibility._stylesheet_cascade('.decoration::before{content:"/*"} .padding{display:none}',
                                         '<p class="decoration">d</p><div class="padding">p</div>')
         self.assertEqual([pattern['key'] for pattern in found['patterns']], ['*.padding'])
-        self.assertIsNone(app._stylesheet_cascade('.a{content:"unclosed} .padding{display:none}',
+        self.assertIsNone(html_visibility._stylesheet_cascade('.a{content:"unclosed} .padding{display:none}',
                                                   '<div class="padding">p</div>'))
         result = analyze('Invoice problem - call support',
                          '<style>.decoration::before{content:"/*"} .padding{display:none}</style>'
@@ -48,7 +49,7 @@ class RenderingReviewTests(unittest.TestCase):
         html = ('<style>@media (max-width:600px){.padding{display:none}} @media (min-width:601px){.attack{display:none}}'
                 f'</style><p>Please review the project notes.</p><p class="attack">{SCAM}</p>'
                 f'<div class="padding">{PADDING}</div>')
-        found = app._stylesheet_cascade(html[7:html.index('</style>')], html)
+        found = html_visibility._stylesheet_cascade(html[7:html.index('</style>')], html)
         # Neither, each, and both conditions.
         self.assertEqual(len(found['views']), 4)
         # The narrow-screen view shows the scam without the padding.
@@ -57,7 +58,7 @@ class RenderingReviewTests(unittest.TestCase):
     def test_too_many_rendering_contexts_are_not_modelled(self):
         css = ' '.join(f'@media (min-width:{width}px){{.c{width}{{display:none}}}}' for width in range(100, 1000, 100))
         html = ''.join(f'<p class="c{width}">x</p>' for width in range(100, 1000, 100))
-        self.assertIsNone(app._stylesheet_cascade(css, html))
+        self.assertIsNone(html_visibility._stylesheet_cascade(css, html))
 
 
 class SenderReviewTests(unittest.TestCase):

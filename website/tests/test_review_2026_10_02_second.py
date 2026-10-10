@@ -17,6 +17,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 import domain_age  # noqa: E402
 import email_structure as es  # noqa: E402
@@ -63,12 +64,12 @@ class GradientGrammarTests(unittest.TestCase):
     def test_backgrounds_browsers_reject(self):
         for value in self.REJECTED:
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
+                self.assertFalse(html_visibility._background_valid(value))
 
     def test_backgrounds_browsers_accept(self):
         for value in self.ACCEPTED:
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
 
     def test_rejected_gradients_leave_the_text_visible(self):
         for value in self.REJECTED[:7]:
@@ -109,11 +110,11 @@ class BackgroundClipTests(unittest.TestCase):
                 self.assertIn('content.callback_request', hidden_codes(result))
 
     def test_clip_values(self):
-        self.assertEqual(app._background_clip('text'), 'all')
-        self.assertEqual(app._background_clip('border-box, text'), 'some')
-        self.assertEqual(app._background_clip('black'), 'none')
-        self.assertFalse(app._background_clip_valid('text text'))
-        self.assertTrue(app._background_clip_valid('padding-box, text'))
+        self.assertEqual(html_visibility._background_clip('text'), 'all')
+        self.assertEqual(html_visibility._background_clip('border-box, text'), 'some')
+        self.assertEqual(html_visibility._background_clip('black'), 'none')
+        self.assertFalse(html_visibility._background_clip_valid('text text'))
+        self.assertTrue(html_visibility._background_clip_valid('padding-box, text'))
 
 
 class RdapAdmissionTests(unittest.TestCase):

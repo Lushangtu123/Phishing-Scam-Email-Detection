@@ -11,6 +11,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 
 def readings(html):
@@ -21,7 +22,7 @@ def readings(html):
 
 def cascade(html):
     """The stylesheet cascade of an HTML document."""
-    return app._stylesheet_cascade(''.join(re.findall(r'<style>(.*?)</style>', html, re.S)), html)
+    return html_visibility._stylesheet_cascade(''.join(re.findall(r'<style>(.*?)</style>', html, re.S)), html)
 
 
 def stand_in_model(flagged):
@@ -72,7 +73,7 @@ class StylesheetCascadeTests(unittest.TestCase):
     def test_unmodelled_stylesheets(self):
         for css in ('.a { display:none; .b { color:red } }', '@page{display:none}', '.\\31 x{display:none}'):
             with self.subTest(css=css):
-                self.assertIsNone(app._stylesheet_cascade(css, '<p class="a">x</p>'))
+                self.assertIsNone(html_visibility._stylesheet_cascade(css, '<p class="a">x</p>'))
 
     def test_statement_at_rules_end_at_their_semicolon(self):
         # @import (a web font, usually) and @charset are no part of the next rule's selector.

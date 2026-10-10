@@ -14,6 +14,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 from hidden_findings import hidden_codes, shown_codes  # noqa: E402
 
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
@@ -47,7 +48,7 @@ class CustomPropertyCaseTests(CallbackTestCase):
 
     def test_var_reads_the_name_as_written(self):
         self.assert_callback(salted(css='.pad{--ZERO:0px;font-size:var(--ZERO,16px)}'))
-        self.assertEqual(app._style_values('font-size:VAR(--Zero, 16PX)')['font-size'][0], 'var(--Zero, 16px)')
+        self.assertEqual(html_visibility._style_values('font-size:VAR(--Zero, 16PX)')['font-size'][0], 'var(--Zero, 16px)')
 
     def test_names_differing_in_case_are_different_properties(self):
         self.assert_callback(salted(css='.pad{--size:16px;--SIZE:0px;font-size:var(--SIZE)}'))
@@ -73,11 +74,11 @@ class InvalidBackgroundTests(CallbackTestCase):
         for value in ('black', '#fff url(x.png) no-repeat center / cover', 'url(a.png), url(b.png) red', 'none',
                       'linear-gradient(white, white)', 'inherit', 'var(--bg)', 'red url(x) 10px 20px'):
             with self.subTest(value=value):
-                self.assertTrue(app._background_valid(value))
+                self.assertTrue(html_visibility._background_valid(value))
         for value in ('banana black', 'garbage black', 'black white', 'url(x) banana', 'red, url(x)'):
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
-        self.assertFalse(app._background_valid('red', 'background-image'))
+                self.assertFalse(html_visibility._background_valid(value))
+        self.assertFalse(html_visibility._background_valid('red', 'background-image'))
 
 
 class TranslucentBackgroundTests(CallbackTestCase):
@@ -86,7 +87,7 @@ class TranslucentBackgroundTests(CallbackTestCase):
     def test_translucent_white_over_red_is_pink(self):
         self.assert_callback(salted(' style="color:#ff8080;background:rgba(255,255,255,.5)"',
                                     around=('<div style="background:red">', '</div>')))
-        self.assertTrue(app._colours_may_match({'#ff8080'}, {'rgba(255,255,255,.5)'}))
+        self.assertTrue(html_visibility._colours_may_match({'#ff8080'}, {'rgba(255,255,255,.5)'}))
 
 
 class MailboxLureLabelTests(unittest.TestCase):

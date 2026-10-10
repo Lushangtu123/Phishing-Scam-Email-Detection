@@ -17,6 +17,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import html_visibility  # noqa: E402
 
 CALLBACK = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
             'call 1-888-555-0199 immediately.')
@@ -42,22 +43,22 @@ class ColourWordTests(unittest.TestCase):
     def test_no_colours(self):
         for word in ('(min(atan2(0px, 3rem))/ 3grad)', '12.5grad-calc(banana - 1x)', 'calc(1px)', 'foo(bar)'):
             with self.subTest(word=word):
-                self.assertEqual(app._color_class(word), 'invalid')
+                self.assertEqual(html_visibility._color_class(word), 'invalid')
 
     def test_colours_this_reader_cannot_compute(self):
         for word in ('color-mix(in srgb, white, white)', 'light-dark(white, black)', 'rgb(calc(255) 0 0)',
                      'rgb(from red r g b)', 'var(--x)'):
             with self.subTest(word=word):
-                self.assertEqual(app._color_class(word), 'unresolved')
+                self.assertEqual(html_visibility._color_class(word), 'unresolved')
 
     def test_uncertain_backgrounds(self):
         for value in ('-moz-linear-gradient(top, black, black) text', 'linear-gradient(black, color-mix(in srgb, white, white))',
                       'color-mix(in srgb, black, black)', 'image-set(url(a.png) 1x) text'):
             with self.subTest(value=value):
-                self.assertTrue(app._background_uncertain(value))
+                self.assertTrue(html_visibility._background_uncertain(value))
         for value in ('linear-gradient(black, black) text', 'url(a.png) text', 'black'):
             with self.subTest(value=value):
-                self.assertFalse(app._background_uncertain(value))
+                self.assertFalse(html_visibility._background_uncertain(value))
 
 
 class CascadeTests(unittest.TestCase):
@@ -67,7 +68,7 @@ class CascadeTests(unittest.TestCase):
     def test_recheck_values(self):
         for value in RECHECK:
             with self.subTest(value=value):
-                self.assertFalse(app._background_valid(value))
+                self.assertFalse(html_visibility._background_valid(value))
                 self.assertTrue(callback_shown(SCENARIOS[0].format(value)))
 
     def test_dropped_values_through_the_cascade(self):

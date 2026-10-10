@@ -13,6 +13,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import http_policy  # noqa: E402
 from config import load_settings  # noqa: E402
 
 PARCEL = ('USPS: Your package could not be delivered due to an incomplete address. '
@@ -74,7 +75,7 @@ class SmsEndpointTests(unittest.TestCase):
         self.assertIn('link.recently_registered', [item['code'] for item in body['extra_indicators']])
 
     def test_rate_and_size_limits_cover_the_endpoint(self):
-        self.assertIn('/api/analyze-sms', app._RATE_LIMIT_PATHS)
+        self.assertIn('/api/analyze-sms', http_policy._RATE_LIMIT_PATHS)
 
 
 if __name__ == '__main__':
