@@ -2121,7 +2121,7 @@ Committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`; alerts / undetermined 
 
 - **No change, signal by signal.** None of these messages comes from or names the 15
   organizations, and neither does any of the owner's 87 exported Gmail messages. The effect is
-  on mail that does; `test_registry_additions_2026_10_06.py` shows it on constructed messages.
+  on mail that does; `test_registry_additions.py` shows it on constructed messages.
 - Nazario 2015–22 and 2025 were not on this computer, so the usual 3,466-message cohort was not
   run.
 
