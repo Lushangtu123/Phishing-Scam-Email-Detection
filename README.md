@@ -7,8 +7,9 @@
 PhishGuard is a FastAPI web application that screens an email for phishing and explains
 every finding. It reads a sender address, a pasted subject and body, an original `.eml`
 file, or a screenshot (its text and QR codes are read in the browser), and returns a
-verdict together with the rule, link, sender and structure evidence behind it. Scores are
-explainable heuristics, not calibrated probabilities.
+verdict together with the rule, link, sender and structure evidence behind it. A test
+mode also checks a pasted text message (SMS or iMessage). Scores are explainable
+heuristics, not calibrated probabilities.
 
 ## What it checks
 
@@ -24,6 +25,10 @@ explainable heuristics, not calibrated probabilities.
   from a digest-pinned artifact and fused conservatively with the evidence above.
 - **Domain checks:** MX, SPF, DMARC, PTR, WHOIS and RDAP; SMTP probing only when run
   locally.
+- **Text messages (test mode, `SMS_ANALYSIS_ENABLED`):** what kind of number or name sent
+  the text, the organisation it claims to be, its links, and English and Chinese scam
+  wording (parcel, fine, refund, account, loan, gambling and "new number" lures). Rules
+  only: the text model was trained on email.
 
 Details: [detection design](docs/detection-design.md) and [API](docs/api.md).
 
@@ -88,6 +93,11 @@ Measured with the full serving pipeline on 2026-10-04 and 10-05, before this bra
   rendering can still be misread.
 - Remote images, image meaning beyond in-browser OCR and QR, and attachment malware are
   outside its scope.
+- The text-message mode is a test. It meets its launch gate on genuine texts and US scams,
+  but not yet on Chinese scams (64.9% at Medium or above on a sealed public half, against
+  70%); see its [design and launch status](docs/superpowers/specs/2026-10-08-sms-scam-detection-design.md#launch-status).
+  A text's sender cannot be verified, so a text with no finding reads "No Known Scam Signs
+  Found", never Safe.
 
 ## Quick start
 
@@ -126,6 +136,7 @@ Phishing-Scam-Email-Detection/
 │   ├── email_structure.py      # RFC 5322/MIME, authentication results, official senders,
 │   │                           #   PDF and Word attachment text
 │   ├── sender_features.py      # sender-address features and domain registries
+│   ├── sms_analysis.py         # text messages: sender kind, claimed organisation, SMS rules
 │   ├── content_model.py        # offline text-model training and evaluation
 │   ├── content_inference.py    # digest-verified model loading and scoring
 │   ├── language_coverage.py    # script coverage (Han text)

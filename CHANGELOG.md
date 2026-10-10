@@ -20,6 +20,19 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-09 22:10 PT] — Document the text-message mode
+
+### Why
+- The SMS mode has run in production as a test since 2026-10-08, but the README, the API overview and the deployment settings did not mention it.
+
+### Files changed
+- `README.md` — the mode in the introduction, "What it checks", "Limitations" (gate status: Chinese scams 64.9% against 70%) and the project structure (`sms_analysis.py`).
+- `docs/api.md` — `POST /api/analyze-sms`: request bounds, the 404 when off, the response fields (`sender_kind`, `claimed_brand`, `official_channels`, `domain_registrations`), the `unknown` level and SMS feedback.
+- `docs/deployment.md` — `SMS_ANALYSIS_ENABLED` in the settings table.
+
+### Effect
+- Documentation only; no behaviour changes.
+
 ## [2026-10-09 14:50 PT] — CI pulls Redis from Amazon ECR Public
 
 ### Why

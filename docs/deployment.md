@@ -14,6 +14,7 @@
 | `CONTENT_MODEL_ENABLED` | `false` | Loads a verified offline email-text artifact |
 | `CONTENT_MODEL_ARTIFACT` | empty | Path to the trusted artifact created by `prebuild_demo_model.py` |
 | `CONTENT_MODEL_ARTIFACT_SHA256` | empty | Required SHA-256 digest for the configured artifact |
+| `SMS_ANALYSIS_ENABLED` | `false` | Shows the text-message tab and serves `/api/analyze-sms` (a test in production until its launch gate passes) |
 | `LOCAL_LLM_REVIEW_ENABLED` | `false` | Development only: a language model on this computer reviews alerts that rest on the text model alone |
 | `LOCAL_LLM_REVIEW_URL` | `http://127.0.0.1:11434` | Ollama's address: `http` on a loopback host only, and refused in the production and demo profiles |
 | `LOCAL_LLM_REVIEW_MODEL` | empty | Required with the review: a model name as `ollama list` shows it |
