@@ -2062,21 +2062,6 @@ async def _add_sender_evidence(result: dict, structure: dict, observe_sender_his
             result["risk_floor"] = sender_floor
 
 
-def _apply_structure_verdict(result: dict) -> None:
-    """The level once structure, attachment and sender evidence is in. Unlike
-    _content_verdict, a Medium floor holds at any score, and the level is never lowered."""
-    if result["total_score"] > 15:
-        result["risk_level"], result["risk_label"] = "critical", "Critical Risk — Very Likely Phishing"
-    elif result["risk_floor"] == "high":
-        result["risk_level"], result["risk_label"] = "high", "High Risk — Likely Phishing"
-    elif result["risk_floor"] == "medium":
-        result["risk_level"], result["risk_label"] = "medium", "Medium Risk — Suspicious Content"
-    elif result["total_score"] > 8:
-        result["risk_level"], result["risk_label"] = "high", "High Risk — Likely Phishing"
-    elif result["total_score"] > 3:
-        result["risk_level"], result["risk_label"] = "medium", "Medium Risk — Suspicious Content"
-
-
 def _add_nested_coverage(result: dict, nested_result: dict, key: str) -> None:
     coverage = result[key]
     coverage['count'] = min(20, coverage['count'] + nested_result[key]['count'])
@@ -2334,7 +2319,6 @@ async def _analyze_content(
         _add_attachment_links(result, structure)
         _add_attachment_text(result, structure)
         await _add_sender_evidence(result, structure, observe_sender_history)
-        _apply_structure_verdict(result)
         remote_image_dominant = await _merge_nested_messages(result, structure) or remote_image_dominant
     _ensure_image_warnings(result)
 

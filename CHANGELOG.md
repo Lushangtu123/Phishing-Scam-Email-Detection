@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 15:00 PT] — Remove the structure verdict, which no response used
+
+### Why
+- `_analyze_content` set a level with `_apply_structure_verdict` after the structure, attachment and sender evidence (a Medium floor at any score), unlike `_content_verdict` (Medium only up to a score of 8). The question was whether that difference was intended. It never mattered: `fuse_content_risk` sets `risk_level` and `risk_label` on every response afterwards, and nothing in between reads them.
+- Replaying the 3,780 captured `_analyze_content` inputs and corpus messages with both ladders replaced by a constant left every response identical, with the text model off and on.
+
+### Files changed
+- `website/app.py` — `_apply_structure_verdict` and its call removed. `_content_verdict` stays: `analyze_email_content` returns its level to direct callers and tests.
+
+### Effect
+- No behaviour change: the golden replay of 7,321 inputs is identical with the model off, on and with stubbed RDAP dates, and so are the 124 `analyze_sms` outputs. Backend unittest 1284 tests OK; frontend 524 pass.
+
 ## [2026-10-10 14:40 PT] — Move the content rules out of app.py
 
 ### Why
