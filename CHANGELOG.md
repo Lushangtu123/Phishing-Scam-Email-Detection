@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 13:14 PT] — Split analyze_email_content, part 1: reading the parts
+
+### Why
+- `analyze_email_content` (460 lines) and `_analyze_content` (390 lines) are where detection changes are hardest. The owner chose to break them into named steps, behaviour unchanged, over four PRs. This is the first.
+- Each part's reading was a 12-element tuple read back by position (`parsed[7:10]`, `parsed[11]`).
+
+### Files changed
+- `website/app.py` — new `_PartReading` (a NamedTuple naming those 12 fields), `_plain_part`, `_read_html_part` (was the nested `visible_html`), `_read_parts`, `_build_model_views` (the MIME-alternative view enumeration) and `_image_coverage`. `analyze_email_content` calls them and goes from 460 to 314 lines. All stay in `app.py`, so patches on `app` still apply.
+
+### Effect
+- No behaviour change. A local golden comparison replays 7,321 inputs through `main` and this branch: every `analyze_email_content` and `_analyze_content` call the test suite makes (1,734 and 1,506), 474 synthetic variants for branches those miss (attachment shorteners, structure score thresholds, attached messages with unresolved images, more MIME alternatives than the view budget, a small link-label budget), and 300 messages from each of six public corpora. Outputs are identical with the text model off, on, and with stubbed RDAP dates; together these runs reach every statement of both functions. Planting two bugs in the new helpers changes 71 outputs. Backend unittest 1284 tests OK.
+
 ## [2026-10-10 12:27 PT] — Move stateless HTTP policy out of app.py
 
 ### Why

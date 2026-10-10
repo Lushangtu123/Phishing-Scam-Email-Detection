@@ -43,7 +43,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
@@ -2468,179 +2468,214 @@ def _text_rule_findings(full_orig: str) -> dict:
             "presentation": presentation, "floor": floor, "requests": requests, "style": style, "wording": wording}
 
 
-def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
-                          _model_view: dict | None = None, sender: str = '', recipients=()) -> dict:
-    """Rule-based heuristic phishing analysis of email subject + body text."""
-    analysis_warnings = []
+class _PartReading(NamedTuple):
+    """What one part of a message shows: plain text as it is, HTML as the HTML/CSS reader reads it."""
+    visible: str
+    # A stylesheet or inline style may hide text the reader cannot place.
+    stylesheet_uncertain: bool
+    # The model cannot score this part's rendering, and no rendering views resolved it.
+    model_uncertain: bool
+    # The rendering views the model scores, where the views resolved the uncertainty.
+    readings: dict
+    # Text that only box geometry may hide was scored before views existed.
+    resolved: bool
+    # The text no style can hide, and the text each rendering view shows, for the rules.
+    certain: str | None
+    rules_media: list
+    # The same with images off: linked images show their alt text in place.
+    images_off: str | None
+    certain_off: str | None
+    rules_media_off: list
+    # Each reading's link labels, as far as the views followed them.
+    link_labels: dict | None
+    # All the text, hidden or not, where styles may hide some of it.
+    all_text: str | None
 
+
+def _plain_part(text: str) -> _PartReading:
+    return _PartReading(text, False, False, {}, False, None, [], None, None, [], None, None)
+
+
+def _read_html_part(part: str, analysis_warnings: list) -> tuple[_PartReading, bool, int]:
+    """One HTML part as read; whether it hides a large block beside a linked image (hidden
+    image padding); and how many letters it writes in their background's colour."""
+    part_warnings = []
+    stats = {}
+    readings = {}
+    visible = _visible_content_text(part, part_warnings, structure_stats=stats, readings=readings)
+    same_colour_letters = readings.get('same_colour_letters', 0)
+    # Require a large explicitly concealed block and an actionable image in
+    # this same HTML document. Short preheaders and text-rich mail do not qualify.
+    hidden_image_padding = (
+        stats['hidden_characters'] >= 500
+        and stats['visible_characters'] < _REMOTE_IMAGE_MIN_VISIBLE_CHARS
+        and stats['hidden_characters'] >= 10 * max(stats['visible_characters'], 1)
+        and stats['linked_visible_images'] > 0
+        and not any(warning in part_warnings for warning in (
+            _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
+            _MSO_CONDITIONAL_WARNING, _POSSIBLY_INVISIBLE_WARNING))
+        and not any('malformed' in warning.lower() or 'recovery' in warning.lower()
+                    for warning in part_warnings))
+    analysis_warnings.extend(part_warnings)
+    stylesheet_uncertain = any(warning in part_warnings for warning in (
+        _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
+    ))
+    # With every uncertain element located, the model can score each plausible
+    # rendering instead of abstaining (see _agreeing_model_views).
+    earlier_uncertain = stylesheet_uncertain or any(warning in part_warnings for warning in (
+        _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
+    ))
+    model_uncertain = earlier_uncertain or _POSSIBLY_INVISIBLE_WARNING in part_warnings
+    resolved = bool(readings.get('resolved'))
+    reading = _PartReading(
+        visible=visible,
+        stylesheet_uncertain=stylesheet_uncertain,
+        model_uncertain=model_uncertain and not resolved,
+        readings={key: value for key, value in readings.items()
+                  if isinstance(value, str) and key not in {'certain', 'certain_off', 'all_text'}} if resolved else {},
+        resolved=earlier_uncertain and resolved,
+        certain=readings.get('certain'),
+        rules_media=readings.get('rules_media') or [],
+        images_off=readings.get('images_off'),
+        certain_off=readings.get('certain_off'),
+        rules_media_off=readings.get('rules_media_off') or [],
+        link_labels={key: readings[key] for key in ('certain_links', 'rules_media_links', 'certain_links_off',
+                                                    'rules_media_links_off', 'links_complete') if key in readings}
+        if 'certain_links' in readings else None,
+        all_text=readings.get('all_text'))
+    return reading, hidden_image_padding, same_colour_letters
+
+
+def _read_parts(subject: str, body: str, content_parts: list[dict] | None, analysis_warnings: list):
+    """The subject and each part: their original text, which are HTML, how each reads, and
+    for each HTML part its hidden image padding and same-colour letter count."""
     hidden_image_padding = []
     same_colour_letters = []
 
-    def visible_html(part):
-        part_warnings = []
-        stats = {}
-        readings = {}
-        visible = _visible_content_text(part, part_warnings, structure_stats=stats, readings=readings)
-        same_colour_letters.append(readings.get('same_colour_letters', 0))
-        # Require a large explicitly concealed block and an actionable image in
-        # this same HTML document. Short preheaders and text-rich mail do not qualify.
-        hidden_image_padding.append(
-            stats['hidden_characters'] >= 500
-            and stats['visible_characters'] < _REMOTE_IMAGE_MIN_VISIBLE_CHARS
-            and stats['hidden_characters'] >= 10 * max(stats['visible_characters'], 1)
-            and stats['linked_visible_images'] > 0
-            and not any(warning in part_warnings for warning in (
-                _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
-                _MSO_CONDITIONAL_WARNING, _POSSIBLY_INVISIBLE_WARNING))
-            and not any('malformed' in warning.lower() or 'recovery' in warning.lower()
-                        for warning in part_warnings))
-        analysis_warnings.extend(part_warnings)
-        stylesheet_uncertain = any(warning in part_warnings for warning in (
-            _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
-        ))
-        # With every uncertain element located, the model can score each plausible
-        # rendering instead of abstaining (see _agreeing_model_views).
-        earlier_uncertain = stylesheet_uncertain or any(warning in part_warnings for warning in (
-            _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING,
-        ))
-        model_uncertain = earlier_uncertain or _POSSIBLY_INVISIBLE_WARNING in part_warnings
-        resolved = bool(readings.get('resolved'))
-        return (visible, stylesheet_uncertain, model_uncertain and not resolved,
-                {key: value for key, value in readings.items()
-                 if isinstance(value, str) and key not in {'certain', 'certain_off', 'all_text'}} if resolved else {},
-                # Text that only box geometry may hide was scored before views existed.
-                earlier_uncertain and resolved, readings.get('certain'), readings.get('rules_media') or [],
-                readings.get('images_off'), readings.get('certain_off'), readings.get('rules_media_off') or [],
-                # Each reading's link labels, as far as the views followed them.
-                {key: readings[key] for key in ('certain_links', 'rules_media_links', 'certain_links_off',
-                                                'rules_media_links_off', 'links_complete') if key in readings}
-                if 'certain_links' in readings else None,
-                # All the text, hidden or not, where styles may hide some of it.
-                readings.get('all_text'))
+    def read_html(part):
+        reading, padding, letters = _read_html_part(part, analysis_warnings)
+        hidden_image_padding.append(padding)
+        same_colour_letters.append(letters)
+        return reading
 
     if content_parts is None:
         raw_parts = [subject, body]
         html_parts = [False, True]
-        parsed_parts = [(subject, False, False, {}, False, None, [], None, None, [], None, None), visible_html(body)]
-        visible_parts = [parsed[0] for parsed in parsed_parts]
-        stylesheet_uncertain_parts = [parsed[1] for parsed in parsed_parts]
-        model_uncertain_parts = [parsed[2] for parsed in parsed_parts]
-        reading_parts = [parsed[3] for parsed in parsed_parts]
-        resolved_parts = [parsed[4] for parsed in parsed_parts]
-        certain_parts = [parsed[5] for parsed in parsed_parts]
-        media_parts = [parsed[6] for parsed in parsed_parts]
-        off_parts = [parsed[7:10] for parsed in parsed_parts]
-        view_links = [parsed[10] for parsed in parsed_parts]
-        all_texts = [parsed[11] for parsed in parsed_parts]
+        parts = [_plain_part(subject), read_html(body)]
     else:
         # Each MIME part is its own document. Plain text must not be interpreted
         # as markup, nor may an unclosed tag in one part hide another part.
         raw_parts = [subject] + [part['content'] for part in content_parts]
         html_parts = [False] + [part['content_type'] == 'text/html' for part in content_parts]
-        parsed_parts = [visible_html(part['content']) if part['content_type'] == 'text/html'
-                        else (part['content'], False, False, {}, False, None, [], None, None, [], None, None)
-                        for part in content_parts]
-        visible_parts = [subject] + [parsed[0] for parsed in parsed_parts]
-        stylesheet_uncertain_parts = [False] + [parsed[1] for parsed in parsed_parts]
-        model_uncertain_parts = [False] + [parsed[2] for parsed in parsed_parts]
-        reading_parts = [{}] + [parsed[3] for parsed in parsed_parts]
-        resolved_parts = [False] + [parsed[4] for parsed in parsed_parts]
-        certain_parts = [None] + [parsed[5] for parsed in parsed_parts]
-        media_parts = [[]] + [parsed[6] for parsed in parsed_parts]
-        off_parts = [(None, None, [])] + [parsed[7:10] for parsed in parsed_parts]
-        view_links = [None] + [parsed[10] for parsed in parsed_parts]
-        all_texts = [None] + [parsed[11] for parsed in parsed_parts]
-    raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
-    if _model_view is not None:
-        # The model and rule checks consume the same MIME-aware visible text.
-        def normalized(part):
-            return re.sub(r'\s+', ' ', _strip_invisible_format_controls(part)).strip()
-        model_parts = [normalized(part) for part in visible_parts]
-        reading_texts = [{key: normalized(text) for key, text in readings.items()} for readings in reading_parts]
-        reading_keys = sorted(set().union(*reading_texts))
+        parts = [_plain_part(subject)] + [read_html(part['content']) if part['content_type'] == 'text/html'
+                                          else _plain_part(part['content'])
+                                          for part in content_parts]
+    return raw_parts, html_parts, parts, hidden_image_padding, same_colour_letters
 
-        def view_readings(included):
-            views = {}
-            for key in reading_keys:
-                if any(key in texts for texts, use in zip(reading_texts[1:], included) if use):
-                    views[key] = '\n'.join(texts.get(key, model) for model, texts, use
-                                           in zip(model_parts[1:], reading_texts[1:], included) if use).strip()
-            return views
-        _model_view['subject'] = model_parts[0]
-        _model_view['body'] = '\n'.join(model_parts[1:]).strip()
-        _model_view['mime_views'] = [(_model_view['body'], any(model_uncertain_parts[1:]))]
-        _model_view['view_readings'] = {_model_view['body']: [view_readings([True] * (len(model_parts) - 1))]}
-        # Views the model could not score before rendering views existed.
-        _model_view['resolved_views'] = {_model_view['body']} if any(resolved_parts[1:]) else set()
-        if content_parts is not None:
-            choices = {}
-            for part in content_parts:
-                for path in part.get('alternative_paths', [()]):
-                    for group, branch in path:
-                        choices.setdefault(group, set()).add(branch)
-            if choices:
-                groups = sorted(choices)
-                views = {}
-                defaults = tuple(min(choices[group]) for group in groups)
-                combinations = 1
-                for group in groups:
-                    combinations *= len(choices[group])
-                    if combinations > _MAX_MIME_MODEL_VIEWS:
-                        _model_view['mime_alternatives_truncated'] = True
-                        break
-                # Cover a leaf from each branch before spending the remaining
-                # budget on Cartesian combinations. Nested decoys must not
-                # starve a later, shallower phishing alternative.
-                paths = {tuple(path) for part in content_parts
-                         for path in part.get('alternative_paths', [()])}
-                assignments = [defaults]
-                for path in sorted(paths, key=lambda item: (len(item), item)):
-                    selected = dict(zip(groups, defaults))
-                    selected.update(path)
-                    branches = tuple(selected[group] for group in groups)
-                    if branches not in assignments:
-                        assignments.append(branches)
-                    if len(assignments) == _MAX_MIME_MODEL_VIEWS:
-                        break
-                if len(assignments) < _MAX_MIME_MODEL_VIEWS:
-                    for branches in product(*(sorted(choices[group]) for group in groups)):
-                        if branches not in assignments:
-                            assignments.append(branches)
-                        if len(assignments) == _MAX_MIME_MODEL_VIEWS:
-                            break
-                readings_by_view = {}
-                earlier_uncertain = {}
-                for branches in assignments:
-                    selected = dict(zip(groups, branches))
-                    included = [
-                        any(all(selected[group] == branch for group, branch in path)
-                            for path in part.get('alternative_paths', [()]))
-                        for part in content_parts
-                    ]
-                    body_view = '\n'.join(text for text, use in zip(model_parts[1:], included)
-                                          if use).strip()
-                    uncertain = any(use and part_uncertain for use, part_uncertain
-                                    in zip(included, model_uncertain_parts[1:]))
-                    # Identical visible text is safe to score if any MIME path
-                    # reaches it without uncertain rendering.
-                    views[body_view] = views.get(body_view, True) and uncertain
-                    readings_by_view.setdefault(body_view, []).append(view_readings(included))
-                    # As above, but with resolved parts still counted as uncertain.
-                    earlier_uncertain[body_view] = earlier_uncertain.get(body_view, True) and any(
-                        use and (part_uncertain or part_resolved) for use, part_uncertain, part_resolved
-                        in zip(included, model_uncertain_parts[1:], resolved_parts[1:]))
-                _model_view['mime_views'] = list(views.items())
-                _model_view['view_readings'] = readings_by_view
-                _model_view['resolved_views'] = {body for body, uncertain in earlier_uncertain.items() if uncertain}
-    html_image_parts = [(part, visible) for part, visible, is_html
-                        in zip(raw_parts[1:], visible_parts[1:], html_parts[1:]) if is_html]
+
+def _build_model_views(model_view: dict, parts: list[_PartReading], content_parts: list[dict] | None) -> None:
+    """Fill model_view with what the model scores: the subject, the body, and the body as each
+    MIME alternative shows it, with its rendering views and whether its rendering is uncertain."""
+    model_uncertain_parts = [part.model_uncertain for part in parts]
+    resolved_parts = [part.resolved for part in parts]
+
+    # The model and rule checks consume the same MIME-aware visible text.
+    def normalized(part):
+        return re.sub(r'\s+', ' ', _strip_invisible_format_controls(part)).strip()
+    model_parts = [normalized(part.visible) for part in parts]
+    reading_texts = [{key: normalized(text) for key, text in part.readings.items()} for part in parts]
+    reading_keys = sorted(set().union(*reading_texts))
+
+    def view_readings(included):
+        views = {}
+        for key in reading_keys:
+            if any(key in texts for texts, use in zip(reading_texts[1:], included) if use):
+                views[key] = '\n'.join(texts.get(key, model) for model, texts, use
+                                       in zip(model_parts[1:], reading_texts[1:], included) if use).strip()
+        return views
+    model_view['subject'] = model_parts[0]
+    model_view['body'] = '\n'.join(model_parts[1:]).strip()
+    model_view['mime_views'] = [(model_view['body'], any(model_uncertain_parts[1:]))]
+    model_view['view_readings'] = {model_view['body']: [view_readings([True] * (len(model_parts) - 1))]}
+    # Views the model could not score before rendering views existed.
+    model_view['resolved_views'] = {model_view['body']} if any(resolved_parts[1:]) else set()
+    if content_parts is None:
+        return
+    choices = {}
+    for part in content_parts:
+        for path in part.get('alternative_paths', [()]):
+            for group, branch in path:
+                choices.setdefault(group, set()).add(branch)
+    if not choices:
+        return
+    groups = sorted(choices)
+    views = {}
+    defaults = tuple(min(choices[group]) for group in groups)
+    combinations = 1
+    for group in groups:
+        combinations *= len(choices[group])
+        if combinations > _MAX_MIME_MODEL_VIEWS:
+            model_view['mime_alternatives_truncated'] = True
+            break
+    # Cover a leaf from each branch before spending the remaining
+    # budget on Cartesian combinations. Nested decoys must not
+    # starve a later, shallower phishing alternative.
+    paths = {tuple(path) for part in content_parts
+             for path in part.get('alternative_paths', [()])}
+    assignments = [defaults]
+    for path in sorted(paths, key=lambda item: (len(item), item)):
+        selected = dict(zip(groups, defaults))
+        selected.update(path)
+        branches = tuple(selected[group] for group in groups)
+        if branches not in assignments:
+            assignments.append(branches)
+        if len(assignments) == _MAX_MIME_MODEL_VIEWS:
+            break
+    if len(assignments) < _MAX_MIME_MODEL_VIEWS:
+        for branches in product(*(sorted(choices[group]) for group in groups)):
+            if branches not in assignments:
+                assignments.append(branches)
+            if len(assignments) == _MAX_MIME_MODEL_VIEWS:
+                break
+    readings_by_view = {}
+    earlier_uncertain = {}
+    for branches in assignments:
+        selected = dict(zip(groups, branches))
+        included = [
+            any(all(selected[group] == branch for group, branch in path)
+                for path in part.get('alternative_paths', [()]))
+            for part in content_parts
+        ]
+        body_view = '\n'.join(text for text, use in zip(model_parts[1:], included)
+                              if use).strip()
+        uncertain = any(use and part_uncertain for use, part_uncertain
+                        in zip(included, model_uncertain_parts[1:]))
+        # Identical visible text is safe to score if any MIME path
+        # reaches it without uncertain rendering.
+        views[body_view] = views.get(body_view, True) and uncertain
+        readings_by_view.setdefault(body_view, []).append(view_readings(included))
+        # As above, but with resolved parts still counted as uncertain.
+        earlier_uncertain[body_view] = earlier_uncertain.get(body_view, True) and any(
+            use and (part_uncertain or part_resolved) for use, part_uncertain, part_resolved
+            in zip(included, model_uncertain_parts[1:], resolved_parts[1:]))
+    model_view['mime_views'] = list(views.items())
+    model_view['view_readings'] = readings_by_view
+    model_view['resolved_views'] = {body for body, uncertain in earlier_uncertain.items() if uncertain}
+
+
+def _image_coverage(raw_parts: list[str], parts: list[_PartReading], html_parts: list[bool],
+                    analysis_warnings: list, model_view: dict | None) -> tuple[int, int, int]:
+    """Inline, remote and unresolved image counts of the HTML parts (each at most 20), with their
+    warnings; model_view also learns whether a remote image is some part's main content."""
+    html_image_parts = [(part, reading.visible) for part, reading, is_html
+                        in zip(raw_parts[1:], parts[1:], html_parts[1:]) if is_html]
     image_counts = [_image_reference_counts(part, analysis_warnings)
                     for part, _visible in html_image_parts]
     image_count = min(20, sum(counts[0] for counts in image_counts))
     remote_image_count = min(20, sum(counts[1] for counts in image_counts))
     unresolved_image_count = min(20, sum(counts[2] for counts in image_counts))
-    if _model_view is not None:
-        _model_view['remote_image_dominant'] = any(
+    if model_view is not None:
+        model_view['remote_image_dominant'] = any(
             counts[1] > 0 and sum(not char.isspace() for char in _strip_invisible_format_controls(visible))
             < _REMOTE_IMAGE_MIN_VISIBLE_CHARS
             for counts, (_part, visible) in zip(image_counts, html_image_parts)
@@ -2651,6 +2686,27 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         analysis_warnings.append(_REMOTE_IMAGE_WARNING)
     if unresolved_image_count:
         analysis_warnings.append(_UNRESOLVED_IMAGE_WARNING)
+    return image_count, remote_image_count, unresolved_image_count
+
+
+def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
+                          _model_view: dict | None = None, sender: str = '', recipients=()) -> dict:
+    """Rule-based heuristic phishing analysis of email subject + body text."""
+    analysis_warnings = []
+    raw_parts, html_parts, parts, hidden_image_padding, same_colour_letters = _read_parts(
+        subject, body, content_parts, analysis_warnings)
+    visible_parts = [part.visible for part in parts]
+    stylesheet_uncertain_parts = [part.stylesheet_uncertain for part in parts]
+    certain_parts = [part.certain for part in parts]
+    media_parts = [part.rules_media for part in parts]
+    off_parts = [(part.images_off, part.certain_off, part.rules_media_off) for part in parts]
+    view_links = [part.link_labels for part in parts]
+    all_texts = [part.all_text for part in parts]
+    raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
+    if _model_view is not None:
+        _build_model_views(_model_view, parts, content_parts)
+    image_count, remote_image_count, unresolved_image_count = _image_coverage(
+        raw_parts, parts, html_parts, analysis_warnings, _model_view)
     url_parts = [_mask_inline_data_payloads(part) if is_html else part
                  for part, is_html in zip(raw_parts, html_parts)]
     raw_text = '\n'.join(url_parts)
