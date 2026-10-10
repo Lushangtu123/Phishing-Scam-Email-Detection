@@ -20,6 +20,17 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 13:29 PT] — Split analyze_email_content, part 2: links, readings, lures and verdict
+
+### Why
+- Second of four PRs breaking `analyze_email_content` and `_analyze_content` into named steps, behaviour unchanged.
+
+### Files changed
+- `website/app.py` — new `_collect_links`, `_reading_links` (was a nested closure), `_rule_readings`, `_riskiest_rules`, `_lure_findings` (was a nested closure), `_hidden_text_findings`, `_content_verdict` and `_FLOOR_RANK`. `analyze_email_content` goes from 314 to 186 lines. The short scoring checks (shortener, password form, question marks, URL count and the like) stay inline, in order. All stay in `app.py`.
+
+### Effect
+- No behaviour change: the golden replay of 7,321 inputs against `main` is identical with the text model off, on, and with stubbed RDAP dates. Planting two bugs in the new helpers changes 328 outputs. Backend unittest 1284 tests OK.
+
 ## [2026-10-10 13:14 PT] — Split analyze_email_content, part 1: reading the parts
 
 ### Why
