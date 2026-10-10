@@ -190,7 +190,7 @@ def _check_case_auth_boundary(base_url: str, *, opener: Callable) -> None:
             raise RuntimeError(f"Case login boundary returned HTTP {exc.code}, expected 401") from None
 
 
-# Must equal VERSIONED_ASSET_CACHE_CONTROL in website/app.py (a test pins them).
+# Must equal VERSIONED_ASSET_CACHE_CONTROL in website/http_policy.py (a test pins them).
 VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
 COMPRESSED_ENCODINGS = frozenset({"br", "gzip", "zstd"})
 # Large text assets whose delivery is checked; each is referenced as ?v=N.

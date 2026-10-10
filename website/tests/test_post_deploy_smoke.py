@@ -440,7 +440,7 @@ class FrontendDeliveryTests(unittest.TestCase):
         self.assertEqual(set(result["versioned_cache_control"].values()), {"public, max-age=86400"})
 
     def test_cache_control_matches_the_app(self):
-        source = (WEBSITE_DIR / "app.py").read_text(encoding="utf-8")
+        source = (WEBSITE_DIR / "http_policy.py").read_text(encoding="utf-8")
         self.assertIn(f'VERSIONED_ASSET_CACHE_CONTROL = "{post_deploy_smoke.VERSIONED_ASSET_CACHE_CONTROL}"',
                       source)
 
