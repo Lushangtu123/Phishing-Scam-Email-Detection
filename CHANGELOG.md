@@ -29,6 +29,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - `website/content_rules.py` (new, 1,364 lines) — those definitions moved verbatim, with the three import-time statements that build them (merging the Chinese keywords into `CONTENT_RULES`, adding three patterns to `_SENSITIVE_REQUEST_EN`). It imports nothing from `app.py`.
 - `website/app.py` (3,996 → 2,684 lines) — imports back the 23 names its own code calls; drops 20 imports only the rules used.
 - 19 files in `website/tests/` and `website/tools/counterfactual_evidence.py` — use `content_rules.X` (and `html_visibility._AnalysisHTMLParser`, `email_structure.OFFICIAL_SERVICE_NUMBERS`) instead of reaching them through `app`. `evaluate_jev.py` keeps taking its helpers from `app`, which its test pins.
+- `website/static/i18n.test.mjs` — the check that the category labels match the backend reads `CONTENT_RULES` from `content_rules.py`.
 - `README.md` — project structure.
 
 ### Effect

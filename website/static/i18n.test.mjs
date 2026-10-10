@@ -333,7 +333,8 @@ test('localized server wording matches what the backend sends', () => {
     assert.equal(en[`feature.${name}.flag`], flag, name);
     assert.equal(en[`feature.${name}.ok`], ok, name);
   }
-  const rules = app.slice(app.indexOf('CONTENT_RULES: dict = {'));
+  const contentRules = readFileSync(new URL('../content_rules.py', import.meta.url), 'utf8');
+  const rules = contentRules.slice(contentRules.indexOf('CONTENT_RULES: dict = {'));
   for (const key of ['urgency', 'threats', 'financial', 'credential', 'impersonation', 'deception', 'attachments',
     'tech_scam', 'job_scam', 'social_engineering']) {
     const block = rules.slice(rules.indexOf(`    "${key}": {`));
