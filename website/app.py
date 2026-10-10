@@ -2689,31 +2689,16 @@ def _image_coverage(raw_parts: list[str], parts: list[_PartReading], html_parts:
     return image_count, remote_image_count, unresolved_image_count
 
 
-def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
-                          _model_view: dict | None = None, sender: str = '', recipients=()) -> dict:
-    """Rule-based heuristic phishing analysis of email subject + body text."""
-    analysis_warnings = []
-    raw_parts, html_parts, parts, hidden_image_padding, same_colour_letters = _read_parts(
-        subject, body, content_parts, analysis_warnings)
-    visible_parts = [part.visible for part in parts]
-    stylesheet_uncertain_parts = [part.stylesheet_uncertain for part in parts]
-    certain_parts = [part.certain for part in parts]
-    media_parts = [part.rules_media for part in parts]
-    off_parts = [(part.images_off, part.certain_off, part.rules_media_off) for part in parts]
-    view_links = [part.link_labels for part in parts]
-    all_texts = [part.all_text for part in parts]
-    raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
-    if _model_view is not None:
-        _build_model_views(_model_view, parts, content_parts)
-    image_count, remote_image_count, unresolved_image_count = _image_coverage(
-        raw_parts, parts, html_parts, analysis_warnings, _model_view)
-    url_parts = [_mask_inline_data_payloads(part) if is_html else part
-                 for part, is_html in zip(raw_parts, html_parts)]
-    raw_text = '\n'.join(url_parts)
+_FLOOR_RANK = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+
+
+def _collect_links(url_parts: list[str], parts: list[_PartReading], html_parts: list[bool],
+                   analysis_warnings: list) -> tuple[list, list]:
+    """The message's links, and per part its links with whether styles make its rendering
+    uncertain. Where they do, the message's links keep their destinations but lose labels."""
     links, part_links_by_part = [], []
-    for part, visible, is_html, stylesheet_uncertain, certain in zip(
-        url_parts, visible_parts, html_parts, stylesheet_uncertain_parts, certain_parts,
-    ):
+    for part, reading, is_html in zip(url_parts, parts, html_parts):
+        visible, stylesheet_uncertain = reading.visible, reading.stylesheet_uncertain
         part_links = _extract_links(
             part, parse_html=is_html, parse_warnings=analysis_warnings,
             visible_text=('' if stylesheet_uncertain else _strip_invisible_format_controls(visible))
@@ -2724,69 +2709,175 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         links.extend((('', destination) for _label, destination in part_links)
                      if is_html and stylesheet_uncertain else part_links)
         part_links_by_part.append((part_links, is_html and stylesheet_uncertain))
+    return links, part_links_by_part
 
-    def reading_links(parts, index=0, off=False):
-        """The links of one reading with their labels. Where a stylesheet makes the
-        rendering uncertain, each link's label is what that reading (index 0: the text no
-        style can hide; index n: rendering view n) shows of it, children a rule hides left
-        out; without views, a label counts if the reading's text shows it whole."""
-        found = []
-        for text, (part_links, uncertain), labels in zip(parts, part_links_by_part, view_links):
-            if not uncertain:
-                found.extend(part_links)
-            elif labels is not None:
-                certain = labels.get('certain_links_off' if off else 'certain_links') or []
-                media = labels.get('rules_media_links_off' if off else 'rules_media_links') or []
-                found.extend((label, destination) for label, destination
-                             in (media[index - 1] if 0 < index <= len(media) else certain) if label.strip())
-                if not labels.get('links_complete'):
-                    # Past the budget, the labels the reading's text shows whole are read too.
-                    shown = _han_compact(text or '')
-                    found.extend((label, destination) for label, destination in part_links
-                                 if label.strip() and _han_compact(label) in shown)
-            else:
+
+def _reading_links(texts: list, part_links_by_part: list, parts: list[_PartReading],
+                   index: int = 0, off: bool = False) -> list:
+    """The links of one reading with their labels. Where a stylesheet makes the
+    rendering uncertain, each link's label is what that reading (index 0: the text no
+    style can hide; index n: rendering view n) shows of it, children a rule hides left
+    out; without views, a label counts if the reading's text shows it whole."""
+    found = []
+    for text, (part_links, uncertain), labels in zip(texts, part_links_by_part,
+                                                     [part.link_labels for part in parts]):
+        if not uncertain:
+            found.extend(part_links)
+        elif labels is not None:
+            certain = labels.get('certain_links_off' if off else 'certain_links') or []
+            media = labels.get('rules_media_links_off' if off else 'rules_media_links') or []
+            found.extend((label, destination) for label, destination
+                         in (media[index - 1] if 0 < index <= len(media) else certain) if label.strip())
+            if not labels.get('links_complete'):
+                # Past the budget, the labels the reading's text shows whole are read too.
                 shown = _han_compact(text or '')
                 found.extend((label, destination) for label, destination in part_links
                              if label.strip() and _han_compact(label) in shown)
-        return found
+        else:
+            shown = _han_compact(text or '')
+            found.extend((label, destination) for label, destination in part_links
+                         if label.strip() and _han_compact(label) in shown)
+    return found
+
+
+def _rule_readings(parts: list[_PartReading]) -> tuple[list, list, list]:
+    """The text the rules score (per part), and every reading of the message the rules read:
+    with images shown, and with images off where some part's images have alt text."""
     # CSS may hide arbitrary body text. Do not derive high phishing scores from
     # prose that might be hidden; independent destination/form checks still run, and the
     # floor-setting request and lure rules read hidden text too, with a Medium floor (below).
     # Where every hiding rule's targets are known, the text no style can hide is scored,
     # and so is the text each @media context shows; the riskiest reading counts.
-    scored_parts = [visible if not uncertain else (certain or '') for visible, uncertain, certain
-                    in zip(visible_parts, stylesheet_uncertain_parts, certain_parts)]
+    scored_parts = [part.visible if not part.stylesheet_uncertain else (part.certain or '') for part in parts]
+    media_parts = [part.rules_media for part in parts]
     # Each rendering view of a part (its contexts, Outlook, undecidable text) is read too,
     # wherever views were computed: the riskiest plausible rendering counts.
     readings_for_rules = [scored_parts] + [
         [media[index] if index < len(media) else scored for scored, media in zip(scored_parts, media_parts)]
         for index in range(max((len(media) for media in media_parts), default=0))]
     readings_off = []
+    off_parts = [(part.images_off, part.certain_off, part.rules_media_off) for part in parts]
     if any(images_off is not None for images_off, _certain, _media in off_parts):
         # With images off, linked images show their alt text in place: the same readings,
         # each with that text where the image stands.
-        scored_off = [(certain_off if certain_off is not None else scored) if uncertain
+        scored_off = [(certain_off if certain_off is not None else scored) if part.stylesheet_uncertain
                       else (images_off if images_off is not None else scored)
-                      for scored, uncertain, (images_off, certain_off, _media)
-                      in zip(scored_parts, stylesheet_uncertain_parts, off_parts)]
+                      for scored, part, (images_off, certain_off, _media)
+                      in zip(scored_parts, parts, off_parts)]
         readings_off = [scored_off] + [
             [media[index] if index < len(media) else scored for scored, (_images, _certain, media) in zip(scored_off, off_parts)]
             for index in range(max((len(media) for _images, _certain, media in off_parts), default=0))]
+    return scored_parts, readings_for_rules, readings_off
+
+
+def _riskiest_rules(readings: list) -> dict:
+    """The rule findings of the riskiest reading: by floor, then by score."""
+    # Views often share their text; each distinct text is read once.
+    texts = dict.fromkeys(re.sub(r'\s+', ' ', '\n'.join(parts)).strip() for parts in readings)
+    return max((_text_rule_findings(text) for text in texts),
+               key=lambda found: (_FLOOR_RANK[found['floor']], found['score']))
+
+
+def _lure_findings(readings, links: list, sender_domain: str, display_name: str) -> list[dict]:
+    """The lures any of these (text, labelled links) readings shows, as indicators."""
+    mailbox_lure = user_content_action = False
+    file_share = delivery_host = fine_host = hold_host = None
+    for text, labelled_links in readings:
+        mailbox_lure = mailbox_lure or _mailbox_lure(text, labelled_links, sender_domain)
+        user_content_action = user_content_action or _user_content_action(labelled_links)
+        file_share = file_share or _file_share_elsewhere(text, display_name, labelled_links, sender_domain)
+        delivery_host = delivery_host or _delivery_lure(text, labelled_links, sender_domain)
+        # Labels do not matter here: every destination counts, as for the link checks.
+        fine_host = fine_host or _fine_lure(text, links, sender_domain)
+        hold_host = hold_host or _account_hold_link(text, links, sender_domain)
+    found = []
+    if mailbox_lure:
+        found.append(indicator('high', 'content.mailbox_lure'))
+    elif user_content_action:
+        found.append(indicator('high', 'link.user_content_action'))
+    if file_share:
+        found.append(indicator('high', 'link.file_share_elsewhere', service=file_share[0], host=file_share[1]))
+    if delivery_host:
+        found.append(indicator('high', 'content.delivery_lure', host=delivery_host))
+    if fine_host:
+        found.append(indicator('high', 'content.fine_lure', host=fine_host))
+    if hold_host:
+        found.append(indicator('medium', 'content.account_hold_lure', host=hold_host))
+    return found
+
+
+def _hidden_text_findings(scored_parts: list, parts: list[_PartReading], url_parts: list[str],
+                          part_links_by_part: list, listed: list[dict], links: list,
+                          sender_domain: str, display_name: str) -> list[dict]:
+    """Requests and lures found only once text that styles may hide is read too, and not
+    already listed. Empty unless some part's styles may hide text."""
+    # Text that styles may hide is read too, by the request and lure rules that set a floor
+    # (not by the keyword score or the model). A rendering judgement this reader gets wrong
+    # (an unusual gradient, calc() or colour; each of the eleven reviews from 2026-10-01 to
+    # 10-03 found one) must not clear a scam, and a hidden request for a code, password,
+    # payment or callback is a sign of one in itself. Whether the reader sees it stays
+    # undecided, so a finding only this reading makes is marked and sets a Medium floor,
+    # in _analyze_content after the model's renderings are chosen: it never lets the model
+    # score hidden text.
+    all_texts = [part.all_text for part in parts]
+    if not any(text is not None for text in all_texts):
+        return []
+    hidden_reading = _strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(
+        text if text is not None else scored for scored, text in zip(scored_parts, all_texts))).strip())
+    # Each link with all of its label, wherever styles may hide some text.
+    all_links = tuple(link for part, (part_links, _uncertain), text in zip(url_parts, part_links_by_part, all_texts)
+                      for link in (part_links if text is None else
+                                   _extract_links(part, visible_text=text, hidden_labels=True)))
+    listed_codes = {item.get('code') for item in listed}
+    return [item for item in (*_text_rule_findings(hidden_reading)['requests'],
+                              *_lure_findings([(hidden_reading, all_links)], links, sender_domain, display_name))
+            if item['code'] not in listed_codes]
+
+
+def _content_verdict(total_score: int, risk_floor: str) -> tuple[str, str]:
+    """The content level and label from the rule score and the floor its findings set."""
+    if total_score > 15:
+        return "critical", "Critical Risk — Very Likely Phishing"
+    elif risk_floor == "high":
+        return "high", "High Risk — Likely Phishing"
+    elif risk_floor == "medium" and total_score <= 8:
+        return "medium", "Medium Risk — Suspicious Content"
+    elif total_score == 0:
+        return "safe",     "No Phishing Indicators Found"
+    elif total_score <= 3:
+        return "low",      "Low Risk — Minor Concerns"
+    elif total_score <= 8:
+        return "medium",   "Medium Risk — Suspicious Content"
+    else:
+        return "high",     "High Risk — Likely Phishing"
+
+
+def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
+                          _model_view: dict | None = None, sender: str = '', recipients=()) -> dict:
+    """Rule-based heuristic phishing analysis of email subject + body text."""
+    analysis_warnings = []
+    raw_parts, html_parts, parts, hidden_image_padding, same_colour_letters = _read_parts(
+        subject, body, content_parts, analysis_warnings)
+    raw_parts = [_strip_invisible_format_controls(part) for part in raw_parts]
+    if _model_view is not None:
+        _build_model_views(_model_view, parts, content_parts)
+    image_count, remote_image_count, unresolved_image_count = _image_coverage(
+        raw_parts, parts, html_parts, analysis_warnings, _model_view)
+    url_parts = [_mask_inline_data_payloads(part) if is_html else part
+                 for part, is_html in zip(raw_parts, html_parts)]
+    raw_text = '\n'.join(url_parts)
+    links, part_links_by_part = _collect_links(url_parts, parts, html_parts, analysis_warnings)
+    scored_parts, readings_for_rules, readings_off = _rule_readings(parts)
     base_text = _strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(scored_parts)).strip())
     if _has_substantial_han_text(base_text):
         analysis_warnings.append(_HAN_TEXT_WARNING)
-    floor_rank = {'safe': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
-    def riskiest(readings):
-        # Views often share their text; each distinct text is read once.
-        texts = dict.fromkeys(re.sub(r'\s+', ' ', '\n'.join(parts)).strip() for parts in readings)
-        return max((_text_rule_findings(text) for text in texts),
-                   key=lambda found: (floor_rank[found['floor']], found['score']))
-    rules = riskiest(readings_for_rules)
+    floor_rank = _FLOOR_RANK
+    rules = _riskiest_rules(readings_for_rules)
     if readings_off:
         # Image fallback text counts when it holds a finding that sets a floor (a callback
         # or credential request), not for the keyword score: genuine mail labels its
         # button images "Verify your email".
-        rules_off = riskiest(readings_off)
+        rules_off = _riskiest_rules(readings_off)
         if floor_rank[rules_off['floor']] > floor_rank[rules['floor']]:
             rules = rules_off
     analysis_text = rules['analysis_text']
@@ -2830,66 +2921,23 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     sender_domain = parseaddr(sender)[1].rpartition('@')[2].lower()
     display_name = parseaddr(sender)[0]
     lure_readings = dict.fromkeys(
-        (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(parts)).strip()),
-         tuple(reading_links(parts, index, off)))
+        (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(texts)).strip()),
+         tuple(_reading_links(texts, part_links_by_part, parts, index, off)))
         for off, readings in ((False, readings_for_rules), (True, readings_off))
-        for index, parts in enumerate(readings))
+        for index, texts in enumerate(readings))
 
-    def lure_findings(readings):
-        """The lures any of these (text, labelled links) readings shows, as indicators."""
-        mailbox_lure = user_content_action = False
-        file_share = delivery_host = fine_host = hold_host = None
-        for text, labelled_links in readings:
-            mailbox_lure = mailbox_lure or _mailbox_lure(text, labelled_links, sender_domain)
-            user_content_action = user_content_action or _user_content_action(labelled_links)
-            file_share = file_share or _file_share_elsewhere(text, display_name, labelled_links, sender_domain)
-            delivery_host = delivery_host or _delivery_lure(text, labelled_links, sender_domain)
-            # Labels do not matter here: every destination counts, as for the link checks.
-            fine_host = fine_host or _fine_lure(text, links, sender_domain)
-            hold_host = hold_host or _account_hold_link(text, links, sender_domain)
-        found = []
-        if mailbox_lure:
-            found.append(indicator('high', 'content.mailbox_lure'))
-        elif user_content_action:
-            found.append(indicator('high', 'link.user_content_action'))
-        if file_share:
-            found.append(indicator('high', 'link.file_share_elsewhere', service=file_share[0], host=file_share[1]))
-        if delivery_host:
-            found.append(indicator('high', 'content.delivery_lure', host=delivery_host))
-        if fine_host:
-            found.append(indicator('high', 'content.fine_lure', host=fine_host))
-        if hold_host:
-            found.append(indicator('medium', 'content.account_hold_lure', host=hold_host))
-        return found
-
-    for item in lure_findings(lure_readings):
+    for item in _lure_findings(lure_readings, links, sender_domain, display_name):
         total_score += _lure_points(item)
         risk_floor = max((risk_floor, item['level']), key=floor_rank.get)
         extra_indicators.append(item)
 
-    # Text that styles may hide is read too, by the request and lure rules that set a floor
-    # (not by the keyword score or the model). A rendering judgement this reader gets wrong
-    # (an unusual gradient, calc() or colour; each of the eleven reviews from 2026-10-01 to
-    # 10-03 found one) must not clear a scam, and a hidden request for a code, password,
-    # payment or callback is a sign of one in itself. Whether the reader sees it stays
-    # undecided, so a finding only this reading makes is marked and sets a Medium floor,
-    # in _analyze_content after the model's renderings are chosen: it never lets the model
-    # score hidden text.
-    hidden_text_findings = 0
-    if any(text is not None for text in all_texts):
-        hidden_reading = _strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(
-            text if text is not None else scored for scored, text in zip(scored_parts, all_texts))).strip())
-        # Each link with all of its label, wherever styles may hide some text.
-        all_links = tuple(link for part, (part_links, _uncertain), text in zip(url_parts, part_links_by_part, all_texts)
-                          for link in (part_links if text is None else
-                                       _extract_links(part, visible_text=text, hidden_labels=True)))
-        listed = {item.get('code') for item in extra_indicators}
-        hidden_found = [item for item in (*_text_rule_findings(hidden_reading)['requests'],
-                                          *lure_findings([(hidden_reading, all_links)]))
-                        if item['code'] not in listed]
-        hidden_text_findings = len(hidden_found)
-        extra_indicators.extend({**wrap_message(item, 'prefix.hidden_text'), 'level': 'medium'}
-                                for item in hidden_found)
+    # Text that styles may hide: its requests and lures are marked and set a Medium floor
+    # in _analyze_content (see _hidden_text_findings).
+    hidden_found = _hidden_text_findings(scored_parts, parts, url_parts, part_links_by_part, extra_indicators,
+                                         links, sender_domain, display_name)
+    hidden_text_findings = len(hidden_found)
+    extra_indicators.extend({**wrap_message(item, 'prefix.hidden_text'), 'level': 'medium'}
+                            for item in hidden_found)
     prefilled_host = _recipient_prefilled_link(links, recipients, sender_domain)
     if prefilled_host:
         total_score += 3
@@ -2935,20 +2983,7 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         desc for (kw, desc) in CONTENT_SAFETY_SIGNALS if kw.lower() in full_lower
     ]
 
-    if total_score > 15:
-        risk_level, risk_label = "critical", "Critical Risk — Very Likely Phishing"
-    elif risk_floor == "high":
-        risk_level, risk_label = "high", "High Risk — Likely Phishing"
-    elif risk_floor == "medium" and total_score <= 8:
-        risk_level, risk_label = "medium", "Medium Risk — Suspicious Content"
-    elif total_score == 0:
-        risk_level, risk_label = "safe",     "No Phishing Indicators Found"
-    elif total_score <= 3:
-        risk_level, risk_label = "low",      "Low Risk — Minor Concerns"
-    elif total_score <= 8:
-        risk_level, risk_label = "medium",   "Medium Risk — Suspicious Content"
-    else:
-        risk_level, risk_label = "high",     "High Risk — Likely Phishing"
+    risk_level, risk_label = _content_verdict(total_score, risk_floor)
 
     extra_indicators.extend(warning_indicator(warning) for warning in analysis_warnings)
     return {
