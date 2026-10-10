@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 12:27 PT] — Move stateless HTTP policy out of app.py
+
+### Why
+- Third step of splitting `website/app.py`. The HTTP middleware and routes cannot move: they read and write `app` module state (`_rate_limit_buckets`, `_rate_limit_store` set by the lifespan, `RATE_LIMIT_PER_MINUTE`, `INDEX_PAGE`, `_not_found_page_body`) that tests patch on `app`. Only the stateless policy moves.
+
+### Files changed
+- `website/http_policy.py` (new, 184 lines) — 14 definitions moved verbatim: `_build_allowed_hosts`, `_RateLimitBucket`, `_RATE_LIMIT_PATHS`, `_rate_limit_key`, `_record_rate_limit_hit`, `SECURITY_HEADERS`, `WORKER_SCRIPT_PATHS`, `WORKER_CONTENT_SECURITY_POLICY`, `VERSIONED_ASSET_CACHE_CONTROL`, `_with_security_headers`, `_revalidated_file`, `_NOT_FOUND_JSON_PREFIXES`, `_NOT_FOUND_JSON_PATHS`, `_wants_not_found_page`.
+- `website/app.py` (4,047 → 3,893 lines) — imports them back; drops the now-unused `ipaddress` import. Middleware, routes, the lifespan and the shared state stay.
+- `website/tests/test_post_deploy_smoke.py`, `website/tools/post_deploy_smoke.py` — the test that pins the smoke tool's cache header to the app's constant reads `http_policy.py`; the tool's comment names it.
+- `README.md` — project structure.
+
+### Effect
+- No behaviour change: an AST comparison with `main` shows the 14 moved statements and the 221 remaining ones unchanged and in order. Backend unittest 1284 tests OK (10 Redis skips); `vercel_runtime_smoke.py` and `ruff` pass. Planting two bugs in `http_policy.py` fails 35 tests. Through the app: security headers, hash ETag and 304, the HTML and JSON 404s, the worker CSP, the versioned cache header and the per-minute 429 all behave as before.
+
 ## [2026-10-10 12:13 PT] — Move link analysis out of app.py
 
 ### Why
