@@ -3509,41 +3509,10 @@ def _ensure_image_warnings(result: dict) -> None:
             result['extra_indicators'].append(indicator('info', code))
 
 
-async def _analyze_content(
-    request: ContentRequest,
-    structure: dict | None = None,
-    *,
-    observe_sender_history: bool = True,
-    plain_text: bool = False,
-    allow_empty: bool = False,
-    raw_message: bool | None = None,
-):
-    subject, body, structure, raw_message = await _resolve_content_input(
-        request, structure, plain_text=plain_text, allow_empty=allow_empty, raw_message=raw_message)
-
-    # 1. Rule-based heuristic scan (explainable categories + extra indicators)
-    model_view = {}
-    result = await _run_analysis(analyze_email_content, subject, body, content_parts=(structure['content_parts'] if structure else
-                                       [{'content_type': 'text/plain', 'content': body}] if plain_text else None),
-                                   _model_view=model_view, sender=structure['from'] if structure else '',
-                                   recipients=[address for name in ('To', 'Cc') for value in
-                                               (structure['header_candidates'][name] if structure else ())
-                                               for _name, address in getaddresses([value]) if '@' in address])
-    if model_view.get('mime_alternatives_truncated'):
-        result['analysis_warnings'].append(_MIME_ALTERNATIVE_LIMIT_WARNING)
-    remote_image_dominant = model_view['remote_image_dominant']
-    result["input_mode"] = "raw-email" if structure else "subject-body"
-    result["structure_score"] = structure["structure_score"] if structure else 0
-    if structure:
-        _add_structure_evidence(result, structure)
-        _add_attachment_links(result, structure)
-        _add_attachment_text(result, structure)
-        await _add_sender_evidence(result, structure, observe_sender_history)
-        _apply_structure_verdict(result)
-        remote_image_dominant = await _merge_nested_messages(result, structure) or remote_image_dominant
-    _ensure_image_warnings(result)
-
-    # 2. Optional ML text classifier (TF-IDF + selected linear model)
+async def _apply_content_model(result: dict, model_view: dict):
+    """Score the views the rules could not rule out with the text model, when one is loaded.
+    Returns the model's probability and threshold for the fusion, whether the rendering is
+    still uncertain, and the rendering warnings that every scored view resolved."""
     rendering_uncertain = any(warning in result['analysis_warnings'] for warning in (
         _STYLESHEET_VISIBILITY_WARNING, _INLINE_CSS_VISIBILITY_WARNING,
         _IMAGE_ALT_FALLBACK_WARNING, _MSO_CONDITIONAL_WARNING, _POSSIBLY_INVISIBLE_WARNING,
@@ -3613,6 +3582,11 @@ async def _analyze_content(
         ml_threshold = float(_content_pipeline.get("decision_threshold", 0.5))
     else:
         ml_probability, ml_threshold = None, 0.5
+    return ml_probability, ml_threshold, rendering_uncertain, resolved_warnings
+
+
+def _fuse_content_result(result: dict, ml_probability, ml_threshold: float, raw_message: bool) -> None:
+    """The final level from the rule score and floor and the model's probability."""
     # A request or lure found only in text that styles may hide sets a Medium floor now that
     # the model's renderings are chosen without it (analyze_email_content).
     if result.pop("hidden_text_findings"):
@@ -3629,6 +3603,10 @@ async def _analyze_content(
     ))
     del result["presentation_score"]
 
+
+def _apply_verified_sender(result: dict, structure: dict | None, request: ContentRequest) -> dict | None:
+    """Keep a verified official sender's mail at Low unless strong evidence alerts, and list
+    where to verify independently. Returns the verified sender, if any."""
     # A verified official sender (trusted DMARC pass on the organization's own domain)
     # cannot be raised above Low by the text model or weak rules alone. Evidence that
     # sets a Medium or higher floor (links, attachments, requests for codes) still
@@ -3646,13 +3624,12 @@ async def _analyze_content(
             result['risk_level'] in {'medium', 'high'} or result.get('fusion_basis') == 'model_only'):
         result['risk_level'] = 'low'
         result['risk_label'] = 'Low Risk — Verified Official Sender'
+    return verified_sender
 
-    if structure and any(item['inspection_status'] == 'metadata_only'
-                         for item in structure['attachments']):
-        item = indicator('info', 'warning.attachments_uninspected')
-        result['analysis_warnings'].append(item['msg'])
-        result['extra_indicators'].append(item)
 
+async def _add_registration_dates(result: dict, structure: dict | None) -> list[str]:
+    """Registration dates of the sender's and links' domains (context only). Returns the link
+    hosts, which leave the result here."""
     # Registration dates of the sender's and the links' domains, from the registries'
     # RDAP servers where the deployment enables it. Context only: no points.
     link_hosts = result.get('link_hosts', [])
@@ -3662,12 +3639,12 @@ async def _analyze_content(
         result['domain_registrations'] = {domain: date.date().isoformat() if date else None
                                           for domain, date in dates.items()}
         result['extra_indicators'].extend(_registration_findings(candidates, dates))
+    return link_hosts
 
-    result['analysis_warnings'] = list(dict.fromkeys(result['analysis_warnings']
-        + (structure['parse_warnings'] if structure else [])))
-    result['analysis_complete'] = not bool(result['analysis_warnings'])
-    await _apply_local_review(result, model_view.get('subject', ''), model_view.get('body', ''), link_hosts)
-    _apply_requested_answer(result, request.requested)
+
+def _apply_abstention(result: dict, resolved_warnings: set, rendering_uncertain: bool,
+                      remote_image_dominant: bool, verified_sender: dict | None) -> None:
+    """Undetermined rather than Safe or Low where part of the message could not be read."""
     # Weak routing/text evidence cannot establish low risk when the main visible
     # content is an uninspected image, or when the model could not score the text
     # (e.g. Han script); a clean result already becomes unknown in that case.
@@ -3695,6 +3672,63 @@ async def _analyze_content(
             result['risk_level'] = 'unknown'
             result['risk_label'] = 'Analysis Incomplete — Risk Undetermined'
             result['combined_phishing_score'] = None
+
+
+async def _analyze_content(
+    request: ContentRequest,
+    structure: dict | None = None,
+    *,
+    observe_sender_history: bool = True,
+    plain_text: bool = False,
+    allow_empty: bool = False,
+    raw_message: bool | None = None,
+):
+    subject, body, structure, raw_message = await _resolve_content_input(
+        request, structure, plain_text=plain_text, allow_empty=allow_empty, raw_message=raw_message)
+
+    # 1. Rule-based heuristic scan (explainable categories + extra indicators)
+    model_view = {}
+    result = await _run_analysis(analyze_email_content, subject, body, content_parts=(structure['content_parts'] if structure else
+                                       [{'content_type': 'text/plain', 'content': body}] if plain_text else None),
+                                   _model_view=model_view, sender=structure['from'] if structure else '',
+                                   recipients=[address for name in ('To', 'Cc') for value in
+                                               (structure['header_candidates'][name] if structure else ())
+                                               for _name, address in getaddresses([value]) if '@' in address])
+    if model_view.get('mime_alternatives_truncated'):
+        result['analysis_warnings'].append(_MIME_ALTERNATIVE_LIMIT_WARNING)
+    remote_image_dominant = model_view['remote_image_dominant']
+    result["input_mode"] = "raw-email" if structure else "subject-body"
+    result["structure_score"] = structure["structure_score"] if structure else 0
+    if structure:
+        _add_structure_evidence(result, structure)
+        _add_attachment_links(result, structure)
+        _add_attachment_text(result, structure)
+        await _add_sender_evidence(result, structure, observe_sender_history)
+        _apply_structure_verdict(result)
+        remote_image_dominant = await _merge_nested_messages(result, structure) or remote_image_dominant
+    _ensure_image_warnings(result)
+
+    # 2. Optional ML text classifier (TF-IDF + selected linear model)
+    ml_probability, ml_threshold, rendering_uncertain, resolved_warnings = await _apply_content_model(
+        result, model_view)
+    _fuse_content_result(result, ml_probability, ml_threshold, raw_message)
+
+    verified_sender = _apply_verified_sender(result, structure, request)
+
+    if structure and any(item['inspection_status'] == 'metadata_only'
+                         for item in structure['attachments']):
+        item = indicator('info', 'warning.attachments_uninspected')
+        result['analysis_warnings'].append(item['msg'])
+        result['extra_indicators'].append(item)
+
+    link_hosts = await _add_registration_dates(result, structure)
+
+    result['analysis_warnings'] = list(dict.fromkeys(result['analysis_warnings']
+        + (structure['parse_warnings'] if structure else [])))
+    result['analysis_complete'] = not bool(result['analysis_warnings'])
+    await _apply_local_review(result, model_view.get('subject', ''), model_view.get('body', ''), link_hosts)
+    _apply_requested_answer(result, request.requested)
+    _apply_abstention(result, resolved_warnings, rendering_uncertain, remote_image_dominant, verified_sender)
     result['mail_type'] = _mail_type(result, bool(structure and structure.get('bulk_mail')))
     result.pop('advertising_terms', None)
     return JSONResponse(annotate_content(result))

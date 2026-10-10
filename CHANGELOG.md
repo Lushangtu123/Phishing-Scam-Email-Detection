@@ -20,6 +20,18 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 13:58 PT] — Split _analyze_content, part 2: model, fusion, verified sender, abstention
+
+### Why
+- Last of four PRs breaking `analyze_email_content` and `_analyze_content` into named steps, behaviour unchanged.
+
+### Files changed
+- `website/app.py` — new `_apply_content_model` (async), `_fuse_content_result`, `_apply_verified_sender`, `_add_registration_dates` (async) and `_apply_abstention`. Each body is the original block, cut verbatim at the same indentation. `_analyze_content` goes from 189 to 58 lines and reads as its steps in order. All stay in `app.py`, so patches on `app` (`_content_pipeline`, `predict_content`, `SETTINGS`) still apply.
+
+### Effect
+- No behaviour change: the golden replay of 7,321 inputs against `main` is identical with the text model off, on, and with stubbed RDAP dates. Planting two bugs in the new helpers changes 65 outputs. Backend unittest 1284 tests OK.
+- Across the four PRs: `analyze_email_content` 460 → 167 lines, `_analyze_content` 390 → 58.
+
 ## [2026-10-10 13:43 PT] — Split _analyze_content, part 1: input, structure, attachments, sender, attached messages
 
 ### Why
