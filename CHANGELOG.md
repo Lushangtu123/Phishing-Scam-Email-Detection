@@ -20,6 +20,20 @@ documented in this file.
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 14:10 PT] — One test file for the official-brand registry additions
+
+### Why
+- The registry additions were tested in four files, three of them named by date (`test_registry_additions_2026_10_05/06/07.py`) with identical helpers.
+- The thirteen dated `test_review_*.py` files stay: each is the regression suite of one code review, and its docstring names the review's commit and topics, which a topic name would lose.
+
+### Files changed
+- `website/tests/test_registry_additions.py` — the four files' six classes, one per batch (`Additions20261002Tests` … `Additions20261007ChineseSecondBatchTests`), with one copy of `GMAIL_PASS` and `received`. The Chinese batches pass their message as `body=ZH_CODE` instead of relying on a different default.
+- `website/tests/test_registry_additions_2026_10_05.py`, `…_10_06.py`, `…_10_07.py` — removed.
+- `docs/evaluation.md` — its pointer to the 10-06 file names the merged file.
+
+### Effect
+- 30 of the 32 test methods are AST-identical to the originals; the other two differ only by `body=ZH_CODE`. 32 registry tests and the full suite of 1284 pass.
+
 ## [2026-10-10 13:58 PT] — Split _analyze_content, part 2: model, fusion, verified sender, abstention
 
 ### Why
