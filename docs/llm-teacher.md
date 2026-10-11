@@ -104,3 +104,10 @@ On 1,095 messages with human labels ([evaluation log](evaluation.md#a-local-lang
 - **gave 97% of its readings at 90 or more**, wrong ones included, so the floor is no
   safeguard; the review queue and the spam rule are.
 - **took 5.1 s a message** on average on an Apple M2 Max (about 700 an hour).
+
+A second teacher, `gpt-oss:20b`, was measured beside it on the same messages (2026-10-11,
+[evaluation log](evaluation.md#two-local-teachers-and-their-agreement-2026-10-11)). Taking a
+label only when both agree lowered the phishing accepted as legitimate from 9 to 4 of 890,
+but sent 56 of the owner's 92 genuine messages to a person (Qwen alone: 10), because gpt-oss
+reads much genuine mail as phishing. That failed the criterion fixed before the run, so
+`label_with_llm.py` keeps Qwen alone.

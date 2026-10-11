@@ -22,6 +22,23 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-11 12:42 PT] — Two local teachers measured: agreement fails the review-load criterion
+
+### Why
+- The owner asked to train with two teachers: `qwen3.8:27b-mxfp8` and `gpt-oss:20b`, a label only when both agree. The two-teacher measurement prepared on 2026-10-08 had not run, and its pass criteria were fixed then: at floor 90, at most 4 of 890 phishing messages accepted as legitimate and at most 15 of the owner's 92 genuine messages sent to a person.
+- A six-message check showed the tool alternating models per message made Ollama swap them on the GPU: Qwen's median rose from 2.5 s to 25.7 s, about 9 hours for the full run.
+
+### Files changed
+- `website/tools/evaluate_llm_labeler.py` — `label_cohort` runs one model through a cohort, then the next, and pairs the readings afterwards; the readings and counts are the same.
+- `website/tests/test_evaluate_llm_labeler.py` — the stub records the order of model calls; two models over four rows are asked 4 + 4, not alternately (fails on the previous code).
+- `docs/evaluation.md` — new section "Two local teachers and their agreement (2026-10-11)".
+- `docs/llm-teacher.md` — the result under "The teacher, measured".
+
+### Effect
+- Agreement accepted 4 of 890 phishing messages as legitimate (Qwen alone 9; criterion 1 passes) but sent 56 of the owner's 92 genuine messages to a person (Qwen alone 10; criterion 2 fails): gpt-oss read 53 of them as phishing. `label_with_llm.py` keeps Qwen alone. The report holds counts only and stays outside the repository; 2 h 13 min on an Apple M2 Max.
+- Qwen reproduced the 2026-10-06 counts exactly (10 of 92, 9 of 890).
+- No served behaviour changes. Backend tests for the tool: 4 pass.
+
 ## [2026-10-11 09:29 PT] — Year-long cache for versioned assets; larger footer tap targets
 
 ### Why
