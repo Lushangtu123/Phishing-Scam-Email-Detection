@@ -32,8 +32,10 @@ def _major_minor(version: str) -> str:
     return ".".join(version.split(".")[:2])
 
 
-def load_content_pipeline_artifact(path: Path | str, expected_sha256: str) -> dict:
-    """Verify a trusted artifact before deserializing and validating it."""
+def load_content_pipeline_artifact(path: Path | str, expected_sha256: str, *,
+                                   allow_private: bool = False) -> dict:
+    """Verify a trusted artifact before deserializing and validating it. A model trained on
+    private mail loads only with allow_private: never in a public service (docs/llm-teacher.md)."""
     expected = (expected_sha256 or "").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{64}", expected):
         raise ValueError("A complete content-model SHA-256 digest is required")
@@ -64,6 +66,10 @@ def load_content_pipeline_artifact(path: Path | str, expected_sha256: str) -> di
     pipeline = envelope.get("pipeline")
     if not isinstance(pipeline, dict) or not PIPELINE_KEYS.issubset(pipeline):
         raise ValueError("Content-model artifact has an invalid pipeline payload")
+    metrics = pipeline.get("metrics")
+    private = envelope.get("private_training") or (isinstance(metrics, dict) and metrics.get("private_training"))
+    if private and not allow_private:
+        raise ValueError("Content-model artifact was trained on private mail")
     return pipeline
 
 

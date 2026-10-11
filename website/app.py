@@ -78,10 +78,11 @@ LOCAL_REVIEW = load_local_review_settings()
 
 
 def load_content_pipeline_artifact(path: Path, expected_sha256: str) -> dict:
-    """Load the optional scientific stack only when ML is enabled."""
+    """Load the optional scientific stack only when ML is enabled. A model trained on private
+    mail loads only in development: a public service would expose its vocabulary."""
     from content_inference import load_content_pipeline_artifact as loader
 
-    return loader(path, expected_sha256)
+    return loader(path, expected_sha256, allow_private=not SETTINGS.is_public_service)
 
 
 def predict_content(pipeline: dict, subject: str, body: str, *, canonical_text: bool = False) -> dict:

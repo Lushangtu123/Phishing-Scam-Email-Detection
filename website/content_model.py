@@ -67,6 +67,7 @@ from model_environment import (
 # ── Data-source configuration ────────────────────────────────────────────────
 _DEFAULT_DATA_DIR = (Path(__file__).resolve().parent.parent
                      / "phishing-detection" / "data")
+_REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 _ARTIFACT_SCHEMA = "phishguard-content-model-v1"
 _PIPELINE_KEYS = {"vectorizer", "clf", "decision_threshold", "metrics", "top_terms"}
 _SPAPHISH_FILENAME = "SpaPhish.csv"
@@ -122,6 +123,10 @@ def save_content_pipeline_artifact(pipeline: dict, path: Path | str) -> str:
         envelope["runtime_package_versions"] = {
             name: training_versions[name] for name in RUNTIME_PACKAGE_NAMES
         }
+    if pipeline.get("metrics", {}).get("private_training"):
+        # Its vocabulary keeps words from the private mail (docs/llm-teacher.md).
+        _require_outside_repository(Path(path), "A model trained on private mail")
+        envelope["private_training"] = True
     payload = pickle.dumps(envelope, protocol=pickle.HIGHEST_PROTOCOL)
     digest = hashlib.sha256(payload).hexdigest()
     destination = Path(path)
@@ -135,8 +140,11 @@ def save_content_pipeline_artifact(pipeline: dict, path: Path | str) -> str:
 def load_content_pipeline_artifact(
     path: Path | str,
     expected_sha256: str,
+    *,
+    allow_private: bool = False,
 ) -> dict:
-    """Verify a trusted build artifact before deserializing and validating it."""
+    """Verify a trusted build artifact before deserializing and validating it. A model
+    trained on private mail loads only with allow_private (local evaluation)."""
     expected = (expected_sha256 or "").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{64}", expected):
         raise ValueError("A complete content-model SHA-256 digest is required")
@@ -167,7 +175,15 @@ def load_content_pipeline_artifact(
     pipeline = envelope.get("pipeline")
     if not isinstance(pipeline, dict) or not _PIPELINE_KEYS.issubset(pipeline):
         raise ValueError("Content-model artifact has an invalid pipeline payload")
+    if (envelope.get("private_training") or pipeline["metrics"].get("private_training")) and not allow_private:
+        raise ValueError("Content-model artifact was trained on private mail")
     return pipeline
+
+
+def _require_outside_repository(path: Path, what: str) -> None:
+    resolved = path.resolve()
+    if resolved == _REPOSITORY_ROOT or resolved.is_relative_to(_REPOSITORY_ROOT):
+        raise ValueError(f"{what} must stay outside the repository")
 
 # Each entry is (csv_name, downloader_url_or_None, schema_hint)
 #   schema_hint == "phishing_email_csv"  : columns ['Email Text', 'Email Type']
@@ -1734,6 +1750,7 @@ def build_content_pipeline(
     use_cache: bool           = True,
     force_retrain: bool       = False,
     fast_mode: bool           = False,
+    private_corpus: Path | str | None = None,
 ) -> dict:
     """
     Train the content classifier.
@@ -1753,7 +1770,19 @@ def build_content_pipeline(
       force_retrain    – ignore any cache and train from scratch
       fast_mode        – evaluate only Logistic Regression with one worker;
                          intended for memory-constrained demo builds
+      private_corpus   – a reviewed labelled.csv from tools/label_with_llm.py, outside the
+                         repository. Its rows join the training side only (never the test
+                         split or the temporal slices), the cache is not used, and the
+                         result is marked private_training: it may not be saved inside the
+                         repository or loaded by a public service.
     """
+    if private_corpus is not None:
+        private_corpus = Path(private_corpus)
+        _require_outside_repository(private_corpus, "The private corpus")
+        if not private_corpus.is_file():
+            raise FileNotFoundError("The private corpus does not exist")
+        # A cached private model would sit inside the repository's data directory.
+        use_cache = False
     if use_real and auto_download:
         ensure_real_dataset()
 
@@ -1892,6 +1921,32 @@ def build_content_pipeline(
         f"{hard_group_excluded} held-out template variants and "
         f"{hard_excluded} duplicate families excluded; synthetic)"
     )
+
+    private_sha256 = None
+    if private_corpus is not None:
+        loaded = _load_one_corpus(private_corpus, "champa_csv")
+        if not loaded or not loaded[0]:
+            raise ValueError("The private corpus holds no usable rows")
+        private_sha256 = _file_sha256(private_corpus)
+        p_texts, p_labels, p_groups, p_duplicates, p_conflicts = _deduplicate_corpus(*loaded)
+        # As the hard negatives: training side only, never a held-out or present family.
+        p_rows = [(text, label, group) for text, label, group in zip(p_texts, p_labels, p_groups)
+                  if group not in held_out_groups]
+        p_held_out = len(p_texts) - len(p_rows)
+        p_texts, p_labels, p_groups, p_excluded = _exclude_reserved_families(
+            [row[0] for row in p_rows], [row[1] for row in p_rows], [row[2] for row in p_rows],
+            reserved_texts=(list(X_train_txt) + list(X_test_txt) + temporal_evaluation_texts),
+        )
+        X_train_txt.extend(p_texts)
+        y_train.extend(p_labels)
+        train_groups.extend(p_groups)
+        sample_sources.extend(["private-mailbox"] * len(p_texts))
+        # Counts only: the description is part of the model card.
+        sources.append(
+            f"Private mailbox rows, training side only (n={len(p_texts)}: {sum(p_labels)} phishing / "
+            f"{len(p_labels) - sum(p_labels)} legitimate; {p_duplicates} duplicates, {p_conflicts} "
+            f"label-conflicting, {p_held_out} held-out and {p_excluded} present families excluded)"
+        )
 
     # ── Model selection ──────────────────────────────────────────────────────
     # Try three competitive linear models on the training fold and pick the best
@@ -2176,7 +2231,9 @@ def build_content_pipeline(
             "fast_mode": fast_mode,
             "hard_negative_variants": _HARD_NEGATIVE_VARIANTS,
             "source_sha256": _source_sha256s(),
+            **({"private_corpus_sha256": private_sha256} if private_sha256 else {}),
         },
+        **({"private_training": True} if private_corpus is not None else {}),
         "model":      best_name,
         "model_selection_metric": "average_precision",
         "model_selection": cv_results,
@@ -2229,7 +2286,7 @@ def build_content_pipeline(
     return pipeline
 
 
-def build_content_pipeline_from_env(seed: int = 42) -> dict:
+def build_content_pipeline_from_env(seed: int = 42, private_corpus: Path | str | None = None) -> dict:
     """Build the content model using deployment-friendly environment settings.
 
     ``PHISHGUARD_DEPLOYMENT_PROFILE=free-demo`` keeps the full request/response
@@ -2271,6 +2328,7 @@ def build_content_pipeline_from_env(seed: int = 42) -> dict:
         auto_download=env_bool("CONTENT_MODEL_AUTO_DOWNLOAD", not free_demo),
         use_cache=env_bool("CONTENT_MODEL_USE_CACHE", False),
         fast_mode=env_bool("CONTENT_MODEL_FAST_MODE", free_demo),
+        private_corpus=private_corpus or os.getenv("CONTENT_MODEL_PRIVATE_CORPUS", "").strip() or None,
     )
 
 

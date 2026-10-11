@@ -22,6 +22,23 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 23:14 PT] — Train a local candidate on a reviewed private mailbox
+
+### Why
+- Most false alerts come from the text model, trained on genuine mail from 2002-2008; the owner's own recent mail is the missing data (docs/llm-teacher.md). The training pipeline could not read a reviewed mailbox yet.
+- The owner chose to keep any model trained on private mail on this computer only (2026-10-10): its vocabulary keeps words from that mail, and `/api/metrics` publishes the served model's `top_terms`.
+
+### Files changed
+- `website/content_model.py` — `build_content_pipeline(private_corpus=…)` (and `CONTENT_MODEL_PRIVATE_CORPUS`) reads `labelled.csv` from `tools/label_with_llm.py`. Its rows are deduplicated and join the training side after the split, as the synthetic hard negatives do, without held-out or already present families. A private build skips the pickle cache, marks the model `private_training`, and records only counts and the corpus's SHA-256. The corpus and the saved artifact must be outside the repository. `load_content_pipeline_artifact(…, allow_private=False)` refuses a private model.
+- `website/content_inference.py`, `website/app.py` — the serving loader refuses a private model unless allowed; the app allows it only when `APP_ENV=development`, so a demo or production server rejects it.
+- `website/prebuild_demo_model.py` — `--private-corpus`.
+- `website/tools/evaluate_serving_pipeline.py` — `--artifact` and `--artifact-sha256` evaluate a local candidate (private allowed) on the same input as the served model; `compare_evaluations.py` compares the two reports.
+- `website/tests/test_private_training.py` (new) — 7 tests on synthetic private rows.
+- `docs/llm-teacher.md` — step 4 with the commands and the local-only rule.
+
+### Effect
+- No change to the served model or to analysis. With synthetic private rows: the private rows reach the training side only (the test side keeps its size), the model card holds no private text, nothing is cached, saving inside the repository and loading in demo or production are refused, and a development server and `--artifact` evaluations load the model. End to end, the CLI refused its default in-repository output, built a candidate outside it, and both models were evaluated and compared on the same input. Backend unittest 1293 tests OK; frontend 524 pass; Vercel runtime smoke passes.
+
 ## [2026-10-10 22:42 PT] — Ignore Claude Code's local settings
 
 ### Why

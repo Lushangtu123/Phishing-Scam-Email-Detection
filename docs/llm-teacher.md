@@ -50,10 +50,32 @@ never served and never fine-tuned here; it only labels.
    Takeout's `X-Gmail-Labels` header, list such messages in a `--review` manifest. `merge`
    rebuilds `labelled.csv` each time, so it can run again as more rows are reviewed, and
    `label` refuses a directory whose `review.csv` already holds a person's labels.
-4. **Train a candidate privately** with these rows added on the training side only (as the
-   synthetic hard negatives are), and compare it with the served model on the holdout. The
-   training pipeline does not read a private corpus yet; that switch is the next code change,
-   once a reviewed mailbox exists.
+4. **Train a candidate privately** with these rows added on the training side only, and
+   compare it with the served model on the holdout:
+
+   ```bash
+   cd website
+   ../.venv/bin/python prebuild_demo_model.py \
+     --private-corpus /absolute/private/teacher-labels/labelled.csv \
+     --output /absolute/private/candidate.pkl        # prints CONTENT_MODEL_ARTIFACT_SHA256=…
+   cd ..
+   .venv/bin/python website/tools/evaluate_serving_pipeline.py --input /absolute/private/holdout.jsonl \
+     > /absolute/private/served.json
+   .venv/bin/python website/tools/evaluate_serving_pipeline.py --input /absolute/private/holdout.jsonl \
+     --artifact /absolute/private/candidate.pkl --artifact-sha256 <digest> > /absolute/private/candidate.json
+   .venv/bin/python website/tools/compare_evaluations.py \
+     --baseline /absolute/private/served.json --candidate /absolute/private/candidate.json
+   ```
+
+   The private rows join the training side as the synthetic hard negatives do: after the
+   split, never into the test side or the SpaPhish slices, and without a family that is held
+   out or already present. The build skips the pickle cache (it lives in the repository's data
+   directory). The model card records only counts and the corpus's SHA-256, and marks the
+   model `private_training`. Such a model is **local only** (the owner's choice, 2026-10-10):
+   it cannot be saved inside the repository, and the loaders refuse it unless a caller allows
+   it, which only a development server (`APP_ENV=development`) and `--artifact` evaluations do.
+   A demo or production server rejects it, since `/api/metrics` would publish its `top_terms`,
+   which can be words from the private mail.
 
 ## The owner's mailbox (2026-10-06)
 

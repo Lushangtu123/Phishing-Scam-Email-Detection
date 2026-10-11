@@ -391,9 +391,16 @@ def main() -> None:
                         help='Drop exact duplicates (default), or reject them; metadata conflicts always fail')
     parser.add_argument('--attribution-output', type=Path,
                         help='Optional aggregate signal counts; keep beside the private input')
+    parser.add_argument('--artifact', type=Path,
+                        help='A candidate model artifact (for example one trained on private mail) '
+                             'instead of the committed one; requires --artifact-sha256')
+    parser.add_argument('--artifact-sha256',
+                        help='SHA-256 digest of --artifact, as prebuild_demo_model.py printed it')
     parser.add_argument('--counterfactual-output', type=Path,
                         help='Optional aggregate alert transitions after one-family removal')
     args = parser.parse_args()
+    if (args.artifact is None) != (args.artifact_sha256 is None):
+        parser.error('--artifact and --artifact-sha256 go together')
     paths = [path.resolve() for path in (args.input, args.attribution_output,
                                         args.counterfactual_output) if path is not None]
     if len(paths) != len(set(paths)):
@@ -419,10 +426,15 @@ def main() -> None:
     configuration = {'trusted_authserv_ids': sorted(settings.trusted_authserv_ids),
                      'observe_sender_history': False, 'verification_mode': settings.effective_verification_mode,
                      'content_model_enabled': settings.content_model_enabled, 'auxiliary_enabled': False}
-    model_sha256 = profile['CONTENT_MODEL_ARTIFACT_SHA256'].lower()
-    pipeline = load_content_pipeline_artifact(
-        PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_sha256,
-    )
+    if args.artifact is not None:
+        # A local candidate: it may be trained on private mail, which only a local run may load.
+        model_sha256 = args.artifact_sha256.strip().lower()
+        pipeline = load_content_pipeline_artifact(args.artifact, model_sha256, allow_private=True)
+    else:
+        model_sha256 = profile['CONTENT_MODEL_ARTIFACT_SHA256'].lower()
+        pipeline = load_content_pipeline_artifact(
+            PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_sha256,
+        )
 
     attribution = EvidenceAttribution() if args.attribution_output else None
     counterfactual = CounterfactualEvidence() if args.counterfactual_output else None
