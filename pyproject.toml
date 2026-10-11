@@ -24,6 +24,12 @@ dependencies = [
     "authres==1.2.0",
 ]
 
+[tool.uv]
+# uv.lock pins every package Vercel installs (it runs `uv sync --frozen --no-dev`), transitive ones
+# included. The 7-day cooling period: resolve only releases uploaded before this time, and move it
+# forward when upgrading (docs/deployment.md). CI fails if uv.lock does not match this file.
+exclude-newer = "2026-10-03T00:00:00Z"
+
 [tool.vercel.fastapi.static]
 # Serve /static from Vercel's CDN although the app has top-level middleware, which would
 # otherwise keep every static file in the Python function (and wake it on each cache miss).

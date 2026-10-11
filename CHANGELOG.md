@@ -22,6 +22,25 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 22:26 PT] — Lock every package Vercel installs with uv.lock
+
+### Why
+- Only direct dependencies were pinned: Vercel resolved transitive packages afresh on each build, so the 7-day cooling period did not reach them, and production could change without a commit.
+- Vercel's Python builder installs a committed `uv.lock` with `uv sync --frozen --no-dev` (`packages/python/src/install.ts` and `uv.ts` in vercel/vercel), which never compares the lock with `pyproject.toml`.
+- Correction to the 2026-10-09 22:51 entry: that upgrade wrote the uncooled resolution (fastapi 0.143.0, pydantic 2.14.0, dnspython 2.9.0, tldextract 5.4.0, phonenumberslite 9.0.41, opentelemetry-api 1.45.1, filelock 4.1.0) into `requirements-dev-py312-macos-arm64.lock.txt`, not the cooled one its entry described. No install or test reads that file.
+
+### Files changed
+- `uv.lock` (new) — 36 packages resolved by uv 0.12.23 from `pyproject.toml`; the direct pins are unchanged.
+- `pyproject.toml` — `[tool.uv] exclude-newer = "2026-10-03T00:00:00Z"`: the cooling-period cutoff for every package, recorded in the lock.
+- `.github/workflows/ci.yml` — `vercel-runtime` installs uv 0.12.23, runs `uv lock --check`, installs with `uv sync --frozen --no-dev` as Vercel does, and smoke-tests that environment (`uv pip check` included).
+- `website/tests/test_vercel_static_headers.py` — `uv.lock` must hold the pinned versions and the same `exclude-newer`.
+- `requirements-dev-py312-macos-arm64.lock.txt` — re-resolved with `uv pip install --exclude-newer` at the same cutoff; its serving packages equal `uv.lock` (filelock 4.0.9).
+- `docs/deployment.md` — the lock and the upgrade procedure.
+
+### Effect
+- Production installs exactly the locked versions. A lock that no longer matches `pyproject.toml` fails CI (checked: changing a pin without `uv lock` makes `uv lock --check` exit 1, and the new test fails on a locked version that differs from its pin).
+- With the locked set: backend unittest 1286 tests OK, the Vercel runtime smoke and the synthetic evaluation comparison pass, `uv pip check` is clean. Render and local installs still use `requirements*.txt`.
+
 ## [2026-10-10 21:52 PT] — Deploy only main and preview-* branches on Vercel
 
 ### Why

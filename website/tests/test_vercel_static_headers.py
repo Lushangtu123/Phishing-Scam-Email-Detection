@@ -105,6 +105,17 @@ class VercelStaticHeaderTests(unittest.TestCase):
         self.assertEqual(config['project']['requires-python'],
                          f"~={(ROOT / '.python-version').read_text().strip()}.0")
 
+    def test_uv_lock_pins_the_serving_versions(self):
+        # Vercel installs uv.lock with --frozen, which never checks it against pyproject.toml.
+        # CI runs `uv lock --check`; this catches the common case without uv installed.
+        lock = tomllib.loads((ROOT / 'uv.lock').read_text(encoding='utf-8'))
+        config = tomllib.loads((ROOT / 'pyproject.toml').read_text(encoding='utf-8'))
+        locked = {package['name'].lower(): package['version'] for package in lock['package']}
+        for pin in config['project']['dependencies']:
+            name, version = pin.split('==')
+            self.assertEqual(locked.get(name.lower()), version, name)
+        self.assertEqual(lock['options']['exclude-newer'], config['tool']['uv']['exclude-newer'])
+
     def test_only_main_and_preview_branches_deploy(self):
         # The Hobby plan's 100 deployments a day count skipped builds too, so pull request
         # branches create none; a branch named preview-* still gets a preview (docs/deployment.md).
