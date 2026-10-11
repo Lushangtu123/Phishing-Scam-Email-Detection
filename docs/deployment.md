@@ -62,6 +62,18 @@ Give a branch a `preview-` name (no `/`) when Vercel's own build needs checking
 before merge: dependency upgrades, `vercel.json`, `pyproject.toml` or
 `.vercelignore` changes.
 
+`uv.lock` pins every package Vercel installs, transitive ones included: with a lock
+present, Vercel runs `uv sync --frozen --no-dev`, which does not compare the lock with
+`pyproject.toml`. CI's `vercel-runtime` job therefore runs `uv lock --check` and then
+installs and smoke-tests exactly that lock. `[tool.uv] exclude-newer` in `pyproject.toml`
+holds the 7-day cooling period for every package. To upgrade, on a `preview-*` branch:
+change the pins in `requirements.txt` and `pyproject.toml`, move `exclude-newer` forward
+(at most to 7 days ago), run `uv lock`, and refresh
+`requirements-dev-py312-macos-arm64.lock.txt` with
+`uv pip install -r requirements-dev.txt --exclude-newer <same time>` in a new
+environment. Render and local installs still use `requirements*.txt`, so their
+transitive versions are not locked.
+
 The Vercel runtime installs pinned NumPy, SciPy, scikit-learn, joblib, and
 threadpoolctl versions for inference but not pandas. These are the versions
 validated by the current serving smoke test; the committed model predates
