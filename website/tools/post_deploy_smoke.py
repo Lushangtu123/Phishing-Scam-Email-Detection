@@ -191,7 +191,7 @@ def _check_case_auth_boundary(base_url: str, *, opener: Callable) -> None:
 
 
 # Must equal VERSIONED_ASSET_CACHE_CONTROL in website/http_policy.py (a test pins them).
-VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 COMPRESSED_ENCODINGS = frozenset({"br", "gzip", "zstd"})
 # Large text assets whose delivery is checked; each is referenced as ?v=N.
 FRONTEND_ASSETS = ("style.css", "i18n.js", "app-core.js")
@@ -222,14 +222,12 @@ def _directives(value: str) -> dict:
 def _versioned_cache_ok(value: str) -> bool:
     """The app's versioned-asset header, as a browser receives it.
 
-    Vercel's CDN acts on stale-while-revalidate itself and strips it from the
-    browser response (see the 2026-09-28 12:27 correction in docs/changelog/2026-09.md), so only
-    public and max-age are required; any stale-while-revalidate must match.
+    public and the max-age are required. Vercel's CDN has stripped directives it acts on
+    itself (stale-while-revalidate, see the 2026-09-28 12:27 correction in
+    docs/changelog/2026-09.md), so immutable may be absent.
     """
     expected, actual = _directives(VERSIONED_ASSET_CACHE_CONTROL), _directives(value)
     return ("public" in actual and actual.get("max-age") == expected["max-age"]
-            and actual.get("stale-while-revalidate", expected["stale-while-revalidate"])
-            == expected["stale-while-revalidate"]
             and not {"no-store", "no-cache", "private"} & actual.keys())
 
 

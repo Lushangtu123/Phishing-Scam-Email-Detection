@@ -200,8 +200,8 @@ once after the expected model and configuration are ready.
 With `--check-frontend` (enabled in the workflow) it also checks what browsers
 receive from the production alias: homepage and `/cases` CSP (`script-src
 'self'`, `style-src 'self'`, no `'unsafe-inline'`) and `nosniff`; `br`/`gzip`/`zstd`
-compression and the versioned-asset `Cache-Control` (`public, max-age=86400`;
-Vercel strips `stale-while-revalidate` from browser responses) on `style.css`,
+compression and the versioned-asset `Cache-Control` (`public, max-age=31536000`,
+normally with `immutable`) on `style.css`,
 `i18n.js` and `app-core.js`; an uncached HTML 404 page for unknown page URLs and a JSON
 404 for unknown `/api/` paths; and `no-store` plus `noindex` on `/cases`. Every
 check runs and all problems are reported together.

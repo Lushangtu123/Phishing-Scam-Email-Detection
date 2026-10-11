@@ -1,5 +1,5 @@
-// Versioned static URLs (/static/app.js?v=46) are cached by browsers for a day,
-// so a file whose bytes change must get a new ?v=. The manifest pins each
+// Versioned static URLs (/static/app.js?v=46) are cached by browsers for a year
+// without revalidation, so a file whose bytes change must get a new ?v=. The manifest pins each
 // versioned file's version and SHA-256; asset-versions.test.mjs fails when they
 // drift and update.mjs bumps integer versions (repeating until stable, since a
 // bump inside one versioned file changes that file's own hash).
