@@ -214,7 +214,17 @@ function setupShortcuts() {
 }
 
 // ── Smooth Scroll & Navbar ────────────────────────────────────────────────────
+// A link into a collapsed <details> (the disposable-email guide, the archived benchmark)
+// opens it, so the reader lands on its content rather than a closed header.
+function openEnclosingDetails(target) {
+  const details = target && typeof target.closest === 'function' ? target.closest('details') : null;
+  if (details) details.open = true;
+}
+
 function setupSmoothScroll() {
+  if (typeof location !== 'undefined' && /^#[\w-]+$/.test(location.hash || '')) {
+    openEnclosingDetails(document.getElementById(location.hash.slice(1)));
+  }
   // The skip link keeps native behaviour so keyboard focus moves into <main>.
   document.querySelectorAll('a[href^="#"]:not(.skip-link)').forEach(a => {
     a.addEventListener('click', e => {
@@ -222,6 +232,7 @@ function setupSmoothScroll() {
       const href = a.getAttribute('href');
       const target = document.querySelector(href);
       if (!target) return;
+      openEnclosingDetails(target);
       target.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
       // Keep the URL shareable and put keyboard focus where the page scrolled to.
       if (typeof history !== 'undefined') history.pushState(null, '', href);

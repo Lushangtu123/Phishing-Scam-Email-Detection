@@ -610,6 +610,7 @@
   'perf.eyebrow': '基准测试',
   'perf.title': '存档的网站基准测试',
   'perf.lead': '课程笔记本在 UCI 钓鱼网站数据集上的历史结果（2,211 条留出样本）。这些结果并不代表邮件发件人检测的准确率。',
+  'perf.toggle': '查看归档结果',
   'perf.th.classifier': '分类器',
   'metric.Accuracy': '准确率',
   'metric.Precision': '精确率',
