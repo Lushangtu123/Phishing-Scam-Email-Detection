@@ -134,6 +134,7 @@ window.PhishGuardI18n = (() => {
 
     // ── Result actions ──
     'result.copy': 'Copy summary',
+    'result.keyFindings': 'Key findings',
     'result.copied': 'Copied',
     'result.copyFailed': 'Copy failed',
     'result.copyAnnounce': 'Summary copied to clipboard',
@@ -1408,7 +1409,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=66'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=67'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

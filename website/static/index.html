@@ -15,9 +15,9 @@
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/compat.js?v=1"></script>
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=68"></script>
+  <script src="/static/lang-init.js?v=69"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=65" />
+  <link rel="stylesheet" href="/static/style.css?v=67" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -241,6 +241,7 @@
             <div class="vb-title" id="vb-title" tabindex="-1"></div>
             <div class="vb-email" id="vb-email"></div>
             <p class="vb-scope" id="vb-scope"></p>
+            <div class="key-findings" id="vb-findings" hidden></div>
           </div>
         </div>
         <div class="vb-right">
@@ -265,7 +266,17 @@
 
       <div class="result-cols">
 
-        <!-- Col 1: Probability Bars + Risk Pills + Disposable Check -->
+        <!-- Main column: every risk indicator, in full -->
+        <div class="result-col result-col-main">
+          <div class="col-card">
+            <h3 class="col-title"><span data-i18n="sender.col.indicators">Risk Indicators</span> <span class="col-count" id="risk-count"></span></h3>
+            <div id="risk-indicators-list" class="risk-list">
+              <div class="no-risk" data-i18n="sender.noRiskStatic">No risk indicators found</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Side column: the score, the mailbox type and sender history -->
         <div class="result-col">
           <div class="col-card">
             <h3 class="col-title" data-i18n="sender.col.evidence">Heuristic Evidence</h3>
@@ -293,16 +304,6 @@
             </div>
             <a href="#disposable-info" class="disp-learn-sm" data-i18n="sender.learnDisposable">Learn about disposable emails →</a>
           </div>
-        </div>
-
-        <!-- Col 2: Risk Indicators + Sender History -->
-        <div class="result-col">
-          <div class="col-card">
-            <h3 class="col-title"><span data-i18n="sender.col.indicators">Risk Indicators</span> <span class="col-count" id="risk-count"></span></h3>
-            <div id="risk-indicators-list" class="risk-list">
-              <div class="no-risk" data-i18n="sender.noRiskStatic">No risk indicators found</div>
-            </div>
-          </div>
 
           <!-- Deployment-local sender observation history -->
           <div class="col-card sender-history-card" id="sender-history-card">
@@ -317,15 +318,13 @@
           </div>
         </div>
 
-        <!-- Col 3: Feature Breakdown -->
-        <div class="result-col">
-          <div class="col-card">
-            <h3 class="col-title" data-i18n="sender.col.signals">Most Relevant Sender Signals</h3>
-            <div id="feature-breakdown-list" class="feature-breakdown"></div>
-          </div>
-        </div>
-
       </div>
+
+      <!-- The 30-signal breakdown: detail behind the verdict, folded until asked for -->
+      <details class="col-card signals-card" id="signals-card">
+        <summary><h3 class="col-title" data-i18n="sender.col.signals">Most Relevant Sender Signals</h3></summary>
+        <div id="feature-breakdown-list" class="feature-breakdown"></div>
+      </details>
 
       <!-- Email Authenticity Verification Card (full width: its step list is long) -->
       <div class="col-card verify-card-wide" id="verify-card">
@@ -596,6 +595,7 @@
             <div>
               <div class="crb-title" id="crb-title" tabindex="-1"></div>
               <div class="crb-sub" id="crb-sub"></div>
+              <div class="key-findings" id="crb-findings" hidden></div>
               <div class="crb-type" id="crb-type" hidden></div>
               <div class="crb-requested" id="content-requested" role="group" aria-live="polite" hidden>
                 <span id="content-requested-text"></span>
@@ -1175,21 +1175,21 @@
   </form>
 </dialog>
 <!-- i18n.js translates the markup above before first paint; every later script uses it. -->
-<script src="/static/i18n.js?v=132"></script>
+<script src="/static/i18n.js?v=134"></script>
 <script src="/static/vision.js?v=12"></script>
 <script src="/static/file-intake.js?v=3"></script>
 <script src="/static/confirm-dialog.js?v=3"></script>
 <script src="/static/request.js?v=1"></script>
 <script src="/static/feedback.js?v=12"></script>
 <!-- Homepage logic: classic scripts sharing one global scope; app.js (last) wires them up on DOMContentLoaded. -->
-<script src="/static/app-core.js?v=5"></script>
+<script src="/static/app-core.js?v=6"></script>
 <script src="/static/app-theme.js?v=2"></script>
 <script src="/static/app-layout.js?v=5"></script>
 <script src="/static/app-config.js?v=4"></script>
-<script src="/static/app-sender.js?v=5"></script>
+<script src="/static/app-sender.js?v=6"></script>
 <script src="/static/app-verify.js?v=4"></script>
 <script src="/static/app-content.js?v=8"></script>
-<script src="/static/app-content-render.js?v=12"></script>
+<script src="/static/app-content-render.js?v=13"></script>
 <script src="/static/app-sms.js?v=4"></script>
 <script src="/static/app-reports.js?v=6"></script>
 <script src="/static/app-metrics.js?v=4"></script>

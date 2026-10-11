@@ -8,16 +8,16 @@
     "sha256": "156c737c7a5600cbbb4536ae6e890d3e11f836be0b8b20ffd6b897913d2dad86"
   },
   "app-content-render.js": {
-    "version": "12",
-    "sha256": "97340fd0fe20cf8ce84db476bd3795b9771a5601aec2d2bdbc1cf43c890bbc3d"
+    "version": "13",
+    "sha256": "8ba3bf646e52577e91a7563f24cac4ffd8dd7e3e4f30b3a13c58f8445521f428"
   },
   "app-content.js": {
     "version": "8",
     "sha256": "d3542355a8a12ffdb8a61bdf61658b6fe99fdd95b6a8324615603ff39eb9589e"
   },
   "app-core.js": {
-    "version": "5",
-    "sha256": "4082c819998f07176278de1646cf6eea77479435977b53645291f257c06c0e22"
+    "version": "6",
+    "sha256": "d216bf132966a6839c6e74b029715c329555093d4d24626096e5d830ae849f41"
   },
   "app-layout.js": {
     "version": "5",
@@ -32,8 +32,8 @@
     "sha256": "5ece7a32ee30e0969626790c6f76cc9896f72252d09ddf0ead244e47aca8b5a8"
   },
   "app-sender.js": {
-    "version": "5",
-    "sha256": "d937e538964b5521e56d154e17ca4b47ffacdd38bcb98cfe5ad9e076f42c1004"
+    "version": "6",
+    "sha256": "6b89b9c73e0b231bfed98f3b6122c686ab3562fb0695c47f8e0930fd0bfa345f"
   },
   "app-sms.js": {
     "version": "4",
@@ -80,24 +80,24 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "66",
-    "sha256": "c3320e8d0a7f17d717dcfefcd0c7229371452af2043b00cb22e3fa43ee11b12f"
+    "version": "67",
+    "sha256": "7c46aee4a9949acf6b58d4ba1bdb361e78ddf5beab551f01e5f65522797bde3c"
   },
   "i18n.js": {
-    "version": "132",
-    "sha256": "9f627550bb206274fc1d6e99a2ca07f1d79c2606b7df16a6580f200cf8443f57"
+    "version": "134",
+    "sha256": "098d0f09c37b4b0309ec271ca1184ef6d6d87cecd8c2a5319388f5f2f175ba5e"
   },
   "lang-init.js": {
-    "version": "68",
-    "sha256": "6496ee531d97501fea60c1fc0a26377d01c8bf53b1759c543d9b72a3207088cc"
+    "version": "69",
+    "sha256": "aaab9321bf0fc03734b06b87dacecdc870dd28a2f0e1148b3eb8de1212ab6adc"
   },
   "request.js": {
     "version": "1",
     "sha256": "75de1dd9c937a1b0d3c75d8bb2ef2c09f0063ec9271564234a0bd5deac55d415"
   },
   "style.css": {
-    "version": "65",
-    "sha256": "7f35988e32f94ee00719d0beda55e4fd3703ac5487ab3c26d01f7eb7c64395bd"
+    "version": "67",
+    "sha256": "f040bba1a7709855560985c205c09e18e4f8dc4a447ce576037f6d675746da83"
   },
   "theme-init.js": {
     "version": "1",

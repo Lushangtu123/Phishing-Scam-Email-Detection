@@ -460,6 +460,22 @@ test('benchmark cells carry column labels for the stacked phone layout', () => {
   assert.doesNotMatch(html, /data-label="ROC_AUC"/);
 });
 
+test('key findings: the strongest three, critical first, then the server order; none below medium', () => {
+  const { context } = loadFrontend();
+  const entry = (level, msg) => ({ level, msg });
+  const html = context.keyFindingsHtml([
+    entry('low', 'a low one'), entry('high', 'first high'), entry('info', 'a note'), entry('medium', 'a medium one'),
+    entry('critical', 'the critical one'), entry('high', 'second high'), entry('high', 'third high'),
+  ]);
+  const messages = [...html.matchAll(/<span class="kf-msg">([^<]*)<\/span>/g)].map(match => match[1]);
+  assert.deepEqual(messages, ['the critical one', 'first high', 'second high']);
+  assert.match(html, /<p class="kf-title">Key findings<\/p>/);
+  assert.equal(context.keyFindingsHtml([entry('low', 'x'), entry('info', 'y')]), '');
+  assert.equal(context.keyFindingsHtml(undefined), '');
+  // Messages are escaped: server text never becomes markup.
+  assert.match(context.keyFindingsHtml([entry('high', '<img src=x>')]), /&lt;img src=x&gt;/);
+});
+
 test('benchmark chart colours follow the active theme', () => {
   const { context } = loadFrontend();
   const config = () => ({

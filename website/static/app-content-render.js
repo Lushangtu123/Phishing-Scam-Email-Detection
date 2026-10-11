@@ -169,6 +169,7 @@ function renderContentResult(data, { languageOnly = false } = {}) {
     subParts.push(t(data.risk_level === 'safe' ? 'content.sub.safe' : 'content.sub.risk'));
   }
   document.getElementById('crb-sub').textContent = subParts.join(' • ');
+  renderKeyFindings('crb-findings', data.extra_indicators);
   renderMailType(data);
   renderRequestedQuestion(data);
   const scoreEl = document.getElementById('crb-score');
