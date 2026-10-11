@@ -22,6 +22,22 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-11 08:49 PT] — Frontend phase B: design tokens
+
+### Why
+- The layout review counted 34 font sizes, 21 border radii, 33 box shadows and 274 hard-coded colours in `style.css`. Values that differ by half a pixel look like mistakes, and a theme colour copied as `rgba(255,92,108,…)` in 20 places cannot be changed in one.
+
+### Files changed
+- `website/static/style.css`: step 1 (no visual change) turns 189 theme-colour tints into channel tokens, e.g. `rgba(var(--red-rgb),0.08)`; the tokens are defined once so a tint is the same in both themes, as before. Step 2 adds a type scale (`--text-2xs` 11px … `--text-7xl` 44px, 13 steps; half-pixel sizes round up), `--radius-2xs` (6px) and `--radius-xs` (10px) beside the existing 14/20/28px radii, `--pill` on thin bars, and `--focus-ring` for the five identical field focus rings. Kept literal on purpose: the fluid hero `clamp()` sizes, the 16px iOS anti-zoom rule for fields, the 8.5px badge that fits its 13px circle, and the one-off theme-specific elevation shadows.
+- `website/static/app.test.mjs`, `website/static/page-loading.test.mjs`: assert the tokens where they asserted pixel sizes.
+- `website/tools/visual/baselines/*.png`: regenerated (17 shots).
+- `website/static/index.html`, `website/static/404.html`, `website/tools/asset-versions/manifest.json`: stylesheet version.
+
+### Effect
+- Font sizes go from 34 values to 13 steps plus 4 deliberate exceptions; pixel radii from 15 values to 2 new tokens. Remaining literal `rgba()` colours: 30 (white and black overlays and three one-offs).
+- Step 1 was checked by comparing computed styles of every element and pseudo-element (17 colour properties, light and dark, all details open) against the old stylesheet: 0 differences in 4,164; changing `--red-rgb` as a control changes 37.
+- Step 2 is a small visible change: text that was 12.5/13.5 px is now 13/14 px, so result pages are 3-61 px taller and rewrap slightly; on the sender result the third heuristic-evidence chip wraps to a second line. Frontend tests: 525 pass.
+
 ## [2026-10-11 08:28 PT] — Result pages, phase C: verdict first
 
 ### Why
