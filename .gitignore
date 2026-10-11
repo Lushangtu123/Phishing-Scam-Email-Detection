@@ -27,6 +27,8 @@ phishing-detection/data/*.pkl
 # IDE
 .vscode/
 .idea/
+# Claude Code's local settings (launch configurations hold this machine's paths)
+.claude/
 
 # Distribution / packaging
 dist/

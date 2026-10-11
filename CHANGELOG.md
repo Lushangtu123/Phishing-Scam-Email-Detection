@@ -22,6 +22,17 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 22:42 PT] — Ignore Claude Code's local settings
+
+### Why
+- `.claude/` holds local launch configurations with this machine's paths; it showed as untracked in every `git status`.
+
+### Files changed
+- `.gitignore` — `.claude/` beside the other editor directories.
+
+### Effect
+- `git status` is clean; nothing tracked changes.
+
 ## [2026-10-10 22:26 PT] — Lock every package Vercel installs with uv.lock
 
 ### Why
