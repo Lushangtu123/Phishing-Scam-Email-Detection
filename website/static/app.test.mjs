@@ -1539,8 +1539,8 @@ test('text fields use 16px on touch devices so iOS Safari does not zoom on focus
     assert.ok(touch.includes(selector), selector);
   }
   // Desktop sizes are unchanged.
-  assert.match(css, /\n\.email-input \{[^}]*font-size: 15px;/);
-  assert.match(css, /\n\.content-subject-input \{[^}]*font-size: 14px;/);
+  assert.match(css, /\n\.email-input \{[^}]*font-size: var\(--text-base\);/);
+  assert.match(css, /\n\.content-subject-input \{[^}]*font-size: var\(--text-md\);/);
 });
 
 // ── Tab deep links ───────────────────────────────────────────────────────────

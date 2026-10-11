@@ -235,7 +235,7 @@ test('both pages have ordered headings; the disposable-email card title is an h3
   assert.deepEqual(headingLevels(cases.slice(0, workspace)), [1]);
   assertOrdered(headingLevels(cases.slice(workspace)), 'cases.html workspace');
   // The heading reset keeps the title's look.
-  assert.match(source('style.css'), /\.di-title \{[^}]*font-size: 20px;[^}]*text-wrap: wrap;/);
+  assert.match(source('style.css'), /\.di-title \{[^}]*font-size: var\(--text-2xl\);[^}]*text-wrap: wrap;/);
 });
 
 test('rendered image evidence fits the heading outline where it is shown', () => {
