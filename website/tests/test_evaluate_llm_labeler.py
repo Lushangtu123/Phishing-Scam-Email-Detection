@@ -19,6 +19,7 @@ class StubOllama(BaseHTTPRequestHandler):
     """stub-model reads "invoice" as phishing (95), anything else as legitimate (85); stub-strict
     reads "invoice" or "lunch" as phishing (90), anything else as legitimate (95)."""
     think = {}
+    calls = []
 
     def do_GET(self):
         self.reply({'models': [{'name': 'stub-model', 'digest': 'stub-digest'},
@@ -27,6 +28,7 @@ class StubOllama(BaseHTTPRequestHandler):
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         StubOllama.think[request['model']] = request['think']
+        StubOllama.calls.append(request['model'])
         text = request['messages'][1]['content'].lower()
         if request['model'] == 'stub-strict':
             answer = ({'verdict': 'phishing', 'confidence': 90} if 'invoice' in text or 'lunch' in text
@@ -98,6 +100,7 @@ class LabellerTests(unittest.TestCase):
             self.assertNotIn(item['body'], text)
 
     def test_several_models_and_their_agreement(self):
+        StubOllama.calls = []
         text = self.run_tool('--model', 'stub-model', '--model', 'stub-strict', '--think', 'stub-strict=low')
         report = json.loads(text)
         self.assertEqual(report['schema_version'], 2)
@@ -115,6 +118,8 @@ class LabellerTests(unittest.TestCase):
         self.assertEqual(report['configuration']['model_digests'], {'stub-model': 'stub-digest', 'stub-strict': 'strict-digest'})
         self.assertEqual(report['configuration']['think'], {'stub-model': False, 'stub-strict': 'low'})
         self.assertEqual(StubOllama.think, {'stub-model': False, 'stub-strict': 'low'})
+        # One model through the cohort, then the other, so Ollama does not swap them per message.
+        self.assertEqual(StubOllama.calls, ['stub-model'] * 4 + ['stub-strict'] * 4)
         for item in self.ROWS:
             self.assertNotIn(item['subject'], text)
             self.assertNotIn(item['body'], text)
