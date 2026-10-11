@@ -701,7 +701,7 @@ p, .hero-subtitle, .step-desc, .bento-desc, .cat-desc, .di-col p { text-wrap: pr
 
 /* Risk pills */
 .risk-pills { display: flex; gap: 6px; flex-wrap: wrap; }
-.pill { padding: 4px 11px; border-radius: var(--pill); font-size: var(--text-xs); font-weight: 600; }
+.pill { padding: 4px 10px; border-radius: var(--pill); font-size: var(--text-2xs); font-weight: 600; }
 .pill-suspect { background: rgba(var(--yellow-rgb),0.14); color: var(--yellow); border: 1px solid rgba(var(--yellow-rgb),0.3); }
 .pill-high    { background: rgba(var(--red-rgb),0.14); color: var(--red); }
 .pill-med     { background: rgba(var(--yellow-rgb),0.14); color: var(--yellow); }
