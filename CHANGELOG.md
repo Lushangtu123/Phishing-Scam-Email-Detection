@@ -22,6 +22,19 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-11 09:04 PT] — Sender result: evidence chips on one line again
+
+### Why
+- Phase B (#47) moved the sender result's evidence chips (`.pill`) from 11.5px to 12px. In the narrow Heuristic Evidence column the three chips then needed 365px of 349px, and "3 medium-risk" wrapped to a second line.
+
+### Files changed
+- `website/static/style.css`: `.pill` uses `--text-2xs` (11px) and 10px side padding (was 12px and 11px), like the other compact badges such as the HIGH/MEDIUM labels beside it. `.pill` is used only for these three chips.
+- `website/tools/visual/baselines/sender-*.png`: regenerated (6 shots).
+- `website/static/index.html`, `website/static/404.html`, `website/tools/asset-versions/manifest.json`: stylesheet version.
+
+### Effect
+- The chips fit on one line at 1280px: 339 of 349px in English, 244px in Chinese. The desktop high-risk sender result is 35px shorter; the other 11 visual shots are pixel-identical. With two-digit counts the row can still wrap, cleanly. Frontend tests: 525 pass.
+
 ## [2026-10-11 08:49 PT] — Frontend phase B: design tokens
 
 ### Why
