@@ -18,8 +18,15 @@ if __name__ == "__main__":
         / "phishing-detection" / "data" / "content_model_artifact.pkl",
         help="Destination for the versioned model artifact",
     )
+    parser.add_argument(
+        "--private-corpus",
+        type=Path,
+        help=("A reviewed labelled.csv from tools/label_with_llm.py, added to the training side "
+              "only. The model is then private: --output must be outside the repository, and only "
+              "a development server or a local evaluation loads it (docs/llm-teacher.md)."),
+    )
     args = parser.parse_args()
-    pipeline = build_content_pipeline_from_env(seed=42)
+    pipeline = build_content_pipeline_from_env(seed=42, private_corpus=args.private_corpus)
     digest = save_content_pipeline_artifact(pipeline, args.output)
     metrics = pipeline["metrics"]
     print(
