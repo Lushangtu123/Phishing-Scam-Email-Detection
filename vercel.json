@@ -2,6 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "fastapi",
   "fluid": true,
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "preview-*": true
+    }
+  },
   "functions": {
     "app.py": {
       "maxDuration": 30,

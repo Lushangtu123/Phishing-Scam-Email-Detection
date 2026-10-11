@@ -54,6 +54,14 @@ and best-effort WHOIS checks. It never opens an SMTP connection and returns
 verified. The response separates `domain_verification` from
 `mailbox_verification`; the latter is `unavailable` on this profile.
 
+Only `main` and branches named `preview-*` deploy (`git.deploymentEnabled` in
+`vercel.json`). The Hobby plan allows 100 deployments a day, and a skipped or
+canceled build still counts as one, so other branches create none. CI's
+`vercel-runtime` job still smoke-tests the Vercel profile on every pull request.
+Give a branch a `preview-` name (no `/`) when Vercel's own build needs checking
+before merge: dependency upgrades, `vercel.json`, `pyproject.toml` or
+`.vercelignore` changes.
+
 The Vercel runtime installs pinned NumPy, SciPy, scikit-learn, joblib, and
 threadpoolctl versions for inference but not pandas. These are the versions
 validated by the current serving smoke test; the committed model predates

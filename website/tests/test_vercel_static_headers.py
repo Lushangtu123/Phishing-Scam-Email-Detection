@@ -105,6 +105,21 @@ class VercelStaticHeaderTests(unittest.TestCase):
         self.assertEqual(config['project']['requires-python'],
                          f"~={(ROOT / '.python-version').read_text().strip()}.0")
 
+    def test_only_main_and_preview_branches_deploy(self):
+        # The Hobby plan's 100 deployments a day count skipped builds too, so pull request
+        # branches create none; a branch named preview-* still gets a preview (docs/deployment.md).
+        # Vercel deploys a branch when any matching rule is true.
+        rules = json.loads((ROOT / 'vercel.json').read_text(encoding='utf-8'))['git']['deploymentEnabled']
+        self.assertEqual(rules, {'**': False, 'main': True, 'preview-*': True})
+
+        def deploys(branch):
+            return any(enabled for pattern, enabled in rules.items()
+                       if pattern == '**' or re.fullmatch(re.escape(pattern).replace(r'\*', '[^/]*'), branch))
+        for branch in ('main', 'preview-deps-2026-10', 'preview-vercel-git-deployments'):
+            self.assertTrue(deploys(branch), branch)
+        for branch in ('split-content-rules', 'Minh', 'jchanges', 'feature/x', 'mainline'):
+            self.assertFalse(deploys(branch), branch)
+
 
 if __name__ == '__main__':
     unittest.main()
