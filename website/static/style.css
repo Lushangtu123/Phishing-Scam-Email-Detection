@@ -1719,14 +1719,14 @@ kbd {
   .vb-left { flex-direction: column; text-align: center; }
   .vb-right { text-align: center; }
   .quick-examples {
-    flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 4px;
+    flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px;
     scrollbar-width: none; overscroll-behavior-x: contain;
     /* The row fades out at its right edge, showing that more examples scroll in. */
     -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
     mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   }
   .quick-examples::-webkit-scrollbar { display: none; }
-  .quick-examples > * { flex: 0 0 auto; scroll-snap-align: start; }
+  .quick-examples > * { flex: 0 0 auto; }
   .content-risk-banner { flex-direction: column; align-items: flex-start; }
   .crb-right { text-align: left; }
   .demo-tabs { max-width: none; }

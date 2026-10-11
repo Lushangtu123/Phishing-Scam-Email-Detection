@@ -29,7 +29,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Files changed
 - `website/static/index.html` — the benchmark section moves to the end of the page (nav order follows: Live Demo, Features, How It Works, Performance) and its results sit in a `<details>` behind "Show the archived results"; the disposable-email guide is a `<details>` whose header (still an h3) is the summary; the section menu gains a case-login item for phones.
-- `website/static/style.css` — styles for both disclosures (the existing chevron pattern), phones: quick examples in one sideways-scrolling row that fades at its edge, the case login in the menu instead of the bar, a smaller guide header.
+- `website/static/style.css` — styles for both disclosures (the existing chevron pattern), phones: quick examples in one sideways-scrolling row that fades at its edge (no scroll snapping: re-snapping when the viewport resized moved the page, which put the off-screen skip link into the 390 px result screenshots), the case login in the menu instead of the bar, a smaller guide header.
 - `website/static/app-layout.js` — a link into a collapsed section (`#disposable-info` from the footer or a sender result) opens it, as does loading the page with that hash.
 - `website/static/i18n.js`, `website/static/i18n-zh.js` — `perf.toggle` ("Show the archived results" / "查看归档结果").
 - Versioned assets bumped (`tools/asset-versions/update.mjs`), so `404.html`, `cases.html` and `lang-init.js` change only in their `?v=`.
