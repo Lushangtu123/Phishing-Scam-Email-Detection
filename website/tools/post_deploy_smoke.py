@@ -223,7 +223,7 @@ def _versioned_cache_ok(value: str) -> bool:
     """The app's versioned-asset header, as a browser receives it.
 
     Vercel's CDN acts on stale-while-revalidate itself and strips it from the
-    browser response (see the 2026-09-28 12:27 CHANGELOG correction), so only
+    browser response (see the 2026-09-28 12:27 correction in docs/changelog/2026-09.md), so only
     public and max-age are required; any stale-while-revalidate must match.
     """
     expected, actual = _directives(VERSIONED_ASSET_CACHE_CONTROL), _directives(value)

@@ -49,3 +49,7 @@ new entry at the top of `CHANGELOG.md` before ending your turn:
 5. **No emojis in headings**, but ✓ / ⚠ inline inside tables is fine.
 6. If a change is purely cosmetic (typo, indent, comment-only) you may skip the
    entry, but anything that would affect a reviewer must be logged.
+7. **Archive by month.** When a month ends, move its entries, unchanged and in
+   order, to `docs/changelog/YYYY-MM.md` (newest first, under a short heading)
+   and add the file to the archive list above the "Format is loosely based on..."
+   line. Moving entries is not deleting history.
