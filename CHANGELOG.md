@@ -22,6 +22,21 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-11 08:02 PT] — Homepage layout, phase A: focus, collapsible extras, phone fixes
+
+### Why
+- A layout review (desktop, phone, dark mode): the archived UCI website benchmark, unrelated to this product, was the section right after the demo; the disposable-email guide filled a large card under the demo; on phones the brand and the case login touched in the bar, and quick examples stacked one per line.
+
+### Files changed
+- `website/static/index.html` — the benchmark section moves to the end of the page (nav order follows: Live Demo, Features, How It Works, Performance) and its results sit in a `<details>` behind "Show the archived results"; the disposable-email guide is a `<details>` whose header (still an h3) is the summary; the section menu gains a case-login item for phones.
+- `website/static/style.css` — styles for both disclosures (the existing chevron pattern), phones: quick examples in one sideways-scrolling row that fades at its edge, the case login in the menu instead of the bar, a smaller guide header.
+- `website/static/app-layout.js` — a link into a collapsed section (`#disposable-info` from the footer or a sender result) opens it, as does loading the page with that hash.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — `perf.toggle` ("Show the archived results" / "查看归档结果").
+- Versioned assets bumped (`tools/asset-versions/update.mjs`), so `404.html`, `cases.html` and `lang-init.js` change only in their `?v=`.
+
+### Effect
+- Checked in the browser at 1280 px and 375 px, light and dark, English and Chinese: both disclosures start closed; the footer link and a `#disposable-info` URL open the guide; the benchmark table and Chart.js chart render once opened (the chart, loaded while collapsed, resizes); the phone bar holds brand, language, theme and menu with no horizontal overflow; the menu lists the case login under a divider; the examples row is 30 px tall. No console errors. Frontend tests 524 pass; backend 1293 OK. Visual baselines need regenerating for the moved nav item and the phone bar.
+
 ## [2026-10-10 23:14 PT] — Train a local candidate on a reviewed private mailbox
 
 ### Why

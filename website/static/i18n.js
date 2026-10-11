@@ -626,6 +626,7 @@ window.PhishGuardI18n = (() => {
     'perf.eyebrow': 'Benchmark',
     'perf.title': 'Archived Website Benchmark',
     'perf.lead': 'Historical course-notebook results on the UCI Phishing Websites dataset (2,211 held-out rows). These are not email-sender accuracy claims.',
+    'perf.toggle': 'Show the archived results',
     'perf.th.classifier': 'Classifier',
     'metric.Accuracy': 'Accuracy',
     'metric.Precision': 'Precision',
@@ -1407,7 +1408,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=65'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=66'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
