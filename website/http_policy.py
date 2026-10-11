@@ -112,12 +112,11 @@ def _record_rate_limit_hit(
     return True
 
 
-# Browsers reuse a versioned file for one day. On Vercel the CDN acts on
-# stale-while-revalidate itself (x-vercel-cache: HIT) and strips it from the
-# browser response, so browsers see only max-age=86400; each deployment clears
-# the CDN cache. A missed ?v= bump can serve a stale file for up to a day, which
-# website/tools/asset-versions guards against.
-VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=86400, stale-while-revalidate=604800"
+# A versioned URL never changes content: editing a file means a new ?v=, and
+# asset-versions.test.mjs fails CI when a file's bytes change without one
+# (website/tools/asset-versions). So browsers keep it for a year without
+# revalidating; each deployment clears the CDN cache.
+VERSIONED_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 
 # Browser protections on every response. On Vercel the CDN serves /static itself, without

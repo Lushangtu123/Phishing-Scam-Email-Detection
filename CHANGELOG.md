@@ -22,6 +22,24 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-11 09:29 PT] — Year-long cache for versioned assets; larger footer tap targets
+
+### Why
+- Versioned static files (`/static/…?v=N`) were cached by browsers for one day, so a visitor returning a day later revalidated 20+ files. The day was a safety margin for a missed `?v=` bump, but `asset-versions.test.mjs` already fails CI when a file's bytes change without a new version, and no versioned URL is built at runtime.
+- On a phone the nine footer links were 22px tall, under the 24px minimum target size of WCAG 2.5.8.
+
+### Files changed
+- `vercel.json`, `website/http_policy.py`, `website/tools/post_deploy_smoke.py`: versioned assets get `Cache-Control: public, max-age=31536000, immutable` (was `public, max-age=86400, stale-while-revalidate=604800`). The smoke check requires `public` and the year-long `max-age`; `immutable` may be absent, in case the CDN strips it as it strips `stale-while-revalidate`.
+- `website/tests/test_post_deploy_smoke.py`: the accepted and rejected headers follow the new value.
+- `website/tools/asset-versions/asset-versions.mjs`, `docs/deployment.md`: comments and docs say a year.
+- `website/static/style.css`: footer links get 5px vertical padding in place of the column's 10px gap (32px targets); the heading margin and a -5px column margin keep every footer text position where it was.
+- `website/static/index.html`, `website/static/404.html`, `website/tools/asset-versions/manifest.json`: stylesheet version.
+
+### Effect
+- Returning visitors reuse versioned files for a year without a request; a deployment that changes a file changes its URL.
+- Footer links are 32.4px tall. A layout comparison against the previous stylesheet finds every footer text position and the footer height unchanged at 375px and 1280px, in English and Chinese.
+- Tests: 525 frontend, 1293 backend (10 skipped) pass; `ruff check` passes.
+
 ## [2026-10-11 09:04 PT] — Sender result: evidence chips on one line again
 
 ### Why

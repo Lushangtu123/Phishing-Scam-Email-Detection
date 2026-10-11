@@ -427,17 +427,17 @@ class FrontendDeliveryTests(unittest.TestCase):
     def test_vercel_browser_cache_header_is_accepted(self):
         ok = post_deploy_smoke._versioned_cache_ok
         self.assertTrue(ok(post_deploy_smoke.VERSIONED_ASSET_CACHE_CONTROL))
-        # Production (Vercel strips stale-while-revalidate for browsers).
-        self.assertTrue(ok("public, max-age=86400"))
-        for bad in ("public, max-age=0", "max-age=86400", "public, max-age=86400, no-cache",
-                    "public, max-age=86400, stale-while-revalidate=60", ""):
+        # In case Vercel strips immutable, as it strips stale-while-revalidate.
+        self.assertTrue(ok("public, max-age=31536000"))
+        for bad in ("public, max-age=0", "public, max-age=86400", "max-age=31536000, immutable",
+                    "public, max-age=31536000, no-cache", "public, max-age=31536000, private", ""):
             self.assertFalse(ok(bad), bad)
-        opener, _ = self.opener(asset={"Content-Encoding": "gzip", "Cache-Control": "public, max-age=86400"})
+        opener, _ = self.opener(asset={"Content-Encoding": "gzip", "Cache-Control": "public, max-age=31536000"})
         result = post_deploy_smoke._check_frontend_delivery(
             "https://project.vercel.app", opener=opener, probe_id="p3")
         self.assertEqual(set(result["compression"].values()), {"gzip"})
         # The report records what was observed, not the app's constant.
-        self.assertEqual(set(result["versioned_cache_control"].values()), {"public, max-age=86400"})
+        self.assertEqual(set(result["versioned_cache_control"].values()), {"public, max-age=31536000"})
 
     def test_cache_control_matches_the_app(self):
         source = (WEBSITE_DIR / "http_policy.py").read_text(encoding="utf-8")
