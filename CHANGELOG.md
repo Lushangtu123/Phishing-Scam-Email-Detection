@@ -22,6 +22,20 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-10 21:52 PT] — Deploy only main and preview-* branches on Vercel
+
+### Why
+- On 2026-10-10 the Hobby plan's 100 deployments a day ran out ("Deployment rate limited"), mostly on preview deployments of pull request branches, so #39's production deployment did not happen until the next day's merge.
+- An Ignored Build Step does not help: Vercel counts a canceled build as a full deployment.
+
+### Files changed
+- `vercel.json` — `git.deploymentEnabled`: `"**": false`, `"main": true`, `"preview-*": true`. Vercel deploys a branch when any matching rule is true, so `main` and `preview-*` deploy and other branches create no deployment.
+- `docs/deployment.md` — the policy, and when to name a branch `preview-*` (dependency upgrades, `vercel.json`, `pyproject.toml`, `.vercelignore`).
+- `website/tests/test_vercel_static_headers.py` — pins the rules and checks which example branches deploy.
+
+### Effect
+- Pull request branches stop using the deployment quota; production deployments of `main` and the post-deploy smoke are unchanged. CI's `vercel-runtime` job still smoke-tests the Vercel profile on every pull request. This branch is itself named `preview-…`, so its preview checks that Vercel accepts the new `vercel.json`.
+
 ## [2026-10-10 21:15 PT] — Archive the changelog by month
 
 ### Why
