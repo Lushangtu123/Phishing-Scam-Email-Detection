@@ -22,6 +22,22 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-11 08:28 PT] — Result pages, phase C: verdict first
+
+### Why
+- The layout review found the sender result hard to read: three equal columns, two of them small scroll boxes, mostly 11.5-13 px text. The verdict was clear; the reasons behind it were not.
+
+### Files changed
+- `website/static/index.html`, `app-core.js`, `app-sender.js`, `app-content-render.js` — both verdict banners list **Key findings**: the three strongest indicators (critical, then high, then medium, in the server's order), above the full lists; hidden when none qualifies. The sender result puts every risk indicator in a wide column beside the score, mailbox-type and history cards, and folds the 30-signal breakdown into a "Most Relevant Sender Signals" card (two columns when opened).
+- `website/static/style.css` — no scroll boxes inside cards (`.risk-list`, `.feature-breakdown`); indicator, signal and detail text 13-14 px; banner icons align to the top.
+- `website/static/i18n.js`, `website/static/i18n-zh.js` — `result.keyFindings` ("Key findings" / "关键发现").
+- `website/static/app.test.mjs` — the findings' order, limit, cut-off and escaping.
+- Versioned assets bumped.
+
+### Effect
+- Checked in the browser at 1280 and 390 px, light and dark, English and Chinese: the critical sender example shows three high findings under its verdict and all nine indicators without scrolling; the phishing content example shows its three strongest technical findings; a legitimate example shows none. No console errors. Frontend tests 525 pass (the new test fails if the ranking is removed); backend 1293 OK.
+- `website/tools/visual/baselines/` — regenerated (Visual baselines run 38151410816): the ten result shots grow (findings, full lists) and were checked by eye at both widths, light and dark, English and Chinese; the navbar, menu and 404 shots are unchanged; the legitimate content shot differs by 0.025% of pixels (its banner icon now aligns to the top).
+
 ## [2026-10-11 08:02 PT] — Homepage layout, phase A: focus, collapsible extras, phone fixes
 
 ### Why

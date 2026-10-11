@@ -118,6 +118,7 @@
 
   // ── Result actions ──
   'result.copy': '复制摘要',
+  'result.keyFindings': '关键发现',
   'result.copied': '已复制',
   'result.copyFailed': '复制失败',
   'result.copyAnnounce': '摘要已复制到剪贴板',

@@ -29,6 +29,27 @@ function levelLabelHtml(level) {
 // Analysis messages ({code, params, msg}) and string lists with parallel
 // *_details entries: localized when the code is known, else the server's text.
 function serverText(entry) { return i18n() ? i18n().server(entry) : entry && entry.msg; }
+
+// The few findings that most explain a verdict, strongest first (then in the server's order),
+// shown in the verdict banner above the full lists. Low and informational entries stay below.
+const KEY_FINDING_RANK = { critical: 0, high: 1, medium: 2 };
+function keyFindingsHtml(indicators, limit = 3) {
+  const top = (indicators || [])
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry && Object.prototype.hasOwnProperty.call(KEY_FINDING_RANK, entry.level))
+    .sort((a, b) => KEY_FINDING_RANK[a.entry.level] - KEY_FINDING_RANK[b.entry.level] || a.index - b.index)
+    .slice(0, limit);
+  if (!top.length) return '';
+  return `<p class="kf-title">${escapeHtml(t('result.keyFindings'))}</p><ul class="kf-list">${top.map(({ entry }) =>
+    `<li class="kf-item">${levelLabelHtml(entry.level)}<span class="kf-msg">${escapeHtml(serverText(entry))}</span></li>`
+  ).join('')}</ul>`;
+}
+function renderKeyFindings(id, indicators) {
+  const box = document.getElementById(id);
+  const html = keyFindingsHtml(indicators);
+  box.innerHTML = html;
+  box.hidden = !html;
+}
 function serverStrings(values, details) { return i18n() ? i18n().serverList(values, details) : (values || []); }
 // A verification result's `field` with its `<field>_code`/`<field>_params`
 // (`message` uses plain `code`/`params`).

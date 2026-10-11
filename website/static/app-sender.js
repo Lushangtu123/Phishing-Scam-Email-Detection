@@ -259,6 +259,7 @@ function renderResult(data, { languageOnly = false } = {}) {
   document.getElementById('vb-title').textContent = senderVerdictLabel(data);
   document.getElementById('vb-email').textContent = data.email;
   document.getElementById('vb-scope').textContent = t('sender.scope');
+  renderKeyFindings('vb-findings', data.risk_indicators);
   document.getElementById('vb-prob-label').textContent = t('sender.riskScoreLabel');
   if (!languageOnly) {
     animateNumber(document.getElementById('vb-prob'), data.risk_score, v => `${Math.round(v)}/100`);
