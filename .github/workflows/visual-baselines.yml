@@ -29,13 +29,13 @@ jobs:
     # Keep identical to the "visual" job in ci.yml and to @playwright/test in
     # website/tools/visual/package.json.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --ipc=host
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Node comes from the image; this step only caches npm downloads.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           cache: npm
           cache-dependency-path: website/tools/visual/package-lock.json
@@ -47,7 +47,7 @@ jobs:
         run: node website/tools/visual/run.mjs --committed --update
 
       - name: Upload the baselines
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-baselines
           path: website/tools/visual/baselines/*.png
@@ -69,7 +69,7 @@ jobs:
 
       - name: Upload the report for review
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-baselines-report
           path: website/tools/visual/.output/
