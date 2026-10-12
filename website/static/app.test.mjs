@@ -69,17 +69,18 @@ function loadFrontend(overrides = {}) {
 
 test('the page loads the homepage scripts in the order the tests run them', () => {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
-  const scripts = [...html.matchAll(/<script src="\/static\/([^"?]+)\?v=[^"]+"><\/script>/g)].map(match => match[1]);
+  const scripts = [...html.matchAll(/<script (?:defer )?src="\/static\/([^"?]+)\?v=[^"]+"><\/script>/g)].map(match => match[1]);
   const start = scripts.indexOf('feedback.js') + 1;
   assert.ok(start > 0);
   assert.deepEqual(scripts.slice(start, start + APP_SCRIPTS.length + 1), [...APP_SCRIPTS, 'analytics-init.js']);
   assert.equal(scripts.filter(name => /^app[-.]/.test(name)).length, APP_SCRIPTS.length);
-  // i18n.js is the first script in <body>, so the markup is translated before
-  // anything renders, and every later script can call it.
+  // i18n.js is the first script in <body>, so every later script can call it.
+  // All of them are deferred, so the first paint does not wait for them.
   const body = html.slice(html.indexOf('<body>'));
-  const bodyScripts = [...body.matchAll(/<script src="\/static\/([^"?]+)\?v=[^"]+"><\/script>/g)].map(match => match[1]);
+  const bodyScripts = [...body.matchAll(/<script (?:defer )?src="\/static\/([^"?]+)\?v=[^"]+"><\/script>/g)].map(match => match[1]);
   assert.equal(bodyScripts[0], 'i18n.js');
   assert.equal(bodyScripts[1], 'vision.js');
+  assert.doesNotMatch(body, /<script src=/, 'every <body> script is deferred');
   // lang-init.js sets <html lang> in <head>, right after the theme bootstrap.
   const head = html.slice(0, html.indexOf('</head>'));
   assert.match(head, /<script src="\/static\/theme-init\.js\?v=\d+"><\/script>\s*<script src="\/static\/lang-init\.js\?v=\d+"><\/script>/);

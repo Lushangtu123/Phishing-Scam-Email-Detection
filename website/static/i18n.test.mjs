@@ -548,6 +548,22 @@ test('a Chinese visitor: lang-init.js requests i18n-zh.js in <head>, and the pag
   }
 });
 
+test('a deferred i18n.js: a dictionary arriving before DOMContentLoaded needs no re-render', () => {
+  // A deferred script runs after parsing, while readyState is already 'interactive', but
+  // before DOMContentLoaded, when the page scripts render for the first time.
+  for (const arrives of ['before DOMContentLoaded', 'after DOMContentLoaded']) {
+    const page = browserPage({languages: ['zh-CN'], readyState: 'interactive'});
+    page.run('lang-init.js');
+    const [script] = page.head.children;
+    page.run('i18n.js');
+    if (arrives === 'after DOMContentLoaded') page.contentLoaded();
+    page.deliver(script);
+    assert.equal(page.i18n().lang(), 'zh', arrives);
+    assert.equal(page.pending(), false, arrives);
+    assert.deepEqual(page.events, arrives === 'after DOMContentLoaded' ? [['change', 'zh']] : [], arrives);
+  }
+});
+
 test('a Chinese dictionary that arrives before i18n.js is applied as i18n.js starts', () => {
   const page = browserPage({languages: ['en-US'], stored: 'zh'});
   page.run('lang-init.js');
