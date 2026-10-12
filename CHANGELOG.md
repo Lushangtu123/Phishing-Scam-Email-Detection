@@ -22,6 +22,19 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-12 13:46 PT] — Split `extract_email_features` (545 → 70 lines), outputs unchanged
+
+### Why
+- `sender_features.extract_email_features` was one 545-line function: address parsing, the 30 features, semantic domain signals, a 150-line random-username heuristic that rebuilt three name lists on every call, and the disposable classification. It was the second-longest function in the backend.
+
+### Files changed
+- `website/sender_features.py` — the function runs its stages through helpers: `_parse_sender_address` (a frozen `_SenderAddress`), `_match_registries` (`_RegistryMatches`), `_is_known_domain`, `_domain_structure_features` (features 1-13), `_keyword_and_brand_features` (14-24), `_summary_features` (25-30; `iframe` still counts the -1 values set before it), `_semantic_domain_indicators`, and `_flag_random_username` with `_is_real_name` and `_randomness_factors`. The first-name, last-name and common-word lists are module-level frozensets, built once. Statements, comments, the order of features and indicators, and the later switch of the four username features are kept; the module docstring no longer claims that `app` re-exports these names.
+
+### Effect
+- No behaviour change. Golden replay: 42,308 inputs (every call of the unit tests, 40,000 sender strings sampled from the public corpora in `phishing-detection/data` with seed 20261012, 2,095 synthetic addresses, and 36 official brand domains that reach the embedded-brand branch) give byte-identical results on `main` and this branch under hash seeds 0, 1 and 2, with the order of feature keys and indicators compared. The inputs reached 252 of the function's 255 statements; of the other three, one is unreachable (`continue` after a `find` of a substring) and two run but are traced on a neighbouring line.
+- The replay catches planted bugs: `>= 0.4` for the digit ratio changes 65 results, a threshold of 3 changes 160, and moving the semantic signals before features 25-30 changes all of them.
+- Backend tests 1,293 pass (10 skipped); frontend 526; `ruff check` passes.
+
 ## [2026-10-12 13:27 PT] — CI hardening: Redis from apt, actions and the Playwright image pinned
 
 ### Why
