@@ -1,14 +1,16 @@
 """Sender-address feature extraction for PhishGuard.
 
-Moved verbatim from ``app.py``: the known-domain registries, sender address
-normalization, and ``extract_email_features``. ``app`` re-exports every name
-defined here, so existing ``app.<name>`` references keep working.
+The known-domain registries, sender address normalization, and
+``extract_email_features``, which runs in stages: parse the address, match the
+domain registries, features 1-30, semantic signals for an unknown domain, the
+random-username heuristic, and the disposable-mailbox classification.
 """
 
 from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
 
 import tldextract
 
@@ -208,14 +210,24 @@ def _shannon_entropy(s: str) -> float:
     return -sum((f / len(s)) * math.log2(f / len(s)) for f in freq.values())
 
 
-def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | None, dict]:
-    """
-    Extract 30 phishing-indicator features from an email address.
-    Returns feature data plus the compatible booleans and detailed disposable classification.
-    Each feature value ∈ {-1 (phishing), 0 (suspicious), 1 (legitimate)}.
-    """
+@dataclass(frozen=True)
+class _SenderAddress:
+    """An address split the way the features read it."""
+    at_count: int
+    local: str               # plus tag removed and, where the provider ignores them, dots removed
+    tag_stripped_local: str  # plus tag removed, dots kept
+    scoring_email: str       # what the length and 'http' checks measure
+    alias_type: str | None   # 'subaddress' for a plus alias the provider supports
+    domain: str
+    public_suffix: str
+    tld: str
+    base_domain: str
+    domain_label: str
+    subdomain_count: int
+
+
+def _parse_sender_address(email: str) -> _SenderAddress:
     email = email.strip().lower()
-    risk_indicators = []
 
     # Parse local part and domain
     at_count = email.count('@')
@@ -234,7 +246,6 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         and alias_tag
         and re.fullmatch(r"[a-z0-9._%+\-]+", alias_tag)
     )
-    address_alias_type = "subaddress" if is_subaddress else None
     tag_stripped_local = base_local if is_subaddress else raw_local
     local = tag_stripped_local
     if uses_gmail_dot_aliasing(domain):
@@ -250,7 +261,6 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     is_ip_domain = bool(re.match(r'^\d{1,3}(\.\d{1,3}){3}$', domain))
     public_suffix = ""
     if is_ip_domain:
-        domain_parts = [domain]
         tld = ''
         base_domain = domain
         domain_label = domain
@@ -271,13 +281,49 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
             domain_label = domain_parts[-2] if len(domain_parts) >= 2 else domain
             subdomain_count = max(0, len(domain_parts) - 2)
 
-    matched_disposable_domain = _match_domain_registry(domain, DISPOSABLE_DOMAINS)
-    matched_privacy_relay = _match_domain_registry(domain, PRIVACY_RELAY_DOMAINS)
-    matched_legit_provider = _match_domain_registry(domain, LEGIT_PROVIDERS)
-    matched_high_traffic = _match_domain_registry(domain, HIGH_TRAFFIC)
-    matched_mail_service = matched_disposable_domain or matched_privacy_relay
+    return _SenderAddress(
+        at_count=at_count, local=local, tag_stripped_local=tag_stripped_local, scoring_email=scoring_email,
+        alias_type="subaddress" if is_subaddress else None, domain=domain, public_suffix=public_suffix,
+        tld=tld, base_domain=base_domain, domain_label=domain_label, subdomain_count=subdomain_count)
 
-    features = {}
+
+@dataclass(frozen=True)
+class _RegistryMatches:
+    """The registry entry each domain list matched, or None."""
+    disposable: str | None
+    privacy_relay: str | None
+    legit_provider: str | None
+    high_traffic: str | None
+
+    @property
+    def mail_service(self) -> str | None:
+        return self.disposable or self.privacy_relay
+
+
+def _match_registries(domain: str) -> _RegistryMatches:
+    return _RegistryMatches(
+        disposable=_match_domain_registry(domain, DISPOSABLE_DOMAINS),
+        privacy_relay=_match_domain_registry(domain, PRIVACY_RELAY_DOMAINS),
+        legit_provider=_match_domain_registry(domain, LEGIT_PROVIDERS),
+        high_traffic=_match_domain_registry(domain, HIGH_TRAFFIC),
+    )
+
+
+def _is_known_domain(domain: str, matches: _RegistryMatches) -> bool:
+    return bool(
+        matches.legit_provider
+        or matches.disposable
+        or matches.privacy_relay
+        or domain.endswith('.edu')
+        or domain.endswith('.gov')
+    )
+
+
+def _domain_structure_features(address: _SenderAddress, matches: _RegistryMatches, is_known: bool,
+                               features: dict, risk_indicators: list) -> None:
+    """Features 1-13: the shape of the address and of its domain."""
+    domain, base_domain, domain_label, tld = (
+        address.domain, address.base_domain, address.domain_label, address.tld)
 
     # 1. having_ip_address
     is_ip = bool(re.match(r'^\d{1,3}(\.\d{1,3}){3}$', domain))
@@ -286,7 +332,7 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         risk_indicators.append(indicator('high', 'sender.ip_domain', domain=domain))
 
     # 2. url_length
-    total_len = len(scoring_email)
+    total_len = len(address.scoring_email)
     features['url_length'] = -1 if total_len > 50 else (0 if total_len > 30 else 1)
     if total_len > 50:
         risk_indicators.append(indicator('medium', 'sender.long_address', length=total_len))
@@ -297,9 +343,9 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         risk_indicators.append(indicator('high', 'sender.url_shortener', domain=base_domain))
 
     # 4. having_at_symbol
-    features['having_at_symbol'] = -1 if at_count > 1 else 1
-    if at_count > 1:
-        risk_indicators.append(indicator('high', 'sender.multiple_at', count=at_count))
+    features['having_at_symbol'] = -1 if address.at_count > 1 else 1
+    if address.at_count > 1:
+        risk_indicators.append(indicator('high', 'sender.multiple_at', count=address.at_count))
 
     # 5. double_slash_redirecting
     features['double_slash_redirecting'] = -1 if '//' in domain else 1
@@ -313,32 +359,24 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         risk_indicators.append(indicator('low', 'sender.domain_hyphen', domain=base_domain))
 
     # 7. having_sub_domain
-    if matched_privacy_relay:
-        subdomain_count = 0
+    subdomain_count = 0 if matches.privacy_relay else address.subdomain_count
     features['having_sub_domain'] = -1 if subdomain_count > 1 else (0 if subdomain_count == 1 else 1)
     if subdomain_count > 1:
         risk_indicators.append(indicator('medium', 'sender.deep_subdomains', count=subdomain_count))
 
     # 8. https_token
-    has_http_in_email = 'http' in scoring_email
+    has_http_in_email = 'http' in address.scoring_email
     features['https_token'] = -1 if has_http_in_email else 1
     if has_http_in_email:
         risk_indicators.append(indicator('medium', 'sender.http_token'))
 
     # 9. sslfinal_state (known legitimate provider)
-    is_known = bool(
-        matched_legit_provider
-        or matched_disposable_domain
-        or matched_privacy_relay
-        or domain.endswith('.edu')
-        or domain.endswith('.gov')
-    )
     features['sslfinal_state'] = 1 if is_known else -1
     if not is_known:
         risk_indicators.append(indicator('medium', 'sender.unrecognized_provider', domain=base_domain))
 
     # 10. domain_registration_length (TLD)
-    has_common_tld = bool(public_suffix) or tld in COMMON_TLDS or bool(matched_privacy_relay)
+    has_common_tld = bool(address.public_suffix) or tld in COMMON_TLDS or bool(matches.privacy_relay)
     features['domain_registration_length'] = 1 if has_common_tld else -1
     if tld and not has_common_tld:
         risk_indicators.append(indicator('medium', 'sender.uncommon_tld', tld=tld))
@@ -350,16 +388,23 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
         risk_indicators.append(indicator('low', 'sender.long_domain_label', length=dom_len))
 
     # 12. dnsrecord (digits in domain)
-    has_digits_domain = bool(re.search(r'\d', domain_label)) and not matched_privacy_relay
+    has_digits_domain = bool(re.search(r'\d', domain_label)) and not matches.privacy_relay
     features['dnsrecord'] = -1 if has_digits_domain else 1
     if has_digits_domain:
         risk_indicators.append(indicator('low', 'sender.domain_digits', label=domain_label))
 
     # 13. web_traffic (high-traffic provider)
-    features['web_traffic'] = 1 if (matched_high_traffic or matched_privacy_relay) else -1
+    features['web_traffic'] = 1 if (matches.high_traffic or matches.privacy_relay) else -1
+
+
+def _keyword_and_brand_features(address: _SenderAddress, matches: _RegistryMatches,
+                                features: dict, risk_indicators: list) -> str | None:
+    """Features 14-24: suspicious words, risky TLDs, the username's characters and brand
+    look-alikes. Returns the brand the domain imitates, if any."""
+    domain, local, domain_label, tld = address.domain, address.local, address.domain_label, address.tld
 
     # 14. page_rank (suspicious keywords in domain)
-    domain_susp = [] if matched_privacy_relay else [
+    domain_susp = [] if matches.privacy_relay else [
         kw for kw in SUSPICIOUS_KEYWORDS if kw in domain.replace('.', '')
     ]
     features['page_rank'] = -1 if domain_susp else 1
@@ -378,12 +423,9 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     if tld in SPAM_TLDS:
         risk_indicators.append(indicator('high', 'sender.high_risk_tld', tld=tld))
 
-    # 17. favicon (excessive digits in local)
-    num_ratio = sum(c.isdigit() for c in local) / max(len(local), 1)
+    # 17. favicon (excessive digits in local) and 18. port (entropy of the local part):
+    # neutral unless the random-username heuristic fires (_flag_random_username).
     features['favicon'] = 1
-
-    # 18. port (entropy of local part) — threshold matches the auto-gen heuristic
-    local_entropy = _shannon_entropy(local)
     features['port'] = 1
 
     # 19. request_url (special chars in local)
@@ -397,10 +439,10 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     # 20. url_of_anchor (local part length)
     local_len = len(local)
     features['url_of_anchor'] = (
-        1 if matched_mail_service
+        1 if matches.mail_service
         else (-1 if local_len > 30 else (0 if local_len > 15 else 1))
     )
-    if local_len > 30 and not matched_mail_service:
+    if local_len > 30 and not matches.mail_service:
         risk_indicators.append(indicator('low', 'sender.long_username', length=local_len))
 
     # 21. links_in_tags (brand spoofing)
@@ -408,10 +450,10 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     brand_substitution_detected = False
     normalized_domain = normalize_homoglyphs(domain_label)
 
-    for brand in (() if matched_privacy_relay else BRAND_DOMAINS):
+    for brand in (() if matches.privacy_relay else BRAND_DOMAINS):
         canonical_domains = set(_PROTECTED_BRAND_DOMAINS.get(brand, set()))
         canonical_domains.update({brand + '.com', brand + '.net', brand + '.org'})
-        is_official_domain = base_domain in canonical_domains
+        is_official_domain = address.base_domain in canonical_domains
         # Check original domain
         original_match = brand in domain_label and not is_official_domain
         # Check normalized domain (catches paypa1, vvindows, amaz0n etc)
@@ -434,21 +476,18 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     # 22. sfh (noreply address — neutral)
     features['sfh'] = 0 if ('noreply' in local or 'no-reply' in local or 'donotreply' in local) else 1
 
-    # 23. submitting_to_email (repeated chars)
-    max_repeat = max((local.count(c) for c in set(local)), default=0)
-    repeat_ratio = max_repeat / max(len(local), 1)
-    repeated_local = repeat_ratio > 0.5 and len(local) > 3
+    # 23. submitting_to_email (repeated chars): neutral unless the random-username heuristic fires.
     features['submitting_to_email'] = 1
 
     # 24. abnormal_url (digit-letter mix + homoglyph in domain label)
     digit_letter_mix = (
         bool(re.search(r'(?<=[a-z])\d|(?<=\d)[a-z]', domain_label))
-        and not matched_privacy_relay
+        and not matches.privacy_relay
     )
     # Also check if normalizing changes the domain significantly (indicates substitution)
-    normalized = normalize_homoglyphs(domain_label)
+    normalized = normalized_domain
     homoglyph_detected = (
-        not matched_privacy_relay
+        not matches.privacy_relay
         and normalized != domain_label
         and any(brand in normalized for brand in BRAND_DOMAINS)
     )
@@ -456,21 +495,24 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     if homoglyph_detected and not digit_letter_mix:
         risk_indicators.append(indicator(
             'high', 'sender.character_substitution', label=domain_label, normalized=normalized))
+    return brand_spoof
 
+
+def _summary_features(address: _SenderAddress, features: dict, risk_indicators: list) -> None:
+    """Features 25-30. iframe counts the -1 values set so far, so this runs after features 1-24."""
     # 25. redirect (default legit — can't check without network)
     features['redirect'] = 1
 
     # 26. on_mouseover (abused ccTLD)
-    features['on_mouseover'] = -1 if tld in ABUSED_CCTLDS else 1
-    if tld in ABUSED_CCTLDS:
-        risk_indicators.append(indicator('medium', 'sender.abused_cctld', tld=tld))
+    features['on_mouseover'] = -1 if address.tld in ABUSED_CCTLDS else 1
+    if address.tld in ABUSED_CCTLDS:
+        risk_indicators.append(indicator('medium', 'sender.abused_cctld', tld=address.tld))
 
-    # 27. rightclick (auto-generated pattern: lowercase letters + digits)
-    auto_gen = bool(re.match(r'^[a-z]{2,5}\d{4,12}$', local))
+    # 27. rightclick (auto-generated pattern): neutral unless the random-username heuristic fires.
     features['rightclick'] = 1
 
     # 28. popupwindow (too many domain word segments)
-    domain_words = re.findall(r'[a-z]+', domain_label)
+    domain_words = re.findall(r'[a-z]+', address.domain_label)
     features['popupwindow'] = -1 if len(domain_words) > 3 else 1
 
     # 29. iframe (overall phishing count as cumulative risk)
@@ -478,272 +520,324 @@ def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | No
     features['iframe'] = -1 if phish_count > 8 else (0 if phish_count > 4 else 1)
 
     # 30. links_pointing_to_page (basic email format validity)
-    email_valid = bool(_normalize_sender_address(scoring_email))
+    email_valid = bool(_normalize_sender_address(address.scoring_email))
     features['links_pointing_to_page'] = 1 if email_valid else -1
     if not email_valid:
         risk_indicators.append(indicator('high', 'sender.malformed_syntax'))
 
-    # ── Extended semantic domain analysis (extra risk signals beyond ML) ──────
+
+# Government and regulatory words that a non-.gov domain should not carry. A set, iterated as before.
+_GOVERNMENT_KEYWORDS = {'federal', 'national', 'authority', 'ministry', 'government',
+                        'regulatory', 'commission', 'bureau', 'department', 'administration'}
+
+
+def _semantic_domain_indicators(address: _SenderAddress, brand_spoof: str | None, risk_indicators: list) -> None:
+    """Extended semantic domain analysis (extra risk signals beyond ML) for a domain no
+    registry knows: fake financial business names, embedded brands, government words."""
+    domain_label, base_domain = address.domain_label, address.base_domain
+    fin_kw_found  = sorted({kw for kw in FINANCIAL_DOMAIN_KEYWORDS if kw in domain_label}, key=len, reverse=True)
+    biz_sfx_found = sorted({kw for kw in BUSINESS_SUFFIX_KEYWORDS  if kw in domain_label}, key=len, reverse=True)
+
+    # Detect the fake-business-name compound pattern:
+    #   [short abbreviation 0-4 chars] + [financial keyword] + [business suffix]
+    # e.g. bpinsgroup → bp + ins + group
+    fake_biz_breakdown = None
+    for fkw in fin_kw_found:
+        idx = domain_label.find(fkw)
+        if idx < 0:
+            continue
+        prefix    = domain_label[:idx]
+        remainder = domain_label[idx + len(fkw):]
+        if len(prefix) <= 4 and prefix.isalpha() and any(bkw == remainder for bkw in biz_sfx_found):
+            fake_biz_breakdown = f"'{prefix or '(none)'}' + '{fkw}' + '{remainder}'"
+            break
+        # Also catch: financial keyword at start, business suffix follows
+        if idx == 0 and any(bkw == remainder for bkw in biz_sfx_found):
+            fake_biz_breakdown = f"[start] + '{fkw}' + '{remainder}'"
+            break
+
+    if fake_biz_breakdown:
+        risk_indicators.insert(0, indicator(
+            'high', 'sender.fake_financial_business', domain=base_domain, breakdown=fake_biz_breakdown))
+    elif fin_kw_found and biz_sfx_found:
+        risk_indicators.append(indicator(
+            'high', 'sender.financial_business_combo', domain=base_domain,
+            financial=', '.join(fin_kw_found[:2]), suffixes=', '.join(biz_sfx_found[:2])))
+    elif fin_kw_found:
+        risk_indicators.append(indicator(
+            'medium', 'sender.financial_keywords', domain=base_domain,
+            financial=', '.join(fin_kw_found[:3])))
+    elif biz_sfx_found:
+        risk_indicators.append(indicator(
+            'low', 'sender.business_suffix', domain=base_domain,
+            suffixes=', '.join(biz_sfx_found[:2])))
+
+    # Detect domain that embeds a known brand name as a sub-string
+    # (catches cases not handled by exact-match brand spoofing check above)
+    if not brand_spoof:
+        partial_brands = [b for b in BRAND_DOMAINS if b in domain_label and b != domain_label]
+        if partial_brands:
+            risk_indicators.append(indicator(
+                'high', 'sender.brand_substring', domain=base_domain,
+                brands=', '.join(partial_brands[:2])))
+
+    # Detect government/regulatory keyword on a non-.gov domain
+    gov_hits = [kw for kw in _GOVERNMENT_KEYWORDS if kw in domain_label]
+    if gov_hits and address.tld not in {'gov', 'mil'}:
+        risk_indicators.append(indicator(
+            'high', 'sender.government_keywords', domain=base_domain,
+            keywords=', '.join(gov_hits[:2])))
+
+    # Detect very long domain label (>15 chars) that is a concatenated word chain
+    if len(domain_label) > 15 and (fin_kw_found or biz_sfx_found):
+        risk_indicators.append(indicator(
+            'medium', 'sender.compound_domain', label=domain_label, length=len(domain_label)))
+
+
+# Name and word lists for the random-username heuristic.
+_FIRST_NAMES = frozenset({
+    'alice','john','jane','mark','mike','kate','jack','alex','adam',
+    'luke','mary','anna','sara','lisa','emma','ryan','paul','eric',
+    'alan','kyle','noah','liam','dave','owen','evan','peter','james',
+    'chris','david','emily','grace','oliver','daniel','thomas','robert',
+    'william','joseph','henry','samuel','joshua','andrew','michael',
+    'jacob','ethan','mason','logan','lucas','sophia','isabella','mia',
+    'charlotte','amelia','harper','evelyn','abigail','madison','ella',
+    'chloe','riley','layla','zoey','nora','lily','eleanor','hannah',
+    'addison','stella','natalie','zoe','leah','hazel','violet','claire',
+    'skylar','lucy','anna','caroline','jennifer','jessica','ashley',
+    'sarah','amanda','brittany','samantha','elizabeth','megan','rachel',
+    'kayla','andrea','lauren','victoria','matthew','christopher',
+    'justin','brandon','tyler','jonathan','nicholas','nathan','zachary',
+    'kevin','timothy','steven','austin','travis','jordan','derek','dylan',
+    'sean','brian','scott','patrick','keith','gary','dennis','frank',
+    'harold','raymond','samuel','jerry','teresa','diana','joyce',
+})
+_LAST_NAMES = frozenset({
+    'smith','jones','brown','davis','wilson','taylor','anderson',
+    'jackson','white','harris','martin','thompson','garcia','martinez',
+    'robinson','clark','rodriguez','lewis','lee','walker','hall',
+    'allen','young','hernandez','king','wright','lopez','hill','scott',
+    'green','adams','baker','gonzalez','nelson','carter','mitchell',
+    'perez','roberts','turner','phillips','campbell','parker','evans',
+    'edwards','collins','stewart','sanchez','morris','rogers','reed',
+    'cook','morgan','bell','murphy','bailey','rivera','cooper',
+    'richardson','cox','howard','ward','torres','peterson','gray',
+    'ramirez','watson','brooks','kelly','sanders','price','bennett',
+    'wood','barnes','ross','henderson','coleman','jenkins','perry',
+    'powell','long','patterson','hughes','flores','washington','butler',
+    'simmons','foster','gonzales','bryant','alexander','russell',
+    'griffin','diaz','hayes','fisher','cole','frank','owens',
+    'reynolds','mills','grant','wells','ford','porter','hunt','stone',
+    'dixon','hawkins','burns','berry','shaw','reyes','medina',
+    'doe','johnson','williams','miller','moore','thomas','wright',
+    'walker','hall','allen','young','adams','nelson','carter',
+})
+_COMMON_USERNAME_WORDS = frozenset({
+    'user','mail','info','test','home','name','blog','help',
+    'shop','work','love','life','data','code','tech','site',
+    'link','post','news','real','best','john','jane','mark',
+    'mike','kate','jack','alex','adam','luke','mary','anna',
+    'sara','lisa','emma','ryan','paul','eric','alan','kyle',
+    'noah','liam','dave','owen','evan','alice','smith','jones',
+    'peter','james','chris','david','emily','grace','hello',
+    'world','super','admin','sales','brown','davis','thomas',
+    'robert','oliver','daniel','master','shadow','dragon','tiger',
+    'support','contact','service','secure','account','email',
+    'notify','alert','update','welcome','newsletter','webmaster',
+    'phoenix','mighty','dark','light','storm','fire','ice',
+    'wolf','hawk','eagle','falcon','raven','fox','bear','lion',
+    'night','star','moon','blue','red','black','white','gold',
+    'cyber','neon','nova','omega','alpha','prime','mega','ninja',
+    'king','queen','lord','knight','warrior','hunter','ranger',
+    'swift','brave','sharp','smart','bold','wild','free',
+})
+_KNOWN_USERNAME_WORDS = _FIRST_NAMES | _LAST_NAMES | _COMMON_USERNAME_WORDS
+
+
+def _is_real_name(tag_stripped_local: str, sep_parts: list[str]) -> bool:
+    """Firstname.Lastname exemption: legitimate users often use first.last@company.com,
+    or the two names run together."""
+    is_separated_real_name = (
+        len(sep_parts) == 2 and
+        all(p.isalpha() and len(p) >= 2 for p in sep_parts) and
+        ((sep_parts[0] in _FIRST_NAMES and sep_parts[1] in _LAST_NAMES) or
+         (sep_parts[0] in _LAST_NAMES  and sep_parts[1] in _FIRST_NAMES))
+    )
+    canonical_name = re.sub(r'[._-]', '', tag_stripped_local)
+    is_concatenated_real_name = any(
+        (
+            canonical_name.startswith(first)
+            and canonical_name[len(first):] in _LAST_NAMES
+        )
+        or (
+            canonical_name.endswith(first)
+            and canonical_name[:-len(first)] in _LAST_NAMES
+        )
+        for first in _FIRST_NAMES
+    )
+    return is_separated_real_name or is_concatenated_real_name
+
+
+def _randomness_factors(local: str, sep_parts: list[str]) -> tuple[dict[str, bool], dict[str, dict]]:
+    """The six randomness factors of a username, in report order, and the values the
+    indicator shows for them."""
+    letters_only = ''.join(c for c in local if c.isalpha())
+    digit_count  = sum(c.isdigit() for c in local)
+    vowel_ratio  = sum(1 for c in letters_only if c in 'aeiou') / max(len(letters_only), 1)
+    entropy      = _shannon_entropy(local)
+
+    # Factor 1 – Shannon entropy indicates near-uniform character spread
+    f_entropy = entropy > 3.0
+
+    # Factor 2 – Low vowel ratio (random strings often lack vowels)
+    f_vowels = vowel_ratio <= 0.30
+
+    # Factor 3 – Digits scattered inside the string, not just at the end
+    f_digits = (digit_count >= 2 and
+                bool(re.search(r'[a-z]\d[a-z]|\d[a-z]\d', local)))
+
+    # Factor 4 – High unique-character ratio (random = few repeats)
+    unique_ratio = len(set(local)) / max(len(local), 1)
+    f_unique = unique_ratio >= 0.75
+
+    # Factor 5 – No recognisable English word embedded
+    letters_lower = letters_only.lower()
+    has_real_word = any(w in letters_lower for w in _COMMON_USERNAME_WORDS)
+    f_noword = not has_real_word
+
+    # Factor 6 – word.word separator pattern where words are NOT real names
+    #             (username generators often combine random words with dots)
+    word_parts = [p for p in sep_parts if p.isalpha() and len(p) >= 3]
+    f_word_combo = (
+        len(word_parts) >= 2 and
+        not any(w in _KNOWN_USERNAME_WORDS for w in word_parts)
+    )
+
+    hits = {'entropy': f_entropy, 'vowel': f_vowels, 'digits': f_digits,
+            'unique': f_unique, 'no_word': f_noword, 'word_combo': f_word_combo}
+    values = {
+        'entropy': {'value': f"{entropy:.2f}"},
+        'vowel': {'percent': int(f"{vowel_ratio:.0%}"[:-1])},
+        'digits': {},
+        'unique': {'percent': int(f"{unique_ratio:.0%}"[:-1])},
+        'no_word': {},
+        'word_combo': {},
+    }
+    return hits, values
+
+
+def _flag_random_username(address: _SenderAddress, matches: _RegistryMatches,
+                          features: dict, risk_indicators: list) -> bool:
+    """Auto-generated username heuristic: a username that scores as random on a domain no
+    disposable or relay list knows is very likely a generated disposable address. Unknown
+    domains need 2 of the 6 factors, recognized providers 4. On a hit the four username
+    features turn on and an indicator goes in front; returns whether it hit."""
+    local = address.local
+    if matches.disposable or matches.privacy_relay or not local:
+        return False
+    is_unknown_domain = not matches.legit_provider and not matches.high_traffic
+
+    # Regex now allows . _ - separators (e.g. word.word, word-word patterns)
+    if not re.fullmatch(r'[a-z0-9._-]{8,25}', local):
+        return False
+    sep_parts = re.split(r'[._-]', address.tag_stripped_local)
+    # QQ and Foxmail addresses are commonly the numeric QQ account ID itself.
+    is_numeric_account_id = (address.base_domain in {'qq.com', 'foxmail.com'}
+                             and address.tag_stripped_local.isdigit()
+                             and 5 <= len(address.tag_stripped_local) <= 11)
+    if _is_real_name(address.tag_stripped_local, sep_parts) or is_numeric_account_id:
+        return False
+
+    hits, values = _randomness_factors(local, sep_parts)
+    rnd_score = sum(hits.values())
+    threshold = 2 if is_unknown_domain else 4
+    if rnd_score < threshold:
+        return False
+
+    num_ratio = sum(c.isdigit() for c in local) / max(len(local), 1)
+    max_repeat = max((local.count(c) for c in set(local)), default=0)
+    repeated_local = max_repeat / max(len(local), 1) > 0.5 and len(local) > 3
+    auto_gen = bool(re.match(r'^[a-z]{2,5}\d{4,12}$', local))
+    features['favicon'] = -1 if num_ratio > 0.4 else 1
+    features['port'] = -1 if _shannon_entropy(local) > 3.0 else 1
+    features['submitting_to_email'] = -1 if repeated_local else 1
+    features['rightclick'] = -1 if auto_gen else 1
+    # Each factor is its own template; `factor_codes` and the
+    # numeric fields let a client render the list in its language.
+    factors_hit = [name for name, hit in hits.items() if hit]
+    risk_indicators.insert(0, indicator(
+        'medium', 'sender.random_username', username=local, score=rnd_score,
+        factors=', '.join(message_text('sender.factor.' + name, **values[name])
+                          for name in factors_hit),
+        factor_codes=','.join(factors_hit),
+        entropy=values['entropy']['value'],
+        vowel_percent=values['vowel']['percent'],
+        unique_percent=values['unique']['percent']))
+    return True
+
+
+def extract_email_features(email: str) -> tuple[dict, list, bool, bool, str | None, dict]:
+    """
+    Extract 30 phishing-indicator features from an email address.
+    Returns feature data plus the compatible booleans and detailed disposable classification.
+    Each feature value ∈ {-1 (phishing), 0 (suspicious), 1 (legitimate)}.
+    """
+    address = _parse_sender_address(email)
+    matches = _match_registries(address.domain)
+    is_known = _is_known_domain(address.domain, matches)
+
+    features: dict = {}
+    risk_indicators: list = []
+    _domain_structure_features(address, matches, is_known, features, risk_indicators)
+    brand_spoof = _keyword_and_brand_features(address, matches, features, risk_indicators)
+    _summary_features(address, features, risk_indicators)
     if not is_known:
-        fin_kw_found  = sorted({kw for kw in FINANCIAL_DOMAIN_KEYWORDS if kw in domain_label}, key=len, reverse=True)
-        biz_sfx_found = sorted({kw for kw in BUSINESS_SUFFIX_KEYWORDS  if kw in domain_label}, key=len, reverse=True)
-
-        # Detect the fake-business-name compound pattern:
-        #   [short abbreviation 0-4 chars] + [financial keyword] + [business suffix]
-        # e.g. bpinsgroup → bp + ins + group
-        fake_biz_breakdown = None
-        for fkw in fin_kw_found:
-            idx = domain_label.find(fkw)
-            if idx < 0:
-                continue
-            prefix    = domain_label[:idx]
-            remainder = domain_label[idx + len(fkw):]
-            if len(prefix) <= 4 and prefix.isalpha() and any(bkw == remainder for bkw in biz_sfx_found):
-                fake_biz_breakdown = f"'{prefix or '(none)'}' + '{fkw}' + '{remainder}'"
-                break
-            # Also catch: financial keyword at start, business suffix follows
-            if idx == 0 and any(bkw == remainder for bkw in biz_sfx_found):
-                fake_biz_breakdown = f"[start] + '{fkw}' + '{remainder}'"
-                break
-
-        if fake_biz_breakdown:
-            risk_indicators.insert(0, indicator(
-                'high', 'sender.fake_financial_business', domain=base_domain, breakdown=fake_biz_breakdown))
-        elif fin_kw_found and biz_sfx_found:
-            risk_indicators.append(indicator(
-                'high', 'sender.financial_business_combo', domain=base_domain,
-                financial=', '.join(fin_kw_found[:2]), suffixes=', '.join(biz_sfx_found[:2])))
-        elif fin_kw_found:
-            risk_indicators.append(indicator(
-                'medium', 'sender.financial_keywords', domain=base_domain,
-                financial=', '.join(fin_kw_found[:3])))
-        elif biz_sfx_found:
-            risk_indicators.append(indicator(
-                'low', 'sender.business_suffix', domain=base_domain,
-                suffixes=', '.join(biz_sfx_found[:2])))
-
-        # Detect domain that embeds a known brand name as a sub-string
-        # (catches cases not handled by exact-match brand spoofing check above)
-        if not brand_spoof:
-            partial_brands = [b for b in BRAND_DOMAINS if b in domain_label and b != domain_label]
-            if partial_brands:
-                risk_indicators.append(indicator(
-                    'high', 'sender.brand_substring', domain=base_domain,
-                    brands=', '.join(partial_brands[:2])))
-
-        # Detect government/regulatory keyword on a non-.gov domain
-        gov_kw = {'federal', 'national', 'authority', 'ministry', 'government',
-                  'regulatory', 'commission', 'bureau', 'department', 'administration'}
-        gov_hits = [kw for kw in gov_kw if kw in domain_label]
-        if gov_hits and tld not in {'gov', 'mil'}:
-            risk_indicators.append(indicator(
-                'high', 'sender.government_keywords', domain=base_domain,
-                keywords=', '.join(gov_hits[:2])))
-
-        # Detect very long domain label (>15 chars) that is a concatenated word chain
-        if len(domain_label) > 15 and (fin_kw_found or biz_sfx_found):
-            risk_indicators.append(indicator(
-                'medium', 'sender.compound_domain', label=domain_label, length=len(domain_label)))
+        _semantic_domain_indicators(address, brand_spoof, risk_indicators)
 
     # ── Disposable email classification (separate from the 30 ML features) ────
     disposable_status = "no_known_match"
     disposable_confidence = "unknown"
     matched_provider_domain = None
-    if matched_disposable_domain:
+    if matches.disposable:
         disposable_status = "known_disposable_provider"
         disposable_confidence = "confirmed"
-        matched_provider_domain = matched_disposable_domain
-    elif matched_privacy_relay:
+        matched_provider_domain = matches.disposable
+    elif matches.privacy_relay:
         disposable_status = "privacy_relay"
         disposable_confidence = "confirmed"
-        matched_provider_domain = matched_privacy_relay
+        matched_provider_domain = matches.privacy_relay
 
     is_disposable = disposable_status == "known_disposable_provider"
-    is_suspected_disposable = False
-
-    # 2. Auto-generated username heuristic:
-    #    High-entropy all-lowercase-letters username (no vowel pattern, no digits,
-    #    length 8-20) on an unknown domain  →  very likely a randomly-generated
-    #    disposable address even if the domain is not in the list.
-    if not matched_disposable_domain and not matched_privacy_relay and local:
-        is_unknown_domain = not matched_legit_provider and not matched_high_traffic
-
-        # ── Multi-factor randomness scoring ───────────────────────────────────
-        # Regex now allows . _ - separators (e.g. word.word, word-word patterns)
-        # Unknown domains use threshold 2; recognized providers use threshold 4.
-        if bool(re.fullmatch(r'[a-z0-9._-]{8,25}', local)):
-
-            letters_only = ''.join(c for c in local if c.isalpha())
-            digit_count  = sum(c.isdigit() for c in local)
-            vowel_ratio  = sum(1 for c in letters_only if c in 'aeiou') / max(len(letters_only), 1)
-            entropy      = _shannon_entropy(local)
-
-            # ── Firstname.Lastname exemption ──────────────────────────────────
-            # Legitimate users often use first.last@company.com patterns.
-            # Skip the heuristic for confirmed real-name combinations.
-            _FIRST = {
-                'alice','john','jane','mark','mike','kate','jack','alex','adam',
-                'luke','mary','anna','sara','lisa','emma','ryan','paul','eric',
-                'alan','kyle','noah','liam','dave','owen','evan','peter','james',
-                'chris','david','emily','grace','oliver','daniel','thomas','robert',
-                'william','joseph','henry','samuel','joshua','andrew','michael',
-                'jacob','ethan','mason','logan','lucas','sophia','isabella','mia',
-                'charlotte','amelia','harper','evelyn','abigail','madison','ella',
-                'chloe','riley','layla','zoey','nora','lily','eleanor','hannah',
-                'addison','stella','natalie','zoe','leah','hazel','violet','claire',
-                'skylar','lucy','anna','caroline','jennifer','jessica','ashley',
-                'sarah','amanda','brittany','samantha','elizabeth','megan','rachel',
-                'kayla','andrea','lauren','victoria','matthew','christopher',
-                'justin','brandon','tyler','jonathan','nicholas','nathan','zachary',
-                'kevin','timothy','steven','austin','travis','jordan','derek','dylan',
-                'sean','brian','scott','patrick','keith','gary','dennis','frank',
-                'harold','raymond','samuel','jerry','teresa','diana','joyce',
-            }
-            _LAST = {
-                'smith','jones','brown','davis','wilson','taylor','anderson',
-                'jackson','white','harris','martin','thompson','garcia','martinez',
-                'robinson','clark','rodriguez','lewis','lee','walker','hall',
-                'allen','young','hernandez','king','wright','lopez','hill','scott',
-                'green','adams','baker','gonzalez','nelson','carter','mitchell',
-                'perez','roberts','turner','phillips','campbell','parker','evans',
-                'edwards','collins','stewart','sanchez','morris','rogers','reed',
-                'cook','morgan','bell','murphy','bailey','rivera','cooper',
-                'richardson','cox','howard','ward','torres','peterson','gray',
-                'ramirez','watson','brooks','kelly','sanders','price','bennett',
-                'wood','barnes','ross','henderson','coleman','jenkins','perry',
-                'powell','long','patterson','hughes','flores','washington','butler',
-                'simmons','foster','gonzales','bryant','alexander','russell',
-                'griffin','diaz','hayes','fisher','cole','frank','owens',
-                'reynolds','mills','grant','wells','ford','porter','hunt','stone',
-                'dixon','hawkins','burns','berry','shaw','reyes','medina',
-                'doe','johnson','williams','miller','moore','thomas','wright',
-                'walker','hall','allen','young','adams','nelson','carter',
-            }
-            sep_parts = re.split(r'[._-]', tag_stripped_local)
-            is_separated_real_name = (
-                len(sep_parts) == 2 and
-                all(p.isalpha() and len(p) >= 2 for p in sep_parts) and
-                ((sep_parts[0] in _FIRST and sep_parts[1] in _LAST) or
-                 (sep_parts[0] in _LAST  and sep_parts[1] in _FIRST))
-            )
-            canonical_name = re.sub(r'[._-]', '', tag_stripped_local)
-            is_concatenated_real_name = any(
-                (
-                    canonical_name.startswith(first)
-                    and canonical_name[len(first):] in _LAST
-                )
-                or (
-                    canonical_name.endswith(first)
-                    and canonical_name[:-len(first)] in _LAST
-                )
-                for first in _FIRST
-            )
-            is_real_name = is_separated_real_name or is_concatenated_real_name
-            # QQ and Foxmail addresses are commonly the numeric QQ account ID itself.
-            is_numeric_account_id = (base_domain in {'qq.com', 'foxmail.com'}
-                                     and tag_stripped_local.isdigit() and 5 <= len(tag_stripped_local) <= 11)
-
-            if not is_real_name and not is_numeric_account_id:
-                # Factor 1 – Shannon entropy indicates near-uniform character spread
-                f_entropy = entropy > 3.0
-
-                # Factor 2 – Low vowel ratio (random strings often lack vowels)
-                f_vowels = vowel_ratio <= 0.30
-
-                # Factor 3 – Digits scattered inside the string, not just at the end
-                f_digits = (digit_count >= 2 and
-                            bool(re.search(r'[a-z]\d[a-z]|\d[a-z]\d', local)))
-
-                # Factor 4 – High unique-character ratio (random = few repeats)
-                unique_ratio = len(set(local)) / max(len(local), 1)
-                f_unique = unique_ratio >= 0.75
-
-                # Factor 5 – No recognisable English word embedded
-                _COMMON = {'user','mail','info','test','home','name','blog','help',
-                           'shop','work','love','life','data','code','tech','site',
-                           'link','post','news','real','best','john','jane','mark',
-                           'mike','kate','jack','alex','adam','luke','mary','anna',
-                           'sara','lisa','emma','ryan','paul','eric','alan','kyle',
-                           'noah','liam','dave','owen','evan','alice','smith','jones',
-                           'peter','james','chris','david','emily','grace','hello',
-                           'world','super','admin','sales','brown','davis','thomas',
-                           'robert','oliver','daniel','master','shadow','dragon','tiger',
-                           'support','contact','service','secure','account','email',
-                           'notify','alert','update','welcome','newsletter','webmaster',
-                           'phoenix','mighty','dark','light','storm','fire','ice',
-                           'wolf','hawk','eagle','falcon','raven','fox','bear','lion',
-                           'night','star','moon','blue','red','black','white','gold',
-                           'cyber','neon','nova','omega','alpha','prime','mega','ninja',
-                           'king','queen','lord','knight','warrior','hunter','ranger',
-                           'swift','brave','sharp','smart','bold','wild','free',}
-                letters_lower = letters_only.lower()
-                has_real_word = any(w in letters_lower for w in _COMMON)
-                f_noword = not has_real_word
-
-                # Factor 6 – word.word separator pattern where words are NOT real names
-                #             (username generators often combine random words with dots)
-                word_parts = [p for p in sep_parts if p.isalpha() and len(p) >= 3]
-                f_word_combo = (
-                    len(word_parts) >= 2 and
-                    not any(w in (_FIRST | _LAST | _COMMON) for w in word_parts)
-                )
-
-                rnd_score = sum([f_entropy, f_vowels, f_digits, f_unique, f_noword, f_word_combo])
-
-                threshold = 2 if is_unknown_domain else 4
-                if rnd_score >= threshold:
-                    disposable_status = "suspicious_mailbox_pattern"
-                    disposable_confidence = "heuristic"
-                    is_suspected_disposable = True
-                    features['favicon'] = -1 if num_ratio > 0.4 else 1
-                    features['port'] = -1 if local_entropy > 3.0 else 1
-                    features['submitting_to_email'] = -1 if repeated_local else 1
-                    features['rightclick'] = -1 if auto_gen else 1
-                    # Each factor is its own template; `factor_codes` and the
-                    # numeric fields let a client render the list in its language.
-                    factor_values = {
-                        'entropy': {'value': f"{entropy:.2f}"},
-                        'vowel': {'percent': int(f"{vowel_ratio:.0%}"[:-1])},
-                        'digits': {},
-                        'unique': {'percent': int(f"{unique_ratio:.0%}"[:-1])},
-                        'no_word': {},
-                        'word_combo': {},
-                    }
-                    factors_hit = [name for name, hit in zip(factor_values, (
-                        f_entropy, f_vowels, f_digits, f_unique, f_noword, f_word_combo)) if hit]
-                    risk_indicators.insert(0, indicator(
-                        'medium', 'sender.random_username', username=local, score=rnd_score,
-                        factors=', '.join(message_text('sender.factor.' + name, **factor_values[name])
-                                          for name in factors_hit),
-                        factor_codes=','.join(factors_hit),
-                        entropy=factor_values['entropy']['value'],
-                        vowel_percent=factor_values['vowel']['percent'],
-                        unique_percent=factor_values['unique']['percent']))
+    is_suspected_disposable = _flag_random_username(address, matches, features, risk_indicators)
+    if is_suspected_disposable:
+        disposable_status = "suspicious_mailbox_pattern"
+        disposable_confidence = "heuristic"
 
     if (
         disposable_status == "no_known_match"
-        and _matches_disposable_domain_pattern(domain)
+        and _matches_disposable_domain_pattern(address.domain)
     ):
         disposable_status = "suspicious_domain_pattern"
         disposable_confidence = "heuristic"
         is_suspected_disposable = True
-        risk_indicators.insert(0, indicator('medium', 'sender.disposable_domain_pattern', domain=domain))
+        risk_indicators.insert(0, indicator('medium', 'sender.disposable_domain_pattern', domain=address.domain))
 
-    disposable_service = matched_disposable_domain if is_disposable else None
+    disposable_service = matches.disposable if is_disposable else None
     if disposable_status == "known_disposable_provider":
         risk_indicators.insert(0, indicator('info', 'sender.known_disposable',
-                                            provider=matched_disposable_domain))
+                                            provider=matches.disposable))
     elif disposable_status == "privacy_relay":
-        risk_indicators.insert(0, indicator('info', 'sender.privacy_relay', provider=matched_privacy_relay))
+        risk_indicators.insert(0, indicator('info', 'sender.privacy_relay', provider=matches.privacy_relay))
 
-    if address_alias_type:
+    if address.alias_type:
         risk_indicators.append(indicator('info', 'sender.plus_alias'))
 
     classification = {
         "disposable_status": disposable_status,
         "disposable_confidence": disposable_confidence,
         "matched_provider_domain": matched_provider_domain,
-        "address_alias_type": address_alias_type,
+        "address_alias_type": address.alias_type,
     }
     return (
         features,

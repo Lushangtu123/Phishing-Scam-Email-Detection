@@ -37,6 +37,34 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - Golden replay: 7,663 calls (1,663 from the unit tests and 3,000 public HTML bodies, each called two ways) return the same text, warnings, structure statistics and readings on `main` and this branch. They reach 352 of the class's 386 statements (91%); one planted bug changed 1 result, another, in a rare table branch, changed none, so the syntax-tree check carries the proof.
 - Backend tests 1,293 pass (10 skipped); frontend 526; `ruff check` passes. The class still has four methods over 60 lines (`handle_starttag` 143).
 
+## [2026-10-12 13:46 PT] — Split `extract_email_features` (545 → 70 lines), outputs unchanged
+
+### Why
+- `sender_features.extract_email_features` was one 545-line function: address parsing, the 30 features, semantic domain signals, a 150-line random-username heuristic that rebuilt three name lists on every call, and the disposable classification. It was the second-longest function in the backend.
+
+### Files changed
+- `website/sender_features.py` — the function runs its stages through helpers: `_parse_sender_address` (a frozen `_SenderAddress`), `_match_registries` (`_RegistryMatches`), `_is_known_domain`, `_domain_structure_features` (features 1-13), `_keyword_and_brand_features` (14-24), `_summary_features` (25-30; `iframe` still counts the -1 values set before it), `_semantic_domain_indicators`, and `_flag_random_username` with `_is_real_name` and `_randomness_factors`. The first-name, last-name and common-word lists are module-level frozensets, built once. Statements, comments, the order of features and indicators, and the later switch of the four username features are kept; the module docstring no longer claims that `app` re-exports these names.
+
+### Effect
+- No behaviour change. Golden replay: 42,308 inputs (every call of the unit tests, 40,000 sender strings sampled from the public corpora in `phishing-detection/data` with seed 20261012, 2,095 synthetic addresses, and 36 official brand domains that reach the embedded-brand branch) give byte-identical results on `main` and this branch under hash seeds 0, 1 and 2, with the order of feature keys and indicators compared. The inputs reached 252 of the function's 255 statements; of the other three, one is unreachable (`continue` after a `find` of a substring) and two run but are traced on a neighbouring line.
+- The replay catches planted bugs: `>= 0.4` for the digit ratio changes 65 results, a threshold of 3 changes 160, and moving the semantic signals before features 25-30 changes all of them.
+- Backend tests 1,293 pass (10 skipped); frontend 526; `ruff check` passes.
+
+## [2026-10-12 13:27 PT] — CI hardening: Redis from apt, actions and the Playwright image pinned
+
+### Why
+- On 2026-10-12 the main-branch `test (3.12)` job failed before any test ran: pulling the Redis service image from Amazon ECR Public returned "Data limit exceeded", so Vercel held #51 back from production until the job was rerun. Docker Hub had failed the same way on 2026-10-09.
+- The workflows used floating tags (`actions/checkout@v7`, the Playwright image `v1.63.0-noble`), so a moved tag would run new code in CI unseen. Two of them had already moved to releases under 7 days old: `setup-node` v7 to v7.1.0 (2026-10-08) and `upload-artifact` v7 to v7.0.2 (2026-10-07), outside the owner's 7-day cooling period.
+
+### Files changed
+- `.github/workflows/ci.yml` — the test job installs `redis-server` from Ubuntu's packages and waits for `PONG`, instead of a Redis service container.
+- `.github/workflows/*.yml` — every action pinned to a commit SHA with its release in a comment: `checkout` v7.0.1, `setup-python` v7.0.0, `setup-node` v7.0.0, `upload-artifact` v7.0.1 (the last two are the releases before the uncooled ones); the Playwright container pinned to its digest (`v1.63.0-noble@sha256:eff16c30…`).
+
+### Effect
+- The integration tests no longer depend on a container registry's pull limit.
+- A tag moved upstream changes nothing until a pin is edited here. `setup-node` v7.1.0 and `upload-artifact` v7.0.2 can join the 2026-10-16 dependency round.
+- Repository settings the same day (not files): Dependabot alerts enabled; the "Protect main" ruleset now requires a pull request and the six CI checks from GitHub Actions, so direct pushes to `main` are rejected.
+
 ## [2026-10-12 10:55 PT] — Homepage scripts deferred: English first paint 40% sooner on a slow phone
 
 ### Why
