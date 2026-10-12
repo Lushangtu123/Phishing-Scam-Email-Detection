@@ -85,9 +85,13 @@ def label_cohort(rows: list[dict], asks: dict) -> dict:
     """Verdict counts by label for each model and, with several models, for their agreement."""
     names = [*asks, 'agreement'] if len(asks) > 1 else [*asks]
     counts = {name: {label: Counter() for label in sorted(serving.LABELS)} for name in names}
-    for row in rows:
-        view = model_input(row)
-        readings = {name: ask(*view) for name, ask in asks.items()}
+    views = [model_input(row) for row in rows]
+    # One model through the whole cohort, then the next: alternating per message made Ollama
+    # swap the models on the GPU (2026-10-11: qwen3.8:27b-mxfp8 median 2.5 s a message alone,
+    # 25.7 s alternating with gpt-oss:20b). The readings are the same either way.
+    by_model = {name: [ask(*view) for view in views] for name, ask in asks.items()}
+    for index, row in enumerate(rows):
+        readings = {name: by_model[name][index] for name in asks}
         if len(asks) > 1:
             readings['agreement'] = agreed(list(readings.values()))
         for name, reading in readings.items():
