@@ -35,6 +35,21 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - The replay catches planted bugs: `>= 0.4` for the digit ratio changes 65 results, a threshold of 3 changes 160, and moving the semantic signals before features 25-30 changes all of them.
 - Backend tests 1,293 pass (10 skipped); frontend 526; `ruff check` passes.
 
+## [2026-10-12 13:27 PT] — CI hardening: Redis from apt, actions and the Playwright image pinned
+
+### Why
+- On 2026-10-12 the main-branch `test (3.12)` job failed before any test ran: pulling the Redis service image from Amazon ECR Public returned "Data limit exceeded", so Vercel held #51 back from production until the job was rerun. Docker Hub had failed the same way on 2026-10-09.
+- The workflows used floating tags (`actions/checkout@v7`, the Playwright image `v1.63.0-noble`), so a moved tag would run new code in CI unseen. Two of them had already moved to releases under 7 days old: `setup-node` v7 to v7.1.0 (2026-10-08) and `upload-artifact` v7 to v7.0.2 (2026-10-07), outside the owner's 7-day cooling period.
+
+### Files changed
+- `.github/workflows/ci.yml` — the test job installs `redis-server` from Ubuntu's packages and waits for `PONG`, instead of a Redis service container.
+- `.github/workflows/*.yml` — every action pinned to a commit SHA with its release in a comment: `checkout` v7.0.1, `setup-python` v7.0.0, `setup-node` v7.0.0, `upload-artifact` v7.0.1 (the last two are the releases before the uncooled ones); the Playwright container pinned to its digest (`v1.63.0-noble@sha256:eff16c30…`).
+
+### Effect
+- The integration tests no longer depend on a container registry's pull limit.
+- A tag moved upstream changes nothing until a pin is edited here. `setup-node` v7.1.0 and `upload-artifact` v7.0.2 can join the 2026-10-16 dependency round.
+- Repository settings the same day (not files): Dependabot alerts enabled; the "Protect main" ruleset now requires a pull request and the six CI checks from GitHub Actions, so direct pushes to `main` are rejected.
+
 ## [2026-10-12 10:55 PT] — Homepage scripts deferred: English first paint 40% sooner on a slow phone
 
 ### Why

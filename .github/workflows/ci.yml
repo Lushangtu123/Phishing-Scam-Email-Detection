@@ -8,9 +8,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -23,9 +23,9 @@ jobs:
   vercel-runtime:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -53,26 +53,14 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    services:
-      redis:
-        # The official image through Amazon ECR Public: Docker Hub's anonymous pull limit
-        # and timeouts stopped the test jobs before they ran (2026-10-09).
-        image: public.ecr.aws/docker/library/redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -83,6 +71,18 @@ jobs:
 
       - name: Install backend and test dependencies
         run: python -m pip install -r requirements-dev.txt
+
+      # Redis from Ubuntu's packages, not a service container: a container is pulled from a
+      # registry, and both Docker Hub (2026-10-09) and Amazon ECR Public (2026-10-12: "Data
+      # limit exceeded") refused the pull and stopped the job before any test ran.
+      - name: Start Redis for the integration tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends redis-server
+          redis-cli ping || sudo redis-server --daemonize yes --port 6379
+          for attempt in $(seq 1 20); do redis-cli ping | grep -q PONG && break; sleep 1; done
+          redis-cli ping | grep -q PONG
+          redis-server --version
 
       - name: Run backend tests and independent holdout release contract
         env:
@@ -95,7 +95,7 @@ jobs:
       - name: Check Python syntax
         run: python -m compileall -q website phishing-detection/src
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
@@ -123,13 +123,13 @@ jobs:
     # same image (visual-baselines.yml). Keep the tag equal to @playwright/test
     # in website/tools/visual/package.json.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27
       options: --ipc=host
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Node comes from the image; this step only caches npm downloads.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           cache: npm
           cache-dependency-path: website/tools/visual/package-lock.json
@@ -142,7 +142,7 @@ jobs:
 
       - name: Upload expected, actual and diff images
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-regression-diffs
           path: website/tools/visual/.output/
@@ -152,8 +152,8 @@ jobs:
   optional-vision:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           cache: pip
@@ -162,7 +162,7 @@ jobs:
         run: python -m pip install -r website/tools/enhanced_vision/requirements.txt
       - name: Test actual local image decoder, provider boundary and OCR engine
         run: python -m unittest website.tools.enhanced_vision.test_provider -v
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
       - name: Test image engine comparison and local-only transport
