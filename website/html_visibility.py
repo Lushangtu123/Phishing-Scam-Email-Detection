@@ -2562,530 +2562,534 @@ def _compound_matches(compound: dict | None, node: tuple, fold: bool) -> bool:
     return True
 
 
-def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=None, readings=None) -> str:
-    """Decode HTML text separately from destinations, preserving inline words."""
-    class TextCollector(_AnalysisHTMLParser):
-        head_elements = {'html', 'head', 'base', 'basefont', 'bgsound', 'link',
-                         'meta', 'title', 'noscript', 'noframes', 'script', 'style', 'template'}
+# The HTML reader behind _visible_content_text: one pass collects the text each
+# reading shows (strict, Outlook, certain, loose, per rendering view, images off).
+class _TextCollector(_AnalysisHTMLParser):
+    head_elements = {'html', 'head', 'base', 'basefont', 'bgsound', 'link',
+                     'meta', 'title', 'noscript', 'noframes', 'script', 'style', 'template'}
 
-        def __init__(self, targets=None, colour_views=True):
-            super().__init__(convert_charrefs=True)
-            # targets is set only in the rendering-view pass (see readings below).
-            self.targets = targets
-            # Whether the views leave out text the colour of its background.
-            self.colour_views = colour_views
-            self.strict_parts = []
-            self.outlook_parts = []
-            self.certain_parts = []
-            views = targets['views'] if targets else []
-            # Per view, an element's state: display none, visibility hidden, opacity zero,
-            # zero font size, transparent colour, clipped by its box, hidden in Outlook
-            # (mso-hide), the colour of its background, its text and backdrop colours;
-            # and its custom properties. The document root takes the rules on the html
-            # and body elements a document leaves implied.
-            self.root_states, self.root_custom, self.root_tokens = (), (), frozenset()
-            if targets:
-                self._cascade_root()
-            self.view_parts = [[] for _view in views] if targets and targets['contexts'] else []
-            # The same readings with images off: linked images show their alt text in place.
-            self.parts_off, self.certain_parts_off = [], []
-            self.strict_parts_off, self.outlook_parts_off = [], []
-            self.view_parts_off = [[] for _parts in self.view_parts]
-            self.images_off = False
-            # What every view shows, plus text whose rendering is undecidable: text rules
-            # read it too, so an undecidable rule cannot hide a scam from them.
-            self.loose_parts = []
-            # Element siblings at each depth, as (tag, classes, id, attributes), so that
-            # selectors with combinators are matched exactly.
-            self.children = [[]]
-            # Text whose rendering this reader cannot decide (a selector it cannot match
-            # exactly, a value it cannot compute, names matched only regardless of case).
-            self.cascade_conflict = False
-            # Text box geometry or mso-hide conceals in some view, and letters only their
-            # background's colour does.
-            self.box_hidden_text = False
-            self.same_colour_letters = 0
-            # Text and background colours the document uses, to decide whether any text
-            # may be the colour of its background.
-            self.text_colours, self.backgrounds = set(), set()
-            self.hidden_parts = []
-            self.outlook_only = 0
-            self.hidden_from_outlook = 0
-            self.parts = []
-            self.hidden = []
-            self.elements = []
-            self.excluded_hidden_text = False
-            self.hidden_characters = 0
-            self.linked_visible_images = 0
-            self.stylesheet_parts = []
-            self.style_mode = ''
-            # Inline box geometry that may hide content (or mso-hide): the view pass then
-            # cascades box properties too.
-            self.geometry_hint = False
-            self.conditional_image_alt = False
-            # A fallback instruction ("Enter password") stays unresolved for the model.
-            self.alt_instruction = False
-            self.uncertain_inline_style = False
-            self.open_paragraph = False
-            # In the view pass, each link's label as every view shows it: the text inside
-            # an <a href> that the view renders, children a rule hides left out.
-            self.anchors = []
-            self.anchors_overflow = False
-            self.open_anchors = []
+    def __init__(self, targets=None, colour_views=True):
+        super().__init__(convert_charrefs=True)
+        # targets is set only in the rendering-view pass (see readings below).
+        self.targets = targets
+        # Whether the views leave out text the colour of its background.
+        self.colour_views = colour_views
+        self.strict_parts = []
+        self.outlook_parts = []
+        self.certain_parts = []
+        views = targets['views'] if targets else []
+        # Per view, an element's state: display none, visibility hidden, opacity zero,
+        # zero font size, transparent colour, clipped by its box, hidden in Outlook
+        # (mso-hide), the colour of its background, its text and backdrop colours;
+        # and its custom properties. The document root takes the rules on the html
+        # and body elements a document leaves implied.
+        self.root_states, self.root_custom, self.root_tokens = (), (), frozenset()
+        if targets:
+            self._cascade_root()
+        self.view_parts = [[] for _view in views] if targets and targets['contexts'] else []
+        # The same readings with images off: linked images show their alt text in place.
+        self.parts_off, self.certain_parts_off = [], []
+        self.strict_parts_off, self.outlook_parts_off = [], []
+        self.view_parts_off = [[] for _parts in self.view_parts]
+        self.images_off = False
+        # What every view shows, plus text whose rendering is undecidable: text rules
+        # read it too, so an undecidable rule cannot hide a scam from them.
+        self.loose_parts = []
+        # Element siblings at each depth, as (tag, classes, id, attributes), so that
+        # selectors with combinators are matched exactly.
+        self.children = [[]]
+        # Text whose rendering this reader cannot decide (a selector it cannot match
+        # exactly, a value it cannot compute, names matched only regardless of case).
+        self.cascade_conflict = False
+        # Text box geometry or mso-hide conceals in some view, and letters only their
+        # background's colour does.
+        self.box_hidden_text = False
+        self.same_colour_letters = 0
+        # Text and background colours the document uses, to decide whether any text
+        # may be the colour of its background.
+        self.text_colours, self.backgrounds = set(), set()
+        self.hidden_parts = []
+        self.outlook_only = 0
+        self.hidden_from_outlook = 0
+        self.parts = []
+        self.hidden = []
+        self.elements = []
+        self.excluded_hidden_text = False
+        self.hidden_characters = 0
+        self.linked_visible_images = 0
+        self.stylesheet_parts = []
+        self.style_mode = ''
+        # Inline box geometry that may hide content (or mso-hide): the view pass then
+        # cascades box properties too.
+        self.geometry_hint = False
+        self.conditional_image_alt = False
+        # A fallback instruction ("Enter password") stays unresolved for the model.
+        self.alt_instruction = False
+        self.uncertain_inline_style = False
+        self.open_paragraph = False
+        # In the view pass, each link's label as every view shows it: the text inside
+        # an <a href> that the view renders, children a rule hides left out.
+        self.anchors = []
+        self.anchors_overflow = False
+        self.open_anchors = []
 
-        def _anchor_record(self, href):
-            views = len(self.view_parts)
-            return {'href': href, 'certain': [], 'certain_off': [], 'outlook': [], 'outlook_off': [], 'loose': [],
-                    'views': [[] for _view in range(views)], 'views_off': [[] for _view in range(views)]}
+    def _anchor_record(self, href):
+        views = len(self.view_parts)
+        return {'href': href, 'certain': [], 'certain_off': [], 'outlook': [], 'outlook_off': [], 'loose': [],
+                'views': [[] for _view in range(views)], 'views_off': [[] for _view in range(views)]}
 
-        def _visually_hidden(self):
-            return bool(self.elements and (self.elements[-1][1] or self.elements[-1][2]))
+    def _visually_hidden(self):
+        return bool(self.elements and (self.elements[-1][1] or self.elements[-1][2]))
 
-        def _emit(self, text, tokens=None, inline=None, *, states=None, images_off=False):
-            # images_off: an image's fallback text, rendered only when images are off.
-            if not images_off:
-                self.parts.append(text)
-            self.parts_off.append(text)
-            if inline is None:
-                inline = bool(self.elements) and any(self.elements[-1][6])
-            # Only text a zero-size or transparent style actually reaches is uncertain.
-            if inline and text.strip() and not images_off:
-                self.uncertain_inline_style = True
-            if self.targets is None:
-                return
-            if tokens is None:
-                tokens = self.elements[-1][5] if self.elements else self.root_tokens
-            if states is None:
-                states = self.elements[-1][7] if self.elements else self.root_states
-            if '#ambiguous' in tokens and text.strip():
-                self.cascade_conflict = True
-            same = [state[7] and self.colour_views for state in states]
-            shown = [not any(state[:6]) and not hidden for state, hidden in zip(states, same)]
-            in_outlook = not any(state[6] for state in states)
-            if text.strip() and any(state[5] or state[6] or state[3] == 'tiny' for state in states):
-                self.box_hidden_text = True
-            if not images_off and any(hidden and not any(state[:6]) for state, hidden in zip(states, same)):
-                self.same_colour_letters += sum(character.isalnum() for character in text)
+    def _emit(self, text, tokens=None, inline=None, *, states=None, images_off=False):
+        # images_off: an image's fallback text, rendered only when images are off.
+        if not images_off:
+            self.parts.append(text)
+        self.parts_off.append(text)
+        if inline is None:
+            inline = bool(self.elements) and any(self.elements[-1][6])
+        # Only text a zero-size or transparent style actually reaches is uncertain.
+        if inline and text.strip() and not images_off:
+            self.uncertain_inline_style = True
+        if self.targets is None:
+            return
+        if tokens is None:
+            tokens = self.elements[-1][5] if self.elements else self.root_tokens
+        if states is None:
+            states = self.elements[-1][7] if self.elements else self.root_states
+        if '#ambiguous' in tokens and text.strip():
+            self.cascade_conflict = True
+        same = [state[7] and self.colour_views for state in states]
+        shown = [not any(state[:6]) and not hidden for state, hidden in zip(states, same)]
+        in_outlook = not any(state[6] for state in states)
+        if text.strip() and any(state[5] or state[6] or state[3] == 'tiny' for state in states):
+            self.box_hidden_text = True
+        if not images_off and any(hidden and not any(state[:6]) for state, hidden in zip(states, same)):
+            self.same_colour_letters += sum(character.isalnum() for character in text)
+        if not images_off and (all(shown) or '#ambiguous' in tokens):
+            self.loose_parts.append(text)
+        # Certain text renders in every view; each @media context shows its own.
+        if all(shown):
+            for parts, wanted in ((self.certain_parts, True), (self.strict_parts, not self.outlook_only),
+                                  (self.outlook_parts, not self.hidden_from_outlook and in_outlook)):
+                if wanted and not images_off:
+                    parts.append(text)
+            for parts, wanted in ((self.certain_parts_off, True), (self.strict_parts_off, not self.outlook_only),
+                                  (self.outlook_parts_off, not self.hidden_from_outlook and in_outlook)):
+                if wanted:
+                    parts.append(text)
+        if not self.outlook_only:
+            for parts, parts_off, visible in zip(self.view_parts, self.view_parts_off, shown):
+                if visible:
+                    if not images_off:
+                        parts.append(text)
+                    parts_off.append(text)
+        if self.open_anchors:
+            # The same text, as the label of the innermost open link.
+            anchor = self.anchors[self.open_anchors[-1][1]]
             if not images_off and (all(shown) or '#ambiguous' in tokens):
-                self.loose_parts.append(text)
-            # Certain text renders in every view; each @media context shows its own.
+                anchor['loose'].append(text)
             if all(shown):
-                for parts, wanted in ((self.certain_parts, True), (self.strict_parts, not self.outlook_only),
-                                      (self.outlook_parts, not self.hidden_from_outlook and in_outlook)):
-                    if wanted and not images_off:
-                        parts.append(text)
-                for parts, wanted in ((self.certain_parts_off, True), (self.strict_parts_off, not self.outlook_only),
-                                      (self.outlook_parts_off, not self.hidden_from_outlook and in_outlook)):
-                    if wanted:
-                        parts.append(text)
+                if not images_off:
+                    anchor['certain'].append(text)
+                anchor['certain_off'].append(text)
+                if not self.hidden_from_outlook and in_outlook:
+                    if not images_off:
+                        anchor['outlook'].append(text)
+                    anchor['outlook_off'].append(text)
             if not self.outlook_only:
-                for parts, parts_off, visible in zip(self.view_parts, self.view_parts_off, shown):
+                for parts, parts_off, visible in zip(anchor['views'], anchor['views_off'], shown):
                     if visible:
                         if not images_off:
                             parts.append(text)
                         parts_off.append(text)
-            if self.open_anchors:
-                # The same text, as the label of the innermost open link.
-                anchor = self.anchors[self.open_anchors[-1][1]]
-                if not images_off and (all(shown) or '#ambiguous' in tokens):
-                    anchor['loose'].append(text)
-                if all(shown):
-                    if not images_off:
-                        anchor['certain'].append(text)
-                    anchor['certain_off'].append(text)
-                    if not self.hidden_from_outlook and in_outlook:
-                        if not images_off:
-                            anchor['outlook'].append(text)
-                        anchor['outlook_off'].append(text)
-                if not self.outlook_only:
-                    for parts, parts_off, visible in zip(anchor['views'], anchor['views_off'], shown):
-                        if visible:
-                            if not images_off:
-                                parts.append(text)
-                            parts_off.append(text)
 
-        def _matches(self, pattern, position, level, index, fold):
-            # Right to left, as browsers match: the open element at a level is the last
-            # entry of its siblings, and the parent of every entry at the next level.
-            if not _compound_matches(pattern['compounds'][position], self.children[level][index], fold):
-                return False
-            if position == 0:
-                return not pattern['rooted'] or level == 0
-            combinator = pattern['combinators'][position - 1]
-            if combinator in {'+', '~'}:
-                earlier = [index - 1] if combinator == '+' else range(index - 1, -1, -1)
-                return any(self._matches(pattern, position - 1, level, sibling, fold)
-                           for sibling in earlier if sibling >= 0)
-            ancestors = [level - 1] if combinator == '>' else range(level - 1, -1, -1)
-            return any(self._matches(pattern, position - 1, ancestor, len(self.children[ancestor]) - 1, fold)
-                       for ancestor in ancestors if ancestor >= 0)
+    def _matches(self, pattern, position, level, index, fold):
+        # Right to left, as browsers match: the open element at a level is the last
+        # entry of its siblings, and the parent of every entry at the next level.
+        if not _compound_matches(pattern['compounds'][position], self.children[level][index], fold):
+            return False
+        if position == 0:
+            return not pattern['rooted'] or level == 0
+        combinator = pattern['combinators'][position - 1]
+        if combinator in {'+', '~'}:
+            earlier = [index - 1] if combinator == '+' else range(index - 1, -1, -1)
+            return any(self._matches(pattern, position - 1, level, sibling, fold)
+                       for sibling in earlier if sibling >= 0)
+        ancestors = [level - 1] if combinator == '>' else range(level - 1, -1, -1)
+        return any(self._matches(pattern, position - 1, ancestor, len(self.children[ancestor]) - 1, fold)
+                   for ancestor in ancestors if ancestor >= 0)
 
-        def _outside_table(self):
-            """Where browsers put content a table cannot hold: the innermost open table's
-            parent (index into the open elements, -1 for the root), or None."""
-            tables = [index for index, element in enumerate(self.elements) if element[0] == 'table']
-            return tables[-1] - 1 if tables else None
+    def _outside_table(self):
+        """Where browsers put content a table cannot hold: the innermost open table's
+        parent (index into the open elements, -1 for the root), or None."""
+        tables = [index for index, element in enumerate(self.elements) if element[0] == 'table']
+        return tables[-1] - 1 if tables else None
 
-        def _maybe_changes(self, view, node, parent, custom, winners, state, element_custom):
-            """How rules this reader cannot match exactly, applying to node (None for the
-            implied root), may change it: 'ambiguous' if one may change whether its text
-            renders or a custom property var() reads, 'same' if one may only give its text
-            the colour of its background, else None."""
-            found = None
-            for subject, declared in view['maybe']:
-                if subject is not None and not (
-                        _compound_matches(subject, node, True) if node is not None else
-                        subject['tag'] in {None, 'html', 'body'} and not (subject['classes'] or subject['ids']
-                                                                         or subject['attributes'])):
-                    continue
-                # A rule applies whole: its declarations that outrank the winners apply together
-                # (a white text colour with the dark background beside it hides nothing).
-                outranking = {name: ranked for name, ranked in declared.items()
-                              if name not in winners or ranked[:3] > winners[name][:3]}
-                if not outranking:
-                    continue
-                resolved, changed = _with_custom_properties({**winners, **outranking}, custom)
-                possible = _cascade_state(parent, resolved)[0]
-                if possible[:7] != state[:7] or any(
-                        name in self.targets['variables'] and changed.get(name) != element_custom.get(name)
-                        for name in outranking):
-                    return 'ambiguous'
-                if possible[7] and not state[7] and subject is not None and (
-                        subject['classes'] or subject['ids'] or subject['attributes']):
-                    # Only a rule aimed at a class, id or attribute: a bare tag stands for
-                    # every element of it, with a specificity this reader over-estimates.
-                    found = 'same'
-            return found
+    def _maybe_changes(self, view, node, parent, custom, winners, state, element_custom):
+        """How rules this reader cannot match exactly, applying to node (None for the
+        implied root), may change it: 'ambiguous' if one may change whether its text
+        renders or a custom property var() reads, 'same' if one may only give its text
+        the colour of its background, else None."""
+        found = None
+        for subject, declared in view['maybe']:
+            if subject is not None and not (
+                    _compound_matches(subject, node, True) if node is not None else
+                    subject['tag'] in {None, 'html', 'body'} and not (subject['classes'] or subject['ids']
+                                                                     or subject['attributes'])):
+                continue
+            # A rule applies whole: its declarations that outrank the winners apply together
+            # (a white text colour with the dark background beside it hides nothing).
+            outranking = {name: ranked for name, ranked in declared.items()
+                          if name not in winners or ranked[:3] > winners[name][:3]}
+            if not outranking:
+                continue
+            resolved, changed = _with_custom_properties({**winners, **outranking}, custom)
+            possible = _cascade_state(parent, resolved)[0]
+            if possible[:7] != state[:7] or any(
+                    name in self.targets['variables'] and changed.get(name) != element_custom.get(name)
+                    for name in outranking):
+                return 'ambiguous'
+            if possible[7] and not state[7] and subject is not None and (
+                    subject['classes'] or subject['ids'] or subject['attributes']):
+                # Only a rule aimed at a class, id or attribute: a bare tag stands for
+                # every element of it, with a specificity this reader over-estimates.
+                found = 'same'
+        return found
 
-        def _cascade_root(self):
-            states, customs, ambiguous = [], [], False
-            for view in self.targets['views']:
-                # A client in dark mode paints its own canvas and default text colour.
-                parent = (*_ROOT_STATE[:8], None, None) if view['dark'] else _ROOT_STATE
-                resolved, custom = _with_custom_properties(view['root'], {})
-                state, unresolved = _cascade_state(parent, resolved)
-                change = None if unresolved else self._maybe_changes(view, None, parent, {}, view['root'], state, custom)
-                ambiguous |= unresolved or change == 'ambiguous'
-                if change == 'same':
-                    state = (*state[:7], True, *state[8:])
-                states.append(state)
-                customs.append(custom)
-            self.root_states, self.root_custom = tuple(states), tuple(customs)
-            self.root_tokens = frozenset({'#ambiguous'}) if ambiguous else frozenset()
+    def _cascade_root(self):
+        states, customs, ambiguous = [], [], False
+        for view in self.targets['views']:
+            # A client in dark mode paints its own canvas and default text colour.
+            parent = (*_ROOT_STATE[:8], None, None) if view['dark'] else _ROOT_STATE
+            resolved, custom = _with_custom_properties(view['root'], {})
+            state, unresolved = _cascade_state(parent, resolved)
+            change = None if unresolved else self._maybe_changes(view, None, parent, {}, view['root'], state, custom)
+            ambiguous |= unresolved or change == 'ambiguous'
+            if change == 'same':
+                state = (*state[:7], True, *state[8:])
+            states.append(state)
+            customs.append(custom)
+        self.root_states, self.root_custom = tuple(states), tuple(customs)
+        self.root_tokens = frozenset({'#ambiguous'}) if ambiguous else frozenset()
 
-        def _cascade_element(self, tag, attrs, style, fostered=False):
-            """Record an element among its siblings; return its markers, and its per-view
-            states and custom properties."""
-            values = dict(attrs)
-            node = (tag, tuple((values.get('class') or '').split()), (values.get('id') or '').strip(),
-                    {name: value or '' for name, value in attrs})
-            level = len(self.elements)
-            self.children[level].append(node)
-            cascade = self.targets
-            candidates = set(cascade['index']['any']) | set(cascade['index']['tag'].get(tag, ()))
-            for name in node[1]:
-                candidates.update(cascade['index']['class'].get(name.casefold(), ()))
-            if node[2]:
-                candidates.update(cascade['index']['id'].get(node[2].casefold(), ()))
-            matched, ambiguous = [], False
-            last = len(self.children[level]) - 1
-            for pattern_id in candidates:
-                pattern = cascade['patterns'][pattern_id]
-                final = len(pattern['compounds']) - 1
-                if self._matches(pattern, final, level, last, False):
-                    matched.append(pattern_id)
-                elif self._matches(pattern, final, level, last, True):
-                    ambiguous = True  # matches only if names ignore case, as in quirks mode
-            inline = _declared_values(style, geometry=cascade['geometry'], colours=cascade['colours'])
-            hidden_attribute = 'hidden' in values
-            # Presentational colours (bgcolor, <font color>) and the browser's link colour
-            # yield to any author rule, as the hidden attribute does.
-            hints = _colour_hints(tag, values) if cascade['colours'] else {}
-            parents = self.elements[-1][7] if self.elements else self.root_states
-            customs = self.elements[-1][8] if self.elements else self.root_custom
-            outside = self._outside_table() if fostered else None
-            if outside is not None:
-                # Browsers move this element before the table: it inherits from outside it.
-                # Selectors that reach it through the table's elements cannot be decided.
-                parents = self.elements[outside][7] if outside >= 0 else self.root_states
-                customs = self.elements[outside][8] if outside >= 0 else self.root_custom
-                chain = [self.children[index][-1] for index in range(outside + 1, len(self.elements))]
-                ambiguous |= any(set(pattern['combinators']) & {'+', '~'} or any(
-                    _compound_matches(compound, node, True) for compound in pattern['compounds'][:-1] for node in chain)
-                    for pattern in cascade['structural'])
-            states, element_customs = [], []
-            for view, parent, custom in zip(cascade['views'], parents, customs):
-                winners = {}
-                for pattern_id in matched:
-                    for name, ranked in view['winners'].get(pattern_id, {}).items():
-                        if name not in winners or ranked[:3] > winners[name][:3]:
-                            winners[name] = ranked
-                for name, value, important in inline:
-                    # An inline style outranks every selector; !important still decides first.
-                    ranked = (important, (1, 0, 0, 0), 0, value)
+    def _cascade_element(self, tag, attrs, style, fostered=False):
+        """Record an element among its siblings; return its markers, and its per-view
+        states and custom properties."""
+        values = dict(attrs)
+        node = (tag, tuple((values.get('class') or '').split()), (values.get('id') or '').strip(),
+                {name: value or '' for name, value in attrs})
+        level = len(self.elements)
+        self.children[level].append(node)
+        cascade = self.targets
+        candidates = set(cascade['index']['any']) | set(cascade['index']['tag'].get(tag, ()))
+        for name in node[1]:
+            candidates.update(cascade['index']['class'].get(name.casefold(), ()))
+        if node[2]:
+            candidates.update(cascade['index']['id'].get(node[2].casefold(), ()))
+        matched, ambiguous = [], False
+        last = len(self.children[level]) - 1
+        for pattern_id in candidates:
+            pattern = cascade['patterns'][pattern_id]
+            final = len(pattern['compounds']) - 1
+            if self._matches(pattern, final, level, last, False):
+                matched.append(pattern_id)
+            elif self._matches(pattern, final, level, last, True):
+                ambiguous = True  # matches only if names ignore case, as in quirks mode
+        inline = _declared_values(style, geometry=cascade['geometry'], colours=cascade['colours'])
+        hidden_attribute = 'hidden' in values
+        # Presentational colours (bgcolor, <font color>) and the browser's link colour
+        # yield to any author rule, as the hidden attribute does.
+        hints = _colour_hints(tag, values) if cascade['colours'] else {}
+        parents = self.elements[-1][7] if self.elements else self.root_states
+        customs = self.elements[-1][8] if self.elements else self.root_custom
+        outside = self._outside_table() if fostered else None
+        if outside is not None:
+            # Browsers move this element before the table: it inherits from outside it.
+            # Selectors that reach it through the table's elements cannot be decided.
+            parents = self.elements[outside][7] if outside >= 0 else self.root_states
+            customs = self.elements[outside][8] if outside >= 0 else self.root_custom
+            chain = [self.children[index][-1] for index in range(outside + 1, len(self.elements))]
+            ambiguous |= any(set(pattern['combinators']) & {'+', '~'} or any(
+                _compound_matches(compound, node, True) for compound in pattern['compounds'][:-1] for node in chain)
+                for pattern in cascade['structural'])
+        states, element_customs = [], []
+        for view, parent, custom in zip(cascade['views'], parents, customs):
+            winners = {}
+            for pattern_id in matched:
+                for name, ranked in view['winners'].get(pattern_id, {}).items():
                     if name not in winners or ranked[:3] > winners[name][:3]:
                         winners[name] = ranked
-                if hidden_attribute and 'display' not in winners:
-                    winners['display'] = (False, (0, 0, 0, 0), 0, True)
-                if view['dark'] == 'client':
-                    # Outlook's dark mode recolours text and backgrounds: their colours are unknown.
-                    for name in _COLOUR_PROPERTIES:
-                        winners.pop(name, None)
-                else:
-                    for name, value in hints.items():
-                        if name not in winners:
-                            winners[name] = (False, (0, 0, 0, 0), 0, value)
-                resolved, element_custom = _with_custom_properties(winners, custom)
-                state, unresolved = _cascade_state(parent, resolved)
-                ambiguous = ambiguous or unresolved
-                if not ambiguous:
-                    change = self._maybe_changes(view, node, parent, custom, winners, state, element_custom)
-                    ambiguous = change == 'ambiguous'
-                    if change == 'same':
-                        # A rule this reader cannot match may give the text its background's
-                        # colour: possibly invisible, like a tiny font.
-                        state = (*state[:7], True, *state[8:])
-                states.append(state)
-                element_customs.append(element_custom)
-            markers = (self.elements[-1][5] if self.elements else self.root_tokens) & {'#ambiguous'}
-            return (markers | {'#ambiguous'} if ambiguous else markers), tuple(states), tuple(element_customs)
+            for name, value, important in inline:
+                # An inline style outranks every selector; !important still decides first.
+                ranked = (important, (1, 0, 0, 0), 0, value)
+                if name not in winners or ranked[:3] > winners[name][:3]:
+                    winners[name] = ranked
+            if hidden_attribute and 'display' not in winners:
+                winners['display'] = (False, (0, 0, 0, 0), 0, True)
+            if view['dark'] == 'client':
+                # Outlook's dark mode recolours text and backgrounds: their colours are unknown.
+                for name in _COLOUR_PROPERTIES:
+                    winners.pop(name, None)
+            else:
+                for name, value in hints.items():
+                    if name not in winners:
+                        winners[name] = (False, (0, 0, 0, 0), 0, value)
+            resolved, element_custom = _with_custom_properties(winners, custom)
+            state, unresolved = _cascade_state(parent, resolved)
+            ambiguous = ambiguous or unresolved
+            if not ambiguous:
+                change = self._maybe_changes(view, node, parent, custom, winners, state, element_custom)
+                ambiguous = change == 'ambiguous'
+                if change == 'same':
+                    # A rule this reader cannot match may give the text its background's
+                    # colour: possibly invisible, like a tiny font.
+                    state = (*state[:7], True, *state[8:])
+            states.append(state)
+            element_customs.append(element_custom)
+        markers = (self.elements[-1][5] if self.elements else self.root_tokens) & {'#ambiguous'}
+        return (markers | {'#ambiguous'} if ambiguous else markers), tuple(states), tuple(element_customs)
 
-        def _truncate_elements(self, index):
-            if self.open_paragraph and any(item[0] == 'p' for item in self.elements[index:]):
-                self.open_paragraph = False
-            while self.open_anchors and self.open_anchors[-1][0] >= index:
-                self.open_anchors.pop()
-            del self.elements[index:]
-            del self.children[index + 1:]
+    def _truncate_elements(self, index):
+        if self.open_paragraph and any(item[0] == 'p' for item in self.elements[index:]):
+            self.open_paragraph = False
+        while self.open_anchors and self.open_anchors[-1][0] >= index:
+            self.open_anchors.pop()
+        del self.elements[index:]
+        del self.children[index + 1:]
 
-        def _implicitly_close(self, tag):
-            if tag in {'td', 'th', 'tr'}:
-                for index in range(len(self.elements) - 1, -1, -1):
-                    existing = self.elements[index][0]
-                    if existing == 'table':
-                        break
-                    if tag in {'td', 'th'} and existing == 'tr':
-                        break
-                    if existing in ({'td', 'th'} if tag in {'td', 'th'} else {'tr'}):
-                        self._truncate_elements(index)
-                        break
-            if self.open_paragraph and tag in _P_IMPLIED_END_START_TAGS:
-                for index in range(len(self.elements) - 1, -1, -1):
-                    if self.elements[index][0] == 'p':
-                        self._truncate_elements(index)
-                        break
-            if tag == 'li':
-                for index in range(len(self.elements) - 1, -1, -1):
-                    existing = self.elements[index][0]
-                    if existing in {'ul', 'ol', 'menu'}:
-                        break
-                    if existing == 'li':
-                        self._truncate_elements(index)
-                        break
-            if tag in {'dt', 'dd'}:
-                for index in range(len(self.elements) - 1, -1, -1):
-                    existing = self.elements[index][0]
-                    if existing == 'dl':
-                        break
-                    if existing in {'dt', 'dd'}:
-                        self._truncate_elements(index)
-                        break
-
-        def handle_starttag(self, tag, attrs):
-            attrs = list(_first_html_attributes(attrs).items())
-            # A head end tag is optional: body content implicitly closes it.
-            # Do not do this inside title/script/style or inert template text.
-            if self.hidden == ['head'] and tag not in self.head_elements:
-                self.hidden.pop()
-            if tag == 'head' and 'head' in self.hidden:
-                return
-            if tag == 'style' and 'template' not in self.hidden:
-                # Browsers apply a style element only as CSS, and only for its media.
-                values = dict(attrs)
-                media = (values.get('media') or '').strip()
-                self.style_mode = ('ignore' if (values.get('type') or '').strip().lower() not in {'', 'text/css'}
-                                   or re.search(r'[{};]', media) else
-                                   media if media and media.lower() not in {'all', 'screen'} else '')
-                if self.style_mode not in {'', 'ignore'}:
-                    self.stylesheet_parts.append(f'@media {self.style_mode} {{')
-            if self.targets is not None and not self.hidden and tag in {'script', 'style', 'template', 'noframes'}:
-                # Not rendered, but an element all the same: sibling selectors count it
-                # (p + p does not match across a <style> between them).
-                values = dict(attrs)
-                self.children[len(self.elements)].append(
-                    (tag, tuple((values.get('class') or '').split()), (values.get('id') or '').strip(),
-                     {name: value or '' for name, value in attrs}))
-            if tag in {'script', 'style', 'head', 'title', 'template', 'noframes'}:
-                self.hidden.append(tag)
-            if self.hidden:
-                return
-            self._implicitly_close(tag)
-            if tag == 'a':
-                # HTML closes a prior anchor when another anchor starts. Do not
-                # inherit an old HTTP action through a nested mailto/fragment link.
-                self.elements = [(*element[:4], False, *element[5:]) if element[0] == 'a' else element
-                                 for element in self.elements]
-            # Browsers retain the first duplicate attribute, not the last.
-            style = next((value for name, value in attrs if name == 'style'), '')
-            display_hidden, visibility_hidden, opacity_hidden, _uncertain = _inline_visibility(style or '')
-            parent_display = self.elements[-1][1] if self.elements else False
-            parent_visibility = self.elements[-1][2] if self.elements else False
-            element_display = (parent_display or any(name == 'hidden' for name, _ in attrs)
-                               or display_hidden or opacity_hidden)
-            element_visibility = parent_visibility if visibility_hidden is None else visibility_hidden
-            # Zero size, transparent colour and uncertain opacity as inherited here. A child
-            # can restore the first two (font-size:14px inside a font-size:0 layout wrapper).
-            zero_size, transparent, opacity_uncertain = _inline_text_state(style or '')
-            if self.targets is None and style and re.search(
-                    r'height|width|position|left|top|right|bottom|indent|clip|transform|mso-hide|font-size|opacity',
-                    style, re.IGNORECASE):
-                values = _style_values(style)
-
-                def get(name):
-                    return values.get(name, ('', False))[0]
-                opacity = _opacity_number(get('opacity'))
-                self.geometry_hint |= bool(_box_may_hide(get) or _font_size_class(get('font-size')) == 'tiny'
-                                           or (opacity is not None and 0 < opacity < _NEAR_ZERO_OPACITY))
-            if self.targets is None:
-                hints = _colour_hints(tag, dict(attrs))
-                self.text_colours.update(filter(None, (hints.get('text-color'),)))
-                self.backgrounds.update(filter(None, (hints.get('background-color'),)))
-                if style and re.search(r'color|background', style, re.IGNORECASE):
-                    values = _style_values(style)
-                    self.text_colours.update(values[name][0] for name in ('color',) if name in values)
-                    self.backgrounds.update(values[name][0] for name in ('background-color', 'background-image',
-                                                                         'background-clip') if name in values)
-            parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
-            inline_state = (parent_inline[0] if zero_size is None else zero_size,
-                            parent_inline[1] if transparent is None else transparent,
-                            parent_inline[2] or opacity_uncertain)
-            inline_uncertain = any(inline_state)
-            # In the view pass, the stylesheet and inline cascade per view; '#ambiguous'
-            # marks content whose rendering this reader cannot decide.
-            element_tokens, element_states, element_custom = frozenset(), None, None
-            if self.targets is not None:
-                parent = self.elements[-1][0] if self.elements else None
-                fostered = parent in _TABLE_CONTENT_MODEL and tag not in _TABLE_CONTENT_MODEL[parent] and not (
-                    tag == 'input' and (dict(attrs).get('type') or '').strip().lower() == 'hidden')
-                element_tokens, element_states, element_custom = self._cascade_element(tag, attrs, style or '', fostered)
-            if tag == 'source' and any(name == 'srcset' and value and value.strip()
-                                       for name, value in attrs):
-                for index in range(len(self.elements) - 1, -1, -1):
-                    if self.elements[index][0] == 'picture':
-                        picture = self.elements[index]
-                        self.elements[index] = (*picture[:3], True, *picture[4:])
-                        break
-            if (tag == 'img' and not element_display and not element_visibility
-                    and any(element[4] for element in self.elements)
-                    and any(name in {'src', 'srcset'} and value and value.strip() for name, value in attrs)):
-                self.linked_visible_images += 1
-            if tag == 'img':
-                alt = next((value for name, value in attrs if name == 'alt'), '') or ''
-                if alt.strip():
-                    if self.targets is None and (element_display or element_visibility):
-                        self.excluded_hidden_text = True
-                        self.hidden_parts.append(alt)
-                    elif (not any(name in {'src', 'srcset'} and value and value.strip()
-                                  for name, value in attrs)
-                          and not any(element[0] == 'picture' and element[3]
-                                      for element in self.elements)):
-                        # With no image resource, HTML's replacement text is
-                        # the text the reader can see or hear.
-                        for piece in (' ', alt, ' '):
-                            self._emit(piece, element_tokens, inline_uncertain, states=element_states)
-                    else:
-                        # A two-word decorative label such as "Company logo"
-                        # should not disable scoring of an otherwise text-rich
-                        # email. Longer fallback instructions may change what a
-                        # reader sees when images fail or are blocked.
-                        instruction = bool(re.search(
-                            r'\b(?:enter|provide|send|share|submit|type|verify|confirm|reset|update)\s+'
-                            r'(?:(?:your|the|a)\s+)?(?:password|passcode|otp|one-time password|'
-                            r'credit card number|account)\b', alt, re.IGNORECASE,
-                        ))
-                        description = (sum(not char.isspace() for char in alt) >= 12
-                                       and (len(re.findall(r'\w+', alt, flags=re.UNICODE)) >= 3
-                                            or bool(non_latin_script_segments(alt, 12))))
-                        self.conditional_image_alt |= instruction or description
-                        self.alt_instruction |= instruction
-                        # With images off (blocked, or not loading) the alt text shows in place.
-                        self.images_off = True
-                        self._emit(f' {alt} ', element_tokens, inline_uncertain, states=element_states,
-                                   images_off=True)
-            if tag not in _HTML_VOID_ELEMENTS:
-                href = dict(attrs).get('href') or ''
-                actionable_anchor = False
-                if tag == 'a' and re.sub(r'[\t\r\n]', '', href).strip().lower().startswith(('http://', 'https://')):
-                    try:
-                        target = _parse_link_target(href)
-                        actionable_anchor = target.scheme.lower() in {'http', 'https'} and bool(target.hostname)
-                    except ValueError:
-                        pass
-                self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
-                                      element_tokens, inline_state, element_states, element_custom))
-                self.children.append([])
-                if actionable_anchor and self.targets is not None:
-                    if len(self.anchors) < _MAX_VIEW_ANCHORS:
-                        self.anchors.append(self._anchor_record(href))
-                        self.open_anchors.append((len(self.elements) - 1, len(self.anchors) - 1))
-                    else:
-                        self.anchors_overflow = True
-                if tag == 'p':
-                    self.open_paragraph = True
-            if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
-                self._emit(' ', element_tokens)
-
-        def handle_endtag(self, tag):
-            if self.hidden == ['head'] and tag in {'body', 'html', 'br'}:
-                self.hidden.pop()
-            if self.hidden and tag == self.hidden[-1]:
-                self.hidden.pop()
-                if tag == 'style' and self.style_mode not in {'', 'ignore'}:
-                    self.stylesheet_parts.append('}')
-                if tag == 'style':
-                    self.style_mode = ''
-                return
+    def _implicitly_close(self, tag):
+        if tag in {'td', 'th', 'tr'}:
             for index in range(len(self.elements) - 1, -1, -1):
-                if self.elements[index][0] == tag:
+                existing = self.elements[index][0]
+                if existing == 'table':
+                    break
+                if tag in {'td', 'th'} and existing == 'tr':
+                    break
+                if existing in ({'td', 'th'} if tag in {'td', 'th'} else {'tr'}):
                     self._truncate_elements(index)
                     break
-            if not self.hidden and not self._visually_hidden() and tag in {'p', 'div', 'li', 'tr', 'td', 'section'}:
-                self._emit(' ')
+        if self.open_paragraph and tag in _P_IMPLIED_END_START_TAGS:
+            for index in range(len(self.elements) - 1, -1, -1):
+                if self.elements[index][0] == 'p':
+                    self._truncate_elements(index)
+                    break
+        if tag == 'li':
+            for index in range(len(self.elements) - 1, -1, -1):
+                existing = self.elements[index][0]
+                if existing in {'ul', 'ol', 'menu'}:
+                    break
+                if existing == 'li':
+                    self._truncate_elements(index)
+                    break
+        if tag in {'dt', 'dd'}:
+            for index in range(len(self.elements) - 1, -1, -1):
+                existing = self.elements[index][0]
+                if existing == 'dl':
+                    break
+                if existing in {'dt', 'dd'}:
+                    self._truncate_elements(index)
+                    break
 
-        def collect_data(self, data):
-            if self.targets is not None and _RENDERING_SENTINELS.search(data):
-                for piece in re.split('([\ue000-\ue003])', data):
-                    if piece in {'\ue000', '\ue001'}:
-                        self.outlook_only = max(0, self.outlook_only + (1 if piece == '\ue000' else -1))
-                    elif piece in {'\ue002', '\ue003'}:
-                        self.hidden_from_outlook = max(0, self.hidden_from_outlook + (1 if piece == '\ue002' else -1))
-                    elif piece:
-                        self._collect_text(piece)
-                return
-            self._collect_text(data)
+    def handle_starttag(self, tag, attrs):
+        attrs = list(_first_html_attributes(attrs).items())
+        # A head end tag is optional: body content implicitly closes it.
+        # Do not do this inside title/script/style or inert template text.
+        if self.hidden == ['head'] and tag not in self.head_elements:
+            self.hidden.pop()
+        if tag == 'head' and 'head' in self.hidden:
+            return
+        if tag == 'style' and 'template' not in self.hidden:
+            # Browsers apply a style element only as CSS, and only for its media.
+            values = dict(attrs)
+            media = (values.get('media') or '').strip()
+            self.style_mode = ('ignore' if (values.get('type') or '').strip().lower() not in {'', 'text/css'}
+                               or re.search(r'[{};]', media) else
+                               media if media and media.lower() not in {'all', 'screen'} else '')
+            if self.style_mode not in {'', 'ignore'}:
+                self.stylesheet_parts.append(f'@media {self.style_mode} {{')
+        if self.targets is not None and not self.hidden and tag in {'script', 'style', 'template', 'noframes'}:
+            # Not rendered, but an element all the same: sibling selectors count it
+            # (p + p does not match across a <style> between them).
+            values = dict(attrs)
+            self.children[len(self.elements)].append(
+                (tag, tuple((values.get('class') or '').split()), (values.get('id') or '').strip(),
+                 {name: value or '' for name, value in attrs}))
+        if tag in {'script', 'style', 'head', 'title', 'template', 'noframes'}:
+            self.hidden.append(tag)
+        if self.hidden:
+            return
+        self._implicitly_close(tag)
+        if tag == 'a':
+            # HTML closes a prior anchor when another anchor starts. Do not
+            # inherit an old HTTP action through a nested mailto/fragment link.
+            self.elements = [(*element[:4], False, *element[5:]) if element[0] == 'a' else element
+                             for element in self.elements]
+        # Browsers retain the first duplicate attribute, not the last.
+        style = next((value for name, value in attrs if name == 'style'), '')
+        display_hidden, visibility_hidden, opacity_hidden, _uncertain = _inline_visibility(style or '')
+        parent_display = self.elements[-1][1] if self.elements else False
+        parent_visibility = self.elements[-1][2] if self.elements else False
+        element_display = (parent_display or any(name == 'hidden' for name, _ in attrs)
+                           or display_hidden or opacity_hidden)
+        element_visibility = parent_visibility if visibility_hidden is None else visibility_hidden
+        # Zero size, transparent colour and uncertain opacity as inherited here. A child
+        # can restore the first two (font-size:14px inside a font-size:0 layout wrapper).
+        zero_size, transparent, opacity_uncertain = _inline_text_state(style or '')
+        if self.targets is None and style and re.search(
+                r'height|width|position|left|top|right|bottom|indent|clip|transform|mso-hide|font-size|opacity',
+                style, re.IGNORECASE):
+            values = _style_values(style)
 
-        def _collect_text(self, data):
-            if self.hidden == ['head'] and data.strip():
-                self.hidden.pop()
-            if self.hidden:
-                if self.hidden[-1] == 'style' and 'template' not in self.hidden[:-1] and self.style_mode != 'ignore':
-                    self.stylesheet_parts.append(data)
-                return
-            if (self.targets is not None and data.strip() and self.elements
-                    and self.elements[-1][0] in _TABLE_CONTENT_MODEL and self._outside_table() is not None):
-                # Browsers move text out of a table: it inherits from outside it.
-                outside = self._outside_table()
-                self._emit(data, self.elements[outside][5] if outside >= 0 else self.root_tokens,
-                           states=self.elements[outside][7] if outside >= 0 else self.root_states)
-            elif self.targets is None and self._visually_hidden():
-                self.hidden_characters += sum(not char.isspace() for char in _strip_invisible_format_controls(data))
-                if data.strip():
+            def get(name):
+                return values.get(name, ('', False))[0]
+            opacity = _opacity_number(get('opacity'))
+            self.geometry_hint |= bool(_box_may_hide(get) or _font_size_class(get('font-size')) == 'tiny'
+                                       or (opacity is not None and 0 < opacity < _NEAR_ZERO_OPACITY))
+        if self.targets is None:
+            hints = _colour_hints(tag, dict(attrs))
+            self.text_colours.update(filter(None, (hints.get('text-color'),)))
+            self.backgrounds.update(filter(None, (hints.get('background-color'),)))
+            if style and re.search(r'color|background', style, re.IGNORECASE):
+                values = _style_values(style)
+                self.text_colours.update(values[name][0] for name in ('color',) if name in values)
+                self.backgrounds.update(values[name][0] for name in ('background-color', 'background-image',
+                                                                     'background-clip') if name in values)
+        parent_inline = self.elements[-1][6] if self.elements else (False, False, False)
+        inline_state = (parent_inline[0] if zero_size is None else zero_size,
+                        parent_inline[1] if transparent is None else transparent,
+                        parent_inline[2] or opacity_uncertain)
+        inline_uncertain = any(inline_state)
+        # In the view pass, the stylesheet and inline cascade per view; '#ambiguous'
+        # marks content whose rendering this reader cannot decide.
+        element_tokens, element_states, element_custom = frozenset(), None, None
+        if self.targets is not None:
+            parent = self.elements[-1][0] if self.elements else None
+            fostered = parent in _TABLE_CONTENT_MODEL and tag not in _TABLE_CONTENT_MODEL[parent] and not (
+                tag == 'input' and (dict(attrs).get('type') or '').strip().lower() == 'hidden')
+            element_tokens, element_states, element_custom = self._cascade_element(tag, attrs, style or '', fostered)
+        if tag == 'source' and any(name == 'srcset' and value and value.strip()
+                                   for name, value in attrs):
+            for index in range(len(self.elements) - 1, -1, -1):
+                if self.elements[index][0] == 'picture':
+                    picture = self.elements[index]
+                    self.elements[index] = (*picture[:3], True, *picture[4:])
+                    break
+        if (tag == 'img' and not element_display and not element_visibility
+                and any(element[4] for element in self.elements)
+                and any(name in {'src', 'srcset'} and value and value.strip() for name, value in attrs)):
+            self.linked_visible_images += 1
+        if tag == 'img':
+            alt = next((value for name, value in attrs if name == 'alt'), '') or ''
+            if alt.strip():
+                if self.targets is None and (element_display or element_visibility):
                     self.excluded_hidden_text = True
-                    self.hidden_parts.append(data)
-            else:
-                self._emit(data)
+                    self.hidden_parts.append(alt)
+                elif (not any(name in {'src', 'srcset'} and value and value.strip()
+                              for name, value in attrs)
+                      and not any(element[0] == 'picture' and element[3]
+                                  for element in self.elements)):
+                    # With no image resource, HTML's replacement text is
+                    # the text the reader can see or hear.
+                    for piece in (' ', alt, ' '):
+                        self._emit(piece, element_tokens, inline_uncertain, states=element_states)
+                else:
+                    # A two-word decorative label such as "Company logo"
+                    # should not disable scoring of an otherwise text-rich
+                    # email. Longer fallback instructions may change what a
+                    # reader sees when images fail or are blocked.
+                    instruction = bool(re.search(
+                        r'\b(?:enter|provide|send|share|submit|type|verify|confirm|reset|update)\s+'
+                        r'(?:(?:your|the|a)\s+)?(?:password|passcode|otp|one-time password|'
+                        r'credit card number|account)\b', alt, re.IGNORECASE,
+                    ))
+                    description = (sum(not char.isspace() for char in alt) >= 12
+                                   and (len(re.findall(r'\w+', alt, flags=re.UNICODE)) >= 3
+                                        or bool(non_latin_script_segments(alt, 12))))
+                    self.conditional_image_alt |= instruction or description
+                    self.alt_instruction |= instruction
+                    # With images off (blocked, or not loading) the alt text shows in place.
+                    self.images_off = True
+                    self._emit(f' {alt} ', element_tokens, inline_uncertain, states=element_states,
+                               images_off=True)
+        if tag not in _HTML_VOID_ELEMENTS:
+            href = dict(attrs).get('href') or ''
+            actionable_anchor = False
+            if tag == 'a' and re.sub(r'[\t\r\n]', '', href).strip().lower().startswith(('http://', 'https://')):
+                try:
+                    target = _parse_link_target(href)
+                    actionable_anchor = target.scheme.lower() in {'http', 'https'} and bool(target.hostname)
+                except ValueError:
+                    pass
+            self.elements.append((tag, element_display, element_visibility, False, actionable_anchor,
+                                  element_tokens, inline_state, element_states, element_custom))
+            self.children.append([])
+            if actionable_anchor and self.targets is not None:
+                if len(self.anchors) < _MAX_VIEW_ANCHORS:
+                    self.anchors.append(self._anchor_record(href))
+                    self.open_anchors.append((len(self.elements) - 1, len(self.anchors) - 1))
+                else:
+                    self.anchors_overflow = True
+            if tag == 'p':
+                self.open_paragraph = True
+        if not element_display and not element_visibility and tag in {'p', 'div', 'br', 'li', 'tr', 'td', 'hr', 'section'}:
+            self._emit(' ', element_tokens)
 
-    collector = _collect_html(TextCollector, text, parse_warnings)
+    def handle_endtag(self, tag):
+        if self.hidden == ['head'] and tag in {'body', 'html', 'br'}:
+            self.hidden.pop()
+        if self.hidden and tag == self.hidden[-1]:
+            self.hidden.pop()
+            if tag == 'style' and self.style_mode not in {'', 'ignore'}:
+                self.stylesheet_parts.append('}')
+            if tag == 'style':
+                self.style_mode = ''
+            return
+        for index in range(len(self.elements) - 1, -1, -1):
+            if self.elements[index][0] == tag:
+                self._truncate_elements(index)
+                break
+        if not self.hidden and not self._visually_hidden() and tag in {'p', 'div', 'li', 'tr', 'td', 'section'}:
+            self._emit(' ')
+
+    def collect_data(self, data):
+        if self.targets is not None and _RENDERING_SENTINELS.search(data):
+            for piece in re.split('([\ue000-\ue003])', data):
+                if piece in {'\ue000', '\ue001'}:
+                    self.outlook_only = max(0, self.outlook_only + (1 if piece == '\ue000' else -1))
+                elif piece in {'\ue002', '\ue003'}:
+                    self.hidden_from_outlook = max(0, self.hidden_from_outlook + (1 if piece == '\ue002' else -1))
+                elif piece:
+                    self._collect_text(piece)
+            return
+        self._collect_text(data)
+
+    def _collect_text(self, data):
+        if self.hidden == ['head'] and data.strip():
+            self.hidden.pop()
+        if self.hidden:
+            if self.hidden[-1] == 'style' and 'template' not in self.hidden[:-1] and self.style_mode != 'ignore':
+                self.stylesheet_parts.append(data)
+            return
+        if (self.targets is not None and data.strip() and self.elements
+                and self.elements[-1][0] in _TABLE_CONTENT_MODEL and self._outside_table() is not None):
+            # Browsers move text out of a table: it inherits from outside it.
+            outside = self._outside_table()
+            self._emit(data, self.elements[outside][5] if outside >= 0 else self.root_tokens,
+                       states=self.elements[outside][7] if outside >= 0 else self.root_states)
+        elif self.targets is None and self._visually_hidden():
+            self.hidden_characters += sum(not char.isspace() for char in _strip_invisible_format_controls(data))
+            if data.strip():
+                self.excluded_hidden_text = True
+                self.hidden_parts.append(data)
+        else:
+            self._emit(data)
+
+
+def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=None, readings=None) -> str:
+    """Decode HTML text separately from destinations, preserving inline words."""
+
+    collector = _collect_html(_TextCollector, text, parse_warnings)
     if collector.excluded_hidden_text and parse_warnings is not None:
         parse_warnings.append(_HIDDEN_HTML_TEXT_WARNING)
     if parse_warnings is not None and _stylesheet_may_hide_text(''.join(collector.stylesheet_parts)):
@@ -3129,7 +3133,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 targets = _stylesheet_cascade(stylesheet, text, typography=typography, geometry=geometry)
             unresolved, views, model_views = [], None, None
             if targets is not None:
-                views = model_views = _collect_html(lambda: TextCollector(targets), text, [], mark=True,
+                views = model_views = _collect_html(lambda: _TextCollector(targets), text, [], mark=True,
                                                     unresolved=unresolved)
                 if views.cascade_conflict:
                     unresolved.append('cascade')
@@ -3140,7 +3144,7 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 if 0 < views.same_colour_letters < _SAME_COLOUR_MODEL_LETTERS:
                     # Too little to dilute the model (a preheader): its views keep this
                     # text, and only the text rules also read the message without it.
-                    model_views = _collect_html(lambda: TextCollector(targets, colour_views=False), text, [],
+                    model_views = _collect_html(lambda: _TextCollector(targets, colour_views=False), text, [],
                                                 mark=True) if others else None
                 elif not others and not views.same_colour_letters:
                     # Colours that could match, but no text has its background's colour.

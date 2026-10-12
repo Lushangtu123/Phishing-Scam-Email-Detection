@@ -22,6 +22,21 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-12 13:54 PT] — `_visible_content_text`'s HTML reader moved to module level (630 → 110 lines)
+
+### Why
+- `html_visibility._visible_content_text` was the longest function in the backend (630 lines) because it defined its 520-line HTML reader class, `TextCollector`, inside itself, and so rebuilt the class on every call.
+
+### Files changed
+- `website/html_visibility.py` — the class is `_TextCollector` at module level, just above the function, unchanged apart from one level less indentation; the function (110 lines) creates it as before.
+
+### Effect
+- No behaviour change, shown three ways:
+  - The class reads no variable of the enclosing function (its only free name was `__class__`, for `super()`), and nothing changes class-level state (`head_elements` is only read; the parent `_AnalysisHTMLParser` holds only constants), so one class at import behaves as one per call.
+  - Syntax trees: with docstrings normalised (`inspect.cleandoc`; three multi-line docstrings lose four spaces of indentation), the class, the rest of the function and the module's other 81 definitions are identical to `main`.
+  - Golden replay: 7,663 calls (1,663 from the unit tests and 3,000 public HTML bodies, each called two ways) return the same text, warnings, structure statistics and readings on `main` and this branch. They reach 352 of the class's 386 statements (91%); one planted bug changed 1 result, another, in a rare table branch, changed none, so the syntax-tree check carries the proof.
+- Backend tests 1,293 pass (10 skipped); frontend 526; `ruff check` passes. The class still has four methods over 60 lines (`handle_starttag` 143).
+
 ## [2026-10-12 10:55 PT] — Homepage scripts deferred: English first paint 40% sooner on a slow phone
 
 ### Why
