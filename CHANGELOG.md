@@ -22,6 +22,17 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-12 14:31 PT] — AGENTS.md: the project's working rules for coding agents
+
+### Why
+- Since 2026-10-12 `main` requires a pull request and six passing checks, and direct pushes, which Codex had used (227 commits since September), are rejected. The other working rules (the 7-day dependency cooling period, private data, release checks, pre-registered criteria, refactor verification) lived only in agents' private notes and the changelog.
+
+### Files changed
+- `AGENTS.md` — new: branches, pull requests and releases (protected `main`, merge only on the owner's word with `--match-head-commit`, production checks, `preview-*` branches, teammates' branches kept); the checks to run before a PR; the CHANGELOG rule; the cooling period, including pinned actions and image digests; the owner's private data; measurements with criteria fixed beforehand; how a refactor shows it changes no behaviour.
+
+### Effect
+- No code change. Every command, file and setting it names was checked against the repository and the live ruleset.
+
 ## [2026-10-12 13:54 PT] — `_visible_content_text`'s HTML reader moved to module level (630 → 110 lines)
 
 ### Why
