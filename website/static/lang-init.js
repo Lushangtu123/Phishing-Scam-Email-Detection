@@ -2,8 +2,7 @@
 // the theme. For Chinese it hides the page (data-i18n-pending) and starts
 // fetching the Chinese strings (i18n-zh.js, an external script, so the CSP
 // needs no inline code) while the rest of the page downloads. i18n.js, which
-// runs before DOMContentLoaded on both pages (a classic script at the end of
-// the homepage <body>, a deferred script on cases.html), translates the page
+// runs before DOMContentLoaded on every page (a deferred script), translates the page
 // once those strings are here, and clears the flag. DOMContentLoaded clears it
 // too, once the Chinese file has finished loading or failed, so the page is
 // shown even if i18n.js failed to load. The stylesheets also reveal it after

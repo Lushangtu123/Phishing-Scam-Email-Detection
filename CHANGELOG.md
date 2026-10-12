@@ -22,6 +22,24 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-12 10:55 PT] — Homepage scripts deferred: English first paint 40% sooner on a slow phone
+
+### Why
+- On a throttled phone (Lighthouse's mobile preset: 150 ms RTT, 1.6 Mbps, CPU 4x) the production homepage first painted at 1,176 ms, together with DOMContentLoaded (1,197 ms): over HTTP/2 the 19 parser-blocking scripts at the end of `<body>` are fetched at high priority beside `style.css`, and the page cannot paint before the stylesheet. (An earlier reading of 1.46 s on a fast connection came from a background browser tab, which does not paint; unthrottled, production paints at 300 ms.)
+
+### Files changed
+- `website/static/index.html` — the 19 `<body>` scripts are `defer`, in the same order; `compat.js`, `theme-init.js` and `lang-init.js` in `<head>` stay blocking.
+- `website/static/i18n.js` — whether page scripts have rendered is a flag set on DOMContentLoaded, not `document.readyState !== 'loading'`: a deferred script runs while readyState is already `interactive` but before that event, so a Chinese dictionary arriving in that gap would have re-rendered scripts that had not rendered yet.
+- `website/static/i18n.test.mjs` — a deferred i18n.js with readyState `interactive`: a dictionary before DOMContentLoaded announces no change, one after it does (fails on the previous `i18n.js`).
+- `website/static/app.test.mjs` — the script-order test accepts `defer` and requires it on every `<body>` script.
+- `website/static/lang-init.js` — comment only.
+- `website/static/404.html`, `website/static/cases.html`, `website/tools/asset-versions/manifest.json` — versions.
+
+### Effect
+- Measured locally behind an HTTP/2, Brotli proxy (which reproduces production's first paint coinciding with DOMContentLoaded), median of 9 fresh loads on the throttled phone: English first paint 1,036 → 620 ms and LCP 1,092 → 648 ms; DOMContentLoaded unchanged.
+- A Chinese page is about 5% slower to appear (first paint 1,296 → 1,368 ms): it stays hidden until the Chinese strings (`i18n-zh.js`) arrive, at about 1.2 s either way, and deferred scripts share bandwidth with them. Preloading `i18n.js` for Chinese pages did not help and was not kept.
+- Browser check: English and Chinese pages load, analyse and switch language with no console errors. Frontend tests: 526 pass.
+
 ## [2026-10-12 04:51 PT] — Gemma 4 and Mistral Small 3.2 measured as second teachers: neither pair passes
 
 ### Why

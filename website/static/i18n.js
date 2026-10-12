@@ -1695,7 +1695,7 @@ window.PhishGuardI18n = (() => {
     return current;
   }
 
-  // The markup above this script is parsed: translate it before first paint.
+  // The markup is parsed (this script is deferred): translate it.
   // English needs no pass, since the markup already is the English text.
   // lang-init.js hid a Chinese page (data-i18n-pending) and started loading
   // its strings. If they are already here the page is translated now;
@@ -1704,6 +1704,12 @@ window.PhishGuardI18n = (() => {
   if (typeof document !== 'undefined' && document.documentElement) {
     const root = document.documentElement;
     const reveal = () => { if (typeof root.removeAttribute === 'function') root.removeAttribute('data-i18n-pending'); };
+    // Page scripts render on DOMContentLoaded. A deferred i18n.js runs while readyState is
+    // already 'interactive' but before that event, so readyState cannot tell; this flag can.
+    let pageRendered = document.readyState === 'complete';
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('DOMContentLoaded', () => { pageRendered = true; });
+    }
     const wanted = requested;
     if (wanted === 'en') {
       root.lang = HTML_LANG.en;
@@ -1721,7 +1727,7 @@ window.PhishGuardI18n = (() => {
           } else if (requested === wanted) {
             // Scripts that already rendered (after DOMContentLoaded) re-render;
             // before it, they have not rendered yet and will use this language.
-            activate(wanted, document.readyState !== 'loading');
+            activate(wanted, pageRendered);
           }
         } finally { reveal(); }
       });
