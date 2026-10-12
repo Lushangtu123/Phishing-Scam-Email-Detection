@@ -110,4 +110,7 @@ A second teacher, `gpt-oss:20b`, was measured beside it on the same messages (20
 label only when both agree lowered the phishing accepted as legitimate from 9 to 4 of 890,
 but sent 56 of the owner's 92 genuine messages to a person (Qwen alone: 10), because gpt-oss
 reads much genuine mail as phishing. That failed the criterion fixed before the run, so
-`label_with_llm.py` keeps Qwen alone.
+`label_with_llm.py` keeps Qwen alone. Two more second teachers, `gemma4:26b-a4b-it-q8_0` and
+`mistral-small3.2:24b`, failed the same criteria on 2026-10-12: with Gemma 4 agreement
+accepted 6 of 890 phishing messages (limit 4) and with Mistral it sent 67 of the 92 to a
+person ([evaluation log](evaluation.md#two-more-second-teachers-gemma-4-and-mistral-small-32-2026-10-12)).

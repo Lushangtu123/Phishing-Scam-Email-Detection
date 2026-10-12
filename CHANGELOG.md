@@ -22,6 +22,20 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-12 04:51 PT] — Gemma 4 and Mistral Small 3.2 measured as second teachers: neither pair passes
+
+### Why
+- After `gpt-oss:20b` failed as the second teacher, the owner chose to try two other model families with `qwen3.8:27b-mxfp8`. The criteria were written before the models were downloaded and match the earlier ones: at floor 90, at most 4 of 890 phishing messages accepted as legitimate and at most 15 of the owner's 92 genuine messages sent to a person.
+
+### Files changed
+- `docs/evaluation.md` — new section "Two more second teachers: Gemma 4 and Mistral Small 3.2 (2026-10-12)".
+- `docs/llm-teacher.md` — the result after the gpt-oss paragraph.
+
+### Effect
+- Qwen + `gemma4:26b-a4b-it-q8_0` accepted 6 of 890 phishing messages (fails, limit 4) and sent 14 of 92 genuine messages to a person (passes). Qwen + `mistral-small3.2:24b` accepted 1 (passes) and sent 67 (fails). `label_with_llm.py` keeps Qwen alone.
+- Gemma 4 alone read only 3 of the owner's 92 genuine messages as phishing (Qwen 10) but accepted 14 phishing messages (Qwen 9).
+- The candidate models were deleted after the measurement, as the owner asked, together with `gpt-oss:20b`. Reports hold counts only and stay outside the repository.
+
 ## [2026-10-11 12:42 PT] — Two local teachers measured: agreement fails the review-load criterion
 
 ### Why

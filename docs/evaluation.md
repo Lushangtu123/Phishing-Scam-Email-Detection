@@ -2125,6 +2125,40 @@ Committed artifact, RDAP lookups off, `PYTHONHASHSEED=0`; alerts / undetermined 
 - Nazario 2015–22 and 2025 were not on this computer, so the usual 3,466-message cohort was not
   run.
 
+### Two more second teachers: Gemma 4 and Mistral Small 3.2 (2026-10-12)
+
+After gpt-oss failed (below), the owner chose to try second teachers from two other families,
+each paired with `qwen3.8:27b-mxfp8`: `gemma4:26b-a4b-it-q8_0` (Google, Apache 2.0) and
+`mistral-small3.2:24b` (Mistral, Apache 2.0). The criteria were written on 2026-10-11 before
+the models were downloaded, and are the same as for gpt-oss: at floor 90, at most 4 of 890
+phishing messages accepted as legitimate and at most 15 of the owner's 92 genuine messages
+sent to a person. Same 1,095 messages (SHA-256 checked), `git` `93e6467`, an Apple M2 Max;
+2 h 0 min and 2 h 55 min.
+
+| Teacher at floor 90 | Phishing accepted as legitimate (of 890) | Owner's genuine to a person (of 92) | All legitimate to a person (of 205) |
+|---|---:|---:|---:|
+| `qwen3.8:27b-mxfp8` alone | 9 | 10 | 42–44 |
+| `gemma4:26b-a4b-it-q8_0` alone | 14 | 5 | 25 |
+| `mistral-small3.2:24b` alone | 3 | 66 | 144 |
+| Qwen + Gemma 4 agree | **6** (fails) | **14** (passes) | 52 |
+| Qwen + Mistral agree | **1** (passes) | **67** (fails) | 148 |
+| Qwen + gpt-oss agree (2026-10-11) | 4 (passes) | 56 (fails) | 104 |
+
+- **Neither pair passes both criteria**, so Qwen alone stays the teacher.
+- **Gemma 4 is the best reader of genuine mail measured so far:** it read 3 of the owner's 92
+  genuine messages as phishing (Qwen 10) and 7 legitimate messages in all (Qwen 40), but
+  accepted 14 phishing messages as legitimate. With Qwen it misses the phishing criterion by
+  2 messages (6 against 4).
+- **Mistral is the opposite:** it accepted only 3 phishing messages but read 59 of the
+  owner's genuine messages as phishing.
+- **The pattern across three second teachers:** a model that rarely accepts phishing reads
+  much of the owner's genuine mail as phishing, so agreement trades one error for the other.
+  None found here lowers both below Qwen's at once.
+- **Qwen's counts repeat** (10 of 92 and 9 of 890 in all three runs); its PhishFuzzer
+  legitimate count varied between 31 and 33, so it is not fully deterministic.
+- **Time per message:** Gemma 4 1.26 s mean (it activates 4 billion parameters a token),
+  Mistral 4.56 s, Qwen 5.0–5.3 s. No model left a message unanswered.
+
 ### Two local teachers and their agreement (2026-10-11)
 
 `evaluate_llm_labeler.py` asked `qwen3.8:27b-mxfp8` and `gpt-oss:20b` (reasoning level low)
