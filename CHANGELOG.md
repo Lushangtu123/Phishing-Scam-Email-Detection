@@ -22,6 +22,56 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 15:11 PT] — source-map-js 1.2.1 → 1.2.2 in the recognition-asset build lock
+
+### Why
+- [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q) (CVE-2026-93749, high): crafted indexed source maps can stall the event loop in source-map-js below 1.2.2. It entered `website/tools/vision-assets/package-lock.json` through css-tree, a build-time dependency (reported by the 2026-10-13 ASVS assessment).
+
+### Files changed
+- `website/tools/vision-assets/package-lock.json` — source-map-js 1.2.2 (published 2026-09-30, past the seven-day cooling period), updated with `npm update source-map-js --package-lock-only --before=2026-10-06`; only its version, URL and integrity changed, and the integrity matches the registry's.
+
+### Effect
+- Rebuilt with 1.2.2 in a task-local directory: the 34 served assets are byte-identical (`verify.mjs` passes, `manifest.json` unchanged), and none contains source-map code (no `SourceMapConsumer`, `SourceMapGenerator`, `SourceNode` or `source-map-js`). The vulnerable version was never served; only the build environment changes.
+
+## [2026-10-13 15:11 PT] — Security headers on unexpected 500s, and HSTS from the application
+
+### Why
+- An exception no handler caught got Starlette's 500, sent outside the middleware that adds the security headers: no CSP, `nosniff` or `X-Frame-Options` (ASVS 3.4.4/3.4.6; no exception text leaked). The application sent no `Strict-Transport-Security`; production had Vercel's own `max-age=63072000; includeSubDomains; preload`, but the application did not assert it (ASVS 3.4.1).
+
+### Files changed
+- `website/app.py` — `unexpected_error`, an `Exception` handler: the same `Internal Server Error` body, now with the security headers and `Cache-Control: no-store`; Starlette still logs the exception.
+- `website/http_policy.py`, `vercel.json` — `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` (Vercel's value) on every response and on `/static`.
+- `website/tests/test_app_security.py`, `test_vercel_static_headers.py` — a synthetic failing route returns 500 with every security header and no exception text; pages and API send HSTS; the CDN and the middleware still agree.
+
+### Effect
+- A synthetic RuntimeError: 500 without the headers on `main`, with them here. Browsers ignore HSTS over plain HTTP, so local development is unaffected.
+
+## [2026-10-13 15:11 PT] — Uploads that are plainly not email are refused (415)
+
+### Why
+- A Windows program or a PNG uploaded to `/api/analyze-eml` as `message/rfc822` was parsed as an empty message and shown as **Low** with only a decoding warning (ASVS 5.2.2).
+
+### Files changed
+- `website/email_structure.py` — `not_an_email`: a known signature at the start (Windows or ELF program, PNG, JPEG, GIF, WebP, PDF, zip/Office, Outlook `.msg`/OLE, gzip, 7z, RAR) or a NUL byte among the headers.
+- `website/app.py` — `_parse_raw_email` refuses those with 415 ("This file is not an email message; it looks like …"), covering the `.eml`, JSON `raw_email`, visual and case paths.
+- `website/tests/test_app_security.py` — 9 kinds refused; plain, BOM, mbox `From ` line, header-less text and binary-body messages still analyzed; JSON `raw_email` checked the same way. `docs/api.md` — the rule.
+
+### Effect
+- The 518 raw messages the unit tests analyze and the repository's `.eml` file: none refused.
+
+## [2026-10-13 15:11 PT] — Spelled-out code lengths count as a one-time-code request
+
+### Why
+- "Please send us the **six digit** verification code…" did not match the one-time-code request rule, which knew only `6 digit`. Uploaded as an `.eml` from a personal Gmail address it rested on the text model alone and was shown as Low; with `6 digit` it was Critical (2026-10-13 ASVS assessment).
+
+### Files changed
+- `website/content_rules.py` — `_CODE_MODIFIER` takes `three` to `ten` before `digit`.
+- `docs/evaluation.md` — "Spelled-out code lengths": criteria committed before the run (b93fd45), and the results.
+- `website/tests/test_sensitive_requests.py` — 3 requests match, 4 controls do not.
+
+### Effect
+- All four criteria pass: 3 of 3 requests match (0 at the baseline); 0 of 4 controls; 0 of 36,567 legitimate public rows match, none new; the reproduction `.eml` goes from Low to Critical while a benign code notice stays Low. The text model's alert on an unauthenticated `.eml` without a rule is still shown as Low, a policy this does not change. Backend 1,335 tests pass (10 skipped), frontend 527.
+
 ## [2026-10-13 14:09 PT] — CI: read-only jobs, no stored token, and the baseline push split off
 
 ### Why
