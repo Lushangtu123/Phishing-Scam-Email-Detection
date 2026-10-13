@@ -653,7 +653,9 @@ def _pdf_string(token: bytes) -> str:
 def pdf_link_targets(data: bytes) -> list[str]:
     """http(s) targets of PDF link annotations, bounded in input, inflation and count."""
     data = data[:_MAX_PDF_BYTES]
-    chunks, budget = [data], _MAX_PDF_INFLATED_BYTES
+    shared = _pdf_budget()
+    allowance = _inflate_allowance(shared)
+    chunks, budget = [data], allowance
     for index, match in enumerate(_PDF_FLATE_STREAM.finditer(data)):
         if index >= _MAX_PDF_STREAMS or budget <= 0:
             break
@@ -666,6 +668,7 @@ def pdf_link_targets(data: bytes) -> list[str]:
             continue
         budget -= len(inflated)
         chunks.append(inflated)
+    _spend_inflated(shared, allowance, budget)
     targets: list[str] = []
     for chunk in chunks:
         for match in _PDF_URI.finditer(chunk):
@@ -697,21 +700,49 @@ class _PdfResourceLimit(Exception):
     """A PDF's fonts need more entries than _MAX_PDF_FONT_ENTRIES."""
 
 
-# The font budget of the message being analyzed: its PDF attachments share one, so that
-# many small attachments cannot each expand a full one.
-_SHARED_PDF_FONT_BUDGET: ContextVar[list | None] = ContextVar("shared_pdf_font_budget", default=None)
+class _PdfMessageBudget:
+    """What all PDF attachments of one message may expand and read together, so that many
+    small attachments cannot each use a document's full limits: font entries, inflated
+    bytes (each document inflates twice, for links and for text) and content-stream
+    tokens. One document alone stays within its own limits. cut is set when a read stopped
+    short because the message's budget, not the document's, ran out."""
+
+    def __init__(self):
+        self.fonts = [_MAX_PDF_FONT_ENTRIES]
+        self.inflated = 2 * _MAX_PDF_INFLATED_BYTES
+        self.tokens = _MAX_PDF_TOKENS
+        self.cut = False
+
+
+_SHARED_PDF_BUDGET: ContextVar[_PdfMessageBudget | None] = ContextVar("shared_pdf_budget", default=None)
+
+
+def _pdf_budget() -> _PdfMessageBudget:
+    """The budget of the message being analyzed, or a fresh one for a document read alone."""
+    return _SHARED_PDF_BUDGET.get() or _PdfMessageBudget()
 
 
 @contextmanager
-def _shared_pdf_font_budget():
-    if _SHARED_PDF_FONT_BUDGET.get() is not None:
+def _shared_pdf_budget():
+    if _SHARED_PDF_BUDGET.get() is not None:
         yield
         return
-    token = _SHARED_PDF_FONT_BUDGET.set([_MAX_PDF_FONT_ENTRIES])
+    token = _SHARED_PDF_BUDGET.set(_PdfMessageBudget())
     try:
         yield
     finally:
-        _SHARED_PDF_FONT_BUDGET.reset(token)
+        _SHARED_PDF_BUDGET.reset(token)
+
+
+def _inflate_allowance(shared: _PdfMessageBudget) -> int:
+    """Bytes one pass over a document may inflate: its own limit, or what the message has left."""
+    return max(min(_MAX_PDF_INFLATED_BYTES, shared.inflated), 0)
+
+
+def _spend_inflated(shared: _PdfMessageBudget, allowance: int, left: int):
+    shared.inflated -= allowance - left
+    if left <= 0 and allowance < _MAX_PDF_INFLATED_BYTES:
+        shared.cut = True
 
 
 def _spend_font_entries(budget: list, count: int):
@@ -800,7 +831,9 @@ def _pdf_tokens(data: bytes, budget: list):
 def _pdf_objects(data: bytes) -> dict[int, tuple[bytes, bytes | None]]:
     """Indirect objects, number -> (dictionary, inflated stream or None), with compressed
     object streams expanded."""
-    objects, budget = {}, _MAX_PDF_INFLATED_BYTES
+    shared = _pdf_budget()
+    allowance = _inflate_allowance(shared)
+    objects, budget = {}, allowance
     for match in _PDF_OBJECT.finditer(data):
         if len(objects) >= _MAX_PDF_OBJECTS:
             break
@@ -824,6 +857,7 @@ def _pdf_objects(data: bytes) -> dict[int, tuple[bytes, bytes | None]]:
                 stream = raw
             body = head
         objects[int(match.group(1))] = (body, stream)
+    _spend_inflated(shared, allowance, budget)
     for body, stream in list(objects.values()):
         first, count = re.search(rb"/First\s+(\d+)", body), re.search(rb"/N\s+(\d+)", body)
         if b"/ObjStm" not in body or not stream or not first or not count:
@@ -989,7 +1023,7 @@ def _pdf_fonts(objects) -> tuple[dict[bytes, tuple], dict[int, dict[bytes, tuple
     Resources of its page (inherited from parent page nodes) or form. Two pages may give
     one name (/F1) to different fonts."""
     described, cmaps, descendants = {}, {}, {}
-    budget = _SHARED_PDF_FONT_BUDGET.get() or [_MAX_PDF_FONT_ENTRIES]
+    budget = _pdf_budget().fonts
     for number, (body, _stream) in objects.items():
         if b"/Font" not in body and b"/ToUnicode" not in body:
             continue
@@ -1047,7 +1081,9 @@ def pdf_text(data: bytes) -> str:
         return ""
     objects = _pdf_objects(data)
     document_fonts, page_fonts = _pdf_fonts(objects)
-    pieces, budget, written = [], [_MAX_PDF_TOKENS], [0]
+    shared = _pdf_budget()
+    allowance = max(min(_MAX_PDF_TOKENS, shared.tokens), 0)
+    pieces, budget, written = [], [allowance], [0]
     for number, (body, stream) in sorted(objects.items()):
         if not stream or b"BT" not in stream or re.search(rb"/(?:Subtype\s*/Image|FontFile|Length1|ObjStm)\b", body):
             continue
@@ -1134,6 +1170,9 @@ def pdf_text(data: bytes) -> str:
         pieces.append("\n")
         if budget[0] <= 0 or written[0] > _MAX_PDF_TEXT_CHARS:
             break
+    shared.tokens -= allowance - budget[0]
+    if budget[0] <= 0 and allowance < _MAX_PDF_TOKENS:
+        shared.cut = True
     text = re.sub(r"[ \t]+", " ", "".join(pieces))
     return re.sub(r" ?\n[\n ]*", "\n", text).strip()[:_MAX_PDF_TEXT_CHARS]
 
@@ -1296,13 +1335,17 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 except Exception:  # malformed transfer encoding: keep metadata only
                     payload = b""
                 try:
+                    shared = _pdf_budget()
+                    shared.cut = False
                     links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
-                    pdf_body = pdf_text(payload)
-                except _PdfResourceLimit:  # fonts too large to expand: links read, text not
-                    pdf_body = ''
-                    warning = message_text('warning.attachment_resource_limit')
-                    if warning not in parse_warnings:
-                        parse_warnings.append(warning)
+                    try:
+                        pdf_body = pdf_text(payload)
+                    except _PdfResourceLimit:  # fonts past the message's budget: text unread
+                        pdf_body, shared.cut = '', True
+                    if shared.cut:  # what was read is kept; the rest was not checked
+                        warning = message_text('warning.attachment_resource_limit')
+                        if warning not in parse_warnings:
+                            parse_warnings.append(warning)
                 except Exception:  # a malformed document: leave its text and links unread
                     links, pdf_body = [], ''
                     warning = message_text('warning.attachment_unreadable')
@@ -1505,7 +1548,7 @@ def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] 
     return domain, value
 
 
-@_shared_pdf_font_budget()
+@_shared_pdf_budget()
 def analyze_raw_email(
     raw_email: str | bytes,
     *,

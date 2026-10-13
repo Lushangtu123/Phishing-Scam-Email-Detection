@@ -1021,7 +1021,7 @@ window.PhishGuardI18n = (() => {
     'server.warning.han_text': 'Substantial Han-script (Chinese) text: the text model was not trained on Chinese mail, so only the rule checks are reliable here; coverage is limited and this content may not be fully evaluated.',
     'server.warning.model_insufficient_context': 'The message contains too little text for reliable model scoring; ML classification was not applied.',
     'server.warning.model_insufficient_coverage': 'Text model feature coverage is insufficient; ML classification was not applied.',
-    'server.warning.attachment_resource_limit': "A PDF attachment's fonts needed more memory to read than the analysis allows; its links were checked but its text was not. Analysis is incomplete.",
+    'server.warning.attachment_resource_limit': "A PDF attachment needed more resources to read than the analysis allows; not all of its text or links were checked. Analysis is incomplete.",
     'server.warning.attachment_unreadable': 'A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.',
     'server.warning.attachments_uninspected': 'Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete.',
     'server.warning.duplicate_mime_headers': 'Duplicate MIME headers ({headers}) are ambiguous; bounded alternate inspection, analysis is incomplete.',
@@ -1413,7 +1413,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=69'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=70'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

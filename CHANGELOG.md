@@ -22,6 +22,20 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 13:28 PT] — PDF attachments share one inflate and token budget per message
+
+### Why
+- After #56 only font entries were shared. Each PDF still had its own 4 MB inflate limit (twice: links and text) and its own 300,000 content-stream tokens: a 55 KB message with 76 PDFs of 476 bytes took 7.5 s, with no warning.
+
+### Files changed
+- `website/email_structure.py` — `_PdfMessageBudget` (font entries 200,000, inflated bytes 8 MB, tokens 300,000), shared by every PDF of one `analyze_raw_email` call (`_shared_pdf_budget`); `pdf_link_targets`, `_pdf_objects` and `pdf_text` take at most their per-document limit or what the message has left. A read cut short by the message's budget keeps what was read and adds `warning.attachment_resource_limit`; a document read alone, or one PDF at its own limits, is unchanged.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `i18n-zh.js` — the warning now covers all three limits ("…not all of its text or links were checked. Analysis is incomplete.").
+- `website/tests/test_analysis_budgets.py` — `PdfMessageBudgetTests` (4).
+
+### Effect
+- 76 token-heavy PDFs: 7.54 s → 0.15 s; 10 PDFs inflating 4 MB each: 0.38 s → 0.06 s; both now report the analysis incomplete. The first PDF's text and every PDF's links read so far are kept.
+- The 2 defect tests fail on `main`, the 2 controls (one PDF at 300,000 tokens or 4 MB; a PDF read alone twice) pass on both. Replaying the 518 raw messages the unit tests analyze: 515 identical to `main`; the 3 that differ are the budget tests' own messages (two new, one with the reworded warning). Backend 1,316 tests pass (10 skipped), frontend 527.
+
 ## [2026-10-13 11:15 PT] — Sender history only in signed-in case workspaces, one namespace each
 
 ### Why
