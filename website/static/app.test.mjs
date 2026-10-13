@@ -1236,6 +1236,21 @@ test('address-only analysis explains that retained history requires a raw messag
   assert.match(elements.get('sender-history-detail').textContent, /does not query retained sender history/i);
 });
 
+test('public analysis says sender history is kept only in case workspaces', () => {
+  const { context, elements } = loadFrontend();
+
+  context.renderResult({
+    ...senderResult('alice@gmail.com'),
+    sender_history_status: 'workspace_required',
+    sender_history_scope: 'this_service_history',
+    account_observability: 'provider_account_unverifiable',
+  });
+
+  assert.equal(elements.get('sender-history-label').textContent, 'Kept only in the case workspace');
+  assert.match(elements.get('sender-history-detail').textContent, /neither reads nor records/i);
+  assert.match(elements.get('sender-history-detail').textContent, /Gmail account age cannot be verified/);
+});
+
 test('unavailable sender history never renders a false zero-count claim', () => {
   const { context, elements } = loadFrontend();
 
