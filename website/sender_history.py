@@ -116,12 +116,17 @@ def canonicalize_sender_address(address: str) -> str:
     return f"{local}@{domain}"
 
 
-def sender_history_key(address: str, secret: str) -> str:
+def sender_history_key(address: str, secret: str, workspace: str) -> str:
+    """The opaque key of one sender in one authenticated workspace's history. Workspaces
+    never share a record: a message one analyst team saves cannot change, or reveal,
+    what another sees. (v1 keys were one service-wide history; they expire unread.)"""
+    if not workspace or "\0" in workspace:
+        raise ValueError("Sender history needs an authenticated workspace")
     canonical = canonicalize_sender_address(address)
     digest = hmac.new(
-        secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256,
+        secret.encode("utf-8"), f"{workspace}\0{canonical}".encode("utf-8"), hashlib.sha256,
     ).hexdigest()
-    return f"sender-history:v1:{digest}"
+    return f"sender-history:v2:{digest}"
 
 
 def _rate_limit_key(identity: str, secret: str) -> str:
@@ -158,10 +163,10 @@ class DisabledSenderHistoryStore:
     def __init__(self, status: str = "disabled") -> None:
         self._status = status
 
-    async def lookup(self, _address: str) -> SenderHistoryResult:
+    async def lookup(self, _address: str, _workspace: str) -> SenderHistoryResult:
         return SenderHistoryResult(status=self._status)
 
-    async def observe(self, _address: str) -> SenderHistoryResult:
+    async def observe(self, _address: str, _workspace: str) -> SenderHistoryResult:
         return SenderHistoryResult(status=self._status)
 
     async def check_rate_limit(
@@ -240,8 +245,8 @@ class UpstashSenderHistoryStore(UpstashRateLimitStore):
         self._ttl_seconds = settings.sender_history_retention_days * 86400
         self._clock = clock
 
-    async def lookup(self, address: str) -> SenderHistoryResult:
-        key = sender_history_key(address, self._secret)
+    async def lookup(self, address: str, workspace: str) -> SenderHistoryResult:
+        key = sender_history_key(address, self._secret, workspace)
         try:
             values = await asyncio.to_thread(
                 self._execute,
@@ -258,8 +263,8 @@ class UpstashSenderHistoryStore(UpstashRateLimitStore):
                 error="Sender history is temporarily unavailable.",
             )
 
-    async def observe(self, address: str) -> SenderHistoryResult:
-        key = sender_history_key(address, self._secret)
+    async def observe(self, address: str, workspace: str) -> SenderHistoryResult:
+        key = sender_history_key(address, self._secret, workspace)
         now = int(self._clock())
         try:
             values = await asyncio.to_thread(

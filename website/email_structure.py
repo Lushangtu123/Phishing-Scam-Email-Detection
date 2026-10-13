@@ -21,12 +21,15 @@ import zipfile
 import zlib
 import unicodedata
 import codecs
+from contextlib import contextmanager
+from contextvars import ContextVar
 from itertools import product
 
 import tldextract
 
 from ip_reputation import load_ip_reputation
 from server_messages import indicator, text as message_text, warning_indicator
+from verification_runtime import BoundedExecutor
 
 
 _AUTH_FAILURES = {"fail", "softfail", "permerror", "temperror"}
@@ -679,11 +682,42 @@ def pdf_link_targets(data: bytes) -> list[str]:
 _MAX_PDF_OBJECTS = 5000
 _MAX_PDF_TOKENS = 300_000
 _MAX_PDF_CMAP_ENTRIES = 100_000
+# Font entries (ToUnicode codes and glyph widths) a whole document may expand. Fonts that
+# share a CMap or descendant font expand it once; past this the text is not read. About
+# 20 MiB of tables at most, where 30 fonts sharing one 3.4 KB CMap took 388 MiB before.
+_MAX_PDF_FONT_ENTRIES = 200_000
 _MAX_PDF_TEXT_CHARS = 20_000
 _PDF_OBJECT = re.compile(rb"(\d+)\s+\d+\s+obj\b")
 _PDF_WHITESPACE = frozenset(b" \t\r\n\x0c\x00")
 _PDF_DELIMITERS = frozenset(b"()<>[]{}/%")
 _PDF_NUMBER = re.compile(rb"[+-]?(?:\d+\.?\d*|\.\d+)")
+
+
+class _PdfResourceLimit(Exception):
+    """A PDF's fonts need more entries than _MAX_PDF_FONT_ENTRIES."""
+
+
+# The font budget of the message being analyzed: its PDF attachments share one, so that
+# many small attachments cannot each expand a full one.
+_SHARED_PDF_FONT_BUDGET: ContextVar[list | None] = ContextVar("shared_pdf_font_budget", default=None)
+
+
+@contextmanager
+def _shared_pdf_font_budget():
+    if _SHARED_PDF_FONT_BUDGET.get() is not None:
+        yield
+        return
+    token = _SHARED_PDF_FONT_BUDGET.set([_MAX_PDF_FONT_ENTRIES])
+    try:
+        yield
+    finally:
+        _SHARED_PDF_FONT_BUDGET.reset(token)
+
+
+def _spend_font_entries(budget: list, count: int):
+    budget[0] -= count
+    if budget[0] < 0:
+        raise _PdfResourceLimit
 
 
 def _pdf_tokens(data: bytes, budget: list):
@@ -804,8 +838,9 @@ def _pdf_objects(data: bytes) -> dict[int, tuple[bytes, bytes | None]]:
     return objects
 
 
-def _pdf_cmap(stream: bytes) -> tuple[dict[bytes, str], int]:
-    """A ToUnicode CMap: character code -> text, and the code length in bytes."""
+def _pdf_cmap(stream: bytes, budget: list) -> tuple[dict[bytes, str], int]:
+    """A ToUnicode CMap: character code -> text, and the code length in bytes. Each entry
+    is taken from the document's font budget."""
     mapping, lengths = {}, set()
     text = stream.decode("latin-1")
 
@@ -814,6 +849,7 @@ def _pdf_cmap(stream: bytes) -> tuple[dict[bytes, str], int]:
     for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
         for source, value in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]*)>", block):
             if len(mapping) < _MAX_PDF_CMAP_ENTRIES:
+                _spend_font_entries(budget, 1)
                 mapping[bytes.fromhex(source + "0" * (len(source) % 2))] = target(value)
                 lengths.add((len(source) + 1) // 2)
     for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
@@ -824,12 +860,16 @@ def _pdf_cmap(stream: bytes) -> tuple[dict[bytes, str], int]:
                     or stop >= 1 << 8 * width):
                 continue
             if value.startswith("["):
-                for offset, item in enumerate(re.findall(r"<([0-9A-Fa-f]*)>", value)):
+                items = re.findall(r"<([0-9A-Fa-f]*)>", value)
+                _spend_font_entries(budget, len(items))
+                for offset, item in enumerate(items):
                     mapping[(start + offset).to_bytes(width, "big")] = target(item)
                 continue
             base = bytes.fromhex(value[1:-1] + "0" * (len(value[1:-1]) % 2))
             first, capacity = int.from_bytes(base, "big") if base else 0, max(len(base), 2)
-            for offset in range(min(stop - start + 1, (1 << 8 * capacity) - first)):
+            count = min(stop - start + 1, (1 << 8 * capacity) - first)
+            _spend_font_entries(budget, max(count, 0))
+            for offset in range(count):
                 code = (first + offset).to_bytes(capacity, "big")
                 mapping[(start + offset).to_bytes(width, "big")] = code.decode("utf-16-be", "replace")
     return mapping, max(lengths) if lengths else 1
@@ -871,41 +911,53 @@ def _pdf_code(value: bytes) -> int | None:
     return int(code) if math.isfinite(code) and code <= _MAX_PDF_CODE else None
 
 
-def _pdf_widths(objects, body: bytes) -> tuple[dict[int, float], float]:
+def _pdf_widths(objects, body: bytes, budget: list, shared: dict) -> tuple[dict[int, float], float]:
     """Glyph widths in thousandths of the font size: /FirstChar and /Widths of a simple
     font, or /W and /DW of a composite font's descendant. Values that are no number, or
-    out of range, are skipped."""
+    out of range, are skipped. Each width is taken from the document's font budget; a
+    descendant font several fonts share is read once (shared)."""
     descendant = re.search(rb"/DescendantFonts\s*(?:\[\s*)?(\d+)\s+\d+\s+R", body)
     if descendant:
-        cid_font = objects.get(int(descendant.group(1)), (b"", None))[0]
-        default = re.search(rb"/DW\s+(" + _PDF_UNSIGNED + rb")", cid_font)
-        default = _pdf_width(default.group(1)) if default else None
-        widths = {}
-        numbers = re.findall(rb"\[[^\]]*\]|" + _PDF_UNSIGNED, _pdf_array(objects, cid_font, b"W"))
-        index = 0
-        while index + 1 < len(numbers) and len(widths) < _MAX_PDF_CMAP_ENTRIES:
-            first, following = numbers[index], numbers[index + 1]
-            if following.startswith(b"["):
-                start = _pdf_code(first)
-                for offset, width in enumerate(re.findall(_PDF_UNSIGNED, following)):
-                    if start is not None and _pdf_width(width) is not None:
-                        widths[start + offset] = _pdf_width(width)
-                index += 2
-            elif index + 2 < len(numbers) and not numbers[index + 2].startswith(b"["):
-                low, high, width = _pdf_code(first), _pdf_code(following), _pdf_width(numbers[index + 2])
-                if low is not None and high is not None and width is not None:
-                    for code in range(low, min(high, low + 0xFFFF) + 1):
-                        widths[code] = width
-                index += 3
-            else:
-                break
-        return widths, 1000.0 if default is None else default
+        if int(descendant.group(1)) not in shared:
+            shared[int(descendant.group(1))] = _pdf_cid_widths(objects, int(descendant.group(1)), budget)
+        return shared[int(descendant.group(1))]
     first = re.search(rb"/FirstChar\s+(\d+)", body)
     first = _pdf_code(first.group(1)) if first else None
     values = [_pdf_width(value) for value in re.findall(_PDF_UNSIGNED, _pdf_array(objects, body, b"Widths"))]
     if first is None or not values:
         return {}, 500.0
+    _spend_font_entries(budget, len(values))
     return {first + offset: width for offset, width in enumerate(values) if width is not None}, 500.0
+
+
+def _pdf_cid_widths(objects, number: int, budget: list) -> tuple[dict[int, float], float]:
+    """/W and /DW of the descendant (CID) font numbered number."""
+    cid_font = objects.get(number, (b"", None))[0]
+    default = re.search(rb"/DW\s+(" + _PDF_UNSIGNED + rb")", cid_font)
+    default = _pdf_width(default.group(1)) if default else None
+    widths = {}
+    numbers = re.findall(rb"\[[^\]]*\]|" + _PDF_UNSIGNED, _pdf_array(objects, cid_font, b"W"))
+    index = 0
+    while index + 1 < len(numbers) and len(widths) < _MAX_PDF_CMAP_ENTRIES:
+        first, following = numbers[index], numbers[index + 1]
+        if following.startswith(b"["):
+            start = _pdf_code(first)
+            listed = re.findall(_PDF_UNSIGNED, following)
+            _spend_font_entries(budget, len(listed))
+            for offset, width in enumerate(listed):
+                if start is not None and _pdf_width(width) is not None:
+                    widths[start + offset] = _pdf_width(width)
+            index += 2
+        elif index + 2 < len(numbers) and not numbers[index + 2].startswith(b"["):
+            low, high, width = _pdf_code(first), _pdf_code(following), _pdf_width(numbers[index + 2])
+            if low is not None and high is not None and width is not None:
+                _spend_font_entries(budget, max(min(high, low + 0xFFFF) + 1 - low, 0))
+                for code in range(low, min(high, low + 0xFFFF) + 1):
+                    widths[code] = width
+            index += 3
+        else:
+            break
+    return widths, 1000.0 if default is None else default
 
 
 def _pdf_dictionary(objects, body: bytes, key: bytes) -> bytes | None:
@@ -936,14 +988,21 @@ def _pdf_fonts(objects) -> tuple[dict[bytes, tuple], dict[int, dict[bytes, tuple
     width) by resource name: for every document, and for each content stream by the
     Resources of its page (inherited from parent page nodes) or form. Two pages may give
     one name (/F1) to different fonts."""
-    described = {}
+    described, cmaps, descendants = {}, {}, {}
+    budget = _SHARED_PDF_FONT_BUDGET.get() or [_MAX_PDF_FONT_ENTRIES]
     for number, (body, _stream) in objects.items():
         if b"/Font" not in body and b"/ToUnicode" not in body:
             continue
         reference = re.search(rb"/ToUnicode\s+(\d+)\s+\d+\s+R", body)
         target = objects.get(int(reference.group(1))) if reference else None
-        mapping, length = _pdf_cmap(target[1]) if target and target[1] else (None, 2 if b"/Type0" in body else 1)
-        widths, default = _pdf_widths(objects, body)
+        if target and target[1]:
+            # Fonts that share a CMap share its table.
+            if int(reference.group(1)) not in cmaps:
+                cmaps[int(reference.group(1))] = _pdf_cmap(target[1], budget)
+            mapping, length = cmaps[int(reference.group(1))]
+        else:
+            mapping, length = None, 2 if b"/Type0" in body else 1
+        widths, default = _pdf_widths(objects, body, budget, descendants)
         described[number] = (mapping, length, widths, default)
     fonts = {}
     for body, _stream in objects.values():
@@ -1239,6 +1298,11 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
                 try:
                     links = pdf_link_targets(payload) if payload.startswith(b"%PDF") else []
                     pdf_body = pdf_text(payload)
+                except _PdfResourceLimit:  # fonts too large to expand: links read, text not
+                    pdf_body = ''
+                    warning = message_text('warning.attachment_resource_limit')
+                    if warning not in parse_warnings:
+                        parse_warnings.append(warning)
                 except Exception:  # a malformed document: leave its text and links unread
                     links, pdf_body = [], ''
                     warning = message_text('warning.attachment_unreadable')
@@ -1330,6 +1394,14 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
 # Outlook.com's "Download as EML" rewrites the message, so its seals do not verify.
 ARC_SEALERS = {"google.com": "mx.google.com"}
 _ARC_DNS_TIMEOUT = 2.0
+# One verification may look up this many keys (two per ARC set: a chain of five sets),
+# within this many seconds in all; past either, no further key is fetched and the chain
+# is not trusted. It runs on its own two threads, so slow DNS cannot hold the analysis
+# workers: when both are busy, the message is analyzed without ARC trust.
+_ARC_MAX_LOOKUPS = 10
+_ARC_VERIFY_SECONDS = 4.0
+_ARC_WORKERS = 2
+_ARC_KEY_NAME = re.compile(rb"((?:[a-z0-9_-]+\.)+)_domainkey\.((?:[a-z0-9-]+\.)+[a-z0-9-]+)\.?")
 _ARC_KEY_TTL = 3600.0
 _ARC_KEY_CACHE: dict[bytes, tuple[float, bytes | None]] = {}
 _ARC_KEY_CACHE_LIMIT = 256
@@ -1352,6 +1424,45 @@ def _arc_dns_txt(name, timeout=5):
     return value
 
 
+def _arc_sealers(data: bytes) -> set[str] | None:
+    """The d= domains of every ARC-Seal and ARC-Message-Signature, read by the same header
+    and tag parsers the verifier uses; None if one cannot be read or names no domain."""
+    try:
+        import dkim
+        from dkim.util import parse_tag_value
+        headers, _body = dkim.rfc822_parse(data)
+        sealers = set()
+        for name, value in headers:
+            if name.lower() in {b"arc-seal", b"arc-message-signature"}:
+                domain = parse_tag_value(value).get(b"d")
+                if not domain:
+                    return None
+                sealers.add(domain.decode("ascii", "replace").lower())
+        return sealers
+    except Exception:  # missing library, malformed headers or tags: nothing to look up
+        return None
+
+
+def _guarded_arc_dns(dnsfunc, deadline: float):
+    """dnsfunc, answering only for a key of a known sealer (selector._domainkey.google.com),
+    at most _ARC_MAX_LOOKUPS times and until deadline (time.monotonic())."""
+    lookups = [0]
+
+    def lookup(name, timeout=5):
+        raw = name if isinstance(name, bytes) else str(name).encode("ascii", "replace")
+        match = _ARC_KEY_NAME.fullmatch(raw.lower())
+        remaining = deadline - time.monotonic()
+        if (not match or match.group(2).decode("ascii") not in ARC_SEALERS
+                or lookups[0] >= _ARC_MAX_LOOKUPS or remaining <= 0):
+            return None
+        lookups[0] += 1
+        return dnsfunc(name, timeout=min(timeout, _ARC_DNS_TIMEOUT, remaining))
+    return lookup
+
+
+_arc_pool = BoundedExecutor(workers=_ARC_WORKERS, thread_name_prefix="arc")
+
+
 def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] | None:
     """(sealing domain, sealed Authentication-Results value) when the ARC chain is valid and
     its newest set was sealed by a known mailbox service; otherwise None."""
@@ -1360,16 +1471,24 @@ def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] 
     if b"arc-seal" not in head.lower() or len(data) > MAX_ARC_MESSAGE_BYTES:
         return None
     # Look up keys only for known services: verifying a seal from any other domain would
-    # send a DNS query to whoever wrote the message, telling them it was analyzed.
-    unfolded = re.sub(rb"\r?\n[ \t]+", b" ", head)
-    sealers = {match.group(1).strip().lower().decode("ascii", "replace")
-               for match in re.finditer(rb"(?im)^arc-(?:seal|message-signature)\s*:[^\n]*?\bd\s*=\s*([^;\s]+)", unfolded)}
+    # send a DNS query to whoever wrote the message, telling them it was analyzed. Each
+    # lookup is checked again where it is made.
+    sealers = _arc_sealers(data)
     if not sealers or not sealers <= set(ARC_SEALERS):
         return None
+    deadline = time.monotonic() + _ARC_VERIFY_SECONDS
+    guarded = _guarded_arc_dns(dnsfunc or _arc_dns_txt, deadline)
+
+    def verify():
+        import dkim
+        return dkim.arc_verify(data, dnsfunc=guarded, timeout=_ARC_DNS_TIMEOUT)
     try:
         import dkim
-        cv, results, _reason = dkim.arc_verify(data, dnsfunc=dnsfunc or _arc_dns_txt, timeout=_ARC_DNS_TIMEOUT)
-    except Exception:  # missing library, malformed headers or keys: no trust
+        future = _arc_pool.submit(verify)
+        if future is None:  # both verification threads are busy: no trust
+            return None
+        cv, results, _reason = future.result(timeout=max(deadline - time.monotonic(), 0) + 1.0)
+    except Exception:  # missing library, malformed headers or keys, out of time: no trust
         return None
     if cv != dkim.CV_Pass or not results:
         return None
@@ -1386,6 +1505,7 @@ def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] 
     return domain, value
 
 
+@_shared_pdf_font_budget()
 def analyze_raw_email(
     raw_email: str | bytes,
     *,

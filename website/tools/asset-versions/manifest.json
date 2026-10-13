@@ -32,8 +32,8 @@
     "sha256": "5ece7a32ee30e0969626790c6f76cc9896f72252d09ddf0ead244e47aca8b5a8"
   },
   "app-sender.js": {
-    "version": "6",
-    "sha256": "6b89b9c73e0b231bfed98f3b6122c686ab3562fb0695c47f8e0930fd0bfa345f"
+    "version": "7",
+    "sha256": "bed86ce1fca825e1ac0bffc02dd7c765087c5d2781e21260038f6f2476b5ddb6"
   },
   "app-sms.js": {
     "version": "4",
@@ -80,16 +80,16 @@
     "sha256": "69dd54d208917d607f0d2ffb6c2ca946f3c6749dd11a7ada24eab66371cc2347"
   },
   "i18n-zh.js": {
-    "version": "67",
-    "sha256": "7c46aee4a9949acf6b58d4ba1bdb361e78ddf5beab551f01e5f65522797bde3c"
+    "version": "69",
+    "sha256": "92d3f1173de087c100b4b5895a3f9411c0ba6da64481f76e4fb0ca6bc586bba2"
   },
   "i18n.js": {
-    "version": "135",
-    "sha256": "58552579cb4717744a3d04737da7dbaaf67b58e002dbed5a772f36b8a6758c60"
+    "version": "139",
+    "sha256": "9a92ec88390ad19dcce0ae506f1255d9567aa8b3296f8a815f88d53cc6daf53b"
   },
   "lang-init.js": {
-    "version": "70",
-    "sha256": "9686a3489f9ed24c444b50dd6a303cbf813d15f5cc124236cf4dc6525321a476"
+    "version": "72",
+    "sha256": "1d6de8c39e550899c3735324d8ec888aed941ae26d8009e170f4ba55d31c2828"
   },
   "request.js": {
     "version": "1",

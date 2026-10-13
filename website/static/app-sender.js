@@ -126,6 +126,7 @@ const SENDER_HISTORY_STATES = {
   previously_seen:      { key: 'seen', cls: ' history-seen', caveat: true },
   not_seen:             { key: 'notSeen', cls: ' history-first', caveat: true },
   raw_message_required: { key: 'raw', cls: ' history-unavailable', caveat: true },
+  workspace_required:   { key: 'workspace', cls: ' history-unavailable', caveat: true },
   unavailable:          { key: 'unavailable', cls: ' history-unavailable', caveat: false },
 };
 const SENDER_HISTORY_DISABLED = { key: 'disabled', cls: ' history-unavailable', caveat: false };

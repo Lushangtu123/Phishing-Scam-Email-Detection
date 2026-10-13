@@ -1,7 +1,9 @@
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -10,7 +12,11 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app
+from case_api import build_case_service
 from sender_history import SenderHistoryResult, canonicalize_sender_address
+from test_case_api import TOKEN, request
+
+WORKSPACE = "production:cases:team-a"
 
 
 class _FakeHistoryStore:
@@ -25,12 +31,12 @@ class _FakeHistoryStore:
         self.lookup_calls = []
         self.observe_calls = []
 
-    async def lookup(self, address):
-        self.lookup_calls.append(address)
+    async def lookup(self, address, workspace):
+        self.lookup_calls.append((address, workspace))
         return self.lookup_result
 
-    async def observe(self, address):
-        self.observe_calls.append(address)
+    async def observe(self, address, workspace):
+        self.observe_calls.append((address, workspace))
         return self.observe_result
 
 
@@ -41,8 +47,15 @@ class SenderHistoryIntegrationTests(unittest.TestCase):
         ).body)
 
     def analyze_raw(self, raw_email):
+        """Public, anonymous analysis."""
         return json.loads(asyncio.run(
             app.analyze_content_endpoint(app.ContentRequest(raw_email=raw_email))
+        ).body)
+
+    def analyze_in_workspace(self, raw_email, workspace=WORKSPACE):
+        """Analysis for an authenticated case workspace."""
+        return json.loads(asyncio.run(
+            app._analyze_content(app.ContentRequest(raw_email=raw_email), history_workspace=workspace)
         ).body)
 
     def test_sender_only_analysis_does_not_expose_the_service_history_or_touch_storage(self):
@@ -59,7 +72,7 @@ class SenderHistoryIntegrationTests(unittest.TestCase):
             result["account_observability"],
             "provider_account_unverifiable",
         )
-        self.assertEqual(result["sender_history_status"], "raw_message_required")
+        self.assertEqual(result["sender_history_status"], "workspace_required")
         self.assertEqual(result["sender_history_scope"], "this_service_history")
         self.assertNotIn("sender_first_seen_at", result)
         self.assertNotIn("sender_last_seen_at", result)
@@ -74,7 +87,34 @@ class SenderHistoryIntegrationTests(unittest.TestCase):
 
         self.assertEqual(store.lookup_calls, [])
 
-    def test_raw_email_records_canonical_aliases_once(self):
+    def test_public_raw_email_neither_reads_nor_records_history(self):
+        # Anyone can write any From: a shared record would let a forged message ask
+        # whether an address was seen, and change what others are told.
+        store = _FakeHistoryStore()
+        raw_email = """From: Alice <alice@gmail.com>
+To: user@example.com
+Subject: Project update
+
+Here is the requested update.
+"""
+
+        with patch.object(app, "_sender_history_store", store):
+            first = self.analyze_raw(raw_email)
+            second = self.analyze_raw(raw_email)
+
+        self.assertEqual(store.observe_calls, [])
+        self.assertEqual(store.lookup_calls, [])
+        for result in (first, second):
+            self.assertEqual(result["sender_analysis"]["sender_history_status"], "workspace_required")
+            self.assertEqual(result["sender_analysis"]["sender_history_scope"], "this_service_history")
+
+    def test_public_analysis_reports_a_disabled_store_as_disabled(self):
+        with patch.object(app, "_sender_history_store", app.DisabledSenderHistoryStore()):
+            result = self.analyze_raw("From: alice@gmail.com\nSubject: Hi\n\nHello.\n")
+
+        self.assertEqual(result["sender_analysis"]["sender_history_status"], "disabled")
+
+    def test_workspace_records_canonical_aliases_once(self):
         store = _FakeHistoryStore()
         raw_email = """From: Alice <a.lice+shopping@gmail.com>, Alice Alias <alice@gmail.com>
 To: user@example.com
@@ -84,11 +124,12 @@ Here is the requested update.
 """
 
         with patch.object(app, "_sender_history_store", store):
-            result = self.analyze_raw(raw_email)
+            result = self.analyze_in_workspace(raw_email)
 
         self.assertEqual(len(store.observe_calls), 1)
+        self.assertEqual(store.observe_calls[0][1], WORKSPACE)
         self.assertEqual(
-            canonicalize_sender_address(store.observe_calls[0]),
+            canonicalize_sender_address(store.observe_calls[0][0]),
             "alice@gmail.com",
         )
         self.assertEqual(store.lookup_calls, [])
@@ -113,9 +154,9 @@ Review the attached notice.
 """
 
         with patch.object(app, "_sender_history_store", store):
-            result = self.analyze_raw(raw_email)
+            result = self.analyze_in_workspace(raw_email)
 
-        self.assertEqual(store.observe_calls, ["notice@paypa1-verify.example"])
+        self.assertEqual(store.observe_calls, [("notice@paypa1-verify.example", WORKSPACE)])
         self.assertEqual(
             result["sender_analysis"]["email"],
             "notice@paypa1-verify.example",
@@ -145,9 +186,9 @@ Verify your password now.
 """
 
         with patch.object(app, "_sender_history_store", store):
-            self.analyze_raw(raw_email)
+            self.analyze_in_workspace(raw_email)
 
-        self.assertEqual(store.observe_calls, ["outer@example.com"])
+        self.assertEqual(store.observe_calls, [("outer@example.com", WORKSPACE)])
         self.assertEqual(store.lookup_calls, [])
 
     def test_missing_sender_does_not_create_history(self):
@@ -159,7 +200,7 @@ Here is the requested update.
 """
 
         with patch.object(app, "_sender_history_store", store):
-            result = self.analyze_raw(raw_email)
+            result = self.analyze_in_workspace(raw_email)
 
         self.assertEqual(store.observe_calls, [])
         self.assertNotIn("sender_analysis", result)
@@ -179,7 +220,7 @@ Your mailbox will be suspended. Confirm your password now at http://paypa1-secur
 """
 
         with patch.object(app, "_sender_history_store", store):
-            result = self.analyze_raw(raw_email)
+            result = self.analyze_in_workspace(raw_email)
 
         self.assertIn(result["risk_level"], {"high", "critical"})
         self.assertEqual(
@@ -187,6 +228,35 @@ Your mailbox will be suspended. Confirm your password now at http://paypa1-secur
             "previously_seen",
         )
         self.assertNotIn("sender_seen_count", result["sender_analysis"])
+
+    def test_authenticated_case_records_in_its_own_workspace_once(self):
+        store = _FakeHistoryStore()
+        raw_email = b"From: Alice <alice@example.com>\r\nTo: user@example.com\r\nSubject: Hi\r\n\r\nHello.\r\n"
+        previous = getattr(app.app.state, "case_service", None)
+        previous_error = getattr(app.app.state, "case_configuration_error", False)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cases.sqlite3"
+            app.app.state.case_configuration_error = False
+            app.app.state.case_service = build_case_service({
+                "CASE_MANAGEMENT_ENABLED": "true", "CASE_DB_PATH": str(path),
+                "CASE_ANALYST_TOKEN_HASHES": json.dumps({"alice": hashlib.sha256(TOKEN.encode()).hexdigest()}),
+            })
+            app._rate_limit_buckets.clear()
+            key = "00000000-0000-4000-8000-0000000000aa"
+            try:
+                with patch.object(app, "_sender_history_store", store), patch.object(app, "_content_pipeline", None):
+                    status, case, _ = asyncio.run(request("POST", "/api/cases/eml", raw=raw_email, key=key))
+                    replay, _, _ = asyncio.run(request("POST", "/api/cases/eml", raw=raw_email, key=key))
+                    denied, _, _ = asyncio.run(request("POST", "/api/cases/eml", raw=raw_email, token=None,
+                                                       key="00000000-0000-4000-8000-0000000000ab"))
+            finally:
+                app.app.state.case_service = previous
+                app.app.state.case_configuration_error = previous_error
+
+        self.assertEqual((status, replay, denied), (201, 201, 401))
+        # One observation, in this workspace only; a replayed request does not count twice.
+        self.assertEqual(store.observe_calls, [("alice@example.com", f"local:cases-sqlite:{path}")])
+        self.assertEqual(case["analysis"]["sender_analysis"]["sender_history_status"], "first_seen")
 
     def test_disposable_and_privacy_relay_categories_are_not_account_age_claims(self):
         store = _FakeHistoryStore()
