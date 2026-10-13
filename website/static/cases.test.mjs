@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
-import {CASE_SCRIPTS, capture, caseRecord, loadCases, router, runCaseScenarios, tick as settle} from '../tests/fixtures/i18n/cases-scenarios.mjs';
+import {CASE_SCRIPTS, SYNTHETIC_SESSION, answerSession, capture, caseRecord, loadCases, router, runCaseScenarios, tick as settle} from '../tests/fixtures/i18n/cases-scenarios.mjs';
 import {memoryStorage} from '../tests/fixtures/i18n/scenarios.mjs';
 
 class Element {
@@ -24,7 +24,7 @@ const caseValue = () => ({id: 'case-1', title: '<img src=x onerror=alert(1)>', r
   analysis: {extra_indicators: ['<iframe src=x>']}, provenance: {}, events: [{actor: 'alice', action: 'created', happened_at: '2026-09-20T00:00:00Z', changes: {}, note: '<svg onload=bad()>'}]});
 // `clock` (fakeClock()) loads request.js, as cases.html does, with AbortController and manual timers.
 function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-US'], storage = new Map(), clock = null} = {}) {
-  const elements = new Map(), calls = [], windowEvents = {};
+  const elements = new Map(), calls = [], sessionCalls = [], windowEvents = {};
   const el = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const source = readFileSync(new URL('./cases.js', import.meta.url), 'utf8');
   class DataTransfer { constructor(){this.files=[];this.items={add:file=>this.files.push(file)};} }
@@ -32,7 +32,7 @@ function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-U
   let uuid = 0;
   const context=vm.createContext({document: {getElementById: el, createElement: () => new Element(), addEventListener() {}}, window,
     navigator: {languages, language: languages[0]}, localStorage: {getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value)},
-    DataTransfer, Event, URLSearchParams, crypto: {randomUUID: () => 'synthetic-uuid-' + (++uuid)}, fetch: async (url, options) => { calls.push({url, options}); const result = await handler(url, options); return {ok: result.status < 400, status: result.status, json: async () => result.data}; },
+    DataTransfer, Event, URLSearchParams, crypto: {randomUUID: () => 'synthetic-uuid-' + (++uuid)}, fetch: async (url, options) => { const session = await answerSession(handler, url, options, sessionCalls); if (session === null) calls.push({url, options}); const result = session ?? await handler(url, options); return {ok: result.status < 400, status: result.status, json: async () => result.data}; },
     ...(clock ? {AbortController, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout} : {})});
   // cases.html loads i18n.js before the other scripts.
   vm.runInContext(readFileSync(new URL('./i18n.js',import.meta.url),'utf8'),context);
@@ -41,7 +41,7 @@ function setup(handler, vision = {cancel() {}, render() {}}, {languages = ['en-U
   vm.runInContext(source,context);
   const fire = async (id, name = 'click') => { el(id).listeners[name]({preventDefault() {}, submitter: el(id === 'create-form' ? 'create-case' : id + '-submit'), currentTarget: el(id)}); await tick(); };
   const login = async () => { el('token').value = 'synthetic-access-token-at-least-32-characters'; await fire('login-form', 'submit'); };
-  return {el, fire, login, calls, window, windowEvents};
+  return {el, fire, login, calls, sessionCalls, window, windowEvents};
 }
 // A manual clock: setTimeout callbacks run only when advance() passes them.
 function fakeClock() {
@@ -415,6 +415,74 @@ test('drafts warn before leaving, support discard, and are cleared at signout', 
   assert.equal(ui.el('note').value, '');
 });
 
+test('the access token only signs in; case requests carry the session, and sign-out ends it on the server', async () => {
+  const ui = setup(standard); await ui.login();
+  const [signIn] = ui.sessionCalls;
+  assert.equal(signIn.options.method, 'POST');
+  assert.equal(signIn.options.headers.Authorization, 'Bearer synthetic-access-token-at-least-32-characters');
+  assert(ui.calls.length > 0);
+  assert(ui.calls.every(call => call.options.headers.Authorization === 'Bearer ' + SYNTHETIC_SESSION));
+  await ui.fire('logout');
+  const signOut = ui.sessionCalls.at(-1);
+  assert.equal(signOut.options.method, 'DELETE');
+  assert.equal(signOut.options.headers.Authorization, 'Bearer ' + SYNTHETIC_SESSION);
+  assert.equal(signOut.options.keepalive, true);
+  // Closing the tab signs out the same way.
+  await ui.login(); ui.windowEvents.pagehide(); await tick();
+  assert.equal(ui.sessionCalls.at(-1).options.method, 'DELETE');
+});
+
+test('an ended session keeps unsaved work for the same analyst and clears it for another', async () => {
+  for (const nextActor of ['alice', 'bob']) {
+    let ended = false;
+    const sessions = ['session-1-'.padEnd(43, 'x'), 'session-2-'.padEnd(43, 'x')];
+    let signedIn = 0;
+    const handler = async (url, options) => {
+      if (url === '/api/cases/session') {
+        signedIn += 1;
+        return {status: 201, data: {actor: signedIn === 1 ? 'alice' : nextActor, session: sessions[signedIn - 1]}};
+      }
+      if (ended && options.headers.Authorization === 'Bearer ' + sessions[0]) {
+        return {status: 401, data: {detail: 'Your session has ended. Sign in again with your access token.'}};
+      }
+      return url.endsWith('/me') ? {status: 200, data: {actor: options.headers.Authorization.includes('session-2') ? nextActor : 'alice'}} : standard(url);
+    };
+    handler.handlesSignIn = true;
+    const ui = setup(handler); await ui.login();
+    ui.el('case-list').children[0].listeners.click(); await tick();
+    ui.el('note').value = 'Unsaved review';
+    ended = true; await ui.fire('refresh'); await tick();
+    assert.equal(ui.el('login-panel').hidden, false);
+    assert.equal(ui.el('workspace').hidden, true);
+    assert.match(ui.el('notice').textContent, /unsaved work is kept/);
+    assert.equal(ui.el('note').value, 'Unsaved review');
+    let prevented = false;
+    ui.windowEvents.beforeunload({preventDefault() { prevented = true; }});
+    assert.equal(prevented, true, 'leaving still warns while the work waits');
+    await ui.login(); await tick();
+    assert.equal(ui.el('workspace').hidden, false);
+    if (nextActor === 'alice') {
+      assert.equal(ui.el('note').value, 'Unsaved review');
+      assert.equal(ui.el('actor').textContent, 'alice');
+    } else {
+      // Another analyst: the earlier draft is gone once the case is opened again.
+      assert.equal(ui.el('actor').textContent, 'bob');
+      ui.el('case-list').children[0].listeners.click(); await tick();
+      assert.equal(ui.el('note').value, '');
+    }
+    assert.equal(ui.calls.at(-1).options.headers.Authorization, 'Bearer ' + sessions[1]);
+  }
+});
+
+test('an ended session without unsaved work signs out with an explanation', async () => {
+  let ended = false;
+  const ui = setup(async (url, options) => ended ? {status: 401, data: {detail: 'Your session has ended. Sign in again with your access token.'}} : standard(url, options));
+  await ui.login(); ended = true; await ui.fire('refresh'); await tick();
+  assert.equal(ui.el('workspace').hidden, true);
+  assert.equal(ui.el('login-panel').hidden, false);
+  assert.match(ui.el('notice').textContent, /session has ended/);
+});
+
 test('a review saved after switching cases does not reappear as an unsaved note', async () => {
   let release, saved = caseValue();
   const ui = setup(async (url, options) => options?.method === 'PATCH'
@@ -548,15 +616,19 @@ test('Jev failure shows actionable safe guidance without retrying or changing ri
 
 test('protected Preview login preserves the gateway session and still requires the analyst token', async () => {
   for (const accepted of [true, false]) {
-    const ui = setup(async (url, options) => {
+    const handler = async (url, options) => {
       // The deployment gateway redirects cookieless requests to external SSO,
       // which the application's same-origin CSP correctly blocks.
       if (!['same-origin', 'include'].includes(options.credentials)) throw new TypeError('Failed to fetch');
-      if (!accepted || options.headers.Authorization !== 'Bearer synthetic-access-token-at-least-32-characters') {
+      // The access token only signs in; every case request carries the session.
+      const expected = url === '/api/cases/session' ? 'synthetic-access-token-at-least-32-characters' : SYNTHETIC_SESSION;
+      if (!accepted || options.headers.Authorization !== 'Bearer ' + expected) {
         return {status: 401, data: {detail: 'A valid analyst access token is required'}};
       }
-      return standard(url);
-    });
+      return url === '/api/cases/session' ? {status: 201, data: {actor: 'alice', session: SYNTHETIC_SESSION}} : standard(url);
+    };
+    handler.handlesSignIn = true;
+    const ui = setup(handler);
     await ui.login();
     if (accepted) {
       assert.equal(ui.el('notice').textContent, '');

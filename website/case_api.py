@@ -1,4 +1,5 @@
-"""Authenticated case APIs. All analysts belong to one shared workspace."""
+"""Authenticated case APIs. All analysts belong to one shared workspace. An analyst's
+access token only signs in; every other request carries a short-lived session (case_sessions)."""
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 import hashlib
@@ -11,12 +12,13 @@ import sqlite3
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from case_store import CaseStore, CaseConflict, CaseInvalid, CaseNotFound, RISKS, STATUSES, VERDICTS, FEEDBACK_REASONS, history_capacity
 from case_cloud import UpstashCaseStore, CaseUnavailable, feedback_workspace_name
+from case_sessions import CaseSessions
 from visual_evidence import VisualRequest
 from jev import JevClient, MODEL, QUESTIONS_SHA256, input_state, _encoded, prepare_case_input, configuration as jev_configuration
 from jev_control import JevControl, DAY, request_identity, receipt_identity
@@ -34,6 +36,7 @@ class CaseService:
     jev_control: object | None = field(default=None, repr=False)
     # The namespace of this workspace's sender history: its cases see only their own.
     history_workspace: str = ''
+    sessions: object | None = field(default=None, repr=False)
 
 
 def build_case_service(env):
@@ -115,6 +118,12 @@ def jev_client(request):
     return JevClient.from_env(os.environ, max_calls=None)
 
 
+def case_sessions(service):
+    if service.sessions is None:
+        service.sessions = CaseSessions(service.store, service.deployment_environment)
+    return service.sessions
+
+
 def jev_control(service):
     if service.jev_control is None:
         service.jev_control = JevControl(service.store, service.deployment_environment)
@@ -132,27 +141,84 @@ def public_jev_status(app):
 def make_case_router(analyze, *, visible_text, mask_inline_data):
     router = APIRouter(prefix='/api/cases')
 
-    def identity(request: Request):
+    def configured(request: Request):
         if getattr(request.app.state, 'case_configuration_error', False):
             raise HTTPException(503, 'Case configuration is invalid; contact the administrator')
         service = getattr(request.app.state, 'case_service', None)
         if service is None:
             raise HTTPException(404, 'Case management is not configured')
+        return service
+
+    def bearer(request: Request):
+        auth = request.headers.get('authorization', '')
+        return auth[7:] if auth.startswith('Bearer ') else ''
+
+    def sessions(service):
+        try:
+            return case_sessions(service)
+        except (CaseUnavailable, sqlite3.Error, OSError):
+            raise HTTPException(503, 'Case storage is unavailable; try signing in again shortly.') from None
+
+    def analyst(request: Request):
+        """The analyst whose access token signs in: (service, actor, credential digest)."""
+        service = configured(request)
         scope = service.deployment_environment
         detail = f'A valid analyst access token is required for this {scope} deployment.'
         if scope in {'production', 'preview'}:
             detail += ' Production and Preview credentials are separate.'
-        auth = request.headers.get('authorization', '')
-        if not auth.startswith('Bearer ') or not 32 <= len(auth[7:]) <= 256:
+        token = bearer(request)
+        if not 32 <= len(token) <= 256:
             raise HTTPException(401, detail, headers={'WWW-Authenticate': 'Bearer'})
-        digest = hashlib.sha256(auth[7:].encode()).hexdigest()
+        digest = hashlib.sha256(token.encode()).hexdigest()
         actor = None
         for candidate, expected in service.analysts.items():
             if hmac.compare_digest(digest, expected):
                 actor = candidate
         if actor is None:
             raise HTTPException(401, detail)
-        return service.store, actor
+        return service, actor, digest
+
+    def identity(request: Request):
+        """The signed-in analyst of a live session. A session whose analyst's credential was
+        replaced or removed since sign-in ends here, on every instance."""
+        service = configured(request)
+        ended = HTTPException(401, 'Your session has ended. Sign in again with your access token.',
+                              headers={'WWW-Authenticate': 'Bearer'})
+        session_id = bearer(request)
+        store = sessions(service)
+        try:
+            session = store.resume(session_id)
+        except (CaseUnavailable, sqlite3.Error, OSError):
+            raise HTTPException(503, 'Case storage is unavailable. Reload to check whether your last operation completed.') from None
+        if session is None:
+            raise ended
+        if not hmac.compare_digest(service.analysts.get(session['actor'], ''), session['credential']):
+            try:
+                store.close(session_id)
+            except (CaseUnavailable, sqlite3.Error, OSError):
+                pass
+            raise ended
+        return service.store, session['actor']
+
+    @router.post('/session', status_code=201)
+    def sign_in(signed_in=Depends(analyst)):
+        """Exchange an analyst access token for a session ID, kept by the browser in memory."""
+        service, actor, digest = signed_in
+        try:
+            opened = sessions(service).open(actor, digest)
+        except (CaseUnavailable, sqlite3.Error, OSError):
+            raise HTTPException(503, 'Case storage is unavailable; try signing in again shortly.') from None
+        return {'actor': actor, **opened}
+
+    @router.delete('/session', status_code=204)
+    def sign_out(request: Request):
+        """End this session. Ending one that has already ended succeeds too."""
+        service = configured(request)
+        try:
+            sessions(service).close(bearer(request))
+        except (CaseUnavailable, sqlite3.Error, OSError):
+            raise HTTPException(503, 'Case storage is unavailable; the session ends on its own within 30 minutes.') from None
+        return Response(status_code=204)
 
     async def call(fn, *args, **kwargs):
         try:

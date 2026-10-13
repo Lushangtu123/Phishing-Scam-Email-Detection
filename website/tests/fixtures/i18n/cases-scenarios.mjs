@@ -39,10 +39,24 @@ class FixedDate extends Date {
 
 export const tick = () => new Promise(resolve => setImmediate(resolve));
 
+// The session ID a synthetic sign-in returns. The workspace sends it on every case request.
+export const SYNTHETIC_SESSION = 'synthetic-session-from-sign-in-0123456789ab';
+
+// Sign-in and sign-out (/api/cases/session), recorded in `sessionCalls`, not `calls`.
+// A handler marked `handlesSignIn` answers sign-ins itself; otherwise alice signs in.
+// Sign-out ends the session with 204. Other URLs return null.
+export async function answerSession(handler, url, options, sessionCalls) {
+  if (url !== '/api/cases/session') return null;
+  sessionCalls.push({url, options});
+  if (options.method === 'DELETE') return {status: 204, data: null};
+  if (handler.handlesSignIn) return handler(url, options);
+  return {status: 201, data: {actor: 'alice', session: SYNTHETIC_SESSION, idle_seconds: 1800, expires_at: 1790000000}};
+}
+
 // Loads the page scripts in order into one context; `handler(url, options)`
 // answers fetch with {status, data}.
 export function loadCases(scripts, {handler, languages = ['en-US'], storage = memoryStorage(), vision, staticDir = STATIC_DIR} = {}) {
-  const elements = new Map(), calls = [], prompts = [], windowEvents = {}, documentEvents = {};
+  const elements = new Map(), calls = [], sessionCalls = [], prompts = [], windowEvents = {}, documentEvents = {};
   const el = id => { if (!elements.has(id)) elements.set(id, new CaseElement()); return elements.get(id); };
   const window = {addEventListener(name, callback) { windowEvents[name] = callback; },
     confirm: message => { prompts.push(message); return window.answer ?? true; }, answer: true};
@@ -62,8 +76,9 @@ export function loadCases(scripts, {handler, languages = ['en-US'], storage = me
     URL: {createObjectURL: () => 'blob:x', revokeObjectURL() {}},
     crypto: {randomUUID: () => 'synthetic-uuid-' + (++uuid)},
     fetch: async (url, options) => {
-      calls.push({url, options});
-      const result = await handler(url, options);
+      const session = await answerSession(handler, url, options, sessionCalls);
+      if (session === null) calls.push({url, options});
+      const result = session ?? await handler(url, options);
       if (result instanceof Error) throw result;
       return {ok: result.status < 400, status: result.status, json: async () => result.data};
     },
@@ -78,7 +93,7 @@ export function loadCases(scripts, {handler, languages = ['en-US'], storage = me
   };
   const login = async () => { el('token').value = 'synthetic-access-token-at-least-32-characters'; await fire('login-form', 'submit'); };
   const open = async (index = 0) => { el('case-list').children[index].listeners.click(); await tick(); await tick(); };
-  return {el, fire, login, open, calls, prompts, window, context, document, storage, windowEvents};
+  return {el, fire, login, open, calls, sessionCalls, prompts, window, context, document, storage, windowEvents};
 }
 
 // ── Serialization ────────────────────────────────────────────────────────────
@@ -432,7 +447,10 @@ export const SCENARIOS = {
     await ui.login(); ui.el('subject').value = 'Unsaved';
     ui.window.answer = false; await ui.fire('logout'); shots.kept = capture(ui);
     ui.window.answer = true; await ui.fire('logout'); shots.signedOut = capture(ui);
-    const denied = load({handler: router({me: () => ({status: 401, data: {detail: 'A valid analyst access token is required'}})})});
+    // The access token is refused where it is used: at sign-in.
+    const refuse = Object.assign(async () => ({status: 401, data: {detail: 'A valid analyst access token is required'}}),
+                                 {handlesSignIn: true});
+    const denied = load({handler: refuse});
     await denied.login(); shots.denied = capture(denied);
     const failing = load({handler: router({me: () => new Error('')})});
     await failing.login(); shots.emptyError = capture(failing);

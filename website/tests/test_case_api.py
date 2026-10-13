@@ -15,7 +15,30 @@ from case_api import build_case_service
 TOKEN = 'synthetic-alice-token-with-at-least-32-characters'
 
 
-async def request(method, path, *, payload=None, raw=None, token=TOKEN, key=None):
+async def request(method, path, *, payload=None, raw=None, token=TOKEN, key=None, session=None):
+    """One request through the app. A case API call with an analyst token first signs in
+    (once per configured service and token) and sends the session instead, as the
+    workspace does; session sends a given session ID as it is."""
+    if session is not None:
+        token = session
+    elif token and path.startswith('/api/cases') and not path.startswith('/api/cases/session'):
+        service = getattr(app.app.state, 'case_service', None)
+        opened = getattr(service, '_test_sessions', None) if service is not None else None
+        if opened is None and service is not None:
+            opened = service._test_sessions = {}
+        if opened is None or token not in opened:
+            status, body, headers = await _send('POST', '/api/cases/session', token=token)
+            if status != 201:
+                return status, body, headers
+            if opened is None:
+                token = body['session']
+            else:
+                opened[token] = body['session']
+        token = opened[token] if opened is not None else token
+    return await _send(method, path, payload=payload, raw=raw, token=token, key=key)
+
+
+async def _send(method, path, *, payload=None, raw=None, token=None, key=None):
     from urllib.parse import urlsplit
     url = urlsplit(path)
     headers = [(b'host', b'localhost')]
@@ -42,7 +65,7 @@ async def request(method, path, *, payload=None, raw=None, token=TOKEN, key=None
     await asyncio.wait_for(app.app(scope, receive, send), 10)
     start = next(e for e in output if e['type'] == 'http.response.start')
     content = b''.join(e.get('body', b'') for e in output if e['type'] == 'http.response.body')
-    return start['status'], json.loads(content), dict(start['headers'])
+    return start['status'], json.loads(content) if content else None, dict(start['headers'])
 
 
 class CaseAPITests(unittest.TestCase):

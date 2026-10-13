@@ -72,6 +72,11 @@
   let reviewBaseline = null;
   let capacityTurn = 0, overviewTurn = 0;
   let queueError = '';
+  // `token` is the session ID from sign-in, never the analyst's access token, which is
+  // sent once to /api/cases/session and dropped. The server ends a session after 30 idle
+  // minutes, after 8 hours, at sign-out, or when the access token is replaced.
+  // `resumeActor` is set while an ended session's unsaved work waits for its analyst.
+  let resumeActor = '';
   let token = '', epoch = 0, listEpoch = 0, detailEpoch = 0, offset = 0, selected = null;
   let creation = null, inputVersion = 0, total = 0;
   let jevAvailable = false, jevTurn = 0, createPending = false;
@@ -216,7 +221,24 @@
     captureDraft();
     return reviewDrafts.size > 0 || reviewSaves.size > 0 || opinionSaves.size > 0 || createPending || Boolean(creation?.sent && !creation.saved) || Boolean($('subject').value || $('body').value || $('eml').files.length);
   }
+  function endSession() {
+    if (!token) return;
+    const ending = token; token = '';
+    // keepalive: the sign-out also reaches the server when the page is closing.
+    fetch('/api/cases/session', {method: 'DELETE', cache: 'no-store', credentials: 'same-origin', keepalive: true,
+      headers: {'Authorization': 'Bearer ' + ending}}).catch(() => {});
+  }
+  function sessionEnded() {
+    // Unsaved work is kept for its analyst: signing in again as them continues it.
+    // Returns the message key that explains what happened.
+    if (!hasUnsavedWork()) { signOut(); return 'cases.session.ended'; }
+    token = ''; resumeActor = $('actor').textContent;
+    closeComposer({force: true});
+    $('workspace').hidden = true; $('session').hidden = true; $('login-panel').hidden = false;
+    return 'cases.session.endedKept';
+  }
   function signOut() {
+    resumeActor = '';
     jevAvailable = false; jevConfig = {status: 'disabled'}; jevStatusTurn++; clearJev();
     $('jev-panel').hidden = true; $('jev-availability').textContent = '';
     window.PhishGuardVision?.cancel();
@@ -224,7 +246,7 @@
     $('vision-progress').textContent = '';
     setFileStatus('');
     $('visual-evidence').replaceChildren(); $('visual-evidence').hidden = true;
-    token = ''; epoch++; listEpoch++; detailEpoch++; selected = null; creation = null;
+    endSession(); epoch++; listEpoch++; detailEpoch++; selected = null; creation = null;
     createPending = false; renderCreation();
     reviewDrafts.clear(); reviewSaves.clear(); opinionSaves.clear(); reviewBaseline = null; renderDraftState();
     latestVersions.clear(); queueError = ''; $('queue-warning').textContent = ''; $('history-capacity').textContent = '';
@@ -241,7 +263,7 @@
   }
   async function api(path, options = {}) {
     const current = epoch;
-    // Preserve same-origin deployment access cookies; the API still requires the analyst bearer token.
+    // Preserve same-origin deployment access cookies; the API still requires the session bearer token.
     const init = {...options, cache: 'no-store', credentials: 'same-origin',
       headers: {'Authorization': 'Bearer ' + token, ...options.headers}};
     const exchange = async signal => {
@@ -265,7 +287,10 @@
     }
     if (current !== epoch) throw new Error('Session changed');
     if (!response.ok) {
-      if (response.status === 401) signOut();
+      if (response.status === 401 && token) {
+        const error = failure(sessionEnded()); error.status = 401;
+        notice(errorText(error), true); throw error;
+      }
       // The server's `detail` is shown as sent.
       const error = typeof data.detail === 'string' ? new Error(data.detail) : failure('cases.error.input');
       error.status = response.status; throw error;
@@ -544,13 +569,58 @@
     if (turn !== detailEpoch) return;
     if (renderCase(value) !== false) notice();
   }
+  async function signIn(credential) {
+    const exchange = async signal => {
+      const response = await fetch('/api/cases/session', {method: 'POST', cache: 'no-store', credentials: 'same-origin',
+        headers: {'Authorization': 'Bearer ' + credential}, ...(signal ? {signal} : {})});
+      let data = null;
+      try { data = await response.json(); } catch (_error) { data = null; }
+      return {response, data};
+    };
+    const request = window.PhishGuardRequest;
+    let response, data;
+    try {
+      ({response, data} = await (request ? request.run(exchange, {timeout: request.TIMEOUTS.action}) : exchange()));
+    } catch (error) {
+      throw error?.timedOut ? failure('request.error.timeout') : error;
+    }
+    if (!response.ok || typeof data?.session !== 'string') {
+      const error = typeof data?.detail === 'string' ? new Error(data.detail) : failure('cases.error.request');
+      error.status = response.status; throw error;
+    }
+    return data;
+  }
+  async function enterWorkspace() {
+    const me = await refreshJev(); $('actor').textContent = me.actor;
+    $('login-panel').hidden = true; $('session').hidden = false; $('workspace').hidden = false;
+    notice(); await loadList();
+  }
   $('login-form').addEventListener('submit', event => {
     event.preventDefault(); const button = event.submitter;
-    token = $('token').value.trim(); epoch++;
+    const credential = $('token').value.trim(); $('token').value = '';
+    // A new sign-in starts a new epoch; signing in again to continue keeps the current one.
+    if (!resumeActor) epoch++;
     action(button, async () => {
-      const me = await refreshJev(); $('token').value = ''; $('actor').textContent = me.actor;
-      $('login-panel').hidden = true; $('session').hidden = false; $('workspace').hidden = false;
-      notice(); await loadList();
+      let opened;
+      try { opened = await signIn(credential); }
+      catch (error) {
+        if (!resumeActor) { $('workspace').hidden = true; $('session').hidden = true; $('login-panel').hidden = false; }
+        throw error;
+      }
+      if (resumeActor && opened.actor === resumeActor) {
+        // The same analyst again: their unsaved work is still on the page.
+        token = opened.session; resumeActor = '';
+        $('login-panel').hidden = true; $('session').hidden = false; $('workspace').hidden = false;
+        notice(); await refreshJev(); await loadList();
+        return;
+      }
+      if (resumeActor) {
+        // Someone else: the earlier analyst's drafts are not theirs to save.
+        signOut(); token = opened.session;
+        action(button, enterWorkspace);
+        return;
+      }
+      token = opened.session; await enterWorkspace();
     });
   });
   $('open-compose').addEventListener('click', openComposer);
@@ -689,7 +759,7 @@
   });
   window.addEventListener('pagehide', signOut);
   window.addEventListener('beforeunload', event => {
-    if (token && hasUnsavedWork()) { event.preventDefault(); event.returnValue = ''; }
+    if ((token || resumeActor) && hasUnsavedWork()) { event.preventDefault(); event.returnValue = ''; }
   });
   for (const event of ['input', 'change']) $('review-form').addEventListener(event, () => { captureDraft(); renderDraftState(); });
   $('draft-rebase').addEventListener('click', () => {

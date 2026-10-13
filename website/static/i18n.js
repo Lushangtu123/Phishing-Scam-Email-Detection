@@ -1301,7 +1301,9 @@ window.PhishGuardI18n = (() => {
     'cases.login.step3': 'Keep the history',
     'cases.login.submit': 'Open workspace',
     'cases.login.title': 'Analyst sign in',
-    'cases.login.tokenHelp': 'Use the credential configured for this exact Production or Preview deployment. Refreshing clears it from the tab, but a code release does not revoke it unless its Vercel hash is replaced.',
+    'cases.login.tokenHelp': 'Use the credential configured for this exact Production or Preview deployment. It only signs you in: the session ends after 30 idle minutes, after 8 hours, when you sign out or close the tab, or when the credential is replaced. A code release does not revoke the credential itself unless its Vercel hash is replaced.',
+    'cases.session.ended': 'Your session has ended. Sign in again with your access token.',
+    'cases.session.endedKept': 'Your session has ended. Sign in again as the same analyst to continue; your unsaved work is kept in this tab.',
     'cases.login.tokenLabel': 'Access token',
     'cases.login.tokenPlaceholder': 'Enter your access token',
     'cases.login.workflow': 'Case workflow',
@@ -1413,7 +1415,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=70'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=72'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

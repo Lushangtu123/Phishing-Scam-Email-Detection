@@ -34,6 +34,7 @@ async def main() -> None:
         # A private temporary SQLite control verifies reservation + route wiring.
         # Case retrieval and TypeSafe transport remain mocked.
         from case_api import CaseService
+        from case_sessions import CaseSessions
         from case_store import CaseStore
         from jev_control import JevControl
         from jev import JevClient
@@ -47,7 +48,8 @@ async def main() -> None:
         service = CaseService(Mock(get=Mock(return_value=case)),
                               {'smoke': hashlib.sha256(TOKEN.encode()).hexdigest()})
         with tempfile.TemporaryDirectory() as directory:
-            service.jev_control = JevControl(CaseStore(Path(directory) / 'control.sqlite3'))
+            control = CaseStore(Path(directory) / 'control.sqlite3')
+            service.jev_control, service.sessions = JevControl(control), CaseSessions(control)
             with patch.object(backend.app.state, 'case_service', service), patch('case_api.jev_client', return_value=client):
                 status, result, headers = await request('POST', '/api/cases/synthetic/auxiliary',
                                                         payload={'allow_external_processing': True})

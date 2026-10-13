@@ -8632,22 +8632,27 @@
   },
   "denied": {
    "notice": "A valid analyst access token is required",
-   "notice.error": "true",
-   "next.flags": "hidden=false disabled=true",
-   "prompts": []
-  },
-  "emptyError": {
-   "notice": "Request failed. Reload to check whether your last operation completed.",
    "feedback-open-count": "",
    "feedback-closed-count": "",
    "feedback-false-alerts-count": "",
    "feedback-missed-threats-count": "",
-   "jev-availability": "Jev request controls are unavailable. No new request can be sent. Refresh to check again.",
+   "jev-availability": "",
    "create-case": "",
+   "notice.error": "true",
    "draft-rebase.flags": "hidden=false disabled=false",
    "draft-discard.flags": "hidden=false disabled=false",
+   "jev-save.flags": "hidden=false disabled=false",
+   "jev-run.flags": "hidden=false disabled=false",
    "new-case-draft.flags": "hidden=false disabled=false",
+   "next.flags": "hidden=false disabled=true",
    "detail.flags": "hidden=false disabled=false",
+   "prompts": []
+  },
+  "emptyError": {
+   "notice": "Request failed. Reload to check whether your last operation completed.",
+   "jev-availability": "Jev request controls are unavailable. No new request can be sent. Refresh to check again.",
+   "jev-save.flags": "hidden=true disabled=false",
+   "jev-run.flags": "hidden=false disabled=true",
    "workspace.flags": "hidden=false disabled=false"
   }
  }

@@ -22,6 +22,23 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 15:35 PT] — Case workspace: the access token only signs in; short-lived, revocable sessions
+
+### Why
+- Every case request carried the analyst's long-lived access token, checked against its configured SHA-256. Sign-out only cleared the page: after it, the same token still read `/api/cases/me` (200). There was no idle or absolute expiry and nothing to revoke (ASVS 7.2.2, 7.2.4, 7.4.1; 7.3.1, 7.3.2 at L2; finding A-01 of the 2026-10-13 assessment). The owner chose in-memory session IDs (no cookie, so no CSRF surface), 30 idle minutes / 8 hours, and keeping unsaved work across an expiry.
+
+### Files changed
+- `website/case_sessions.py` (new) — `CaseSessions`: `open`, `resume` (renews the idle time) and `close`. A session is `secrets.token_urlsafe(32)`; only its SHA-256 is stored, with the analyst and the credential digest it signed in with. Upstash: one key per session under `phishguard:sessions:v1:<workspace>:<environment>:`, Lua on Redis's own clock, expiring at the idle time and never past 8 hours. SQLite: a `case_sessions` table in the case database.
+- `website/case_api.py` — `POST /api/cases/session` takes the access token and returns `{actor, session, idle_seconds, expires_at}`; `DELETE /api/cases/session` ends a session (204, also if already ended). Every other case route takes only a session; one whose analyst's hash was replaced or removed since sign-in ends at its next request. The access token alone now gets 401 from case routes.
+- `website/static/cases.js` — signs in through the session endpoint and keeps only the session; sign-out and leaving the page end it on the server (`keepalive`). A 401 with unsaved work keeps the work and asks to sign in again: the same analyst continues, another analyst starts cleared. `cases.html`, `i18n.js`, `i18n-zh.js` — the sign-in help (the token still stays valid across releases until its hash is replaced) and two session messages.
+- `website/tools/verify_case_login.py` — signs in at `/api/cases/session` and signs out at once; `website/tools/browser-checks/run.mjs` — in Chromium, the access token is refused for a case read, a session reads it, and the page's sign-out returns 204.
+- Tests: `website/tests/test_case_sessions.py` (new: 11 SQLite/API tests, 4 Redis tests for CI), `test_case_api.py` (the helper signs in once per service), `test_verify_case_login.py`, `vercel_runtime_smoke.py`, `website/static/cases.test.mjs` (3 new), `website/tests/fixtures/i18n/cases-scenarios.mjs` (sign-ins answered by the harness unless a test handles them), `cases-en-snapshot.json` (regenerated: only the "sign out prompts" scenario gains default Jev flags; every visible string is unchanged).
+- `docs/case-workflow.md`, `docs/api.md` — sessions, expiry and revocation.
+
+### Effect
+- Local server in Chromium: sign-in 201 and every later request on the session; no token or session in localStorage, sessionStorage or cookies; sign-out sends `DELETE` (204) and the server's session table goes from 1 row to 0; leaving the page does the same.
+- Tests: sign-out revokes; 30 idle minutes end a session while activity keeps it; an active session still ends at 8 hours; replacing or removing an analyst's hash ends their sessions only; the database holds the digest, not the session or token; Preview and Production sessions are separate. Backend 1,350 tests pass (14 skipped: 10 earlier and the 4 Redis tests, which run in CI), frontend 530.
+
 ## [2026-10-13 15:11 PT] — source-map-js 1.2.1 → 1.2.2 in the recognition-asset build lock
 
 ### Why
