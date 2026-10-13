@@ -1506,9 +1506,10 @@ def _guarded_arc_dns(dnsfunc, deadline: float):
 _arc_pool = BoundedExecutor(workers=_ARC_WORKERS, thread_name_prefix="arc")
 
 
-def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] | None:
-    """(sealing domain, sealed Authentication-Results value) when the ARC chain is valid and
-    its newest set was sealed by a known mailbox service; otherwise None."""
+def start_arc_verification(raw_email: str | bytes, dnsfunc=None):
+    """The ARC check of arc_sealed_results started on the ARC threads: a future of its answer,
+    or None when the message has no ARC set sealed only by known services (nothing to look
+    up), or both threads are busy (no trust). The caller chooses where to wait."""
     data = raw_email if isinstance(raw_email, bytes) else raw_email.encode("utf-8", "surrogateescape")
     head = data.split(b"\r\n\r\n", 1)[0].split(b"\n\n", 1)[0]
     if b"arc-seal" not in head.lower() or len(data) > MAX_ARC_MESSAGE_BYTES:
@@ -1519,19 +1520,17 @@ def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] 
     sealers = _arc_sealers(data)
     if not sealers or not sealers <= set(ARC_SEALERS):
         return None
-    deadline = time.monotonic() + _ARC_VERIFY_SECONDS
-    guarded = _guarded_arc_dns(dnsfunc or _arc_dns_txt, deadline)
+    return _arc_pool.submit(_verified_arc_results, data, dnsfunc or _arc_dns_txt)
 
-    def verify():
-        import dkim
-        return dkim.arc_verify(data, dnsfunc=guarded, timeout=_ARC_DNS_TIMEOUT)
+
+def _verified_arc_results(data: bytes, dnsfunc) -> tuple[str, str] | None:
+    """On an ARC thread: the chain verified within _ARC_VERIFY_SECONDS, and the newest set's
+    sealed results if a known service sealed them."""
     try:
         import dkim
-        future = _arc_pool.submit(verify)
-        if future is None:  # both verification threads are busy: no trust
-            return None
-        cv, results, _reason = future.result(timeout=max(deadline - time.monotonic(), 0) + 1.0)
-    except Exception:  # missing library, malformed headers or keys, out of time: no trust
+        guarded = _guarded_arc_dns(dnsfunc, time.monotonic() + _ARC_VERIFY_SECONDS)
+        cv, results, _reason = dkim.arc_verify(data, dnsfunc=guarded, timeout=_ARC_DNS_TIMEOUT)
+    except Exception:  # missing library, malformed headers or keys: no trust
         return None
     if cv != dkim.CV_Pass or not results:
         return None
@@ -1548,18 +1547,38 @@ def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] 
     return domain, value
 
 
+def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] | None:
+    """(sealing domain, sealed Authentication-Results value) when the ARC chain is valid and
+    its newest set was sealed by a known mailbox service; otherwise None. Waits in the
+    calling thread: the web app verifies before analysis instead (arc_result)."""
+    future = start_arc_verification(raw_email, dnsfunc)
+    if future is None:
+        return None
+    try:
+        return future.result(timeout=_ARC_VERIFY_SECONDS + 1.0)
+    except Exception:  # out of time: no trust
+        return None
+
+
+# arc_result of analyze_raw_email when the caller has not verified the ARC chain itself.
+VERIFY_ARC = object()
+
+
 @_shared_pdf_budget()
 def analyze_raw_email(
     raw_email: str | bytes,
     *,
     trusted_authserv_ids: set[str] | frozenset[str] | None = None,
     mailbox_provider: str | None = None,
+    arc_result=VERIFY_ARC,
 ) -> dict:
     """Return normalized content plus authentication, identity, and attachment signals.
 
     mailbox_provider names the service the user downloaded this message from
     (MAILBOX_AUTHSERV_IDS). Then only the topmost Authentication-Results header is
     trusted, and only when that service wrote it; server-configured IDs are ignored.
+    arc_result is arc_sealed_results' answer when the caller has already verified the ARC
+    chain (start_arc_verification); by default it is verified here, if it is needed.
     """
     count = 0
     def bounded_factory(*, policy):
@@ -1585,7 +1604,7 @@ def analyze_raw_email(
         limited = True
     result = _analyze_message(message, unicode_source=isinstance(raw_email, str),
                               trusted_authserv_ids=trusted_authserv_ids, depth=0, budget=[20],
-                              mailbox_provider=mailbox_provider, raw_email=raw_email)
+                              mailbox_provider=mailbox_provider, raw_email=raw_email, arc_result=arc_result)
     if limited:
         item = indicator('info', 'warning.mime_resource_limit')
         result['parse_warnings'].append(item['msg'])
@@ -1721,7 +1740,7 @@ def _originating_address(message) -> str | None:
 
 
 def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, budget, mailbox_provider=None,
-                     raw_email=None):
+                     raw_email=None, arc_result=VERIFY_ARC):
     # Attached (nested) messages are analyzed without a mailbox or their raw bytes: their
     # headers were never stamped by the user's receiving service, and an ARC seal on an
     # attached message says nothing about how the user received the outer one.
@@ -1898,7 +1917,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
             })
     authentication_source = ("mailbox" if mailbox_authserv_id else "server") if auth_results else None
     if not auth_results and not mailbox_authserv_id and raw_email is not None:
-        arc = arc_sealed_results(raw_email)
+        arc = arc_sealed_results(raw_email) if arc_result is VERIFY_ARC else arc_result
         if arc:
             sealed_by, sealed_value = arc
             authserv_id, claimed_results, auth_complete = _authentication_results(sealed_value)

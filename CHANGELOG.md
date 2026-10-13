@@ -22,6 +22,45 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 14:09 PT] — CI: read-only jobs, no stored token, and the baseline push split off
+
+### Why
+- `ci.yml` declared permissions only for its `visual` job; the others relied on the repository's default (read today). Every `actions/checkout` left the job's token in `.git/config`, where `npm ci`, pip installs and the browser could read it. The Visual baselines job held `contents: write` for its whole run, though only its optional push needs it, while it installs npm packages and runs Chromium.
+
+### Files changed
+- `.github/workflows/ci.yml` — top-level `permissions: contents: read`; every checkout `persist-credentials: false`.
+- `.github/workflows/browser-checks.yml`, `post-deploy-smoke.yml` — checkouts `persist-credentials: false`.
+- `.github/workflows/visual-baselines.yml` — the render job is read-only with no stored token; the push to `visual-baselines-update` is a separate `push` job (`needs: baselines`, `if: inputs.push_branch`), the only one with `contents: write`, which downloads the artifact (`actions/download-artifact` v8.0.1, pinned; v8.0.2 of 2026-10-07 held back by the seven-day cooling period) and runs only git.
+- `website/tools/visual/README.md` — the `push_branch` input and the separate push job.
+
+### Effect
+- No job that installs or runs third-party code holds a write token, and none keeps its token on disk. Checked: the four workflow files parse, and only `visual-baselines.yml`'s `push` job has `contents: write`.
+
+## [2026-10-13 14:09 PT] — Homepage CSP: workers same-origin, no frames, no `<base>`, forms to this site
+
+### Why
+- The policy on the homepage, 404 page and API responses (and `/static` on Vercel) left `worker-src`, `frame-src` and `form-action` unset and allowed `base-uri 'self'`, looser than `/cases`.
+
+### Files changed
+- `website/http_policy.py`, `vercel.json` — adds `worker-src 'self'; frame-src 'none'; base-uri 'none'; form-action 'self'`. The pages use only `/static/vision-worker.mjs` as a worker, frame nothing, have no `<base>`, and their only form is a `<dialog>` form, which does not navigate.
+- `website/tests/test_app_security.py` — the pinned policy.
+
+### Effect
+- In Chromium against the local server: the policy is served; the vision worker starts; a blob: worker is refused (`worker-src`); loading the page and running a sender and a content analysis report no violation.
+
+## [2026-10-13 14:09 PT] — ARC verified before analysis: slow DNS no longer holds an analysis worker
+
+### Why
+- The analysis thread called `arc_sealed_results`, which waited up to 5 s for the ARC threads (#56). With 0.3 s DNS lookups an analysis worker was held 0.64 s by one message.
+
+### Files changed
+- `website/email_structure.py` — `start_arc_verification` (pre-check, then the verification on the ARC threads, as a future); `arc_sealed_results` waits on it as before for direct callers; `analyze_raw_email(arc_result=...)` takes an answer the caller already has.
+- `website/app.py` — `_parse_raw_email` for the `.eml`, content, visual and case paths: without a mailbox or trusted Authentication-Results IDs (when ARC is what may authenticate the message) it starts the check and waits on the event loop, then analyzes with the answer; otherwise as before.
+- `website/tests/test_arc_sealed_results.py` — 4 tests: the lookups run on ARC threads and the analysis thread never calls `arc_sealed_results`; a changed message gets no trust; a mailbox choice makes no lookup; a slow chain stops at its deadline.
+
+### Effect
+- One sealed message with 0.3 s lookups: the request takes 0.64 s on `main` and here, but the analysis worker is held 0.64 s on `main` and 0.03 s here. The 518 raw messages the unit tests parse give identical structures. Backend 1,320 tests pass (10 skipped), frontend 527.
+
 ## [2026-10-13 13:28 PT] — PDF attachments share one inflate and token budget per message
 
 ### Why

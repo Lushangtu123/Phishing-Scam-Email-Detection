@@ -2,6 +2,8 @@
 import asyncio
 import json
 import sys
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -92,6 +94,45 @@ class ArcSealedResultsTests(unittest.TestCase):
                 app.ContentRequest(), es.analyze_raw_email(self.seal(message())))).body)
         self.assertIn('structure.arc_sealed_results', [item.get('code') for item in result['extra_indicators']])
         self.assertEqual(result['verified_official_sender']['organization'], 'Dropbox')
+
+
+    def test_the_request_path_checks_arc_first_on_the_arc_threads(self):
+        # The analysis worker never waits on DNS: the chain is verified before it starts.
+        threads = []
+
+        def dns(name, timeout=5):
+            threads.append(threading.current_thread().name)
+            return self.txt_record
+
+        def waiting(*_args, **_kwargs):
+            raise AssertionError('the analysis thread waited for ARC')
+        with patch.object(es, '_arc_dns_txt', dns), patch.object(es, 'arc_sealed_results', waiting):
+            structure = asyncio.run(app._parse_raw_email(self.seal(message())))
+        self.assertEqual(structure['authentication_source'], 'arc')
+        self.assertTrue(threads)
+        self.assertTrue(all(name.startswith('arc') for name in threads))
+
+    def test_the_request_path_gives_no_trust_to_a_changed_message(self):
+        with patch.object(es, '_arc_dns_txt', self.dns):
+            structure = asyncio.run(app._parse_raw_email(self.seal(message()).replace(b'482913', b'000000')))
+        self.assertIsNone(structure['authentication_source'])
+
+    def test_a_mailbox_choice_needs_no_early_arc_check(self):
+        with patch.object(es, '_arc_dns_txt', self.dns):
+            structure = asyncio.run(app._parse_raw_email(self.seal(message()), mailbox_provider='gmail'))
+        self.assertEqual(structure['authentication_source'], 'mailbox')
+        self.assertEqual(self.lookups, [])
+
+    def test_a_slow_chain_stops_waiting_at_its_deadline(self):
+        def slow(name, timeout=5):
+            time.sleep(min(timeout, 0.4))
+            return None
+        start = time.perf_counter()
+        with patch.object(es, '_arc_dns_txt', slow), patch.object(app, '_ARC_VERIFY_SECONDS', 0.2), \
+                patch.object(es, '_ARC_VERIFY_SECONDS', 0.2):
+            structure = asyncio.run(app._parse_raw_email(self.seal(message())))
+        self.assertIsNone(structure['authentication_source'])
+        self.assertLess(time.perf_counter() - start, 2.0)
 
 
 if __name__ == '__main__':

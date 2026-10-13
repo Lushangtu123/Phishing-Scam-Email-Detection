@@ -130,10 +130,13 @@ SECURITY_HEADERS = {
     # Scripts are same-origin files only: no inline handlers or CDN hosts.
     # Styles are same-origin stylesheets only: no style="" attributes or
     # <style> elements (scripts may still set element.style via the CSSOM).
+    # Workers are same-origin scripts (vision.js); the pages frame nothing, use no
+    # <base>, and their only form is a <dialog> one, which never navigates.
     "Content-Security-Policy": (
         "default-src 'self'; script-src 'self'; "
         "style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; "
-        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"),
+        "worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; "
+        "frame-ancestors 'none'; form-action 'self'"),
 }
 # The vision worker scripts run WebAssembly and may start their own workers.
 WORKER_SCRIPT_PATHS = frozenset({'/static/vision-worker.mjs', '/static/vendor/vision/worker.min.js'})

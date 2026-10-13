@@ -156,7 +156,7 @@ After an intended visual change, or to create the first set:
 
 1. Push the branch.
 2. On GitHub, open Actions → **Visual baselines** → **Run workflow**, and choose
-   the branch. It takes no inputs. GitHub lists a `workflow_dispatch` workflow
+   the branch. Its one input, `push_branch`, is described below. GitHub lists a `workflow_dispatch` workflow
    only once the file is on the default branch; from then on it can run on any
    branch. From the command line:
    `gh workflow run visual-baselines.yml --ref <branch>`.
@@ -166,7 +166,8 @@ After an intended visual change, or to create the first set:
    Check the images, or the **visual-baselines-report** artifact, then commit.
    If you can reach GitHub over git but not its artifact storage, run the
    workflow with `push_branch` checked (`gh workflow run visual-baselines.yml
-   --ref <branch> -f push_branch=true`); it also commits the PNGs to the
+   --ref <branch> -f push_branch=true`); a second job, the only one with a write
+   token, which installs and runs nothing, then commits the rendered PNGs to the
    `visual-baselines-update` branch, from which you can
    `git fetch origin visual-baselines-update` and
    `git checkout FETCH_HEAD -- website/tools/visual/baselines`.
