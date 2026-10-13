@@ -82,6 +82,17 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - 521-byte selector traps: 16.9 s → under 0.01 s, still resolved. 20 KB and 56 KB traps: 429 s and 50 s → 1.3 s, reported incomplete. 60 KB of styled link labels: 30 s → 1.7 s. Budget used by legitimate mail: at most 262 in the unit tests, 24 in the public corpus, 266,000 for a synthetic 31 KB newsletter (120 descendant rules, @media and dark mode, var() colours).
 - No change for benign input: text, warnings, readings and link labels are byte-identical to `main` for 2,671 public-corpus HTML bodies and the 1,463 HTML inputs the unit tests render (a planted matching bug changes the second hash). All 11 defect tests run against `main` fail there (the 429 s and 30 s cases were timed separately) and the 2 control tests pass on both; all 16 pass here; backend 1,312 tests pass (10 skipped), frontend 526.
 
+## [2026-10-12 14:31 PT] — AGENTS.md: the project's working rules for coding agents
+
+### Why
+- Since 2026-10-12 `main` requires a pull request and six passing checks, and direct pushes, which Codex had used (227 commits since September), are rejected. The other working rules (the 7-day dependency cooling period, private data, release checks, pre-registered criteria, refactor verification) lived only in agents' private notes and the changelog.
+
+### Files changed
+- `AGENTS.md` — new: branches, pull requests and releases (protected `main`, merge only on the owner's word with `--match-head-commit`, production checks, `preview-*` branches, teammates' branches kept); the checks to run before a PR; the CHANGELOG rule; the cooling period, including pinned actions and image digests; the owner's private data; measurements with criteria fixed beforehand; how a refactor shows it changes no behaviour.
+
+### Effect
+- No code change. Every command, file and setting it names was checked against the repository and the live ruleset.
+
 ## [2026-10-12 13:54 PT] — `_visible_content_text`'s HTML reader moved to module level (630 → 110 lines)
 
 ### Why
