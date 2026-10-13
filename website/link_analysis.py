@@ -22,6 +22,7 @@ from email_structure import (
 )
 from html_visibility import (
     _AnalysisHTMLParser, _collect_html, _first_html_attributes, _parse_link_target, _visible_content_text,
+    shared_cascade_budget,
 )
 from sender_features import LEGIT_PROVIDERS, _DOMAIN_EXTRACTOR
 from server_messages import indicator, text as message_text
@@ -114,6 +115,7 @@ def _trim_bare_url(url: str) -> str:
         url = trimmed
 
 
+@shared_cascade_budget()  # the labels render within one budget
 def _extract_links(text: str, *, parse_html: bool = True, parse_warnings=None,
                    visible_text: str | None = None, hidden_labels: bool = False) -> list[tuple[str, str]]:
     """Extract visible text and destination from Markdown and HTML links. With hidden_labels,

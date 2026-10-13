@@ -22,6 +22,64 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 11:15 PT] — Sender history only in signed-in case workspaces, one namespace each
+
+### Why
+- With sender history enabled (it is in Production), every public raw-email analysis read and wrote one service-wide "first observed / observed before" record keyed by the From address. From is unauthenticated: a forged message could ask whether anyone had submitted mail from an address, and change the answer the next user saw.
+
+### Files changed
+- `website/sender_history.py` — `sender_history_key(address, secret, workspace)` mixes the workspace into the HMAC and uses `sender-history:v2:`; `lookup` and `observe` require a workspace. The old service-wide `v1` records are no longer read and expire with their retention.
+- `website/app.py` — public analysis (`/api/analyze-content`, `/api/analyze-eml`, visual, address-only) neither reads nor writes history and reports `sender_history_status: "workspace_required"` (`"disabled"`/`"unavailable"` when the store is off). `_analyze_case` observes the selected sender in its workspace (`history_workspace`).
+- `website/case_api.py` — `CaseService.history_workspace` is `<VERCEL_ENV>:cases:<CASE_WORKSPACE>` (SQLite: the database path); case creation passes it, after the analyst token check and the idempotency replay check.
+- `website/static/app-sender.js`, `i18n.js`, `i18n-zh.js`, `index.html` — a "Kept only in the case workspace" row for `workspace_required`; the privacy notice says public analysis does not read or record sender history and a pseudonymous observation is kept only when an analyst saves a case.
+- `website/tools/post_deploy_smoke.py` — the history probe is one anonymous POST that must return `workspace_required` (was two expecting `first_seen` then `previously_seen`); five POSTs in all.
+- `docs/deployment.md`, `docs/testing.md` — the same.
+- `website/tests/test_sender_history*.py`, `test_post_deploy_smoke.py`, `website/static/app.test.mjs` — the new contract: two public analyses of one From make 0 store calls; a case saved by an authenticated analyst makes 1 (`("alice@example.com", "local:cases-sqlite:…")`), its replay 0 and an anonymous attempt is refused (401); keys differ by workspace.
+
+### Effect
+- Production after deployment: the homepage sender card shows "Kept only in the case workspace" instead of first/previously observed. History starts empty in each case workspace. Risk scores never used history, so verdicts do not change.
+
+## [2026-10-13 11:10 PT] — ARC verification: exact sealer check, DNS-time whitelist, 10 lookups / 4 s on its own threads
+
+### Why
+- The pre-check that limits key lookups to Google read `d=` with a regex: an `x-d=google.com;` tag passed it while dkimpy then looked up the key at the real `d=evil.example`, telling the message's author that it was analyzed.
+- dkimpy verifies every ARC set (RFC 8617 allows 50), two key lookups each, 2 s per lookup, on the analysis thread: a 20-set chain made 40 lookups.
+
+### Files changed
+- `website/email_structure.py` — `_arc_sealers` reads every ARC-Seal and ARC-Message-Signature with dkimpy's own `rfc822_parse` and `parse_tag_value` (a duplicate or unreadable tag means no lookup); `_guarded_arc_dns` answers only `<selector>._domainkey.<known sealer>`, at most `_ARC_MAX_LOOKUPS = 10` times and until `_ARC_VERIFY_SECONDS = 4.0`, each lookup within the time left; verification runs on a two-thread `BoundedExecutor` (`_arc_pool`) and is skipped, untrusted, when both are busy.
+- `website/tests/test_analysis_budgets.py` — `ArcLookupTests` (6).
+
+### Effect
+- On `main` vs this branch: the decoy tag made 1 lookup at `evil.example` vs 0; the 20-set chain 40 lookups vs 10; 0.3 s lookups stop at the deadline (0.8 s in the test, under 2.5 s in all). The final checks are unchanged: the existing 7 ARC tests (valid Google seal trusted, altered message or other sealers not) pass.
+
+## [2026-10-13 11:05 PT] — PDF fonts: shared CMaps and descendant fonts expand once, 200,000 entries per message
+
+### Why
+- Each font expanded its ToUnicode CMap and `/W` widths again, even when 30 fonts referenced one: a 3,391-byte PDF peaked at 388 MiB and took 27 s (tracemalloc on); 30 distinct CMaps in 6,300 bytes, 253 MiB and 23 s. Many PDF attachments each had their own limit.
+
+### Files changed
+- `website/email_structure.py` — `_pdf_fonts` caches CMaps by object number and `_pdf_widths` caches descendant fonts (`_pdf_cid_widths`); every expanded entry is charged to `_MAX_PDF_FONT_ENTRIES = 200_000`, shared by all PDFs of one `analyze_raw_email` call; past it `_PdfResourceLimit` leaves the text unread, keeps the attachment's links and adds `warning.attachment_resource_limit`.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `i18n-zh.js` — the warning ("…its links were checked but its text was not. Analysis is incomplete.").
+- `website/tests/test_analysis_budgets.py` — `PdfFontBudgetTests` (3).
+
+### Effect
+- 1, 8, 30 or 200 fonts sharing one CMap: 13.5 MiB and under 1 s each (was 13.5 / 104 / 388 MiB). 30 distinct CMaps stop at 25 MiB and 2.5 s. 10 attachments of one such PDF: links kept on all 10, text read on 3, warning shown.
+
+## [2026-10-13 11:00 PT] — CSS rendering: memoized selector matching and a 4,000,000-step budget, past it "analysis incomplete"
+
+### Why
+- Selector matching backtracked exponentially: `q div div div div div div span` over 40 nested divs (521 bytes) took 16.9 s, the `~` form 16.4 s. Neither combinators nor var() expansion had a total limit; with memoization alone, 20 KB of nested `<b>` still took 429 s, and per-link-label passes 30 s.
+
+### Files changed
+- `website/html_visibility.py` — `_TextCollector._matches` remembers each (compound, element) it tried; matching steps, var() characters and "maybe" rules checked are charged to `_CascadeBudget` (`_MAX_CASCADE_OPERATIONS = 4_000_000`), shared through `shared_cascade_budget()` by one message's parts and link labels; one var() value may grow to `_MAX_VARIABLE_EXPANSION = 16_384` characters. Past either, the rendering views are dropped as for an unmodelled stylesheet and the part gets the stylesheet warning plus `warning.css_budget`.
+- `website/app.py` (`analyze_email_content`), `website/link_analysis.py` (`_extract_links`) — run under one shared budget.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `i18n-zh.js` — `warning.css_budget`.
+- `website/tests/test_analysis_budgets.py` — `CascadeBudgetTests` (7).
+
+### Effect
+- 521-byte selector traps: 16.9 s → under 0.01 s, still resolved. 20 KB and 56 KB traps: 429 s and 50 s → 1.3 s, reported incomplete. 60 KB of styled link labels: 30 s → 1.7 s. Budget used by legitimate mail: at most 262 in the unit tests, 24 in the public corpus, 266,000 for a synthetic 31 KB newsletter (120 descendant rules, @media and dark mode, var() colours).
+- No change for benign input: text, warnings, readings and link labels are byte-identical to `main` for 2,671 public-corpus HTML bodies and the 1,463 HTML inputs the unit tests render (a planted matching bug changes the second hash). All 11 defect tests run against `main` fail there (the 429 s and 30 s cases were timed separately) and the 2 control tests pass on both; all 16 pass here; backend 1,312 tests pass (10 skipped), frontend 526.
+
 ## [2026-10-12 13:54 PT] — `_visible_content_text`'s HTML reader moved to module level (630 → 110 lines)
 
 ### Why

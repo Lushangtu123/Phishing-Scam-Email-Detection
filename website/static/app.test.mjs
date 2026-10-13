@@ -808,6 +808,7 @@ test('content input explains server processing and pseudonymous sender retention
   assert.match(html, /processed on this server/i);
   assert.match(html, /does not retain.*message body.*attachment content/is);
   assert.match(html, /pseudonymous sender observation/i);
+  assert.match(html, /public analysis does not read or\s+record sender history/i);
   assert.match(html, /remove unrelated personal content/i);
 });
 

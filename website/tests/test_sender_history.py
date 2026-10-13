@@ -56,8 +56,8 @@ class SenderIdentityTests(unittest.TestCase):
             "alice+sales@example.com",
         )
         self.assertNotEqual(
-            sender_history_key("alice+sales@example.com", "a" * 32),
-            sender_history_key("alice@example.com", "a" * 32),
+            sender_history_key("alice+sales@example.com", "a" * 32, "ws"),
+            sender_history_key("alice@example.com", "a" * 32, "ws"),
         )
 
     def test_googlemail_aliases_follow_gmail_canonicalization(self):
@@ -68,15 +68,20 @@ class SenderIdentityTests(unittest.TestCase):
 
     def test_hmac_key_is_deterministic_secret_scoped_and_opaque(self):
         address = "alice.smith@gmail.com"
-        first = sender_history_key(address, "a" * 32)
-        equivalent = sender_history_key("a.licesmith+tag@gmail.com", "a" * 32)
-        other_secret = sender_history_key(address, "b" * 32)
+        first = sender_history_key(address, "a" * 32, "ws")
+        equivalent = sender_history_key("a.licesmith+tag@gmail.com", "a" * 32, "ws")
+        other_secret = sender_history_key(address, "b" * 32, "ws")
+
+        other_workspace = sender_history_key(address, "a" * 32, "other-ws")
 
         self.assertEqual(first, equivalent)
         self.assertNotEqual(first, other_secret)
-        self.assertTrue(first.startswith("sender-history:v1:"))
+        self.assertNotEqual(first, other_workspace)
+        self.assertTrue(first.startswith("sender-history:v2:"))
         self.assertNotIn("alice", first)
         self.assertNotIn("gmail", first)
+        with self.assertRaises(ValueError):
+            sender_history_key(address, "a" * 32, "")
 
     def test_public_history_contract_is_coarse_and_service_scoped(self):
         payload = SenderHistoryResult(
@@ -107,8 +112,8 @@ class SenderHistoryStoreTests(unittest.TestCase):
     def test_disabled_store_never_performs_network_io(self):
         store = DisabledSenderHistoryStore()
 
-        lookup = asyncio.run(store.lookup("alice@gmail.com"))
-        observed = asyncio.run(store.observe("alice@gmail.com"))
+        lookup = asyncio.run(store.lookup("alice@gmail.com", "ws"))
+        observed = asyncio.run(store.observe("alice@gmail.com", "ws"))
 
         self.assertEqual(lookup.status, "disabled")
         self.assertEqual(observed.status, "disabled")
@@ -136,7 +141,7 @@ class SenderHistoryStoreTests(unittest.TestCase):
             opener=opener,
             clock=lambda: 1789862400,
         )
-        result = asyncio.run(store.observe("alice.smith@gmail.com"))
+        result = asyncio.run(store.observe("alice.smith@gmail.com", "ws"))
 
         self.assertEqual(result.status, "first_seen")
         self.assertEqual(result.seen_count, 1)
@@ -163,7 +168,7 @@ class SenderHistoryStoreTests(unittest.TestCase):
         store = UpstashSenderHistoryStore(
             self.settings(), opener=opener, clock=lambda: 1789948800,
         )
-        result = asyncio.run(store.lookup("alice@gmail.com"))
+        result = asyncio.run(store.lookup("alice@gmail.com", "ws"))
 
         self.assertEqual(result.status, "previously_seen")
         self.assertEqual(result.seen_count, 2)
@@ -180,7 +185,7 @@ class SenderHistoryStoreTests(unittest.TestCase):
             ]),
         )
 
-        result = asyncio.run(store.lookup("nobody@gmail.com"))
+        result = asyncio.run(store.lookup("nobody@gmail.com", "ws"))
 
         self.assertEqual(result.status, "not_seen")
         self.assertIsNone(result.seen_count)
@@ -199,7 +204,7 @@ class SenderHistoryStoreTests(unittest.TestCase):
                     ]),
                 )
 
-                result = asyncio.run(store.lookup("alice@gmail.com"))
+                result = asyncio.run(store.lookup("alice@gmail.com", "ws"))
 
                 self.assertEqual(result.status, "unavailable")
                 self.assertIsNone(result.seen_count)
@@ -212,7 +217,7 @@ class SenderHistoryStoreTests(unittest.TestCase):
         for opener in cases:
             with self.subTest(opener=opener):
                 store = UpstashSenderHistoryStore(self.settings(), opener=opener)
-                result = asyncio.run(store.observe("alice@gmail.com"))
+                result = asyncio.run(store.observe("alice@gmail.com", "ws"))
                 self.assertEqual(result.status, "unavailable")
                 self.assertIsNone(result.seen_count)
                 self.assertNotIn("token-value", result.error or "")
@@ -280,8 +285,8 @@ class SenderHistoryStoreTests(unittest.TestCase):
 
         self.assertIsInstance(disabled, DisabledSenderHistoryStore)
         self.assertIsInstance(partial, DisabledSenderHistoryStore)
-        self.assertEqual(asyncio.run(disabled.lookup("alice@gmail.com")).status, "disabled")
-        self.assertEqual(asyncio.run(partial.lookup("alice@gmail.com")).status, "unavailable")
+        self.assertEqual(asyncio.run(disabled.lookup("alice@gmail.com", "ws")).status, "disabled")
+        self.assertEqual(asyncio.run(partial.lookup("alice@gmail.com", "ws")).status, "unavailable")
 
 
 if __name__ == "__main__":

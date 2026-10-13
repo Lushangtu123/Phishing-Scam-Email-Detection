@@ -25,7 +25,7 @@ rewrites the manifest. Non-integer versions such as Chart.js `4.4.0` are
 changed by hand.
 A separate deployment-status workflow checks the completed public Vercel
 deployment's commit SHA, model digest, and JSON and raw `.eml` controls rather
-than assuming that the source checkout represents its bundle. It performs six
+than assuming that the source checkout represents its bundle. It performs five
 POST requests when sender-history checks are enabled, within the committed
 10-per-minute per-client limit when no other traffic shares the same rate-limit
 bucket.

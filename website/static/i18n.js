@@ -197,6 +197,8 @@ window.PhishGuardI18n = (() => {
     'sender.history.notSeen.detail': '{caveat}Absence from retained history does not prove that the provider account is new or unsafe.',
     'sender.history.raw.label': 'Available with full-message analysis',
     'sender.history.raw.detail': '{caveat}Address-only analysis does not query retained sender history. Upload a complete email to add and compare an observation.',
+    'sender.history.workspace.label': 'Kept only in the case workspace',
+    'sender.history.workspace.detail': '{caveat}Sender history is kept separately for each signed-in case workspace. Public analysis neither reads nor records it, since anyone can write any address in a From line.',
     'sender.history.unavailable.label': 'Observation history unavailable',
     'sender.history.unavailable.detail': 'The history service could not be checked. No sender-history conclusion was used in the risk score.',
     'sender.history.disabled.label': 'Observation history not enabled',
@@ -321,7 +323,7 @@ window.PhishGuardI18n = (() => {
     'content.subject.placeholder': 'e.g. URGENT: Your account has been suspended',
     'content.body.label': 'Email Body',
     'content.body.placeholder': 'Paste the full email body text here…',
-    'content.privacy': 'Content is processed on this server. Ordinary analysis does not retain the message body or attachment content. A report is saved only if you submit one; original input is included only with your explicit consent. When sender history is enabled, a pseudonymous sender observation may be retained for abuse detection. Remove unrelated personal content before submitting an email. The Recent checks list keeps only verdicts and scores in this browser. Where domain-age lookups are enabled, the registrable domains of the sender and of up to five links (never paths or message text) are sent to the registry’s public RDAP service to look up their registration dates.',
+    'content.privacy': 'Content is processed on this server. Ordinary analysis does not retain the message body or attachment content. A report is saved only if you submit one; original input is included only with your explicit consent. Public analysis does not read or record sender history; a pseudonymous sender observation is kept only when a signed-in analyst saves a case, in that case workspace. Remove unrelated personal content before submitting an email. The Recent checks list keeps only verdicts and scores in this browser. Where domain-age lookups are enabled, the registrable domains of the sender and of up to five links (never paths or message text) are sent to the registry’s public RDAP service to look up their registration dates.',
     'content.hint.submit': '<kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> to analyze',
     'content.cancelScan': 'Cancel scan',
     'content.clear': 'Clear',
@@ -1004,6 +1006,7 @@ window.PhishGuardI18n = (() => {
 
     'server.warning.mso_conditional': 'MSO conditional content has client-dependent rendering; analysis is incomplete.',
     'server.warning.malformed_html': 'Malformed HTML required recovery; analysis is incomplete.',
+    'server.warning.css_budget': 'The stylesheet needed more work to render than the analysis allows; its effect on the text was not verified, so analysis is incomplete.',
     'server.warning.link_unparsed': 'A link destination could not be reliably parsed; analysis is incomplete.',
     'server.warning.hidden_html_text': 'Hidden HTML text was excluded from text scoring; visual rendering was not fully verified, so analysis is incomplete.',
     'server.warning.stylesheet_visibility': 'A stylesheet may hide or reveal text; CSS rendering was not verified, so the affected text-model view was not scored.',
@@ -1018,6 +1021,7 @@ window.PhishGuardI18n = (() => {
     'server.warning.han_text': 'Substantial Han-script (Chinese) text: the text model was not trained on Chinese mail, so only the rule checks are reliable here; coverage is limited and this content may not be fully evaluated.',
     'server.warning.model_insufficient_context': 'The message contains too little text for reliable model scoring; ML classification was not applied.',
     'server.warning.model_insufficient_coverage': 'Text model feature coverage is insufficient; ML classification was not applied.',
+    'server.warning.attachment_resource_limit': "A PDF attachment's fonts needed more memory to read than the analysis allows; its links were checked but its text was not. Analysis is incomplete.",
     'server.warning.attachment_unreadable': 'A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.',
     'server.warning.attachments_uninspected': 'Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete.',
     'server.warning.duplicate_mime_headers': 'Duplicate MIME headers ({headers}) are ambiguous; bounded alternate inspection, analysis is incomplete.',
@@ -1409,7 +1413,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=67'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=69'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

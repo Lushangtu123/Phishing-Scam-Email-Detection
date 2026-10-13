@@ -410,30 +410,26 @@ def validate_deployment(
         probe_id = history_probe_id or uuid.uuid4().hex
         sender = f"post-deploy-smoke-{probe_id}@example.com"
 
-        def observe(sequence: int) -> dict:
-            raw_email = (
-                f"From: Deployment Smoke <{sender}>\r\n"
-                "To: recipient@example.net\r\n"
-                "Subject: Sender history deployment check\r\n"
-                f"Message-ID: <{probe_id}-{sequence}@example.com>\r\n\r\n"
-                "This is a benign automated deployment check."
-            )
-            return _request_json(Request(
-                base_url + "/api/analyze-content",
-                data=json.dumps({"raw_email": raw_email}).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            ), opener=opener)
-
-        first = observe(1).get("sender_analysis") or {}
-        second = observe(2).get("sender_analysis") or {}
-        if first.get("sender_history_status") != "first_seen":
-            raise RuntimeError(f"Sender-history first observation failed: {first!r}")
-        if second.get("sender_history_status") != "previously_seen":
-            raise RuntimeError(f"Sender-history repeat observation failed: {second!r}")
-        if second.get("sender_history_scope") != "this_service_history":
-            raise RuntimeError(f"Sender-history scope is incorrect: {second!r}")
-        sender_history_probe = second["sender_history_status"]
+        # Public analysis must neither read nor record sender history: a forged From
+        # could otherwise query and change it. Only case workspaces keep it.
+        raw_email = (
+            f"From: Deployment Smoke <{sender}>\r\n"
+            "To: recipient@example.net\r\n"
+            "Subject: Sender history deployment check\r\n"
+            f"Message-ID: <{probe_id}@example.com>\r\n\r\n"
+            "This is a benign automated deployment check."
+        )
+        public = _request_json(Request(
+            base_url + "/api/analyze-content",
+            data=json.dumps({"raw_email": raw_email}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        ), opener=opener).get("sender_analysis") or {}
+        if public.get("sender_history_status") != "workspace_required":
+            raise RuntimeError(f"Public analysis exposed sender history: {public!r}")
+        if public.get("sender_history_scope") != "this_service_history":
+            raise RuntimeError(f"Sender-history scope is incorrect: {public!r}")
+        sender_history_probe = public["sender_history_status"]
 
     return {
         "base_url": base_url,

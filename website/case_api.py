@@ -32,6 +32,8 @@ class CaseService:
     feedback_store: object | None = field(default=None, repr=False)
     deployment_environment: str = 'local'
     jev_control: object | None = field(default=None, repr=False)
+    # The namespace of this workspace's sender history: its cases see only their own.
+    history_workspace: str = ''
 
 
 def build_case_service(env):
@@ -58,6 +60,7 @@ def build_case_service(env):
         token = env.get('CASE_REDIS_REST_TOKEN') or env.get('UPSTASH_REDIS_REST_TOKEN', '')
         workspace = env.get('CASE_WORKSPACE', '')
         store = UpstashCaseStore(url, token, workspace)
+        history_workspace = 'cases:' + workspace
         feedback_workspace = env.get('CASE_FEEDBACK_WORKSPACE') or feedback_workspace_name(workspace)
         feedback_store = UpstashCaseStore(url, token, feedback_workspace)
         if feedback_store.key == store.key:
@@ -67,13 +70,15 @@ def build_case_service(env):
         if env.get('VERCEL') or not path.is_absolute() or (Path(__file__).parent / 'static') in path.resolve().parents:
             raise ValueError('SQLite cases require an absolute private path on a persistent host; Vercel requires Upstash')
         store = CaseStore(path)
+        history_workspace = 'cases-sqlite:' + str(path)
         feedback_store = CaseStore(path.with_name(path.stem + '.feedback' + path.suffix))
     else:
         raise ValueError('CASE_STORE must be sqlite or upstash')
     deployment_environment = env.get('VERCEL_ENV', 'local').strip().lower()
     if deployment_environment not in {'production', 'preview', 'development', 'local'}:
         deployment_environment = 'deployment'
-    return CaseService(store, analysts, feedback_store, deployment_environment)
+    return CaseService(store, analysts, feedback_store, deployment_environment,
+                       history_workspace=f'{deployment_environment}:{history_workspace}')
 
 
 class CaseInput(BaseModel):
@@ -294,7 +299,9 @@ def make_case_router(analyze, *, visible_text, mask_inline_data):
         prior = await call(store.existing, actor, key, digest)
         if prior is not None:
             return with_kind(prior, 'case')
-        source, analysis, provenance = await analyze(payload, raw)
+        service = request.app.state.case_service
+        source, analysis, provenance = await analyze(payload, raw,
+                                                     history_workspace=service.history_workspace or None)
         return with_kind(await call(store.create, actor=actor, request_key=key, input_sha256=digest,
                           source=source, analysis=analysis, provenance=provenance), 'case')
 

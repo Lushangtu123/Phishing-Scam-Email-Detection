@@ -159,6 +159,7 @@
 
   "warning.mso_conditional": "MSO conditional content has client-dependent rendering; analysis is incomplete.",
   "warning.malformed_html": "Malformed HTML required recovery; analysis is incomplete.",
+  "warning.css_budget": "The stylesheet needed more work to render than the analysis allows; its effect on the text was not verified, so analysis is incomplete.",
   "warning.link_unparsed": "A link destination could not be reliably parsed; analysis is incomplete.",
   "warning.hidden_html_text": "Hidden HTML text was excluded from text scoring; visual rendering was not fully verified, so analysis is incomplete.",
   "warning.stylesheet_visibility": "A stylesheet may hide or reveal text; CSS rendering was not verified, so the affected text-model view was not scored.",
@@ -173,6 +174,7 @@
   "warning.han_text": "Substantial Han-script (Chinese) text: the text model was not trained on Chinese mail, so only the rule checks are reliable here; coverage is limited and this content may not be fully evaluated.",
   "warning.model_insufficient_context": "The message contains too little text for reliable model scoring; ML classification was not applied.",
   "warning.model_insufficient_coverage": "Text model feature coverage is insufficient; ML classification was not applied.",
+  "warning.attachment_resource_limit": "A PDF attachment's fonts needed more memory to read than the analysis allows; its links were checked but its text was not. Analysis is incomplete.",
   "warning.attachment_unreadable": "A PDF or Word attachment could not be read; its text and links were not checked. Analysis is incomplete.",
   "warning.attachments_uninspected": "Attachment content was not inspected; only filenames and MIME types were checked. Analysis is incomplete.",
   "warning.duplicate_mime_headers": "Duplicate MIME headers ({headers}) are ambiguous; bounded alternate inspection, analysis is incomplete.",

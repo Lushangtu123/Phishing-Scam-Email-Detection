@@ -158,8 +158,12 @@ invalid values fall back to the ASGI peer. Other deployment profiles ignore
 that header rather than trusting arbitrary forwarding input.
 
 Email bodies and attachment content are processed server-side for analysis and
-are not retained by this application. When sender history is enabled, a
-pseudonymous sender observation may be retained as described above. Users
+are not retained by this application. Public analysis neither reads nor records
+sender history: anyone can write any address in a From line, so a shared record
+would let a forged message ask whether an address had been seen and change the
+answer. When sender history is enabled, a pseudonymous observation is kept only
+when a signed-in analyst saves a case, in that case workspace's own namespace
+(`<VERCEL_ENV>:cases:<CASE_WORKSPACE>`); workspaces never share records. Users
 should remove unrelated personal content before submitting an email.
 
 ### Optional free sender-history store
@@ -191,8 +195,8 @@ configuration readiness; they are not a continuous Upstash reachability probe.
 Vercel production `deployment_status` events run
 `.github/workflows/post-deploy-smoke.yml`. The workflow checks out the deployed
 revision and validates `/health`, `/api/config`, the exact model ID, phishing and
-legitimate controls, and a unique first/previous sender-history probe against the
-public production alias. It rejects cross-host redirects and non-JSON responses,
+legitimate controls, and a sender-history probe (public analysis must report
+`workspace_required` and record nothing) against the public production alias. It rejects cross-host redirects and non-JSON responses,
 so Vercel SSO pages cannot be mistaken for application health output.
 Read-only health/config readiness checks retry briefly while a deployment alias
 converges; phishing, legitimate, and sender-history POST controls run exactly

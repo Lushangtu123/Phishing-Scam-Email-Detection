@@ -124,11 +124,7 @@ class PostDeploySmokeTests(unittest.TestCase):
                     return _Response({
                         "risk_level": "safe",
                         "sender_analysis": {
-                            "sender_history_status": (
-                                "first_seen"
-                                if history_observations == 1
-                                else "previously_seen"
-                            ),
+                            "sender_history_status": "workspace_required",
                             "sender_history_scope": "this_service_history",
                         },
                     })
@@ -160,12 +156,13 @@ class PostDeploySmokeTests(unittest.TestCase):
         self.assertEqual(result["risk_level"], "critical")
         self.assertEqual(result["legitimate_risk_level"], "safe")
         self.assertEqual(result["legitimate_control_count"], 2)
-        self.assertEqual(result["sender_history_probe"], "previously_seen")
+        self.assertEqual(result["sender_history_probe"], "workspace_required")
+        self.assertEqual(history_observations, 1)
         self.assertEqual(result["commit_sha"], "c" * 40)
         self.assertEqual(result["mime_phishing_risk_level"], "critical")
         self.assertEqual(
             [method for _, method, _ in requests],
-            ["GET", "GET", "POST", "POST", "POST", "POST", "POST", "POST"],
+            ["GET", "GET", "POST", "POST", "POST", "POST", "POST"],
         )
         self.assertTrue(all(timeout == 20 for _, _, timeout in requests))
 
@@ -207,16 +204,10 @@ class PostDeploySmokeTests(unittest.TestCase):
                 })
             body = json.loads(request.data.decode("utf-8"))
             if body.get("raw_email"):
-                repeated = sum(
-                    method == "POST" and url.endswith("/api/analyze-content")
-                    for url, method in requests
-                ) >= 5
                 return _Response({
                     "risk_level": "safe",
                     "sender_analysis": {
-                        "sender_history_status": (
-                            "previously_seen" if repeated else "first_seen"
-                        ),
+                        "sender_history_status": "workspace_required",
                         "sender_history_scope": "this_service_history",
                     },
                 })
@@ -245,11 +236,11 @@ class PostDeploySmokeTests(unittest.TestCase):
             sleeper=sleeps.append,
         )
 
-        self.assertEqual(result["sender_history_probe"], "previously_seen")
+        self.assertEqual(result["sender_history_probe"], "workspace_required")
         self.assertEqual(sleeps, [3])
         self.assertEqual(
             sum(method == "POST" for _, method in requests),
-            6,
+            5,
         )
         self.assertEqual(
             [method for _, method in requests[:3]],
