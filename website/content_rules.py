@@ -610,7 +610,9 @@ _SENSITIVE_REQUEST_VERB = (r"(?:reply(?:\s+(?:back|to\s+(?:this\s+|our\s+)?(?:em
 _SENSITIVE_REQUEST_RECIPIENT = (r"(?:(?:to\s+)?(?:the|our|this|a|your)?\s*(?:agent|caller|officer|representative|technician|"
                                 r"support(?:\s+team)?|team|advisor|specialist|us|me)\s+)?")
 _SENSITIVE_REQUEST_DETERMINERS = r"(?:(?:your|the|this|that|these|those|all|both|two|three|a|an|new|received)\s+){0,3}"
-_CODE_MODIFIER = (r"(?:\d[\s-]?digit|verification|security|confirmation|authentication|authorization|sign[\s-]?in|log[\s-]?in"
+# A code's length, as a numeral or spelled out ("6-digit", "six digit").
+_CODE_MODIFIER = (r"(?:(?:\d|three|four|five|six|seven|eight|nine|ten)[\s-]?digit"
+                  r"|verification|security|confirmation|authentication|authorization|sign[\s-]?in|log[\s-]?in"
                   r"|access|sms|text|otp|2fa|two[\s-]?factor|one[\s-]?time)")
 _SENSITIVE_REQUEST_OBJECTS = {
     'one_time_code': r"(?:(?:" + _CODE_MODIFIER + r"\s+){1,2}(?:pass)?codes?|one[\s-]?time\s+pass(?:code|word)s?|otps?)",

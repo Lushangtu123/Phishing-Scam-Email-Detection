@@ -1536,6 +1536,35 @@ def _guarded_arc_dns(dnsfunc, deadline: float):
 _arc_pool = BoundedExecutor(workers=_ARC_WORKERS, thread_name_prefix="arc")
 
 
+# Files that are plainly not an email message, by their leading bytes. Parsed as mail they
+# would read as an empty message and be shown as Low risk.
+_NOT_EMAIL_SIGNATURES = (
+    (b"MZ", "a Windows program"), (b"\x7fELF", "a program"),
+    (b"\x89PNG\r\n\x1a\n", "an image"), (b"\xff\xd8\xff", "an image"), (b"GIF87a", "an image"), (b"GIF89a", "an image"),
+    (b"%PDF-", "a PDF"), (b"PK\x03\x04", "an archive or Office document"),
+    (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", "an Outlook .msg or Office document"),
+    (b"\x1f\x8b", "a compressed file"), (b"7z\xbc\xaf\x27\x1c", "an archive"), (b"Rar!\x1a\x07", "an archive"),
+)
+
+
+def not_an_email(raw_email: str | bytes) -> str | None:
+    """What an upload plainly is instead of an email message, or None. Only clear cases
+    count: a known binary file signature at the start (WebP inside RIFF too), or a NUL
+    byte among the headers, which a text message never has. A malformed but textual
+    message is still analyzed."""
+    data = raw_email if isinstance(raw_email, bytes) else raw_email.encode("utf-8", "surrogateescape")
+    start = data[:16].lstrip(b"\xef\xbb\xbf \t\r\n")
+    for signature, kind in _NOT_EMAIL_SIGNATURES:
+        if start.startswith(signature):
+            return kind
+    if start.startswith(b"RIFF") and data.lstrip(b"\xef\xbb\xbf \t\r\n")[8:12] == b"WEBP":
+        return "an image"
+    head = re.split(rb"\r?\n\r?\n", data[:65536], maxsplit=1)[0]
+    if b"\x00" in head:
+        return "a binary file"
+    return None
+
+
 def start_arc_verification(raw_email: str | bytes, dnsfunc=None):
     """The ARC check of arc_sealed_results started on the ARC threads: a future of its answer,
     or None when the message has no ARC set sealed only by known services (nothing to look

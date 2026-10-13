@@ -416,7 +416,20 @@ Criteria fixed before the run:
 4. The reproduction message, uploaded as an `.eml` from a personal Gmail address with
    the served model, is High or Critical (Low at the baseline).
 
-Results: PENDING
+Results (all four pass):
+
+| Criterion | Baseline | Updated | Result |
+| --- | --- | --- | --- |
+| 1. Three spelled-out requests match | 0 of 3 | 3 of 3 | Pass |
+| 2. Four controls (notice, "never share", "never ask", "enter the code") | 0 of 4 match | 0 of 4 match | Pass |
+| 3. Legitimate public rows matching (36,567 rows) | 0 | 0, none new | Pass |
+| 4. Reproduction `.eml` from a personal Gmail address, served model | Low (text model only) | Critical | Pass |
+
+Rows labelled phishing (38,545) match 3 times before and after, and spam (6,444) not
+at all: the public corpora rarely ask for a code in these words, so they show no false
+alarm but little about recall. The benign code notice stays Low in the full pipeline.
+This adds spelled-out lengths only; the text model's alert on an unauthenticated `.eml`
+is still shown as Low when no rule fires, a policy this change does not touch.
 
 ## 2. Browser OCR and QR controls
 

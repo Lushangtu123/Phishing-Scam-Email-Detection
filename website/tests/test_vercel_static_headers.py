@@ -19,7 +19,7 @@ sys.path.insert(0, str(WEBSITE_DIR))
 import app  # noqa: E402
 
 MANAGED = ('cache-control', 'content-security-policy', 'permissions-policy', 'referrer-policy',
-           'x-content-type-options', 'x-frame-options')
+           'strict-transport-security', 'x-content-type-options', 'x-frame-options')
 SAMPLES = ('/static/app.js', '/static/app.js?v=54', '/static/style.css?v=59', '/static/favicon.svg',
            '/static/vision-worker.mjs', '/static/vision-worker.mjs?v=3', '/static/vendor/vision/worker.min.js',
            '/static/cases.html', '/static/app.js?v=')

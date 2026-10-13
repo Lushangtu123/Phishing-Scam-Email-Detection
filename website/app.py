@@ -37,7 +37,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from typing import Literal, NamedTuple
 
 from pydantic import BaseModel, Field
@@ -103,6 +103,7 @@ from email_structure import (
     _decode_idna_domain,
     _domains_align,
     analyze_raw_email,
+    not_an_email,
     start_arc_verification,
     VERIFY_ARC,
     _ARC_VERIFY_SECONDS,
@@ -175,7 +176,12 @@ async def _parse_raw_email(raw, *, mailbox_provider: str | None = None) -> dict:
     """analyze_raw_email for a request. Without a mailbox or a trusted Authentication-Results
     ID, its ARC chain is what may authenticate it: that is verified first, on the ARC threads,
     while the request waits on the event loop, so slow DNS cannot hold an analysis worker.
-    Otherwise ARC may not be needed and is verified, only if it is, during the analysis."""
+    Otherwise ARC may not be needed and is verified, only if it is, during the analysis.
+    An upload that is plainly another kind of file is refused (415) rather than read as mail."""
+    kind = not_an_email(raw)
+    if kind is not None:
+        raise HTTPException(status_code=415, detail=f'This file is not an email message; it looks like {kind}. '
+                                                    'Upload the original .eml file.')
     arc = VERIFY_ARC
     if mailbox_provider is None and not SETTINGS.trusted_authserv_ids:
         future, arc = start_arc_verification(raw), None
@@ -589,6 +595,15 @@ async def not_found_page(request: Request, exc: StarletteHTTPException):
             # A 404 page must not be cached as if it were the page asked for.
             return HTMLResponse(body, status_code=404, headers={"Cache-Control": "no-store"})
     return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(Exception)
+async def unexpected_error(_request: Request, _exc: Exception):
+    """A failure nothing else caught: the server's usual short 500, never the exception's
+    text, with the security headers every other response carries. Starlette sends this
+    response outside the middleware that adds them, and still logs the exception."""
+    return _with_security_headers(PlainTextResponse(
+        'Internal Server Error', status_code=500, headers={'Cache-Control': 'no-store'}))
 
 
 @app.get("/health")
