@@ -2135,27 +2135,39 @@ def shared_cascade_budget():
         _SHARED_CASCADE_BUDGET.reset(token)
 
 
-def _substitute_variables(value: str, custom: dict, depth: int = 0, budget: _CascadeBudget | None = None):
+def _substitute_variables(value: str, custom: dict, depth: int = 0, budget: _CascadeBudget | None = None,
+                          memo: dict | None = None):
     """value with each var(--name[, fallback]) replaced from the element's custom properties,
     or None when one is undefined without a fallback (invalid at computed-value time).
     Raises _CascadeBudgetExceeded when the value grows past _MAX_VARIABLE_EXPANSION, or the
-    work past the budget."""
+    work past the budget: each var() costs one step before it is followed, so values that
+    expand to nothing still pay. memo, for one custom, keeps each (value, depth) expanded
+    once, so a property referenced many times is not expanded again each time."""
     if depth > 8:
         return None
+    if memo is None:
+        memo = {}
+    key = (value, depth)
+    if key in memo:
+        return memo[key]
     result, index, size = [], 0, 0
     while True:
         start = value.find('var(', index)
         if start < 0:
             result.append(value[index:])
-            return ''.join(result)
+            memo[key] = ''.join(result)
+            return memo[key]
         result.append(value[index:start])
         size += start - index
+        if budget is not None:
+            budget.spend()
         level, end = 0, start + 3
         for end in range(start + 3, len(value)):
             level += (value[end] == '(') - (value[end] == ')')
             if level == 0:
                 break
         else:
+            memo[key] = None
             return None
         inner = value[start + 4:end]
         level, split = 0, len(inner)
@@ -2167,9 +2179,11 @@ def _substitute_variables(value: str, custom: dict, depth: int = 0, budget: _Cas
         name, fallback = inner[:split].strip(), inner[split + 1:] if split < len(inner) else None
         replacement = custom.get(name, fallback)
         if replacement is None:
+            memo[key] = None
             return None
-        replacement = _substitute_variables(replacement.strip(), custom, depth + 1, budget)
+        replacement = _substitute_variables(replacement.strip(), custom, depth + 1, budget, memo)
         if replacement is None:
+            memo[key] = None
             return None
         size += len(replacement)
         if size > _MAX_VARIABLE_EXPANSION:
@@ -2212,21 +2226,22 @@ def _with_custom_properties(winners: dict, custom: dict, budget: _CascadeBudget 
             elif value not in {'inherit', 'unset', 'revert', 'revert-layer'}:
                 raw[name] = value
         custom = dict(raw)
+        memo = {}
         for name in defined:
             if name in raw and 'var(' in raw[name]:
-                substituted = _substitute_variables(raw[name], raw, budget=budget)
+                substituted = _substitute_variables(raw[name], raw, budget=budget, memo=memo)
                 if substituted is None:
                     del custom[name]
                 else:
                     custom[name] = substituted
-    resolved = winners
+    resolved, memo = winners, {}
     for name, ranked in winners.items():
         value = ranked[3]
         if isinstance(value, tuple) and value[0] == 'var':
-            value = _variable_class(name, _substitute_variables(value[1], custom, budget=budget))
+            value = _variable_class(name, _substitute_variables(value[1], custom, budget=budget, memo=memo))
         elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES or name in _BACKGROUND_LAYOUT_PROPERTIES) \
                 and isinstance(value, str) and 'var(' in value:
-            value = _substitute_variables(value, custom, budget=budget)
+            value = _substitute_variables(value, custom, budget=budget, memo=memo)
         else:
             continue
         if resolved is winners:

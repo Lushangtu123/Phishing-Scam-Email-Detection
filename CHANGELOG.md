@@ -22,6 +22,43 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 14:00 PT] — One CSS budget per request, attached messages included
+
+### Why
+- `_run_analysis` handed work to the analysis pool without the caller's context, so every `analyze_email_content` call, one per attached message (up to 20, three levels deep), started its own 4,000,000-step CSS budget (#56).
+
+### Files changed
+- `website/app.py` — `_run_analysis` runs the function in `contextvars.copy_context()`; `_analyze_content` opens `shared_cascade_budget()` around the analysis (`_analyze_content_within_budget`), so an attached message's analysis uses the outer one.
+- `website/tests/test_analysis_budgets.py` — `RequestBudgetTests` (2).
+
+### Effect
+- A message attaching 3 HTML messages creates 1 budget; on `main`, one per message analyzed. A pool thread now sees the request's context variables (checked with a marker variable).
+
+## [2026-10-13 14:00 PT] — PDF text decoded only as far as the limit; CMap text and string bytes budgeted
+
+### Why
+- `pdf_text` checked its 20,000-character limit only after a whole `Tj` string was decoded: one string of 50,000 codes, each mapped to 200 characters, became 10,000,000 characters first. A CMap code could map to text of any length, and a literal string, however long, counted as one token.
+
+### Files changed
+- `website/email_structure.py` — `show()` decodes codes one at a time and stops at twice the text limit (past it no further text is read), without first listing every code; a CMap destination is cut at 512 bytes (`_MAX_PDF_CMAP_TARGET_BYTES`, the PDF limit), and the characters codes map to are charged to a second font budget, 1,000,000 per message (`_MAX_PDF_FONT_TEXT_CHARS`); `_pdf_tokens` charges each byte of a literal string as it reads it (stopping when the budget is spent) and each byte of a hex string.
+- `website/tests/test_analysis_budgets.py` — `PdfTextMemoryTests` (5).
+
+### Effect
+- The 50,000-code string reads the same 20,000 characters with under 5 MiB peak memory. 4,096 range codes of 256 characters: 1,048,576 characters mapped on `main`, now `_PdfResourceLimit` (text unread, links kept, warning). A 5,000-byte string under a 1,000-step budget stops reading at 1,000.
+
+## [2026-10-13 14:00 PT] — CSS var(): each reference costs a step, and repeated expansions are remembered
+
+### Why
+- `_substitute_variables` charged the budget by the length a var() produced, after following it: references that expand to nothing cost nothing. 8 references per level, 7 levels (615 bytes) took 5.85 s, 12 per level over 60 s, with no "analysis incomplete".
+
+### Files changed
+- `website/html_visibility.py` — one step per var() before it is followed; `_with_custom_properties` passes a memo per custom-property set, so each (value, depth) is expanded once (the depth limit is unchanged).
+- `website/tests/test_analysis_budgets.py` — 2 tests: an empty expansion with no budget left raises; the same value expands to `x` one level down and past depth 8 seven levels down, with and without memo hits.
+
+### Effect
+- The 615-byte case: 5.85 s → under 0.01 s; 12 per level: over 60 s → under 0.01 s; 30 per level, 8 levels (2.3 KB): 0.01 s. Same readings as the narrow variant.
+- No change for benign input: the 1,467 HTML inputs the unit tests render, 2,671 public-corpus HTML bodies and the 518 raw messages the unit tests parse give byte-identical results on `main` and this branch. The depth test fails with a planted bug (memo keyed without depth), which the replays alone did not catch. All 6 defect tests fail on `main`, the 2 controls pass on both; backend 1,325 tests pass (10 skipped), frontend 527.
+
 ## [2026-10-13 13:28 PT] — PDF attachments share one inflate and token budget per message
 
 ### Why
