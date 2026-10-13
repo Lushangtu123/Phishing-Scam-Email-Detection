@@ -168,6 +168,57 @@ class PdfFontBudgetTests(unittest.TestCase):
         self.assertIn(warning, structure['parse_warnings'])
 
 
+
+def stream_pdf(content: bytes, *, link: bool = False) -> bytes:
+    """A one-page PDF whose compressed content stream is content."""
+    stream = zlib.compress(content, 9)
+    annotation = b'3 0 obj << /Type /Annot /A << /S /URI /URI (https://evil.example/x) >> >> endobj\n' if link else b''
+    return (b'%PDF-1.4\n1 0 obj << /Type /Page /Contents 2 0 R >> endobj\n2 0 obj << /Length '
+            + str(len(stream)).encode() + b' /Filter /FlateDecode >> stream\n' + stream
+            + b'\nendstream endobj\n' + annotation + b'%%EOF')
+
+
+def pdf_message(*documents) -> bytes:
+    parts = b''.join(b'--b\r\nContent-Type: application/pdf; name=a%d.pdf\r\n'
+                     b'Content-Transfer-Encoding: base64\r\n\r\n%s\r\n' % (index, base64.b64encode(document))
+                     for index, document in enumerate(documents))
+    return (b'From: a@example.com\r\nTo: b@example.com\r\nSubject: s\r\nMIME-Version: 1.0\r\n'
+            b'Content-Type: multipart/mixed; boundary=b\r\n\r\n' + parts + b'--b--\r\n')
+
+
+class PdfMessageBudgetTests(unittest.TestCase):
+    warning = es.message_text('warning.attachment_resource_limit')
+
+    def test_one_document_at_its_own_limits_is_not_cut(self):
+        # 300,000 tokens and 4 MB inflated are each a document's own limit, unchanged.
+        for content in (b'BT ' + b'x ' * 160_000 + b'ET', b'BT (Hello) Tj ET ' + b' ' * 4_200_000):
+            structure = es.analyze_raw_email(pdf_message(stream_pdf(content, link=True)))
+            self.assertNotIn(self.warning, structure['parse_warnings'])
+            self.assertEqual(structure['attachments'][0].get('extracted_links'), ['https://evil.example/x'])
+
+    def test_many_token_heavy_documents_share_one_budget(self):
+        # 76 such PDFs fit in a 55 KB message: 7.5 s with a budget each.
+        document = stream_pdf(b'BT (Pay now) Tj ' + b'x ' * 160_000 + b'ET', link=True)
+        start = time.perf_counter()
+        structure = es.analyze_raw_email(pdf_message(*[document] * 40))
+        self.assertLess(time.perf_counter() - start, 2.0)
+        self.assertIn(self.warning, structure['parse_warnings'])
+        attachments = structure['attachments']
+        self.assertIn('Pay now', attachments[0].get('extracted_text', ''))
+        self.assertTrue(all(item.get('extracted_links') == ['https://evil.example/x'] for item in attachments))
+
+    def test_inflated_bytes_are_shared_across_documents(self):
+        document = stream_pdf(b'BT (Hello) Tj ET ' + b' ' * 4_200_000)
+        structure = es.analyze_raw_email(pdf_message(*[document] * 5))
+        self.assertIn(self.warning, structure['parse_warnings'])
+        self.assertIn('Hello', structure['attachments'][0].get('extracted_text', ''))
+        self.assertNotIn('extracted_text', structure['attachments'][-1])
+
+    def test_a_document_read_alone_has_its_own_budget(self):
+        document = stream_pdf(b'BT (Hello) Tj ' + b'x ' * 160_000 + b'ET')
+        self.assertIn('Hello', es.pdf_text(document))
+        self.assertIn('Hello', es.pdf_text(document))
+
 def arc_set(instance, selector=b'arc-1', domain=b'google.com', extra=b''):
     return (b'ARC-Seal: i=%d; a=rsa-sha256; t=1; cv=%s; %sd=%s; s=%s; b=AAAA\r\n'
             % (instance, b'none' if instance == 1 else b'pass', extra, domain, selector)
