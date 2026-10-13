@@ -340,6 +340,7 @@
   'content.riskLabel.medium': '中等风险 — 内容可疑',
   'content.riskLabel.mediumModel': '中等风险 — 模型信号需人工复核',
   'content.riskLabel.lowModel': '低风险 — 仅文本模型提示',
+  'content.riskLabel.reviewModel': '待复核 — 文本模型警报缺少独立佐证',
   'content.riskLabel.low': '低风险 — 存在轻微疑点',
   'content.riskLabel.lowVerified': '低风险 — 已验证官方发件人',
   'content.riskLabel.lowRequested': '低风险 — 你确认是本人操作',

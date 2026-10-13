@@ -138,9 +138,11 @@ def build_cohort(draft, annotations):
         if row.get('label') != source['label']:
             raise ValueError('Independent label disagrees with the case verdict; resolve it before evaluation.')
         content = _message(source)
+        # The role travels with each row: the serving evaluator refuses holdout rows until
+        # the evaluation plan is frozen.
         output[role].append({'id': case_id, 'label': row['label'], 'provider': provider,
                              'language': language, 'received_at': received_at,
-                             'family_id': family, **content})
+                             'family_id': family, 'cohort_role': role, **content})
     for role in output:
         output[role].sort(key=lambda row: row['id'])
     return output

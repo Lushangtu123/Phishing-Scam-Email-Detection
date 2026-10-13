@@ -22,6 +22,21 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 16:12 PT] — Serving evaluator: plan options A/B/C, mailbox settings and a sealed holdout
+
+### Why
+- Step 2 of the 2026-10-13 evaluation plan (#62): compare the three labels for model-only alerts on original messages by running the full pipeline per option, score real downloads with and without their mailbox chosen, and keep the holdout sealed until the plan is frozen (its reviewer, D12, is not yet assigned).
+
+### Files changed
+- `website/app.py` — `MODEL_ONLY_OPTION` (a ContextVar, default "A", the served behaviour; no request can set it) and `_apply_model_only_option`, run after every other step: B raises an unauthenticated model-only note to Medium, C marks it for review (`model_only_review`, still Low); a note that was lowered to a verified sender or abstained to Unknown is left alone.
+- `website/tools/evaluate_serving_pipeline.py` — `--option`, `--mailbox-setting none|recorded` (passes the row's provider to `analyze_raw_email(mailbox_provider=...)`, which the evaluator never did), `--frozen-plan-commit` (checked in git: the plan at that commit must record its reviewer); rows marked `cohort_role: holdout` are refused before analysis otherwise; a `model_only_plan` block with alerts, reviews, false passes and Unknown per label, attention on legitimate mail, authenticated phishing and its decisive subset. The configuration's two new keys are optional, so earlier reports still validate.
+- `website/tools/build_private_cohort.py` — each row carries its `cohort_role`.
+- `website/static/i18n.js`, `i18n-zh.js` — a translation for C's label (the frontend tests require one for every label `app.py` can send), with the asset versions bumped.
+- `website/tests/test_model_only_options.py` (new, 11 tests); `docs/evaluation.md` — usage.
+
+### Effect
+- Served behaviour unchanged: with the served model, the full content analysis of the 518 raw messages the unit tests parse is byte-identical to `main` (44 are model-only); a planted default of B changes 16, so the replay detects it. No holdout exists yet; nothing was scored.
+
 ## [2026-10-13 15:35 PT] — Case workspace: the access token only signs in; short-lived, revocable sessions
 
 ### Why
