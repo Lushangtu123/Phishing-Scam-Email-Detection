@@ -95,7 +95,7 @@
   "matched_provider_domain": null,
   "address_alias_type": null,
   "account_observability": "provider_account_unverifiable",
-  "sender_history_status": "raw_message_required",
+  "sender_history_status": "workspace_required",
   "sender_history_scope": "this_service_history"
  }
 }

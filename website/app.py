@@ -58,7 +58,8 @@ from local_review import addresses_reviewers, load_local_review_settings, review
 from html_visibility import (  # the HTML/CSS visibility reader
     _HIDDEN_HTML_TEXT_WARNING, _IMAGE_ALT_FALLBACK_WARNING,
     _INLINE_CSS_VISIBILITY_WARNING, _MSO_CONDITIONAL_WARNING, _POSSIBLY_INVISIBLE_WARNING,
-    _SAME_COLOUR_MODEL_LETTERS, _STYLESHEET_VISIBILITY_WARNING, _strip_invisible_format_controls, _visible_content_text
+    _SAME_COLOUR_MODEL_LETTERS, _STYLESHEET_VISIBILITY_WARNING, _strip_invisible_format_controls, _visible_content_text,
+    shared_cascade_budget,
 )
 from language_coverage import has_substantial_han_text as _has_substantial_han_text
 from sender_history import (
@@ -797,23 +798,37 @@ def _sender_account_observability(analysis: dict) -> str:
     return "unknown"
 
 
-async def _analyze_and_observe_sender(address: str, *, analysis: dict | None = None) -> dict:
-    """Analyze one raw-message sender and record one retained observation."""
+def _anonymous_sender_history() -> SenderHistoryResult:
+    """History for a request without an authenticated workspace: none is read or written.
+    Its From is unauthenticated input; with a shared record, a forged From could ask whether
+    anyone had sent from an address, and change the answer others get."""
+    if isinstance(_sender_history_store, DisabledSenderHistoryStore):
+        return SenderHistoryResult(status=_sender_history_store._status)
+    return SenderHistoryResult(status="workspace_required")
+
+
+async def _analyze_and_observe_sender(address: str, *, analysis: dict | None = None,
+                                      workspace: str | None = None) -> dict:
+    """Analyze one raw-message sender and, for an authenticated workspace, record one
+    observation in that workspace's own history."""
     if analysis is None:
         analysis = await _run_analysis(_analyze_sender_address, address)
-    normalized_address = _normalize_sender_address(address)
-    history_address = canonicalize_sender_address(normalized_address or address)
-    history = await _sender_history_store.observe(history_address)
+    if workspace:
+        normalized_address = _normalize_sender_address(address)
+        history_address = canonicalize_sender_address(normalized_address or address)
+        history = await _sender_history_store.observe(history_address, workspace)
+    else:
+        history = _anonymous_sender_history()
     analysis["account_observability"] = _sender_account_observability(analysis)
     analysis.update(history.as_dict())
     return analysis
 
 
 def _analyze_sender_without_history_lookup(address: str) -> dict:
-    """Analyze an address without exposing retained service-wide history."""
+    """Analyze an address without reading or writing sender history."""
     analysis = _analyze_sender_address(address)
     analysis["account_observability"] = _sender_account_observability(analysis)
-    analysis.update(SenderHistoryResult(status="raw_message_required").as_dict())
+    analysis.update(_anonymous_sender_history().as_dict())
     return analysis
 
 
@@ -1502,6 +1517,7 @@ def _content_verdict(total_score: int, risk_floor: str) -> tuple[str, str]:
         return "high",     "High Risk — Likely Phishing"
 
 
+@shared_cascade_budget()  # every part and link label of the message renders within one budget
 def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] | None = None,
                           _model_view: dict | None = None, sender: str = '', recipients=()) -> dict:
     """Rule-based heuristic phishing analysis of email subject + body text."""
@@ -2011,9 +2027,12 @@ def _add_attachment_text(result: dict, structure: dict) -> None:
         result["extra_indicators"].extend(text_findings)
 
 
-async def _add_sender_evidence(result: dict, structure: dict, observe_sender_history: bool) -> None:
+async def _add_sender_evidence(result: dict, structure: dict, observe_sender_history: bool,
+                               history_workspace: str | None = None) -> None:
     """The sender that drives the result: its analysis, relaxed for an authenticated or
-    service-domain sender and set aside for a verified official one, and its score and floor."""
+    service-domain sender and set aside for a verified official one, and its score and floor.
+    observe_sender_history reports its history: read and recorded only in history_workspace,
+    the authenticated case workspace, if any."""
     selected_sender = await _run_analysis(
         _select_message_sender, structure['header_candidates']['From'])
     verified_sender = structure.get('verified_official_sender')
@@ -2036,7 +2055,8 @@ async def _add_sender_evidence(result: dict, structure: dict, observe_sender_his
         # only the sender that actually drives the result gets one bounded
         # observation request.
         sender_analysis = (
-            await _analyze_and_observe_sender(selected_sender["email"], analysis=selected_sender)
+            await _analyze_and_observe_sender(selected_sender["email"], analysis=selected_sender,
+                                              workspace=history_workspace)
             if observe_sender_history
             else selected_sender
         )
@@ -2295,6 +2315,7 @@ async def _analyze_content(
     structure: dict | None = None,
     *,
     observe_sender_history: bool = True,
+    history_workspace: str | None = None,
     plain_text: bool = False,
     allow_empty: bool = False,
     raw_message: bool | None = None,
@@ -2319,7 +2340,7 @@ async def _analyze_content(
         _add_structure_evidence(result, structure)
         _add_attachment_links(result, structure)
         _add_attachment_text(result, structure)
-        await _add_sender_evidence(result, structure, observe_sender_history)
+        await _add_sender_evidence(result, structure, observe_sender_history, history_workspace)
         remote_image_dominant = await _merge_nested_messages(result, structure) or remote_image_dominant
     _ensure_image_warnings(result)
 
@@ -2366,7 +2387,7 @@ async def safe_visual_validation(request, exc):
     return await request_validation_exception_handler(request, exc)
 
 
-async def _analyze_visual(payload, structure=None, *, observe_sender_history=True):
+async def _analyze_visual(payload, structure=None, *, observe_sender_history=True, history_workspace=None):
     raw = payload.eml_bytes()
     enhancement = None
     if payload.enhancement is not None:
@@ -2387,7 +2408,7 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
         raise HTTPException(400, 'Image evidence or an email is required')
     base = json.loads((await _analyze_content(
         ContentRequest(subject=payload.subject, body=payload.body, requested=payload.requested), structure,
-        observe_sender_history=observe_sender_history, allow_empty=True,
+        observe_sender_history=observe_sender_history, history_workspace=history_workspace, allow_empty=True,
     )).body)
     findings = []
     for item in payload.observations:
@@ -2605,8 +2626,9 @@ def verify_email_endpoint(req: VerifyRequest):
     return respond()
 
 
-async def _analyze_case(payload, raw):
-    """Capture server evidence once; clients cannot submit or edit detection results."""
+async def _analyze_case(payload, raw, *, history_workspace: str | None = None):
+    """Capture server evidence once; clients cannot submit or edit detection results. An
+    authenticated case records its sender in its workspace's history (history_workspace)."""
     structure = None
     visual = isinstance(payload, VisualRequest)
     raw_input = payload.eml_bytes() if visual else raw if raw is not None else payload.raw_email
@@ -2616,10 +2638,12 @@ async def _analyze_case(payload, raw):
     if visual:
         if structure:
             bound_message_text(structure)
-        response = await _analyze_visual(payload, structure, observe_sender_history=False)
+        response = await _analyze_visual(payload, structure, observe_sender_history=history_workspace is not None,
+                                         history_workspace=history_workspace)
     else:
         response = await _analyze_content(ContentRequest(**payload.model_dump()), structure,
-                                         observe_sender_history=False)
+                                         observe_sender_history=history_workspace is not None,
+                                         history_workspace=history_workspace)
     analysis = json.loads(response.body)
     analysis.pop('ml_metrics', None)  # Dataset-wide metrics are not per-message evidence.
     # Message codes on indicators are kept; the *_details lists only repeat the

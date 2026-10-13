@@ -808,6 +808,7 @@ test('content input explains server processing and pseudonymous sender retention
   assert.match(html, /processed on this server/i);
   assert.match(html, /does not retain.*message body.*attachment content/is);
   assert.match(html, /pseudonymous sender observation/i);
+  assert.match(html, /public analysis does not read or\s+record sender history/i);
   assert.match(html, /remove unrelated personal content/i);
 });
 
@@ -1233,6 +1234,21 @@ test('address-only analysis explains that retained history requires a raw messag
 
   assert.equal(elements.get('sender-history-label').textContent, 'Available with full-message analysis');
   assert.match(elements.get('sender-history-detail').textContent, /does not query retained sender history/i);
+});
+
+test('public analysis says sender history is kept only in case workspaces', () => {
+  const { context, elements } = loadFrontend();
+
+  context.renderResult({
+    ...senderResult('alice@gmail.com'),
+    sender_history_status: 'workspace_required',
+    sender_history_scope: 'this_service_history',
+    account_observability: 'provider_account_unverifiable',
+  });
+
+  assert.equal(elements.get('sender-history-label').textContent, 'Kept only in the case workspace');
+  assert.match(elements.get('sender-history-detail').textContent, /neither reads nor records/i);
+  assert.match(elements.get('sender-history-detail').textContent, /Gmail account age cannot be verified/);
 });
 
 test('unavailable sender history never renders a false zero-count claim', () => {

@@ -15,7 +15,7 @@
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/compat.js?v=1"></script>
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=70"></script>
+  <script src="/static/lang-init.js?v=72"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/static/style.css?v=72" />
 </head>
@@ -547,8 +547,9 @@
         <p class="raw-email-status content-privacy-notice">
           <span data-i18n="content.privacy">Content is processed on this server. Ordinary analysis does not retain the
           message body or attachment content. A report is saved only if you submit one;
-          original input is included only with your explicit consent. When sender history is enabled, a
-          pseudonymous sender observation may be retained for abuse detection.
+          original input is included only with your explicit consent. Public analysis does not read or
+          record sender history; a pseudonymous sender observation is kept only when a signed-in analyst
+          saves a case, in that case workspace.
           Remove unrelated personal content before submitting an email.
           The Recent checks list keeps only verdicts and scores in this browser.
           Where domain-age lookups are enabled, the registrable domains of the sender and of up to
@@ -1177,7 +1178,7 @@
 <!-- Deferred: the scripts run in this order once the markup is parsed, before DOMContentLoaded, so
      the first paint does not wait for them. i18n.js runs first and every later script uses it; a
      Chinese page stays hidden (lang-init.js) until it is translated. -->
-<script defer src="/static/i18n.js?v=135"></script>
+<script defer src="/static/i18n.js?v=139"></script>
 <script defer src="/static/vision.js?v=12"></script>
 <script defer src="/static/file-intake.js?v=3"></script>
 <script defer src="/static/confirm-dialog.js?v=3"></script>
@@ -1188,7 +1189,7 @@
 <script defer src="/static/app-theme.js?v=2"></script>
 <script defer src="/static/app-layout.js?v=5"></script>
 <script defer src="/static/app-config.js?v=4"></script>
-<script defer src="/static/app-sender.js?v=6"></script>
+<script defer src="/static/app-sender.js?v=7"></script>
 <script defer src="/static/app-verify.js?v=4"></script>
 <script defer src="/static/app-content.js?v=8"></script>
 <script defer src="/static/app-content-render.js?v=13"></script>

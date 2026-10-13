@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from html import escape as escape_html, unescape as unescape_html
 from html.parser import HTMLParser
@@ -256,6 +258,7 @@ _INLINE_CSS_VISIBILITY_WARNING = message_text('warning.inline_css_visibility')
 # text the message may hide (analyze_email_content).
 _POSSIBLY_INVISIBLE_WARNING = message_text('warning.possibly_invisible_text')
 _IMAGE_ALT_FALLBACK_WARNING = message_text('warning.image_alt_fallback')
+_CASCADE_BUDGET_WARNING = message_text('warning.css_budget')
 
 
 _HTML_VOID_ELEMENTS = {
@@ -2088,18 +2091,65 @@ def _parse_selector(selector: str, features: dict):
     })
 
 
-def _substitute_variables(value: str, custom: dict, depth: int = 0):
+class _CascadeBudgetExceeded(Exception):
+    """The rendering-view pass needed more work than _MAX_CASCADE_OPERATIONS allows."""
+
+
+# Work the rendering-view pass may do for one HTML document: selector matching steps,
+# characters var() substitutes and "maybe" rules checked, together. Past it the views
+# stay unresolved and the analysis is reported incomplete. The unit tests need at most
+# 262 and the public corpus 24; a synthetic 31 KB responsive newsletter (120 descendant
+# rules, @media and dark-mode contexts, var() colours) 266,000. A pass stopped here takes
+# about 1.5 seconds.
+_MAX_CASCADE_OPERATIONS = 4_000_000
+# The longest value var() substitution may produce. Browsers cap it too (Chromium at
+# about 2 MB); a value this reader classifies is far shorter.
+_MAX_VARIABLE_EXPANSION = 16_384
+
+
+class _CascadeBudget:
+    def __init__(self, limit: int = _MAX_CASCADE_OPERATIONS):
+        self.left = limit
+
+    def spend(self, amount: int = 1):
+        self.left -= amount
+        if self.left < 0:
+            raise _CascadeBudgetExceeded
+
+
+_SHARED_CASCADE_BUDGET: ContextVar[_CascadeBudget | None] = ContextVar('shared_cascade_budget', default=None)
+
+
+@contextmanager
+def shared_cascade_budget():
+    """One budget for every rendering-view pass inside (a message's parts and its link
+    labels), so that many small parts cannot each spend a full one. Inside another, the
+    outer budget stays. Usable as a decorator."""
+    if _SHARED_CASCADE_BUDGET.get() is not None:
+        yield
+        return
+    token = _SHARED_CASCADE_BUDGET.set(_CascadeBudget())
+    try:
+        yield
+    finally:
+        _SHARED_CASCADE_BUDGET.reset(token)
+
+
+def _substitute_variables(value: str, custom: dict, depth: int = 0, budget: _CascadeBudget | None = None):
     """value with each var(--name[, fallback]) replaced from the element's custom properties,
-    or None when one is undefined without a fallback (invalid at computed-value time)."""
+    or None when one is undefined without a fallback (invalid at computed-value time).
+    Raises _CascadeBudgetExceeded when the value grows past _MAX_VARIABLE_EXPANSION, or the
+    work past the budget."""
     if depth > 8:
         return None
-    result, index = [], 0
+    result, index, size = [], 0, 0
     while True:
         start = value.find('var(', index)
         if start < 0:
             result.append(value[index:])
             return ''.join(result)
         result.append(value[index:start])
+        size += start - index
         level, end = 0, start + 3
         for end in range(start + 3, len(value)):
             level += (value[end] == '(') - (value[end] == ')')
@@ -2118,9 +2168,14 @@ def _substitute_variables(value: str, custom: dict, depth: int = 0):
         replacement = custom.get(name, fallback)
         if replacement is None:
             return None
-        replacement = _substitute_variables(replacement.strip(), custom, depth + 1)
+        replacement = _substitute_variables(replacement.strip(), custom, depth + 1, budget)
         if replacement is None:
             return None
+        size += len(replacement)
+        if size > _MAX_VARIABLE_EXPANSION:
+            raise _CascadeBudgetExceeded
+        if budget is not None:
+            budget.spend(len(replacement))
         result.append(replacement)
         index = end + 1
 
@@ -2140,7 +2195,7 @@ def _variable_class(name: str, value):
     return 'inherit' if kind == 'invalid' else kind
 
 
-def _with_custom_properties(winners: dict, custom: dict) -> tuple:
+def _with_custom_properties(winners: dict, custom: dict, budget: _CascadeBudget | None = None) -> tuple:
     """An element's winning declarations with var() substituted, and its custom properties.
 
     Custom properties inherit; an element's own (--name) replace its parent's, and var()
@@ -2159,7 +2214,7 @@ def _with_custom_properties(winners: dict, custom: dict) -> tuple:
         custom = dict(raw)
         for name in defined:
             if name in raw and 'var(' in raw[name]:
-                substituted = _substitute_variables(raw[name], raw)
+                substituted = _substitute_variables(raw[name], raw, budget=budget)
                 if substituted is None:
                     del custom[name]
                 else:
@@ -2168,10 +2223,10 @@ def _with_custom_properties(winners: dict, custom: dict) -> tuple:
     for name, ranked in winners.items():
         value = ranked[3]
         if isinstance(value, tuple) and value[0] == 'var':
-            value = _variable_class(name, _substitute_variables(value[1], custom))
+            value = _variable_class(name, _substitute_variables(value[1], custom, budget=budget))
         elif (name in _GEOMETRY_PROPERTIES or name in _COLOUR_PROPERTIES or name in _BACKGROUND_LAYOUT_PROPERTIES) \
                 and isinstance(value, str) and 'var(' in value:
-            value = _substitute_variables(value, custom)
+            value = _substitute_variables(value, custom, budget=budget)
         else:
             continue
         if resolved is winners:
@@ -2584,6 +2639,7 @@ class _TextCollector(_AnalysisHTMLParser):
         # and its custom properties. The document root takes the rules on the html
         # and body elements a document leaves implied.
         self.root_states, self.root_custom, self.root_tokens = (), (), frozenset()
+        self.budget = _SHARED_CASCADE_BUDGET.get() or _CascadeBudget()
         if targets:
             self._cascade_root()
         self.view_parts = [[] for _view in views] if targets and targets['contexts'] else []
@@ -2704,21 +2760,32 @@ class _TextCollector(_AnalysisHTMLParser):
                             parts.append(text)
                         parts_off.append(text)
 
-    def _matches(self, pattern, position, level, index, fold):
+    def _matches(self, pattern, position, level, index, fold, seen=None):
         # Right to left, as browsers match: the open element at a level is the last
-        # entry of its siblings, and the parent of every entry at the next level.
-        if not _compound_matches(pattern['compounds'][position], self.children[level][index], fold):
-            return False
-        if position == 0:
-            return not pattern['rooted'] or level == 0
-        combinator = pattern['combinators'][position - 1]
-        if combinator in {'+', '~'}:
-            earlier = [index - 1] if combinator == '+' else range(index - 1, -1, -1)
-            return any(self._matches(pattern, position - 1, level, sibling, fold)
-                       for sibling in earlier if sibling >= 0)
-        ancestors = [level - 1] if combinator == '>' else range(level - 1, -1, -1)
-        return any(self._matches(pattern, position - 1, ancestor, len(self.children[ancestor]) - 1, fold)
-                   for ancestor in ancestors if ancestor >= 0)
+        # entry of its siblings, and the parent of every entry at the next level. seen
+        # remembers each (compound, element) tried, so descendant and sibling combinators
+        # cannot backtrack exponentially.
+        if seen is None:
+            seen = {}
+        self.budget.spend()
+        key = (position, level, index)
+        if key in seen:
+            return seen[key]
+        found = False
+        if _compound_matches(pattern['compounds'][position], self.children[level][index], fold):
+            if position == 0:
+                found = not pattern['rooted'] or level == 0
+            elif (combinator := pattern['combinators'][position - 1]) in {'+', '~'}:
+                earlier = [index - 1] if combinator == '+' else range(index - 1, -1, -1)
+                found = any(self._matches(pattern, position - 1, level, sibling, fold, seen)
+                            for sibling in earlier if sibling >= 0)
+            else:
+                ancestors = [level - 1] if combinator == '>' else range(level - 1, -1, -1)
+                found = any(self._matches(pattern, position - 1, ancestor, len(self.children[ancestor]) - 1,
+                                          fold, seen)
+                            for ancestor in ancestors if ancestor >= 0)
+        seen[key] = found
+        return found
 
     def _outside_table(self):
         """Where browsers put content a table cannot hold: the innermost open table's
@@ -2733,6 +2800,7 @@ class _TextCollector(_AnalysisHTMLParser):
         the colour of its background, else None."""
         found = None
         for subject, declared in view['maybe']:
+            self.budget.spend()
             if subject is not None and not (
                     _compound_matches(subject, node, True) if node is not None else
                     subject['tag'] in {None, 'html', 'body'} and not (subject['classes'] or subject['ids']
@@ -2744,7 +2812,7 @@ class _TextCollector(_AnalysisHTMLParser):
                           if name not in winners or ranked[:3] > winners[name][:3]}
             if not outranking:
                 continue
-            resolved, changed = _with_custom_properties({**winners, **outranking}, custom)
+            resolved, changed = _with_custom_properties({**winners, **outranking}, custom, self.budget)
             possible = _cascade_state(parent, resolved)[0]
             if possible[:7] != state[:7] or any(
                     name in self.targets['variables'] and changed.get(name) != element_custom.get(name)
@@ -2762,7 +2830,7 @@ class _TextCollector(_AnalysisHTMLParser):
         for view in self.targets['views']:
             # A client in dark mode paints its own canvas and default text colour.
             parent = (*_ROOT_STATE[:8], None, None) if view['dark'] else _ROOT_STATE
-            resolved, custom = _with_custom_properties(view['root'], {})
+            resolved, custom = _with_custom_properties(view['root'], {}, self.budget)
             state, unresolved = _cascade_state(parent, resolved)
             change = None if unresolved else self._maybe_changes(view, None, parent, {}, view['root'], state, custom)
             ambiguous |= unresolved or change == 'ambiguous'
@@ -2810,6 +2878,7 @@ class _TextCollector(_AnalysisHTMLParser):
             parents = self.elements[outside][7] if outside >= 0 else self.root_states
             customs = self.elements[outside][8] if outside >= 0 else self.root_custom
             chain = [self.children[index][-1] for index in range(outside + 1, len(self.elements))]
+            self.budget.spend(len(cascade['structural']) * (len(chain) + 1))
             ambiguous |= any(set(pattern['combinators']) & {'+', '~'} or any(
                 _compound_matches(compound, node, True) for compound in pattern['compounds'][:-1] for node in chain)
                 for pattern in cascade['structural'])
@@ -2835,7 +2904,7 @@ class _TextCollector(_AnalysisHTMLParser):
                 for name, value in hints.items():
                     if name not in winners:
                         winners[name] = (False, (0, 0, 0, 0), 0, value)
-            resolved, element_custom = _with_custom_properties(winners, custom)
+            resolved, element_custom = _with_custom_properties(winners, custom, self.budget)
             state, unresolved = _cascade_state(parent, resolved)
             ambiguous = ambiguous or unresolved
             if not ambiguous:
@@ -3086,6 +3155,16 @@ class _TextCollector(_AnalysisHTMLParser):
             self._emit(data)
 
 
+def _note_cascade_budget(parse_warnings):
+    """Report a rendering-view pass stopped by its budget: the stylesheet's effect is
+    unverified, so text it may hide is handled as for any unverified stylesheet."""
+    if parse_warnings is not None:
+        for warning in (_STYLESHEET_VISIBILITY_WARNING, _CASCADE_BUDGET_WARNING):
+            if warning not in parse_warnings:
+                parse_warnings.append(warning)
+
+
+@shared_cascade_budget()
 def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=None, readings=None) -> str:
     """Decode HTML text separately from destinations, preserving inline words."""
 
@@ -3133,8 +3212,15 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 targets = _stylesheet_cascade(stylesheet, text, typography=typography, geometry=geometry)
             unresolved, views, model_views = [], None, None
             if targets is not None:
-                views = model_views = _collect_html(lambda: _TextCollector(targets), text, [], mark=True,
-                                                    unresolved=unresolved)
+                try:
+                    views = model_views = _collect_html(lambda: _TextCollector(targets), text, [], mark=True,
+                                                        unresolved=unresolved)
+                except _CascadeBudgetExceeded:
+                    # Too costly to render (selectors that backtrack, var() that multiplies):
+                    # unverified, as a stylesheet this reader does not model.
+                    targets = None
+                    _note_cascade_budget(parse_warnings)
+            if targets is not None:
                 if views.cascade_conflict:
                     unresolved.append('cascade')
                 if views.anchors_overflow:
@@ -3144,8 +3230,13 @@ def _visible_content_text(text: str, parse_warnings=None, *, structure_stats=Non
                 if 0 < views.same_colour_letters < _SAME_COLOUR_MODEL_LETTERS:
                     # Too little to dilute the model (a preheader): its views keep this
                     # text, and only the text rules also read the message without it.
-                    model_views = _collect_html(lambda: _TextCollector(targets, colour_views=False), text, [],
-                                                mark=True) if others else None
+                    try:
+                        model_views = _collect_html(lambda: _TextCollector(targets, colour_views=False), text, [],
+                                                    mark=True) if others else None
+                    except _CascadeBudgetExceeded:
+                        model_views = None
+                        unresolved.append('budget')
+                        _note_cascade_budget(parse_warnings)
                 elif not others and not views.same_colour_letters:
                     # Colours that could match, but no text has its background's colour.
                     views = model_views = None
