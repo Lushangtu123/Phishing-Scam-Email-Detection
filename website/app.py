@@ -103,6 +103,9 @@ from email_structure import (
     _decode_idna_domain,
     _domains_align,
     analyze_raw_email,
+    start_arc_verification,
+    VERIFY_ARC,
+    _ARC_VERIFY_SECONDS,
 )
 from sender_features import (
     SUSPICIOUS_KEYWORDS,
@@ -166,6 +169,23 @@ except ValueError as exc:
 if not 1 <= ANALYSIS_WORKERS <= 16:
     raise ValueError('ANALYSIS_WORKERS must be between 1 and 16')
 _analysis_pool = BoundedExecutor(workers=ANALYSIS_WORKERS, thread_name_prefix='analysis')
+
+
+async def _parse_raw_email(raw, *, mailbox_provider: str | None = None) -> dict:
+    """analyze_raw_email for a request. Without a mailbox or a trusted Authentication-Results
+    ID, its ARC chain is what may authenticate it: that is verified first, on the ARC threads,
+    while the request waits on the event loop, so slow DNS cannot hold an analysis worker.
+    Otherwise ARC may not be needed and is verified, only if it is, during the analysis."""
+    arc = VERIFY_ARC
+    if mailbox_provider is None and not SETTINGS.trusted_authserv_ids:
+        future, arc = start_arc_verification(raw), None
+        if future is not None:
+            try:
+                arc = await asyncio.wait_for(asyncio.wrap_future(future), _ARC_VERIFY_SECONDS + 1.0)
+            except Exception:  # out of time: no trust
+                arc = None
+    return await _run_analysis(analyze_raw_email, raw, trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
+                               mailbox_provider=mailbox_provider, arc_result=arc)
 
 
 async def _run_analysis(function, *args, **kwargs):
@@ -1921,9 +1941,7 @@ async def analyze_eml_endpoint(request: Request):
     requested = query.get('requested', [''])[-1]
     if requested not in {'', 'yes', 'no'}:
         raise HTTPException(status_code=400, detail='Unsupported requested answer; use yes, no or leave it empty')
-    structure = await _run_analysis(analyze_raw_email, bytes(raw),
-                                    trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
-                                    mailbox_provider=mailbox or None)
+    structure = await _parse_raw_email(bytes(raw), mailbox_provider=mailbox or None)
     return await _analyze_content(ContentRequest(requested=requested), structure)
 
 
@@ -1935,10 +1953,7 @@ async def _resolve_content_input(request: ContentRequest, structure: dict | None
     body    = request.body.strip()
     if structure is not None or request.raw_email.strip():
         if structure is None:
-            structure = await _run_analysis(analyze_raw_email,
-                request.raw_email,
-                trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
-            )
+            structure = await _parse_raw_email(request.raw_email)
         # Raw-message mode is authoritative, including empty fields. Stale
         # manual input must not replace evidence from the uploaded message.
         subject = structure["subject"]
@@ -2411,8 +2426,7 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
             failed = coded_message('warning.enhanced_failed')
             enhancement = {'status': 'unavailable', 'warnings': [failed['msg']], 'warning_details': [failed]}
     if structure is None and raw is not None:
-        structure = bound_message_text(await _run_analysis(analyze_raw_email, raw,
-            trusted_authserv_ids=SETTINGS.trusted_authserv_ids, mailbox_provider=payload.mailbox or None))
+        structure = bound_message_text(await _parse_raw_email(raw, mailbox_provider=payload.mailbox or None))
     if not (raw or payload.subject.strip() or payload.body.strip() or payload.observations or payload.warnings):
         raise HTTPException(400, 'Image evidence or an email is required')
     base = json.loads((await _analyze_content(
@@ -2642,8 +2656,7 @@ async def _analyze_case(payload, raw, *, history_workspace: str | None = None):
     visual = isinstance(payload, VisualRequest)
     raw_input = payload.eml_bytes() if visual else raw if raw is not None else payload.raw_email
     if raw_input:
-        structure = await _run_analysis(analyze_raw_email, raw_input,
-            trusted_authserv_ids=SETTINGS.trusted_authserv_ids)
+        structure = await _parse_raw_email(raw_input)
     if visual:
         if structure:
             bound_message_text(structure)

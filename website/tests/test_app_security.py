@@ -50,7 +50,8 @@ class ImagePreviewCSPTests(unittest.TestCase):
         self.assertNotIn('unsafe-inline', policy)
         self.assertEqual(policy, (
             "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; "
-            "connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"))
+            "connect-src 'self'; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; "
+            "frame-ancestors 'none'; form-action 'self'"))
 
     def test_homepage_404_page_and_other_headers_serve_their_policies(self):
         async def fetch(path, headers=None):
