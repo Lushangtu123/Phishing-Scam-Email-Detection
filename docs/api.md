@@ -11,6 +11,11 @@
 | `GET /api/config` | Public feature flags |
 | `GET /health` | Detector availability and deployment profile |
 
+A raw message (the `.eml` upload, `raw_email` in JSON, an email in visual or case
+requests) that is plainly another kind of file — a program, image, PDF, archive or
+Outlook `.msg` by its leading bytes, or with a NUL byte among its headers — is refused
+with 415 and is not analyzed. A malformed but textual message is still analyzed.
+
 ## Text messages
 
 `POST /api/analyze-sms` takes JSON `{"sender": "...", "text": "..."}`: `sender` at most

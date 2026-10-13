@@ -27,6 +27,7 @@ import domain_verification  # noqa: E402
 import smtplib  # noqa: E402
 import socket  # noqa: E402
 import content_model
+import http_policy  # noqa: E402
 from config import Settings
 
 
@@ -111,6 +112,72 @@ class FaviconTests(unittest.TestCase):
         self.assertTrue(response.headers['content-type'].startswith('image/svg+xml'))
         self.assertEqual(response.content, (WEBSITE_DIR / 'static' / 'favicon.svg').read_bytes())
         self.assertIn('content-security-policy', response.headers)
+
+
+class UploadTypeAndErrorResponseTests(unittest.TestCase):
+    """Uploads that are plainly not mail are refused; every response, a crash's included,
+    carries the security headers and HSTS."""
+
+    @staticmethod
+    def _request(method, path, content=None, headers=None, raise_app_exceptions=True):
+        async def fetch():
+            transport = httpx.ASGITransport(app=app.app, raise_app_exceptions=raise_app_exceptions)
+            async with httpx.AsyncClient(transport=transport, base_url='http://localhost') as client:
+                return await client.request(method, path, content=content, headers=headers or {})
+        return asyncio.run(fetch())
+
+    def _upload(self, body):
+        with patch.object(app, '_content_pipeline', None):
+            return self._request('POST', '/api/analyze-eml', content=body, headers={'content-type': 'message/rfc822'})
+
+    def test_files_that_are_plainly_not_mail_are_refused(self):
+        for name, body in (('program', b'MZ\x90\x00' + b'\x00' * 64), ('ELF', b'\x7fELF\x02\x01' + b'\x00' * 64),
+                           ('PNG', b'\x89PNG\r\n\x1a\n' + b'\x00' * 64), ('JPEG', b'\xff\xd8\xff\xe0' + b'\x00' * 64),
+                           ('PDF', b'%PDF-1.7\n1 0 obj << >> endobj\n'), ('zip', b'PK\x03\x04\x14\x00' + b'\x00' * 64),
+                           ('Outlook .msg', b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1' + b'\x00' * 64),
+                           ('WebP', b'RIFF\x24\x00\x00\x00WEBPVP8 ' + b'\x00' * 64),
+                           ('NUL among headers', b'From: a@example.com\r\nSubject: x\x00y\r\n\r\nbody')):
+            with self.subTest(name=name):
+                response = self._upload(body)
+                self.assertEqual(response.status_code, 415)
+                self.assertIn('not an email message', response.json()['detail'])
+
+    def test_malformed_but_textual_mail_is_still_analyzed(self):
+        for name, body in (('plain', b'From: a@example.com\r\nSubject: hi\r\n\r\nhello\r\n'),
+                           ('byte-order mark', b'\xef\xbb\xbfFrom: a@example.com\r\nSubject: hi\r\n\r\nhello\r\n'),
+                           ('mbox From line', b'From someone@example.com Mon Oct 13 10:00:00 2026\nFrom: a@example.com\n\nhi\n'),
+                           ('no headers', b'Just some pasted text, not a full message.\n'),
+                           ('binary body after the headers', b'From: a@example.com\r\nSubject: hi\r\n\r\n\x00\x01\x02')):
+            with self.subTest(name=name):
+                self.assertEqual(self._upload(body).status_code, 200)
+
+    def test_json_raw_email_is_checked_the_same_way(self):
+        with patch.object(app, '_content_pipeline', None):
+            response = self._request('POST', '/api/analyze-content', content=json.dumps({'raw_email': '%PDF-1.4 x'}),
+                                     headers={'content-type': 'application/json'})
+        self.assertEqual(response.status_code, 415)
+
+    def test_an_unexpected_failure_keeps_the_security_headers(self):
+        async def failing():
+            raise RuntimeError('synthetic failure with a secret detail')
+        app.app.add_api_route('/__test_failure', failing)
+        try:
+            response = self._request('GET', '/__test_failure', raise_app_exceptions=False)
+        finally:
+            app.app.router.routes[:] = [route for route in app.app.router.routes
+                                        if getattr(route, 'path', None) != '/__test_failure']
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.text, 'Internal Server Error')
+        self.assertNotIn('secret detail', response.text)
+        for name, value in http_policy.SECURITY_HEADERS.items():
+            self.assertEqual(response.headers.get(name), value, name)
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+
+    def test_pages_and_api_responses_assert_https_for_two_years(self):
+        for path in ('/', '/health', '/api/no-such-endpoint'):
+            with self.subTest(path=path):
+                self.assertEqual(self._request('GET', path).headers['strict-transport-security'],
+                                 'max-age=63072000; includeSubDomains; preload')
 
 
 class NotFoundPageTests(unittest.TestCase):

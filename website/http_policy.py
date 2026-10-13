@@ -127,6 +127,9 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    # HTTPS only, for two years: the value Vercel's own edge already sends, so the
+    # application asserts it too. Browsers ignore it over plain HTTP (local development).
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
     # Scripts are same-origin files only: no inline handlers or CDN hosts.
     # Styles are same-origin stylesheets only: no style="" attributes or
     # <style> elements (scripts may still set element.style via the CSSOM).

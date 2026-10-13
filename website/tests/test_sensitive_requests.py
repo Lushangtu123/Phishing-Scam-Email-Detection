@@ -58,6 +58,21 @@ class SensitiveRequestTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(bool(content_rules._sensitive_requests(text)), expected)
 
+    def test_spelled_out_code_lengths_count_like_numerals(self):
+        # "six digit" once missed the rule that "6 digit" matched (docs/evaluation.md).
+        code = 'content.sensitive_request.one_time_code'
+        for text in ('Please send us the six digit verification code that just arrived on your phone '
+                     'so we can restore access to your account.',
+                     'share your six-digit code with our agent', 'reply with the eight digit security code'):
+            with self.subTest(text=text):
+                self.assertIn(code, content_rules._sensitive_requests(text))
+        for text in ('Your six-digit verification code is 482913. It expires in 10 minutes.',
+                     'Never share this six digit code with anyone.',
+                     'We will never ask you to send your six-digit code.',
+                     'Enter the six digit code on the sign-in page.'):
+            with self.subTest(text=text):
+                self.assertNotIn(code, content_rules._sensitive_requests(text))
+
     def test_each_kind_has_its_own_explainable_code(self):
         expected = {
             'Reply with the 6-digit verification code.': 'one_time_code',

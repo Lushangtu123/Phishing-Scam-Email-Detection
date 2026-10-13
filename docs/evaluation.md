@@ -394,6 +394,43 @@ and 2/97/0 on 99 legitimate messages (alert/nonalert/undetermined). The two-clas
 comparison passes. No matching bare document labels were found in these corpora,
 so this regression fix does not establish a measured corpus accuracy improvement.
 
+### Spelled-out code lengths, 2026-10-13
+
+A request to send "the six digit verification code" did not match the one-time-code
+request rule, which knew only numerals (`6 digit`). Uploaded as an `.eml` from a
+personal Gmail address, the message then rested on the text model alone and was shown
+as Low; with `6 digit` it was Critical. The modifier now also takes spelled-out lengths
+(`three` to `ten` before `digit`). Baseline `a52821f81bee4672972864d185e8d3887d7a7d8d`.
+
+Criteria fixed before the run:
+
+1. These requests match `content.sensitive_request.one_time_code`: "Please send us the
+   six digit verification code that just arrived on your phone…", "share your
+   six-digit code with our agent", "reply with the eight digit security code".
+2. These do not: "Your six-digit verification code is 482913. It expires in 10
+   minutes.", "Never share this six digit code with anyone.", "We will never ask you
+   to send your six-digit code.", "Enter the six digit code on the sign-in page."
+3. Public corpus rows in `phishing-detection/data` labelled legitimate: no row matches
+   the rule that did not match at the baseline. New matches on rows labelled phishing
+   are counted, with no requirement.
+4. The reproduction message, uploaded as an `.eml` from a personal Gmail address with
+   the served model, is High or Critical (Low at the baseline).
+
+Results (all four pass):
+
+| Criterion | Baseline | Updated | Result |
+| --- | --- | --- | --- |
+| 1. Three spelled-out requests match | 0 of 3 | 3 of 3 | Pass |
+| 2. Four controls (notice, "never share", "never ask", "enter the code") | 0 of 4 match | 0 of 4 match | Pass |
+| 3. Legitimate public rows matching (36,567 rows) | 0 | 0, none new | Pass |
+| 4. Reproduction `.eml` from a personal Gmail address, served model | Low (text model only) | Critical | Pass |
+
+Rows labelled phishing (38,545) match 3 times before and after, and spam (6,444) not
+at all: the public corpora rarely ask for a code in these words, so they show no false
+alarm but little about recall. The benign code notice stays Low in the full pipeline.
+This adds spelled-out lengths only; the text model's alert on an unauthenticated `.eml`
+is still shown as Low when no rule fires, a policy this change does not touch.
+
 ## 2. Browser OCR and QR controls
 
 ### Missing CID image coverage (2026-09-28)
