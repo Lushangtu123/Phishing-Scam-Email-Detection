@@ -689,6 +689,11 @@ _MAX_PDF_CMAP_ENTRIES = 100_000
 # share a CMap or descendant font expand it once; past this the text is not read. About
 # 20 MiB of tables at most, where 30 fonts sharing one 3.4 KB CMap took 388 MiB before.
 _MAX_PDF_FONT_ENTRIES = 200_000
+# Text the codes of a message's ToUnicode CMaps may map to, in characters, and the longest
+# text one code may map to: 512 bytes, the PDF limit for a CMap's destination string.
+# Without them 200,000 entries could each map to a long string.
+_MAX_PDF_FONT_TEXT_CHARS = 1_000_000
+_MAX_PDF_CMAP_TARGET_BYTES = 512
 _MAX_PDF_TEXT_CHARS = 20_000
 _PDF_OBJECT = re.compile(rb"(\d+)\s+\d+\s+obj\b")
 _PDF_WHITESPACE = frozenset(b" \t\r\n\x0c\x00")
@@ -708,7 +713,7 @@ class _PdfMessageBudget:
     short because the message's budget, not the document's, ran out."""
 
     def __init__(self):
-        self.fonts = [_MAX_PDF_FONT_ENTRIES]
+        self.fonts = [_MAX_PDF_FONT_ENTRIES, _MAX_PDF_FONT_TEXT_CHARS]
         self.inflated = 2 * _MAX_PDF_INFLATED_BYTES
         self.tokens = _MAX_PDF_TOKENS
         self.cut = False
@@ -745,9 +750,11 @@ def _spend_inflated(shared: _PdfMessageBudget, allowance: int, left: int):
         shared.cut = True
 
 
-def _spend_font_entries(budget: list, count: int):
+def _spend_font_entries(budget: list, count: int, chars: int = 0):
+    """Take count entries, mapping to chars characters of text, from the font budget."""
     budget[0] -= count
-    if budget[0] < 0:
+    budget[1] -= chars
+    if budget[0] < 0 or budget[1] < 0:
         raise _PdfResourceLimit
 
 
@@ -764,8 +771,10 @@ def _pdf_tokens(data: bytes, budget: list):
             end = data.find(b"\n", index)
             index = size if end < 0 else end + 1
         elif byte == 0x28:  # (literal string), nested parentheses and escapes
+            # Each byte read costs one, so a long string cannot be read whole for free.
             depth, cursor, value = 1, index + 1, bytearray()
-            while cursor < size:
+            while cursor < size and budget[0] > 0:
+                budget[0] -= 1
                 byte = data[cursor]
                 if byte == 0x5C:
                     stop = cursor + 1
@@ -798,6 +807,7 @@ def _pdf_tokens(data: bytes, budget: list):
             end = data.find(b">", index)
             end = size if end < 0 else end
             digits = re.sub(rb"[^0-9A-Fa-f]", b"", data[index + 1:end])
+            budget[0] -= len(digits) // 2
             yield ("string", bytes.fromhex((digits + b"0" * (len(digits) % 2)).decode("ascii")))
             index = end + 1
         elif byte == 0x3E:
@@ -879,11 +889,16 @@ def _pdf_cmap(stream: bytes, budget: list) -> tuple[dict[bytes, str], int]:
     text = stream.decode("latin-1")
 
     def target(hexadecimal: str) -> str:
+        hexadecimal = hexadecimal[:2 * _MAX_PDF_CMAP_TARGET_BYTES]
         return bytes.fromhex(hexadecimal + "0" * (len(hexadecimal) % 2)).decode("utf-16-be", "replace")
+
+    def most_chars(hexadecimal: str) -> int:
+        # UTF-16 gives at most one character per two bytes.
+        return (min(len(hexadecimal), 2 * _MAX_PDF_CMAP_TARGET_BYTES) + 3) // 4
     for block in re.findall(r"beginbfchar(.*?)endbfchar", text, re.S):
         for source, value in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]*)>", block):
             if len(mapping) < _MAX_PDF_CMAP_ENTRIES:
-                _spend_font_entries(budget, 1)
+                _spend_font_entries(budget, 1, most_chars(value))
                 mapping[bytes.fromhex(source + "0" * (len(source) % 2))] = target(value)
                 lengths.add((len(source) + 1) // 2)
     for block in re.findall(r"beginbfrange(.*?)endbfrange", text, re.S):
@@ -895,14 +910,15 @@ def _pdf_cmap(stream: bytes, budget: list) -> tuple[dict[bytes, str], int]:
                 continue
             if value.startswith("["):
                 items = re.findall(r"<([0-9A-Fa-f]*)>", value)
-                _spend_font_entries(budget, len(items))
+                _spend_font_entries(budget, len(items), sum(most_chars(item) for item in items))
                 for offset, item in enumerate(items):
                     mapping[(start + offset).to_bytes(width, "big")] = target(item)
                 continue
-            base = bytes.fromhex(value[1:-1] + "0" * (len(value[1:-1]) % 2))
+            digits = value[1:-1][:2 * _MAX_PDF_CMAP_TARGET_BYTES]
+            base = bytes.fromhex(digits + "0" * (len(digits) % 2))
             first, capacity = int.from_bytes(base, "big") if base else 0, max(len(base), 2)
             count = min(stop - start + 1, (1 << 8 * capacity) - first)
-            _spend_font_entries(budget, max(count, 0))
+            _spend_font_entries(budget, max(count, 0), max(count, 0) * (capacity // 2))
             for offset in range(count):
                 code = (first + offset).to_bytes(capacity, "big")
                 mapping[(start + offset).to_bytes(width, "big")] = code.decode("utf-16-be", "replace")
@@ -1098,12 +1114,24 @@ def pdf_text(data: bytes) -> str:
             nonlocal x, end_x, last_y
             unit = max(size * scale, 1.0)
             mapping, length, widths, default = font or (None, 1, {}, 500.0)
-            codes = [string[index:index + length] for index in range(0, len(string) - length + 1, length)]
-            # A simple font's codes missing from its ToUnicode map still draw their glyphs:
-            # read them in the standard encoding, as a map of a few codes would hide the rest.
-            text = ("".join(mapping.get(code, code.decode("cp1252", "replace") if length == 1 else "")
-                            for code in codes) if mapping
-                    else string.decode("cp1252", "replace"))
+            starts = range(0, len(string) - length + 1, length)
+            # Decode only as far as twice the text limit: past it the document's text is
+            # complete, so a long string, or codes mapped to long text, is never expanded
+            # whole. A simple font's codes missing from its ToUnicode map still draw their
+            # glyphs: read them in the standard encoding, as a map of a few codes would
+            # hide the rest.
+            room = 2 * _MAX_PDF_TEXT_CHARS + 1 - written[0]
+            if mapping:
+                parts, count = [], 0
+                for index in starts:
+                    if count >= room:
+                        break
+                    code = string[index:index + length]
+                    parts.append(mapping.get(code, code.decode("cp1252", "replace") if length == 1 else ""))
+                    count += len(parts[-1])
+                text = "".join(parts)
+            else:
+                text = string[:max(room, 0)].decode("cp1252", "replace")
             if end_x is not None:
                 if last_y is not None and abs(y - last_y) > unit * 0.5:
                     pieces.append("\n")
@@ -1111,7 +1139,9 @@ def pdf_text(data: bytes) -> str:
                     pieces.append(" ")
             pieces.append(text)
             written[0] += len(text)
-            x += unit * sum(widths.get(int.from_bytes(code, "big"), default) for code in codes) / 1000
+            if written[0] <= 2 * _MAX_PDF_TEXT_CHARS:  # past it no further text is read
+                x += unit * sum(widths.get(int.from_bytes(string[index:index + length], "big"), default)
+                                for index in starts) / 1000
             end_x, last_y = x, y
         for token in _pdf_tokens(stream, budget):
             kind = token[0]

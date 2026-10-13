@@ -94,6 +94,33 @@ class CascadeBudgetTests(unittest.TestCase):
         self.assertLess(time.perf_counter() - start, 6.0)  # 30 s with a budget per label
         self.assertEqual(len(links), 60000 // len(anchor))
 
+    def test_vars_that_expand_to_nothing_still_cost_a_step_each(self):
+        # Charged only by the length they produced, empty expansions once cost nothing:
+        # 8 references per level, 7 levels, 615 bytes took 5.85 s; 12 per level, over 60 s.
+        with self.assertRaises(hv._CascadeBudgetExceeded):
+            hv._substitute_variables('var(--a)', {'--a': ''}, budget=hv._CascadeBudget(0))
+        def page(fan):
+            props = ''.join(f'--v{i}:' + f'var(--v{i + 1})' * fan + ';' for i in range(7)) + '--v7:var(--none,);'
+            return f'<style>p{{{props}font-size:var(--v0) 0}}</style><p>x</p><i>y</i>'
+        _visible, warnings, readings, seconds = render(page(12))
+        self.assertLess(seconds, 1.0)
+        self.assertNotIn(CSS_BUDGET, warnings)
+        # Both expand to the same empty text: the same reading, wide or narrow.
+        self.assertEqual(readings, render(page(2))[2])
+
+    def test_repeated_references_expand_the_same_way(self):
+        custom = {'--a': 'var(--b) var(--b)', '--b': 'var(--c,red)', '--c': 'var(--missing)'}
+        self.assertIsNone(hv._substitute_variables('var(--a)', custom))
+        custom['--c'] = 'blue'
+        self.assertEqual(hv._substitute_variables('var(--a) var(--a)', custom), 'blue blue blue blue')
+        # The same value, 'var(--d7)', expands to x one level down but passes depth 8 seven
+        # levels down: what is remembered must be per depth.
+        deep = {f'--d{i}': f'var(--d{i + 1})' for i in range(1, 8)} | {'--d8': 'var(--z)', '--z': 'x',
+                                                                       '--a': 'var(--d7)'}
+        self.assertEqual(hv._substitute_variables('var(--a)', deep), 'x')
+        self.assertIsNone(hv._substitute_variables('var(--d1)', deep))
+        self.assertIsNone(hv._substitute_variables('var(--a) var(--d1)', deep))
+
     def test_budget_is_per_thread(self):
         seen = {}
 
@@ -219,6 +246,48 @@ class PdfMessageBudgetTests(unittest.TestCase):
         self.assertIn('Hello', es.pdf_text(document))
         self.assertIn('Hello', es.pdf_text(document))
 
+
+def mapped_text_pdf(target_bytes: int, codes: int) -> bytes:
+    """A PDF whose font maps code 01 to target_bytes bytes of UTF-16 text, showing it codes times."""
+    cmap = b'begincmap 1 beginbfchar <01> <' + b'0041' * (target_bytes // 2) + b'> endbfchar endcmap'
+    content = b'BT /F1 12 Tf (' + b'\x01' * codes + b') Tj ET'
+    return b''.join([
+        b'%PDF-1.4\n',
+        b'1 0 obj << /Type /Page /Resources << /Font << /F1 3 0 R >> >> /Contents 2 0 R >> endobj\n',
+        b'2 0 obj << /Length %d /Filter /FlateDecode >> stream\n' % len(zlib.compress(content)), zlib.compress(content),
+        b'\nendstream endobj\n',
+        b'3 0 obj << /Type /Font /Subtype /Type1 /ToUnicode 4 0 R >> endobj\n',
+        b'4 0 obj << /Length %d >> stream\n' % len(cmap), cmap, b'\nendstream endobj\n%%EOF'])
+
+
+class PdfTextMemoryTests(unittest.TestCase):
+    def test_one_code_maps_to_at_most_512_bytes_of_text(self):
+        mapping, _length = es._pdf_cmap(b'beginbfchar <01> <' + b'0041' * 1000 + b'> endbfchar', [10, 10 ** 6])
+        self.assertEqual(len(mapping[b'\x01']), 256)
+
+    def test_mapped_text_is_charged_to_the_font_budget(self):
+        # 4,096 codes of 256 characters each: past the 1,000,000 characters a message may map.
+        stream = b'beginbfrange <0000> <0FFF> <' + b'00' * 512 + b'> endbfrange'
+        with self.assertRaises(es._PdfResourceLimit):
+            es._pdf_cmap(stream, [es._MAX_PDF_FONT_ENTRIES, es._MAX_PDF_FONT_TEXT_CHARS])
+
+    def test_text_is_decoded_only_as_far_as_the_limit(self):
+        # 50,000 codes of 200 characters were 10,000,000 characters before the text limit cut them.
+        document = mapped_text_pdf(400, 50_000)
+        text, peak = peak_mib(es.pdf_text, document)
+        self.assertEqual(text, 'A' * es._MAX_PDF_TEXT_CHARS)
+        self.assertLess(peak, 5)
+
+    def test_long_strings_spend_the_token_budget_as_they_are_read(self):
+        budget = [1000]
+        tokens = list(es._pdf_tokens(b'(' + b'a' * 5000 + b') Tj', budget))
+        self.assertEqual(len(tokens), 1)
+        self.assertLess(len(tokens[0][1]), 1000)
+        self.assertLessEqual(budget[0], 0)
+
+    def test_short_mapped_text_reads_as_before(self):
+        self.assertEqual(es.pdf_text(mapped_text_pdf(4, 3)), 'AAAAAA')
+
 def arc_set(instance, selector=b'arc-1', domain=b'google.com', extra=b''):
     return (b'ARC-Seal: i=%d; a=rsa-sha256; t=1; cv=%s; %sd=%s; s=%s; b=AAAA\r\n'
             % (instance, b'none' if instance == 1 else b'pass', extra, domain, selector)
@@ -292,6 +361,46 @@ class ArcLookupTests(unittest.TestCase):
         es.arc_sealed_results(arc_message(arc_set(1)), dnsfunc=dns)
         self.assertTrue(threads)
         self.assertTrue(all(name.startswith('arc') for name in threads))
+
+
+def nested_html_message(count: int) -> bytes:
+    """A message attaching count messages, each an HTML part with a stylesheet that may hide text."""
+    inner = (b'From: inner@example.com\r\nSubject: inner\r\nContent-Type: text/html\r\n\r\n'
+             b'<style>.a{font-size:0}</style><p class="a">hidden</p><p>shown</p>\r\n')
+    parts = b''.join(b'--b\r\nContent-Type: message/rfc822\r\n\r\n' + inner for _index in range(count))
+    return (b'From: a@example.com\r\nTo: b@example.com\r\nSubject: s\r\nMIME-Version: 1.0\r\n'
+            b'Content-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/html\r\n\r\n'
+            b'<style>.a{font-size:0}</style><p class="a">x</p>\r\n' + parts + b'--b--\r\n')
+
+
+class RequestBudgetTests(unittest.TestCase):
+    def test_attached_messages_share_the_request_budget(self):
+        import asyncio
+        import app
+        created = []
+
+        class Counted(hv._CascadeBudget):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+        structure = es.analyze_raw_email(nested_html_message(3))
+        self.assertEqual(len(structure['nested_messages']), 3)
+        with patch.object(hv, '_CascadeBudget', Counted), patch.object(app, '_content_pipeline', None):
+            asyncio.run(app._analyze_content(app.ContentRequest(), structure, observe_sender_history=False))
+        # Once one per attached message (and per pass), each with a full budget.
+        self.assertEqual(len(created), 1)
+        self.assertLess(created[0].left, hv._MAX_CASCADE_OPERATIONS)
+
+    def test_analysis_threads_see_the_callers_context(self):
+        import asyncio
+        import contextvars
+        import app
+        marker = contextvars.ContextVar('marker', default=None)
+
+        async def run():
+            marker.set('request')
+            return await app._run_analysis(marker.get)
+        self.assertEqual(asyncio.run(run()), 'request')
 
 
 if __name__ == '__main__':

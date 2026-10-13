@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import asyncio
+import contextvars
 import json
 import hashlib
 import re
@@ -188,8 +189,9 @@ async def _parse_raw_email(raw, *, mailbox_provider: str | None = None) -> dict:
 
 
 async def _run_analysis(function, *args, **kwargs):
-    """Keep synchronous parsing/inference off the event loop, without a queue."""
-    future = _analysis_pool.submit(partial(function, *args, **kwargs))
+    """Keep synchronous parsing/inference off the event loop, without a queue. The function
+    runs in a copy of the caller's context, so a request's budgets reach the worker."""
+    future = _analysis_pool.submit(partial(contextvars.copy_context().run, function, *args, **kwargs))
     if future is None:
         raise HTTPException(503, 'Analysis is busy; retry shortly.',
                             headers={'Retry-After': '1'})
@@ -2325,7 +2327,14 @@ def _apply_abstention(result: dict, resolved_warnings: set, rendering_uncertain:
             result['combined_phishing_score'] = None
 
 
-async def _analyze_content(
+async def _analyze_content(request: ContentRequest, structure: dict | None = None, **options):
+    """Analyze one message. Its parts, link labels and attached messages render within one
+    CSS budget, however many messages it attaches (each once had a full one)."""
+    with shared_cascade_budget():
+        return await _analyze_content_within_budget(request, structure, **options)
+
+
+async def _analyze_content_within_budget(
     request: ContentRequest,
     structure: dict | None = None,
     *,
