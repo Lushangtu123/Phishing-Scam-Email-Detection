@@ -11,6 +11,12 @@
 | `GET /api/config` | Public feature flags |
 | `GET /health` | Detector availability and deployment profile |
 
+Case workspace endpoints (`/api/cases…`) take `Authorization: Bearer <session>`. An
+analyst's access token is accepted only by `POST /api/cases/session`, which returns
+`{"actor", "session", "idle_seconds", "expires_at"}` (201); `DELETE /api/cases/session`
+with the session ends it (204, also when it has already ended). Sessions end after
+30 idle minutes, 8 hours, or when the analyst's token hash changes ([case workflow](case-workflow.md)).
+
 A raw message (the `.eml` upload, `raw_email` in JSON, an email in visual or case
 requests) that is plainly another kind of file — a program, image, PDF, archive or
 Outlook `.msg` by its leading bytes, or with a NUL byte among its headers — is refused

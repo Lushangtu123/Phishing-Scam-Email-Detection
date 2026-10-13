@@ -104,8 +104,11 @@ history and choose **I reviewed the latest revision — keep my draft**. Invalid
 status transitions still require choosing a valid status. **Discard draft**
 restores the saved fields. The page asks before leaving with unsaved work;
 browsers may suppress that prompt. Sign-out clears all drafts, and manual
-sign-out asks before discarding them. Drafts are not written to browser storage
-and cannot survive a refresh, tab closure, browser crash or expired session.
+sign-out asks before discarding them. When a session expires with unsaved work in
+the tab, the page keeps it and asks you to sign in again: the same analyst continues
+where they stopped, while a different analyst starts from a cleared workspace.
+Drafts are not written to browser storage and cannot survive a refresh, tab closure
+or browser crash.
 Late detail responses cannot replace a newer revision already observed in the tab,
 including a review or opinion saved while a detail read was still in flight.
 
@@ -120,7 +123,13 @@ outage refer only to the available sources and may change when storage recovers.
 
 Use the homepage **Case login** button (also visible on mobile) to open
 `https://phishguard-email-analyzer.vercel.app/cases` and sign in with your
-individual analyst token. Bookmark this stable address, not a deployment-specific
+individual analyst token. The token only signs you in: the server exchanges it for a
+short-lived session, which the page keeps in memory and sends with each request. A
+session ends 30 minutes after its last request, 8 hours after sign-in, when you sign
+out or close the tab, or as soon as your token's hash is replaced or removed. Sessions
+live in the case storage (Upstash in Production), so a sign-out holds on every
+instance; the server keeps only a SHA-256 of each session ID. Bookmark this stable
+address, not a deployment-specific
 Vercel URL. For local development, open `/cases` on the local server. Create a case from
 subject/body, an original `.eml` file, or a PNG/JPEG/WebP image. Creation saves extracted text and detection
 evidence; the public analyzer does not automatically create cases. Everyone
@@ -216,13 +225,14 @@ each analyst. Choose `y` at the existing-token prompt if you already saved one;
 the hidden prompt regenerates its hash without changing that token. First paste
 the current JSON at the hidden prompt so the helper can preserve every analyst.
 It refuses to replace an existing analyst unless you explicitly type `ROTATE`;
-rotation revokes that analyst's old token on new deployments. Copy the final
+rotation revokes that analyst's old token on new deployments, and their open sessions
+there end at their next request. Copy the final
 complete JSON line into Vercel, not the token or an individual hash. Save generated
 tokens in a password manager and deliver them privately. The helper refuses
 redirected output. Do not send raw tokens in chat. Browser refresh signs out;
-tokens are not saved in localStorage or cookies. Refreshing the browser requires
-the same token again, while an unchanged Production hash remains valid across code
-releases.
+neither tokens nor sessions are saved in localStorage or cookies. Refreshing the
+browser requires the same token again, while an unchanged Production hash remains
+valid across code releases.
 
 Vercel Secret values cannot be read back after saving. If the old JSON was not
 kept and **exactly one analyst** should retain access, run
@@ -231,8 +241,9 @@ terminal. It asks for the saved token through a hidden prompt and emits a comple
 one-analyst JSON map. Replacing Production with that map revokes every other
 analyst token on the next deployment. Never use this recovery mode for a team.
 After redeploying, run `python website/tools/verify_case_login.py` in your own
-terminal. It sends the hidden token only to the fixed Production `/api/cases/me`
-endpoint, reports the analyst ID or a safe error, and does not print the token.
+terminal. It signs in with the hidden token only at the fixed Production
+`/api/cases/session` endpoint, signs out again at once, reports the analyst ID or a
+safe error, and does not print the token.
 The automatic deployment smoke also requires anonymous `/api/cases/me` to return
 401; this confirms the access boundary, **not** that a particular saved token
 matches the current Secret. A positive check still requires a token holder.
@@ -422,5 +433,5 @@ to visible text and inline image data URIs are removed after analysis. Original
 EML bytes are sent to the server for message parsing but are not retained.
 OCR/QR does not certify image safety or inspect malware,
 all animation frames or remote images. Review limitations before closing a case.
-Refreshing/signing out clears the current scan and token. Retrying a failed save
+Refreshing/signing out clears the current scan and session. Retrying a failed save
 uses the same idempotency key and recognized evidence until the input changes.

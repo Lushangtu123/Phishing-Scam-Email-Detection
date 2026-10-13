@@ -402,9 +402,21 @@ try {
     await page.locator('#reload-case').click();
     assert.equal((await reload).status(), 200);
     await page.waitForFunction(() => document.getElementById('visual-evidence').textContent.includes('https://paypa1.example/login'));
-    const stored = await context.request.get(appURL + `/api/cases/${record.id}?kind=case`, {headers: {Authorization: `Bearer ${token}`}});
+    // The access token only signs in: a case read with it is refused, one with a session is not.
+    const recordURL = appURL + `/api/cases/${record.id}?kind=case`;
+    assert.equal((await context.request.get(recordURL, {headers: {Authorization: `Bearer ${token}`}})).status(), 401);
+    const signedIn = await context.request.post(appURL + '/api/cases/session', {headers: {Authorization: `Bearer ${token}`}});
+    assert.equal(signedIn.status(), 201);
+    const {session} = await signedIn.json();
+    const stored = await context.request.get(recordURL, {headers: {Authorization: `Bearer ${session}`}});
     assert.equal(stored.status(), 200);
     validateVisual((await stored.json()).analysis, ['https://paypa1.example/login']);
+    assert.equal((await context.request.delete(appURL + '/api/cases/session', {headers: {Authorization: `Bearer ${session}`}})).status(), 204);
+    assert.equal((await context.request.get(recordURL, {headers: {Authorization: `Bearer ${session}`}})).status(), 401);
+    // Signing out in the page ends the page's own session on the server.
+    const signedOut = page.waitForResponse(response => new URL(response.url()).pathname === '/api/cases/session' && response.request().method() === 'DELETE');
+    await page.locator('#logout').click();
+    assert.equal((await signedOut).status(), 204);
     assert.equal(await page.evaluate(() => Object.values(localStorage).some(value => value.includes('synthetic-browser-analyst-token'))), false);
     assert.equal(await page.evaluate(() => Object.values(sessionStorage).some(value => value.includes('synthetic-browser-analyst-token'))), false);
   });
