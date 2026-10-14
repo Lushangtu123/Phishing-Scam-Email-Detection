@@ -1232,6 +1232,29 @@ before the plan is frozen.
    derives family keys (sender organisation; for phishing, campaign) from headers without
    showing content. Until it exists, exports stay unsplit and unscored.
 
+### Intent rules in development (2026-10-13)
+
+Plan step 4: the credential-handover and payment-redirection rules, written on development data
+only and **off** in service. Only an evaluator turns them on (`app.INTENT_RULES`), so no rule
+reaches production before the owner's decision. Every number below is a development number; the
+plan judges the rules on the holdout alone (D6–D9).
+
+Criteria fixed before the first run:
+
+1. **Development fixtures.** These are the data the rules are written on, so this is a check,
+   not evidence. With both rules on:
+   - every positive matches its own rule, in both languages;
+   - no control matches either rule.
+   A positive that also matches the other rule is reported.
+2. **Regression.** Pasted, with the served model and the rule on, both assessment misses reach
+   Medium or above (Low at the baseline). #60's reproduction keeps its level.
+3. **Public corpora** (development data; D8's bound applied early). Rows labelled legitimate in
+   `phishing-detection/data` (36,567), read as pasted text with no sender: at most **36** match
+   each rule. Rows labelled phishing or spam are counted, with no requirement.
+4. **Off by default.** With no rule on, the content analysis of the unit tests' inputs is
+   byte-identical to `main`. Turning both rules on changes at least one, so the replay can see
+   them.
+
 ### Plan options and mailbox settings in the serving evaluator (2026-10-13)
 
 For the 2026-10-13 evaluation plan
