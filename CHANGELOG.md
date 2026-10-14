@@ -28,7 +28,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - Steps 3–4 of the 2026-10-13 evaluation plan: the two intent rules (credential handover, payment redirection) need synthetic development and regression data before they are written, and the owner needs written steps to collect fresh mail while the holdout stays sealed.
 
 ### Files changed
-- `website/tests/fixtures/intent_rules/development.jsonl` (75 rows, 37 families, English and Chinese: positives and the plan's six control types, every required scenario in both languages) and `regression.jsonl` (the assessment's two misses and #60's reproduction). Reserved domains only.
+- `website/tests/fixtures/intent_rules/development.jsonl` (75 rows, 36 families, English and Chinese: positives and the plan's six control types, every required scenario in both languages) and `regression.jsonl` (the assessment's two misses and #60's reproduction). Reserved domains only.
 - `website/tools/intent_fixture_baseline.py` — counts today's results on the fixtures as pasted text (counts only).
 - `website/tests/test_intent_fixtures.py` (6 tests) — shape, one set/language/behaviour/kind per family (it caught two mixed families, now split), scenario coverage in both languages, quoted warnings as controls and quoted instructions as positives, reserved domains.
 - `docs/evaluation.md` — the fixtures, the baseline and the collection steps.

@@ -1177,7 +1177,7 @@ recorded as a follow-up, not changed here.
 **Fixtures.** `website/tests/fixtures/intent_rules/` holds synthetic data for the plan's two
 intent rules:
 
-- `development.jsonl`: 75 newly written rows in 37 families, English and Chinese, positives
+- `development.jsonl`: 75 newly written rows in 36 families, English and Chinese, positives
   and the plan's control types. Every required scenario is covered in both languages:
   - a request split across sentences;
   - a link in another paragraph;
