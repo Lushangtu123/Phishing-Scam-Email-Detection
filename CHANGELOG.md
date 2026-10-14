@@ -37,6 +37,17 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 ### Effect
 - Served behaviour unchanged: with the served model, the full content analysis of the 518 raw messages the unit tests parse is byte-identical to `main` (44 are model-only); a planted default of B changes 16, so the replay detects it. No holdout exists yet; nothing was scored.
 
+## [2026-10-13 16:06 PT] — Evaluation plan for model-only alerts and intent rules: D1–D11 locked, reviewer pending
+
+### Why
+- The 2026-10-13 review questioned showing an original message as Low when only the text model alerts, a rule that keys on the input path rather than authentication, and asked for intent-based rules (credential handover, payment redirection) instead of keyword patches for the two reproduced misses. AGENTS.md requires criteria in writing before any measurement.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md` (new) — three options for model-only alerts on original messages (A current Low note, B Medium unless the sender is authenticated, C an explicit review state), scored by running the full pipeline per option (no offline reconstruction), with abstention kept exactly; two intent rules with controls and required tests; metrics that keep alerts, reviews, false passes and Unknown apart; authenticated phishing and its decisive subset reported separately; one pre-registered holdout comparison over 12 configurations (A/B/C × no rule, credential only, payment only, both), each rule accepted for English and Chinese together, the deployed combination checked per message; fresh mail after 2026-10-14, at least 400 unique real downloads, public samples kept as an unverified cohort; thresholds on observed counts with Wilson intervals; "insufficient evidence" when a minimum is not met. Revised twice after review.
+
+### Effect
+- D1–D11 are locked at this commit. D12, the independent reviewer, is to be determined and not yet assigned (`reviewer-01` is a reserved ID), so the plan is not frozen and no holdout may be scored. Tooling, synthetic regression and development data, and new-mail collection may proceed; holdout mail stays isolated, unused for tuning and unscored. Nothing was measured.
+
 ## [2026-10-13 15:35 PT] — Case workspace: the access token only signs in; short-lived, revocable sessions
 
 ### Why
