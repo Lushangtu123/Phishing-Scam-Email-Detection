@@ -44,11 +44,12 @@ export const SYNTHETIC_SESSION = 'synthetic-session-from-sign-in-0123456789ab';
 
 // Sign-in and sign-out (/api/cases/session), recorded in `sessionCalls`, not `calls`.
 // A handler marked `handlesSignIn` answers sign-ins itself; otherwise alice signs in.
-// Sign-out ends the session with 204. Other URLs return null.
+// A handler marked `handlesSignOut` answers sign-outs itself; otherwise they get 204.
+// Other URLs return null.
 export async function answerSession(handler, url, options, sessionCalls) {
   if (url !== '/api/cases/session') return null;
   sessionCalls.push({url, options});
-  if (options.method === 'DELETE') return {status: 204, data: null};
+  if (options.method === 'DELETE') return handler.handlesSignOut ? handler(url, options) : {status: 204, data: null};
   if (handler.handlesSignIn) return handler(url, options);
   return {status: 201, data: {actor: 'alice', session: SYNTHETIC_SESSION, idle_seconds: 1800, expires_at: 1790000000}};
 }

@@ -22,6 +22,27 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-14 12:50 PT] — Correction: the re-authentication test shows a sign-out request, not a revocation (ASVS 7.2.4)
+
+### Why
+- The owner's review of #68 found that its test and its entry below (2026-10-14 12:09) claimed more than the test shows. The entry says the sign-out DELETE "ends the first session on the server", and names a planted bug "sign-out not ending the session".
+- The test only checks that the page **sends** the DELETE and drops the old session before signing in again:
+  - `endSession()` neither waits for nor checks the answer;
+  - the harness answered every sign-out with 204.
+  - With the DELETE answered 503, or never finishing, the test still passed. So it does not show that the server revoked the session.
+- The entry is corrected here, not edited. The owner chose tests and docs only, with no change of behaviour.
+
+### Files changed
+- `website/static/cases.test.mjs`:
+  - **The #68 test:** its title and comments now say what it checks: the page has sent its sign-out and dropped the old session, or the server refused it. Its assertions are unchanged.
+  - **A new test for when the sign-out fails (503) or never finishes:** the page sends it once, signs out anyway, and from then on sends only the new session. Nothing confirms the server revoked the old one.
+- `website/tests/fixtures/i18n/cases-scenarios.mjs` — a handler may now answer sign-outs itself (`handlesSignOut`); otherwise they still get 204.
+
+### Effect
+- **No change of behaviour.** Correctly read, the #68 entry's planted bug is "sign-out not sending its DELETE".
+- **Planted bugs:** two each fail the new test: sign-out sending no DELETE, and the old session kept after the sign-out. Frontend tests: 532 of 532.
+- **7.2.4 stays partly verified.** The page drops the old session when it signs out, but whether the server has revoked it is not checked: after a failed or unfinished sign-out, the old session may stay valid until its 30-minute idle or 8-hour limit. Guaranteeing revocation needs a server-side design, not made here.
+
 ## [2026-10-14 12:09 PT] — Case page: a test that re-authentication follows the end of the current session (ASVS 7.2.4)
 
 ### Why
