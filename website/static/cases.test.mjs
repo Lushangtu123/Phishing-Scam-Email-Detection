@@ -483,6 +483,57 @@ test('an ended session without unsaved work signs out with an explanation', asyn
   assert.match(ui.el('notice').textContent, /session has ended/);
 });
 
+test('signing in again happens only once the current session has ended or been refused (ASVS 7.2.4)', async () => {
+  // The page holds one session at a time. While a session is live the sign-in form is hidden, so a
+  // new sign-in follows a sign-out, which ends the session on the server, or the server's refusal.
+  // The server itself does not end an earlier session at sign-in: separate tabs keep separate
+  // sessions, and a client outside this page that keeps an old one keeps it until it expires.
+  const credential = 'Bearer synthetic-access-token-at-least-32-characters';
+  for (const keepWork of [false, true]) {
+    const sessions = [1, 2, 3].map(n => `session-${n}-`.padEnd(43, 'x'));
+    const log = []; // sign-ins and case requests, in order
+    let signedIn = 0, refused = null;
+    const handler = async (url, options) => {
+      if (url === '/api/cases/session') {
+        log.push({kind: 'sign-in', session: sessions[signedIn]});
+        return {status: 201, data: {actor: 'alice', session: sessions[signedIn++]}};
+      }
+      const bearer = options.headers.Authorization.slice('Bearer '.length);
+      log.push({kind: 'request', bearer});
+      return bearer === refused
+        ? {status: 401, data: {detail: 'Your session has ended. Sign in again with your access token.'}}
+        : standard(url, options);
+    };
+    handler.handlesSignIn = true;
+    const ui = setup(handler);
+    await ui.login();
+    assert.equal(ui.el('login-panel').hidden, true, 'no sign-in form while a session is live');
+
+    // Sign out, then in again: the first session is ended on the server before the second opens.
+    await ui.fire('logout'); await ui.login();
+    assert.deepEqual(ui.sessionCalls.slice(0, 3).map(call => [call.options.method, call.options.headers.Authorization]),
+      [['POST', credential], ['DELETE', 'Bearer ' + sessions[0]], ['POST', credential]]);
+    const second = log.findIndex(entry => entry.session === sessions[1]);
+    assert(log.slice(second).every(entry => entry.bearer !== sessions[0]), 'the ended session is not used again');
+    assert.equal(ui.el('login-panel').hidden, true);
+
+    // The server refuses the current session: the next sign-in comes after that refusal.
+    if (keepWork) { ui.el('case-list').children[0].listeners.click(); await tick(); ui.el('note').value = 'Unsaved review'; }
+    const before = log.length;
+    refused = sessions[1]; await ui.fire('refresh'); await tick();
+    assert.equal(ui.el('login-panel').hidden, false);
+    const refusal = log.findIndex((entry, index) => index >= before && entry.bearer === sessions[1]);
+    await ui.login(); await tick();
+    const third = log.findIndex(entry => entry.session === sessions[2]);
+    assert(refusal >= 0 && refusal < third, 'the new sign-in follows the refusal');
+    const after = log.slice(third + 1);
+    assert(after.length > 0);
+    assert(after.every(entry => entry.kind === 'request' && entry.bearer === sessions[2]), 'only the new session is used');
+    assert.equal(ui.el('login-panel').hidden, true);
+    if (keepWork) assert.equal(ui.el('note').value, 'Unsaved review');
+  }
+});
+
 test('a review saved after switching cases does not reappear as an unsaved note', async () => {
   let release, saved = caseValue();
   const ui = setup(async (url, options) => options?.method === 'PATCH'
