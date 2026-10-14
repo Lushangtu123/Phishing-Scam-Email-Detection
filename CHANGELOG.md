@@ -55,7 +55,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - Criterion 3: of 36,567 legitimate public rows, 12 match the credential rule and 0 the payment rule (the bound is 36). None of the 12 is a real request for a secret or a mislabel; no exception was added.
 - Five planted bugs each fail at least one test: switch on by default, 4 points, a separate evaluator switch, findings counted twice, switch not restored.
 - Criterion 4, a golden replay with the rules off (step 2): of 4,790 inputs, all are byte-identical to `main` `6d5a613`. These are the unit suite's 1,545 content-analysis calls and 523 raw messages, the 78 fixtures (twice), and 2,043 public-corpus rows, all with the served model. A planted bug (the rules on by default) changes 178. Statement coverage of the changed code is 100%.
-- Criterion 2 is not run.
+- Criterion 2, the rules on with the served model, pasted (step 3): both assessment misses go from Low to Medium, and #60's reproduction stays Critical. Development positives alert 45 of 45 (31 with the rules off), and none of the 30 controls changes level. All four development criteria pass; none of this is evidence of detection.
 
 ## [2026-10-13 21:51 PT] — Serving evaluator: an intent-rule switch that refuses unimplemented rules, and the D6/D7/D9 counts
 

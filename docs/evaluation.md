@@ -1366,7 +1366,20 @@ Criteria fixed before the first run:
   - **Statement coverage** of the changed code (`sys.settrace`) is 100%:
     - with the rules off, only the loop line and `intent_findings`' early return run;
     - the wiring tests run the rest.
-- **Criterion 2:** not run yet (step 3).
+- **Criterion 2: passes** (step 3, the rules on with the served model, pasted, 2026-10-14).
+  - The two assessment misses go from Low to **Medium**; #60's reproduction stays Critical.
+  - With the rules off, every group equals the #64 baseline above.
+  - **Development fixtures:**
+    - alerts on positives rise from 31 to 45 of 45, and Unknown from 11 to 0 (all Chinese positives,
+      which the model does not score);
+    - none of the 30 controls changes level, so the rules add no alert there. The 14 existing false
+      alerts on English controls come from the model and the existing rules;
+    - of the 36 level changes: Medium→High 20, Unknown→Medium 11, Low→Medium 5. A rule's 3 points
+      push some messages that already alerted into High.
+  - Only the pasted view the criterion names was run.
+- All four development criteria pass. The rules were written on these fixtures, so none of this is
+  evidence of detection: the frozen rules are judged on the holdout (D6, D7, D9) and the public
+  corpora (D8).
 
 **Wiring, 2026-10-14: an experimental evaluation wiring, off by default.**
 
