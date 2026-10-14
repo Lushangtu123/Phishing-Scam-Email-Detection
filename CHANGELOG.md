@@ -22,6 +22,32 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-14 15:52 PT] — Case sessions: a damaged session record no longer passes the identity check
+
+### Why
+- **The finding:** the owner's security re-review of `096279c` (P2) found that a session record stored as "an analyst who is not configured, with an empty credential" was granted access by every case endpoint, with both session stores (Redis and SQLite).
+- **The cause:** `identity()` looked up the analyst's configured digest with a default of `''` and compared it with the stored credential. `hmac.compare_digest('', '')` is true.
+- **Reach:** the record has to be written wrongly, damaged or tampered with, and its session ID known. Sign-in cannot create it.
+- **The rule:** a server that meets an abnormal identity must refuse it.
+
+### Files changed
+- `website/case_api.py`, `identity()`: before comparing, the stored analyst must be text and configured now, and the stored credential must be text and a SHA-256 hex digest (64 lowercase hex characters, as `CASE_ANALYST_TOKEN_HASHES` requires). Otherwise the session is closed and the request gets the same 401 as a rotated credential. A storage fault still gives 503.
+- `website/tests/test_case_sessions.py`:
+  - **Damaged records, through the real API:** `/api/cases/me` and `/api/cases`, on SQLite and on Redis (the production Lua, local Redis in CI). Each must give 401 and leave no record. The records:
+    - the review's counterexample (an unknown analyst, empty credential);
+    - an unknown analyst with a well-formed digest;
+    - a configured analyst with an empty, uppercase or short credential;
+    - on SQLite, a BLOB credential.
+  - **Intact sessions** keep 200.
+  - **A storage fault** while reading the session gives 503, not 401, and leaves the session in place.
+  - The existing API tests' setup is shared with the Redis API class; the tests themselves are unchanged.
+
+### Effect
+- **Behaviour:** only damaged session records are affected. Sign-in, normal sessions, expiry, sign-out and credential rotation behave as before.
+- **Planted bug:** with the old comparison restored, the counterexample gets 200 on both stores and both endpoints, so the new test fails. Before the fix, the SQLite BLOB credential raised an exception. The other damaged records were already refused.
+- **Local run:** all 26 session and Redis tests pass against Redis 7.4.7 (the owner's cached image, pinned by digest).
+- **Not changed (deferred):** validating records in `CaseSessions.resume()` itself, and server-side revocation at sign-out or re-authentication (ASVS 7.2.4).
+
 ## [2026-10-14 12:50 PT] — Correction: the re-authentication test shows a sign-out request, not a revocation (ASVS 7.2.4)
 
 ### Why

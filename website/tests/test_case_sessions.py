@@ -6,8 +6,10 @@ import json
 import os
 from pathlib import Path
 import sys
+import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
@@ -16,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import app  # noqa: E402
 from case_api import build_case_service  # noqa: E402
+from case_cloud import CaseUnavailable  # noqa: E402
 from case_sessions import ABSOLUTE_SECONDS, IDLE_SECONDS, CaseSessions, session_digest  # noqa: E402
 from case_store import CaseStore  # noqa: E402
 from test_case_api import TOKEN, _send  # noqa: E402
@@ -32,7 +35,9 @@ class Clock:
         return self.now
 
 
-class CaseSessionApiTests(unittest.TestCase):
+class ApiHarness:
+    """A case service on a temporary SQLite store, reached through the real API."""
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / 'cases.sqlite3'
@@ -59,6 +64,63 @@ class CaseSessionApiTests(unittest.TestCase):
         status, body, _ = self.call('POST', '/api/cases/session', token)
         self.assertEqual(status, 201, body)
         return body
+
+
+ALICE_DIGEST = hashlib.sha256(TOKEN.encode()).hexdigest()
+# Damaged session records (security re-review of 096279c), with made-up analyst IDs only.
+DAMAGED = [('synthetic-unknown', ''),           # the review's counterexample: '' compared with ''
+           ('synthetic-unknown', 'a' * 64),      # an analyst no longer configured, well-formed digest
+           ('alice', ''),                        # a configured analyst with an empty credential
+           ('alice', ALICE_DIGEST.upper()),      # not lowercase hex
+           ('alice', ALICE_DIGEST[:-1])]         # too short
+
+
+class DamagedSessionChecks:
+    """Each damaged record ends its session through the API's own check: 401, and the record is
+    gone. Needs damaged_records(), damage(session, actor, credential) and stored(session)."""
+
+    def test_damaged_session_records_end_the_session(self):
+        for actor, credential in self.damaged_records():
+            for path in ('/api/cases/me', '/api/cases'):
+                with self.subTest(actor=actor, credential=credential, path=path):
+                    session = self.sign_in()['session']
+                    self.damage(session, actor, credential)
+                    status, body, headers = self.call('GET', path, session)
+                    self.assertEqual(status, 401, body)
+                    self.assertIn('session has ended', body['detail'])
+                    self.assertEqual(headers[b'www-authenticate'], b'Bearer')
+                    self.assertFalse(self.stored(session), 'the damaged record is removed')
+        # An intact session is unaffected.
+        session = self.sign_in()['session']
+        self.assertEqual(self.call('GET', '/api/cases/me', session)[0], 200)
+        self.assertEqual(self.call('GET', '/api/cases', session)[0], 200)
+
+
+class CaseSessionApiTests(ApiHarness, DamagedSessionChecks, unittest.TestCase):
+    def damaged_records(self):
+        # SQLite keeps a BLOB as it is: a stored credential that is not text at all.
+        return DAMAGED + [('alice', ALICE_DIGEST.encode())]
+
+    def damage(self, session, actor, credential):
+        with self.service.store.connection(write=True) as db:
+            db.execute('UPDATE case_sessions SET actor=?, credential=? WHERE digest=?',
+                       (actor, credential, session_digest(session)))
+
+    def stored(self, session):
+        with self.service.store.connection() as db:
+            return db.execute('SELECT COUNT(*) FROM case_sessions WHERE digest=?',
+                              (session_digest(session),)).fetchone()[0] > 0
+
+    def test_unavailable_session_storage_is_503_not_an_ended_session(self):
+        session = self.sign_in()['session']
+        for failure in (CaseUnavailable('synthetic outage'), sqlite3.OperationalError('synthetic lock')):
+            with self.subTest(failure=type(failure).__name__), \
+                    patch.object(self.service.sessions, 'resume', side_effect=failure):
+                status, body, _ = self.call('GET', '/api/cases/me', session)
+                self.assertEqual(status, 503, body)
+                self.assertNotIn('synthetic', str(body))
+        self.assertTrue(self.stored(session), 'a storage fault does not end the session')
+        self.assertEqual(self.call('GET', '/api/cases/me', session)[0], 200)
 
     def test_the_access_token_signs_in_and_is_not_a_session(self):
         opened = self.sign_in()
@@ -194,6 +256,37 @@ class CaseSessionRedisTests(unittest.TestCase):
         self.assertEqual(keys, [self.key(session)])
         self.assertNotIn(session, self.store.execute('GET', self.key(session)))
         self.assertIsNone(CaseSessions(self.store, 'production').resume(session))
+
+
+@unittest.skipUnless(os.environ.get('PHISHGUARD_TEST_REDIS_PORT'), 'Local Redis integration service is not configured')
+class CaseSessionRedisApiTests(ApiHarness, DamagedSessionChecks, unittest.TestCase):
+    """The API's session check with sessions in Redis (the production Lua), against local Redis (CI)."""
+
+    def setUp(self):
+        super().setUp()
+        self.redis = LocalRedis('https://synthetic.upstash.io', 'synthetic', 'test-sessions-' + uuid4().hex)
+        self.service.sessions = CaseSessions(self.redis, 'local')
+
+    def tearDown(self):
+        keys = self.redis.execute('KEYS', self.service.sessions.prefix + '*') or []
+        if keys:
+            self.redis.execute('DEL', *keys)
+        super().tearDown()
+
+    def key(self, session):
+        return self.service.sessions.prefix + session_digest(session)
+
+    def damaged_records(self):
+        # Redis returns text; a record that is not text is a storage fault there (503), unchanged here.
+        return DAMAGED
+
+    def damage(self, session, actor, credential):
+        stored = json.loads(self.redis.execute('GET', self.key(session)))
+        stored.update(actor=actor, credential=credential)
+        self.redis.execute('SET', self.key(session), json.dumps(stored), 'EX', IDLE_SECONDS)
+
+    def stored(self, session):
+        return self.redis.execute('GET', self.key(session)) is not None
 
 
 if __name__ == '__main__':
