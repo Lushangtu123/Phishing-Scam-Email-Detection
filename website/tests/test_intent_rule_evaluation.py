@@ -1,5 +1,6 @@
 """The serving evaluator's intent-rule switch and report (Part 2 of the 2026-10-13 evaluation plan).
-No rule is implemented: these tests use synthetic results and a stand-in for the analysis."""
+Both rules are implemented, off by default; these tests use synthetic results and a stand-in for the
+analysis (test_intent_rules_wiring.py runs the rules themselves)."""
 import contextvars
 import json
 import sys
@@ -12,6 +13,7 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
+import intent_rules  # noqa: E402
 from tools import evaluate_serving_pipeline as evaluator  # noqa: E402
 
 CREDENTIAL, PAYMENT = evaluator.INTENT_RULE_CODES['credential'], evaluator.INTENT_RULE_CODES['payment']
@@ -103,20 +105,27 @@ class IntentRuleReportTests(unittest.TestCase):
 
 
 class IntentRuleSwitchTests(unittest.TestCase):
-    def test_rules_this_build_lacks_are_refused_before_any_analysis(self):
-        self.assertFalse(getattr(app, 'IMPLEMENTED_INTENT_RULES', frozenset()))
-        with patch.object(app, '_analyze_content') as analyze:
+    def test_both_rules_are_implemented_behind_the_rules_own_switch(self):
+        self.assertEqual(app.IMPLEMENTED_INTENT_RULES, frozenset({'credential', 'payment'}))
+        # One context variable: the evaluator's switch is what the rules read.
+        self.assertIs(app.INTENT_RULES, intent_rules.ENABLED)
+        self.assertEqual(app.INTENT_RULES.get(), frozenset())
+        self.assertEqual(evaluator.INTENT_RULE_CODES, intent_rules.CODES)
+
+    def test_rules_a_build_lacks_are_refused_before_any_analysis(self):
+        with patch.object(app, 'IMPLEMENTED_INTENT_RULES', frozenset()), \
+                patch.object(app, '_analyze_content') as analyze:
             with self.assertRaisesRegex(ValueError, 'does not implement'):
                 evaluator.analyze_record(row('phishing', 1), intent_rules=('credential',))
-        analyze.assert_not_called()
-        with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / 'rows.jsonl'
-            source.write_text(json.dumps(row('phishing', 1)) + '\n')
-            with patch.object(sys, 'argv', ['evaluate', '--input', str(source), '--intent-rules', 'payment']), \
-                    patch.object(evaluator, 'evaluate_records') as evaluate:
-                with self.assertRaisesRegex(SystemExit, 'does not implement'):
-                    evaluator.main()
-            evaluate.assert_not_called()
+            analyze.assert_not_called()
+            with tempfile.TemporaryDirectory() as directory:
+                source = Path(directory) / 'rows.jsonl'
+                source.write_text(json.dumps(row('phishing', 1)) + '\n')
+                with patch.object(sys, 'argv', ['evaluate', '--input', str(source), '--intent-rules', 'payment']), \
+                        patch.object(evaluator, 'evaluate_records') as evaluate:
+                    with self.assertRaisesRegex(SystemExit, 'does not implement'):
+                        evaluator.main()
+                evaluate.assert_not_called()
 
     def test_an_implemented_rule_runs_with_its_switch_and_once_without(self):
         switch = contextvars.ContextVar('intent_rules', default=frozenset())
@@ -129,9 +138,7 @@ class IntentRuleSwitchTests(unittest.TestCase):
         async def analyze_content(request, structure, observe_sender_history):
             seen.append(switch.get())
             return Response('medium' if switch.get() else 'low')
-        with patch.object(app, 'INTENT_RULES', switch, create=True), \
-                patch.object(app, 'IMPLEMENTED_INTENT_RULES', frozenset({'credential', 'payment'}), create=True), \
-                patch.object(app, '_analyze_content', analyze_content):
+        with patch.object(app, 'INTENT_RULES', switch), patch.object(app, '_analyze_content', analyze_content):
             found = evaluator.analyze_record(row('phishing', 1), intent_rules=('credential',))
             self.assertEqual(evaluator.analyze_record(row('phishing', 2)), {'risk_level': 'low', 'extra_indicators': []})
         self.assertEqual(seen, [frozenset({'credential'}), frozenset(), frozenset()])

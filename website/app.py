@@ -134,6 +134,8 @@ from link_analysis import (
     _link_hosts,
     _SENSITIVE_HOST_TERMS,
 )
+# The 2026-10-13 plan's intent rules: evaluation only, off in service (see INTENT_RULES below).
+from intent_rules import ENABLED as _INTENT_RULE_SWITCH, INTENT_RULE_NAMES, POINTS as _INTENT_RULE_POINTS, intent_findings
 from content_rules import (
     _account_hold_link,
     _advertising_terms,
@@ -1634,6 +1636,14 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
         risk_floor = max((risk_floor, item['level']), key=floor_rank.get)
         extra_indicators.append(item)
 
+    # Evaluation only: the intent rules read the renderings the lures read, each with its
+    # labelled links, and not text that styles may hide. INTENT_RULES is empty in service, so
+    # nothing is found; each rule an evaluator turns on adds 3 points and a Medium floor, once.
+    for item in intent_findings(lure_readings, links, sender_domain, display_name):
+        total_score += _INTENT_RULE_POINTS
+        risk_floor = max((risk_floor, 'medium'), key=floor_rank.get)
+        extra_indicators.append(item)
+
     # Text that styles may hide: its requests and lures are marked and set a Medium floor
     # in _analyze_content (see _hidden_text_findings).
     hidden_found = _hidden_text_findings(scored_parts, parts, url_parts, part_links_by_part, extra_indicators,
@@ -2317,6 +2327,11 @@ async def _add_registration_dates(result: dict, structure: dict | None) -> list[
 MODEL_ONLY_OPTION: contextvars.ContextVar[str] = contextvars.ContextVar('model_only_option', default='A')
 MODEL_ONLY_OPTIONS = ('A', 'B', 'C')
 _MODEL_ONLY_NOTE = 'Low Risk — Text Model Signal Only'
+# Evaluation only, as above: the plan's intent rules (Part 2) an evaluator may turn on.
+# INTENT_RULES is intent_rules.ENABLED itself, so the evaluator's switch is what the rules read.
+# It is empty in service; no request, setting or environment variable sets it.
+INTENT_RULES: contextvars.ContextVar[frozenset] = _INTENT_RULE_SWITCH
+IMPLEMENTED_INTENT_RULES = frozenset(INTENT_RULE_NAMES)
 
 
 def _apply_model_only_option(result: dict, structure: dict | None, raw_message: bool) -> None:
