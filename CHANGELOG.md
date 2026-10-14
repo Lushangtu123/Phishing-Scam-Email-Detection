@@ -22,6 +22,22 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-14 12:09 PT] — Case page: a test that re-authentication follows the end of the current session (ASVS 7.2.4)
+
+### Why
+- The owner's local security re-review of `d09a740` recorded ASVS 5.0.0 7.2.4 (a new session on re-authentication, and the current one terminated) as only partly verified. The case page already re-authenticates only once its session has ended or been refused, but no test fixed that. The owner chose a test only, with no change of behaviour.
+
+### Files changed
+- `website/static/cases.test.mjs` — one test, run with and without unsaved work:
+  - no sign-in form is shown while a session is live;
+  - after sign-out, the DELETE that ends the first session on the server comes before the second sign-in, and the first session is never sent again;
+  - after the server refuses the session (401), the next sign-in follows that refusal, and every later request carries only the new session.
+
+### Effect
+- **No change of behaviour.**
+- **Planted bugs:** three each fail the test: sign-out not ending the session, the sign-in form left visible, and the new session not adopted after a refusal. A fourth planted change (keeping a non-empty old token) cannot occur in this flow and does not fail the test.
+- **Still open, unchanged:** the server does not end an earlier session at sign-in. Separate tabs keep separate sessions, and a client outside the page that keeps an old session keeps it until its 30-minute idle or 8-hour limit.
+
 ## [2026-10-14 10:37 PT] — Intent rules: an experimental evaluation wiring, off by default (默认关闭的实验性评估接入)
 
 ### Why
