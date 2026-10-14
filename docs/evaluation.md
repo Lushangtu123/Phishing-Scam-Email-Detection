@@ -1228,9 +1228,81 @@ before the plan is frozen.
    output directory per provider and label.
 3. Keep every export **outside Git** (or under the ignored `.evaluation-data/`), and do not
    read the exported messages.
-4. Splitting by family into development and holdout needs a step not built yet: a tool that
-   derives family keys (sender organisation; for phishing, campaign) from headers without
-   showing content. Until it exists, exports stay unsplit and unscored.
+4. Split the exports by family with `split_by_family.py` (below), which reads headers only.
+   Exports stay unscored until they are split, and holdout rows stay unscored until the plan
+   is frozen.
+
+### Splitting imported mail by family (2026-10-13)
+
+`website/tools/split_by_family.py` divides the rows that `import_own_mailbox.py` writes into
+development and holdout cohorts. It follows the plan's family rule (D11): a family is never
+split between cohorts and contributes at most 3 holdout messages.
+
+**It reads headers only.** Of each `.eml` it parses only the text before the first blank line
+(`From`, `Reply-To`, `Subject`, the topmost `Received`). Bodies are copied as bytes, never parsed
+or shown. Text rows have no headers, so they are skipped.
+
+**Families.**
+
+- **Legitimate mail:** the sending organisation. This is the From domain's organisational
+  domain, or the whole address on a consumer mailbox such as gmail.com.
+- **Phishing:** the campaign, as far as headers show it. Messages that share any of these are one
+  family: a sender, a Reply-To, or a subject template (numbers, references and reply prefixes
+  removed).
+- Families merge transitively, and across runs through the ledger. A family can grow, but it is
+  never split.
+- **Limit:** the plan also names the landing host, which is in the body. A campaign that changes
+  its sender, Reply-To and subject but keeps its landing host ends up as two families. The owner
+  merges such families by hand.
+
+**Assignment.**
+
+- **Development,** with the whole family, if any of its messages:
+  - is listed with `--seen` (mail already looked at);
+  - was received on or before **2026-10-14**, according to the provider's own topmost
+    `Received` header (D10);
+  - has no such header.
+- **Holdout or development, drawn** for any other new family, with `--holdout-share`
+  (default 0.5). The draw comes from a secret kept in the ledger, so neither a person nor a
+  message's content chooses it.
+- **Holdout families** contribute their 3 earliest messages. The rest are set aside, in neither
+  cohort.
+- **Earlier assignments are kept** (`--previous-ledger`):
+  - a family never moves from development to holdout;
+  - a holdout family that joins a development family moves to development as a whole.
+  - The holdout share and cut-off stay as the first ledger set them.
+
+**Output.**
+
+- Two new private directories outside the repository, neither inside the other. Each holds
+  `messages.jsonl` (rows with `family_id`, `cohort_role` and the provider's date) and its `.eml`
+  copies (mode 0600).
+- The ledger stays with the holdout. It holds keyed hashes, never a domain, address or subject.
+- The tool prints counts only, including holdout messages per provider, language and label
+  (the D10 cells).
+- The import directory still holds every message. Delete it once the counts look right, so
+  the holdout exists only in its own directory.
+
+```sh
+.venv/bin/python website/tools/split_by_family.py \
+  --input .evaluation-data/gmail-legitimate/messages.jsonl \
+  --input .evaluation-data/gmail-phishing/messages.jsonl \
+  --development-dir ~/phishguard-private/development-2026-10-20 \
+  --holdout-dir ~/phishguard-private/holdout-2026-10-20
+# Later rounds: re-import everything since 2026-10-15, then add
+#   --previous-ledger ~/phishguard-private/holdout-2026-10-20/ledger.json
+```
+
+`test_split_by_family.py` (8 tests) covers each rule above with synthetic messages. Five planted
+bugs each fail at least one test:
+
+- a holdout cap of 5;
+- no subject templates;
+- the body read as headers;
+- earlier development roles ignored;
+- messages without a `Received` date treated as fresh.
+
+The tool has not been run on real mail.
 
 ### Intent rules in development (2026-10-13)
 
@@ -1287,6 +1359,52 @@ A golden replay with the served model checked that A changes nothing:
 - A planted default of B changes 16 of them, so the replay detects it.
 
 No holdout data exists yet, and none was scored.
+
+### The intent-rule switch in the serving evaluator (2026-10-13)
+
+`evaluate_serving_pipeline.py --intent-rules none|credential|payment|both` names the plan's
+Part 2 rules a configuration turns on. The report records the choice in
+`reproducibility.configuration.intent_rules`.
+
+**No rule is implemented yet,** and none can be turned on. A rule runs only once this build
+implements it, that is when `app.IMPLEMENTED_INTENT_RULES` names it and `app.INTENT_RULES` is its
+evaluation-only switch. Until then the evaluator refuses any value but `none`, before it loads the
+model or reads a message. It never reports a rule as on when nothing applied it.
+
+**With a rule on,** each message is analysed twice:
+
+- once with the configured rules;
+- once with no rule, under the same option and mailbox setting.
+
+The second run's level is kept beside the result, so the report can count what the rules add.
+
+**Tags on input rows.** These are optional, and the evaluator checks them:
+
+- `behaviour`: `credential_handover`, `payment_redirection`, or a list of both. It marks phishing
+  for D9.
+- `control_type`: one of the plan's six control types, on legitimate mail only.
+- Tags join the duplicate check. Untagged rows keep their earlier input digests.
+
+**The `intent_rules` block** reports, per rule and language:
+
+- **D6:** legitimate messages the rule matches, whether or not their level rises, and the matches
+  within each control type.
+- **D7:** legitimate messages it raises to Medium or above (`new_alerts`).
+- **D9:** phishing tagged with its behaviour, alerted with the rules, and `added` (alerted only
+  with the rules).
+
+A rule matches when its indicator code (`content.intent.credential_handover`,
+`content.intent.payment_redirection`) appears in the result. The `combined` counts take each
+message once, however many rules match it: the plan's deduplicated count for a combination.
+With no rule on, the matches are counted, but `new_alerts` and `added` are null (not measured).
+
+The restructured `analyze_record` changes nothing with no rule on. A replay with the served
+model compared five synthetic messages under both mailbox settings: the two reports and all
+eight per-message results are byte-identical to `main` (`b29cab5`). A planted bug that drops the
+recorded mailbox changes one of the eight results.
+
+`test_intent_rule_evaluation.py` (6 tests) uses synthetic results and a stand-in for the
+analysis. No rule, intent fixture, real mail or holdout was run.
 
 ### Serving-pipeline fusion on real mail (2026-09-29)
 
