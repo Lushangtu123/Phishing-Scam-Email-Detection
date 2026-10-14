@@ -38,6 +38,17 @@ ALERT_POLICY = 'medium/high/critical count as alerts; unknown is undetermined'
 # docs/superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md
 MODEL_ONLY_OPTIONS = ('A', 'B', 'C')
 MAILBOX_SETTINGS = ('none', 'recorded')
+# Part 2 of the plan: the intent rules a configuration turns on. A rule is applied only once
+# this build implements it (app.IMPLEMENTED_INTENT_RULES, with app.INTENT_RULES as its
+# evaluation-only switch); until then a configuration that names it is refused, never run as
+# if the rule were on. A rule's finding is its indicator code in the result.
+INTENT_RULE_SETTINGS = {'none': (), 'credential': ('credential',), 'payment': ('payment',),
+                        'both': ('credential', 'payment')}
+INTENT_RULE_CODES = {'credential': 'content.intent.credential_handover',
+                     'payment': 'content.intent.payment_redirection'}
+INTENT_BEHAVIOURS = {'credential': 'credential_handover', 'payment': 'payment_redirection'}
+CONTROL_TYPES = ('password_reset', 'otp_notice', 'supplier_change_known_channel', 'payroll_confirmation',
+                 'unchanged_invoice', 'quoted_warning')
 PLAN_PATH = 'docs/superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md'
 INCLUSION_POLICY = 'all valid unique inputs; analysis errors abort without a report; training overlap not verified'
 
@@ -71,7 +82,21 @@ def _validated_record(row: dict, index: int) -> dict:
             raise ValueError(f'Row {index}: eml_path cannot be mixed with text input')
     elif not any(row.get(field) for field in ('subject', 'body', 'raw_email')):
         raise ValueError(f'Row {index}: message content is required')
+    # The plan's tags: a phishing message's behaviours, a legitimate message's control type.
+    if 'behaviour' in row:
+        behaviours = row['behaviour'] if isinstance(row['behaviour'], list) else [row['behaviour']]
+        if not behaviours or any(value not in INTENT_BEHAVIOURS.values() for value in behaviours):
+            raise ValueError(f'Row {index}: behaviour must be credential_handover or payment_redirection')
+    if 'control_type' in row and (row['control_type'] not in CONTROL_TYPES or label != 'legitimate'):
+        raise ValueError(f'Row {index}: control_type must be one of the plan\'s control types, on legitimate mail')
     return row
+
+
+def _tags(row: dict) -> list:
+    """The row's plan tags, sorted; empty for an untagged row."""
+    behaviours = row.get('behaviour', [])
+    behaviours = sorted(set(behaviours if isinstance(behaviours, list) else [behaviours]))
+    return [behaviours, row['control_type']] if 'control_type' in row else [behaviours] if behaviours else []
 
 
 def _read_eml(path: str) -> bytes:
@@ -209,6 +234,61 @@ def _plan_summary(outcomes: list[dict]) -> dict:
     }
 
 
+def _intent_counts(items: list[dict], rule: str, paired: bool) -> dict:
+    """One rule in one language: D6's matches on legitimate mail and on each control type, D7's
+    alerts it adds there, and D9's alerts on phishing tagged with its behaviour, with those it
+    adds. Added alerts need the paired run without rules; without it they are null."""
+    legitimate = [item for item in items if item['label'] == 'legitimate']
+    target = [item for item in items if item['label'] == 'phishing' and INTENT_BEHAVIOURS[rule] in item['behaviours']]
+    matched = sum(rule in item['matched'] for item in legitimate)
+    risen = (sum(rule in item['matched'] and item['decision'] == 'alerted' and item['without_decision'] != 'alerted'
+                 for item in legitimate) if paired else None)
+    alerted = sum(item['decision'] == 'alerted' for item in target)
+    added = (sum(item['decision'] == 'alerted' and item['without_decision'] != 'alerted' for item in target)
+             if paired else None)
+    matched_rate, matched_ci = _rate_with_interval(matched, len(legitimate))
+    risen_rate, risen_ci = (_rate_with_interval(risen, len(legitimate)) if paired else (None, None))
+    alerted_rate, alerted_ci = _rate_with_interval(alerted, len(target))
+    return {
+        'legitimate': {'n': len(legitimate), 'matched': matched, 'matched_rate': matched_rate,
+                       'matched_rate_95_ci': matched_ci, 'new_alerts': risen, 'new_alerts_rate': risen_rate,
+                       'new_alerts_rate_95_ci': risen_ci},
+        'controls': {control: {'n': sum(item['control_type'] == control for item in legitimate),
+                               'matched': sum(item['control_type'] == control and rule in item['matched']
+                                              for item in legitimate)} for control in CONTROL_TYPES},
+        'behaviour_phishing': {'n': len(target), 'alerted': alerted, 'alerted_rate': alerted_rate,
+                               'alerted_rate_95_ci': alerted_ci, 'added': added},
+        'phishing_matched': sum(rule in item['matched'] for item in items if item['label'] == 'phishing'),
+    }
+
+
+def _intent_summary(outcomes: list[dict], rules: tuple) -> dict:
+    """Per rule and language, and for the configuration as a whole: the alerts its rules add,
+    counted once per message however many rules match it (the plan's deduplicated count)."""
+    paired = bool(rules)
+    languages = defaultdict(list)
+    for item in outcomes:
+        languages[item['language']].append(item)
+    combined = {}
+    for language, items in sorted(languages.items()):
+        legitimate = [item for item in items if item['label'] == 'legitimate']
+        risen = (sum(item['decision'] == 'alerted' and item['without_decision'] != 'alerted' for item in legitimate)
+                 if paired else None)
+        rate, ci = _rate_with_interval(risen, len(legitimate)) if paired else (None, None)
+        combined[language] = {
+            'legitimate_n': len(legitimate), 'legitimate_new_alerts': risen, 'legitimate_new_alerts_rate': rate,
+            'legitimate_new_alerts_rate_95_ci': ci,
+            'phishing_added': (sum(item['decision'] == 'alerted' and item['without_decision'] != 'alerted'
+                                   for item in items if item['label'] == 'phishing') if paired else None)}
+    return {
+        'enabled': list(rules),
+        'paired_without_rules': paired,
+        'by_rule': {rule: {language: _intent_counts(items, rule, paired) for language, items in sorted(languages.items())}
+                    for rule in INTENT_RULE_SETTINGS['both']},
+        'combined': combined,
+    }
+
+
 def _decision(risk: str) -> str:
     return ('undetermined' if risk == 'unknown' else
             'alerted' if risk in ALERT_LEVELS else 'not_alerted')
@@ -230,10 +310,11 @@ def _validated_configuration(configuration: dict | None) -> dict | None:
     keys = {'trusted_authserv_ids', 'observe_sender_history', 'verification_mode',
             'content_model_enabled', 'auxiliary_enabled'}
     # The 2026-10-13 plan's settings; reports made before them omit both (option A, no mailbox).
-    plan_keys = {'model_only_option', 'mailbox_setting'}
+    plan_keys = {'model_only_option', 'mailbox_setting', 'intent_rules'}
     if (not isinstance(configuration, dict) or not keys <= set(configuration) <= keys | plan_keys
             or configuration.get('model_only_option', 'A') not in MODEL_ONLY_OPTIONS
-            or configuration.get('mailbox_setting', 'none') not in MAILBOX_SETTINGS):
+            or configuration.get('mailbox_setting', 'none') not in MAILBOX_SETTINGS
+            or configuration.get('intent_rules', 'none') not in INTENT_RULE_SETTINGS):
         raise ValueError('Evaluation configuration is incomplete or unsupported')
     ids = configuration['trusted_authserv_ids']
     if (not isinstance(ids, list) or any(not isinstance(value, str) or
@@ -281,7 +362,8 @@ def evaluate_records(
             row, content_digest = _prepare_record(row)
         except Exception:
             raise RuntimeError(f'Row {index}: message input could not be read') from None
-        metadata = [row['label'], row['provider'], row['received_at'], row.get('language', 'unlabeled')]
+        # Tags join the metadata only where present, so untagged inputs keep their digests.
+        metadata = [row['label'], row['provider'], row['received_at'], row.get('language', 'unlabeled'), *_tags(row)]
         input_digests.append(hashlib.sha256(_json_bytes([content_digest, metadata])).digest())
         if content_digest in seen:
             previous_index, previous_metadata = seen[content_digest]
@@ -304,6 +386,8 @@ def evaluate_records(
         if risk not in RISK_LEVELS:
             raise ValueError(f'Row {index}: analyzer returned an invalid risk level')
         decision = _decision(risk)
+        evaluation = result.get('_evaluation') or {}
+        without = evaluation.get('without_intent_rules')
         outcomes.append({
             'provider': row['provider'],
             'language': row.get('language', 'unlabeled'),
@@ -315,8 +399,16 @@ def evaluate_records(
             # The plan's measures: a review is neither an alert nor a pass.
             'review': result.get('model_only_review') is True,
             'model_only': result.get('fusion_basis') == 'model_only',
-            'authenticated': (result.get('_evaluation') or {}).get('authenticated'),
-            'official': (result.get('_evaluation') or {}).get('official'),
+            'authenticated': evaluation.get('authenticated'),
+            'official': evaluation.get('official'),
+            # Part 2: the rules whose findings the result shows, the row's tags, and the
+            # decision of the paired run without rules (null when no rule is on).
+            'matched': {rule for rule, code in INTENT_RULE_CODES.items()
+                        if any(isinstance(indicator, dict) and indicator.get('code') == code
+                               for indicator in result.get('extra_indicators') or ())},
+            'behaviours': set(_tags(row)[0]) if _tags(row) else set(),
+            'control_type': row.get('control_type'),
+            'without_decision': _decision(without['risk_level']) if isinstance(without, dict) else None,
         })
         if evidence_observer is not None:
             evidence_observer(row['label'], decision, result)
@@ -366,6 +458,7 @@ def evaluate_records(
         'last_received_at': max(dates),
         'overall': _private_summary(outcomes),
         'model_only_plan': _plan_summary(outcomes),
+        'intent_rules': _intent_summary(outcomes, INTENT_RULE_SETTINGS[(configuration or {}).get('intent_rules', 'none')]),
         **{'by_' + '_'.join(dimensions): grouped(outcomes, dimensions) for dimensions in (
             ('provider',), ('language',), ('month',), ('provider', 'language'),
             ('provider', 'month'), ('language', 'month'), ('provider', 'language', 'month'))},
@@ -383,38 +476,55 @@ def _jsonl_records(path: Path):
                 raise ValueError(f'Line {line_number}: invalid JSON') from None
 
 
-def analyze_record(row: dict, *, mailbox_setting: str = 'none') -> dict:
+def analyze_record(row: dict, *, mailbox_setting: str = 'none', intent_rules: tuple = ()) -> dict:
     """Analyze one validated row using the configured local app, without history writes.
 
     mailbox_setting "recorded" reads an .eml as downloaded from the row's verified provider
     (analyze_raw_email(mailbox_provider=...)); "none" as if no mailbox were chosen. For an .eml
-    the result also carries, for the evaluator only, whether its sender is authenticated."""
+    the result also carries, for the evaluator only, whether its sender is authenticated.
+    With intent rules on, the row is analysed again with none, and that run's level is kept
+    beside the result, so the report can count the alerts the rules add."""
     import app
 
     if mailbox_setting not in MAILBOX_SETTINGS:
         raise ValueError('Unknown mailbox setting')
-    structure = None
-    if 'eml_path' in row:
-        raw = row['_eml_bytes'] if '_eml_bytes' in row else _read_eml(row['eml_path'])
-        structure = app.analyze_raw_email(
-            raw, trusted_authserv_ids=app.SETTINGS.trusted_authserv_ids,
-            mailbox_provider=row['provider'] if mailbox_setting == 'recorded' else None,
-        )
-        request = app.ContentRequest()
-    elif mailbox_setting == 'recorded':
+    rules = frozenset(intent_rules)
+    if not rules <= getattr(app, 'IMPLEMENTED_INTENT_RULES', frozenset()):
+        raise ValueError('This build does not implement that intent rule')
+    if 'eml_path' not in row and mailbox_setting == 'recorded':
         raise ValueError('The recorded mailbox setting needs .eml input')
-    else:
-        request = app.ContentRequest(
-            subject=row.get('subject', ''), body=row.get('body', ''),
-            raw_email=row.get('raw_email', ''),
-        )
-    result = json.loads(asyncio.run(app._analyze_content(
-        request, structure, observe_sender_history=False,
-    )).body)
+
+    def analyze(enabled: frozenset) -> tuple[dict, dict | None]:
+        structure = None
+        if 'eml_path' in row:
+            raw = row['_eml_bytes'] if '_eml_bytes' in row else _read_eml(row['eml_path'])
+            structure = app.analyze_raw_email(
+                raw, trusted_authserv_ids=app.SETTINGS.trusted_authserv_ids,
+                mailbox_provider=row['provider'] if mailbox_setting == 'recorded' else None,
+            )
+            request = app.ContentRequest()
+        else:
+            request = app.ContentRequest(
+                subject=row.get('subject', ''), body=row.get('body', ''),
+                raw_email=row.get('raw_email', ''),
+            )
+        token = app.INTENT_RULES.set(enabled) if rules else None
+        try:
+            return json.loads(asyncio.run(app._analyze_content(
+                request, structure, observe_sender_history=False,
+            )).body), structure
+        finally:
+            if token is not None:
+                app.INTENT_RULES.reset(token)
+
+    result, structure = analyze(rules)
+    if rules:
+        without, _structure = analyze(frozenset())
+        result.setdefault('_evaluation', {})['without_intent_rules'] = {'risk_level': without.get('risk_level')}
     if structure is not None:
-        result['_evaluation'] = {'authenticated': bool(structure.get('authenticated_sender')
-                                                       or structure.get('verified_official_sender')),
-                                 'official': bool(structure.get('verified_official_sender'))}
+        result.setdefault('_evaluation', {}).update({
+            'authenticated': bool(structure.get('authenticated_sender') or structure.get('verified_official_sender')),
+            'official': bool(structure.get('verified_official_sender'))})
     return result
 
 
@@ -490,6 +600,10 @@ def main() -> None:
                              "evaluation plan); A is the served behaviour")
     parser.add_argument('--mailbox-setting', choices=MAILBOX_SETTINGS, default='none',
                         help='"recorded" reads each .eml as downloaded from its row\'s verified provider')
+    parser.add_argument('--intent-rules', choices=tuple(INTENT_RULE_SETTINGS), default='none',
+                        help='Intent rules of the 2026-10-13 plan to turn on (evaluation only). Refused until '
+                             'this build implements the rule. With a rule on, each message is also analysed '
+                             'without rules, to count the alerts the rules add')
     parser.add_argument('--frozen-plan-commit',
                         help='Commit at which the evaluation plan was frozen (D12 recorded); required '
                              'before any row marked cohort_role=holdout is scored')
@@ -518,11 +632,17 @@ def main() -> None:
     # Import-time settings must not inherit the invoking shell's trust or services.
     with patch.dict(os.environ, evaluation_env, clear=True):
         import app
+    intent_rules = INTENT_RULE_SETTINGS[args.intent_rules]
+    missing = sorted(set(intent_rules) - getattr(app, 'IMPLEMENTED_INTENT_RULES', frozenset()))
+    if missing:
+        raise SystemExit(f'This build does not implement the intent rule(s) {", ".join(missing)}; '
+                         'none has been approved for wiring yet')
     settings = load_settings(evaluation_env)
     configuration = {'trusted_authserv_ids': sorted(settings.trusted_authserv_ids),
                      'observe_sender_history': False, 'verification_mode': settings.effective_verification_mode,
                      'content_model_enabled': settings.content_model_enabled, 'auxiliary_enabled': False,
-                     'model_only_option': args.option, 'mailbox_setting': args.mailbox_setting}
+                     'model_only_option': args.option, 'mailbox_setting': args.mailbox_setting,
+                     'intent_rules': args.intent_rules}
     if args.artifact is not None:
         # A local candidate: it may be trained on private mail, which only a local run may load.
         model_sha256 = args.artifact_sha256.strip().lower()
@@ -539,7 +659,8 @@ def main() -> None:
     try:
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
             report = evaluate_records(_jsonl_records(args.input),
-                                      partial(analyze_record, mailbox_setting=args.mailbox_setting),
+                                      partial(analyze_record, mailbox_setting=args.mailbox_setting,
+                                              intent_rules=intent_rules),
                                       model_sha256=model_sha256, duplicate_policy=args.duplicate_policy,
                                       configuration=configuration,
                                       evidence_observer=attribution.add if attribution else None,

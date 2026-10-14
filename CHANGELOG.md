@@ -22,6 +22,23 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 21:51 PT] — Serving evaluator: an intent-rule switch that refuses unimplemented rules, and the D6/D7/D9 counts
+
+### Why
+- Step 2 of the 2026-10-13 evaluation plan asks for an evaluator option that runs a named configuration (option, credential rule on or off, payment rule on or off), plus per-configuration and deduplicated counts. The rules themselves are still under review, so the switch must not run them or pretend they ran.
+
+### Files changed
+- `website/tools/evaluate_serving_pipeline.py`:
+  - `--intent-rules none|credential|payment|both`, recorded in the configuration. Any value but `none` is refused unless `app.IMPLEMENTED_INTENT_RULES` names the rule. That set does not exist yet, so every rule is refused, before the model loads or a message is read.
+  - With a rule on, `analyze_record` analyses each message again with no rule, and keeps that level beside the result.
+  - Optional row tags `behaviour` and `control_type`, validated and added to the duplicate check (untagged rows keep their digests).
+  - A new `intent_rules` report block, per rule and language: legitimate matches and matches per control type (D6), new alerts (D7), tagged phishing alerted and added (D9). Combined counts take each message once.
+- `website/tests/test_intent_rule_evaluation.py` (6 tests, synthetic results and a stand-in analysis).
+- `docs/evaluation.md` — the switch, the tags and the block.
+
+### Effect
+- No served behaviour changes, and `app.py` is untouched. A replay with the served model is byte-identical to `main` (`b29cab5`) on five synthetic messages under both mailbox settings: 2 reports and 8 per-message results. A planted bug changes 1 of the 8. No rule, intent fixture, real mail or holdout was run.
+
 ## [2026-10-13 20:49 PT] — Split imported mail into development and holdout by family, from headers only
 
 ### Why
