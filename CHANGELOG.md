@@ -22,6 +22,20 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 19:02 PT] — Synthetic fixtures for the intent rules, a baseline, and mail-collection steps
+
+### Why
+- Steps 3–4 of the 2026-10-13 evaluation plan: the two intent rules (credential handover, payment redirection) need synthetic development and regression data before they are written, and the owner needs written steps to collect fresh mail while the holdout stays sealed.
+
+### Files changed
+- `website/tests/fixtures/intent_rules/development.jsonl` (75 rows, 36 families, English and Chinese: positives and the plan's six control types, every required scenario in both languages) and `regression.jsonl` (the assessment's two misses and #60's reproduction). Reserved domains only.
+- `website/tools/intent_fixture_baseline.py` — counts today's results on the fixtures as pasted text (counts only).
+- `website/tests/test_intent_fixtures.py` (6 tests) — shape, one set/language/behaviour/kind per family (it caught two mixed families, now split), scenario coverage in both languages, quoted warnings as controls and quoted instructions as positives, reserved domains.
+- `docs/evaluation.md` — the fixtures, the baseline and the collection steps.
+
+### Effect
+- Baseline before the rules, served model: English positives alert 27 of 30, but only 2 with a rule finding; English controls draw 14 false alerts of 20 (10 model-only); Chinese payment positives and all Chinese controls are Unknown; both assessment misses still miss. Nothing reads or scores real or holdout mail.
+
 ## [2026-10-13 16:12 PT] — Serving evaluator: plan options A/B/C, mailbox settings and a sealed holdout
 
 ### Why
