@@ -483,9 +483,10 @@ test('an ended session without unsaved work signs out with an explanation', asyn
   assert.match(ui.el('notice').textContent, /session has ended/);
 });
 
-test('signing in again happens only once the current session has ended or been refused (ASVS 7.2.4)', async () => {
+test('signing in again happens only after the page has sent its sign-out and dropped the old session, or the server refused it (ASVS 7.2.4)', async () => {
   // The page holds one session at a time. While a session is live the sign-in form is hidden, so a
-  // new sign-in follows a sign-out, which ends the session on the server, or the server's refusal.
+  // new sign-in follows a sign-out request, after which the page has dropped the old session, or the
+  // server's refusal. That the server has revoked a signed-out session is not shown here: see the next test.
   // The server itself does not end an earlier session at sign-in: separate tabs keep separate
   // sessions, and a client outside this page that keeps an old one keeps it until it expires.
   const credential = 'Bearer synthetic-access-token-at-least-32-characters';
@@ -509,7 +510,7 @@ test('signing in again happens only once the current session has ended or been r
     await ui.login();
     assert.equal(ui.el('login-panel').hidden, true, 'no sign-in form while a session is live');
 
-    // Sign out, then in again: the first session is ended on the server before the second opens.
+    // Sign out, then in again: the DELETE for the first session is sent before the second sign-in.
     await ui.fire('logout'); await ui.login();
     assert.deepEqual(ui.sessionCalls.slice(0, 3).map(call => [call.options.method, call.options.headers.Authorization]),
       [['POST', credential], ['DELETE', 'Bearer ' + sessions[0]], ['POST', credential]]);
@@ -531,6 +532,49 @@ test('signing in again happens only once the current session has ended or been r
     assert(after.every(entry => entry.kind === 'request' && entry.bearer === sessions[2]), 'only the new session is used');
     assert.equal(ui.el('login-panel').hidden, true);
     if (keepWork) assert.equal(ui.el('note').value, 'Unsaved review');
+  }
+});
+
+test('a sign-out that fails or never finishes still drops the old session in the page; its revocation is not checked (ASVS 7.2.4)', async () => {
+  // endSession() sends the DELETE and drops the session at once, without waiting for or checking the
+  // answer. The page therefore stops using the old session either way, but nothing here shows that the
+  // server revoked it: if the DELETE fails or never finishes, the session may stay valid on the server
+  // until its idle or absolute limit.
+  for (const outcome of ['503', 'never']) {
+    const sessions = [1, 2].map(n => `session-${n}-`.padEnd(43, 'x'));
+    const log = [];
+    let signedIn = 0;
+    const handler = async (url, options) => {
+      const bearer = options.headers.Authorization.slice('Bearer '.length);
+      if (url === '/api/cases/session' && options.method === 'DELETE') {
+        log.push({kind: 'sign-out', bearer});
+        return outcome === '503'
+          ? {status: 503, data: {detail: 'Case storage is unavailable; the session ends on its own within 30 minutes.'}}
+          : new Promise(() => {});
+      }
+      if (url === '/api/cases/session') {
+        log.push({kind: 'sign-in', session: sessions[signedIn]});
+        return {status: 201, data: {actor: 'alice', session: sessions[signedIn++]}};
+      }
+      log.push({kind: 'request', bearer});
+      return standard(url, options);
+    };
+    handler.handlesSignIn = true;
+    handler.handlesSignOut = true;
+    const ui = setup(handler);
+    await ui.login();
+    await ui.fire('logout');
+    assert.deepEqual(log.filter(entry => entry.kind === 'sign-out'), [{kind: 'sign-out', bearer: sessions[0]}]);
+    assert.equal(ui.el('login-panel').hidden, false, `the page signs out whatever the DELETE does (${outcome})`);
+    const signOut = log.findIndex(entry => entry.kind === 'sign-out');
+    await ui.login(); await tick();
+    const second = log.findIndex(entry => entry.session === sessions[1]);
+    assert(signOut < second, 'the new sign-in follows the sign-out request');
+    const after = log.slice(second + 1);
+    assert(after.length > 0);
+    assert(after.every(entry => entry.kind === 'request' && entry.bearer === sessions[1]),
+      'the page sends only the new session, whether or not the server revoked the old one');
+    assert.equal(log.filter(entry => entry.kind === 'sign-out').length, 1, 'the sign-out is neither retried nor confirmed');
   }
 });
 
