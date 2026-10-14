@@ -1337,6 +1337,52 @@ A golden replay with the served model checked that A changes nothing:
 
 No holdout data exists yet, and none was scored.
 
+### The intent-rule switch in the serving evaluator (2026-10-13)
+
+`evaluate_serving_pipeline.py --intent-rules none|credential|payment|both` names the plan's
+Part 2 rules a configuration turns on. The report records the choice in
+`reproducibility.configuration.intent_rules`.
+
+**No rule is implemented yet,** and none can be turned on. A rule runs only once this build
+implements it, that is when `app.IMPLEMENTED_INTENT_RULES` names it and `app.INTENT_RULES` is its
+evaluation-only switch. Until then the evaluator refuses any value but `none`, before it loads the
+model or reads a message. It never reports a rule as on when nothing applied it.
+
+**With a rule on,** each message is analysed twice:
+
+- once with the configured rules;
+- once with no rule, under the same option and mailbox setting.
+
+The second run's level is kept beside the result, so the report can count what the rules add.
+
+**Tags on input rows.** These are optional, and the evaluator checks them:
+
+- `behaviour`: `credential_handover`, `payment_redirection`, or a list of both. It marks phishing
+  for D9.
+- `control_type`: one of the plan's six control types, on legitimate mail only.
+- Tags join the duplicate check. Untagged rows keep their earlier input digests.
+
+**The `intent_rules` block** reports, per rule and language:
+
+- **D6:** legitimate messages the rule matches, whether or not their level rises, and the matches
+  within each control type.
+- **D7:** legitimate messages it raises to Medium or above (`new_alerts`).
+- **D9:** phishing tagged with its behaviour, alerted with the rules, and `added` (alerted only
+  with the rules).
+
+A rule matches when its indicator code (`content.intent.credential_handover`,
+`content.intent.payment_redirection`) appears in the result. The `combined` counts take each
+message once, however many rules match it: the plan's deduplicated count for a combination.
+With no rule on, the matches are counted, but `new_alerts` and `added` are null (not measured).
+
+The restructured `analyze_record` changes nothing with no rule on. A replay with the served
+model compared five synthetic messages under both mailbox settings: the two reports and all
+eight per-message results are byte-identical to `main` (`b29cab5`). A planted bug that drops the
+recorded mailbox changes one of the eight results.
+
+`test_intent_rule_evaluation.py` (6 tests) uses synthetic results and a stand-in for the
+analysis. No rule, intent fixture, real mail or holdout was run.
+
 ### Serving-pipeline fusion on real mail (2026-09-29)
 
 `evaluate_serving_pipeline.py` with `--attribution-output` ran the deployed rules
