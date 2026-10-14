@@ -22,6 +22,40 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-14 10:37 PT] — Intent rules: an experimental evaluation wiring, off by default (默认关闭的实验性评估接入)
+
+### Why
+- Part 2 of the 2026-10-13 evaluation plan, step 1 of three that the owner authorizes one at a time. The draft credential-handover and payment-redirection rules are wired into the content analysis **off by default**, so the evaluator's `--intent-rules` (#66) can run them. Steps 2 and 3 (a golden replay with the rules off; the rules on for the development cases with the served model) are not part of this change, and no rule is turned on in production.
+
+### Files changed
+- `website/intent_rules.py` — the draft rules, English and Chinese. The patterns are the version the owner reviewed (SHA-256 `23ff83fd…`) and are not changed here.
+- `website/app.py`:
+  - `INTENT_RULES` is `intent_rules.ENABLED` itself, so the evaluator's switch is what the rules read. It is empty by default.
+  - `IMPLEMENTED_INTENT_RULES` names both rules.
+  - `analyze_email_content` calls `intent_findings` after the lure rules, on the same renderings with their labelled links. Each matching rule counts once, with 3 points and a Medium floor.
+  - Text that styles may hide is not read; this coverage limit is documented.
+  - No request field, query parameter, setting or environment variable sets the switch.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js`:
+  - `content.intent.credential_handover` and `content.intent.payment_redirection`, in English and Chinese. Without them, every hit raised `KeyError`.
+  - Asset versions: `i18n.js` v149, `i18n-zh.js` v74, `lang-init.js` v77, and the HTML references to them.
+- `website/tests/test_intent_rules_wiring.py` (6 tests, committed fixtures only):
+  - off by default on all 78 fixtures, and no request, query or environment variable turns a rule on;
+  - one hit adds 3 points, a Medium floor and nothing else; hidden text is not read;
+  - the switch is restored after a failed analysis, and stays within its task or thread.
+- `website/tests/test_intent_rule_evaluation.py` — now checks that both rules are implemented behind the rules' own switch. A build without a rule still refuses it.
+- `docs/evaluation.md`:
+  - the criteria section's preamble is corrected: D8 is judged on the public corpora, and D6, D7 and D9 on the holdout;
+  - the results of criteria 1 and 3, and the wiring with its coverage limit;
+  - the evaluator section updated.
+
+### Effect
+- **No change in service:** the switch is empty there.
+- **Development numbers, counts only:**
+  - Criterion 1: 45 of 45 positives and 0 of 30 controls, after a first run of 27 of 45 that failed. The rules were written on these fixtures, so this is a check, not evidence.
+  - Criterion 3: of 36,567 legitimate public rows, 12 match the credential rule and 0 the payment rule (the bound is 36). None of the 12 is a real request for a secret or a mislabel; no exception was added.
+- Five planted bugs each fail at least one test: switch on by default, 4 points, a separate evaluator switch, findings counted twice, switch not restored.
+- Criteria 2 and 4 are not run.
+
 ## [2026-10-13 21:51 PT] — Serving evaluator: an intent-rule switch that refuses unimplemented rules, and the D6/D7/D9 counts
 
 ### Why

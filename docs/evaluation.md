@@ -1308,8 +1308,9 @@ The tool has not been run on real mail.
 
 Plan step 4: the credential-handover and payment-redirection rules, written on development data
 only and **off** in service. Only an evaluator turns them on (`app.INTENT_RULES`), so no rule
-reaches production before the owner's decision. Every number below is a development number; the
-plan judges the rules on the holdout alone (D6–D9).
+reaches production before the owner's decision. Every number below is a development number. The
+plan judges the frozen rules on the holdout (D6, D7, D9) and on the public corpora (D8); criterion 3
+applies D8's bound to the draft early and does not replace that count.
 
 Criteria fixed before the first run:
 
@@ -1326,6 +1327,51 @@ Criteria fixed before the first run:
 4. **Off by default.** With no rule on, the content analysis of the unit tests' inputs is
    byte-identical to `main`. Turning both rules on changes at least one, so the replay can see
    them.
+
+**Results so far** (development numbers; counts only).
+
+- **Criterion 1: passes as a check, after one failed run.**
+  - First run (draft `4cbd9bf2…`): positives 27 of 45, controls 0 of 30. This failed.
+  - All six quoted or forwarded instructions were among the misses.
+  - That run also found that every hit raised `KeyError`, because the two codes were not yet in
+    the message registry.
+  - After the codes were registered and the misses fixed (draft `23ff83fd…`): positives 45 of 45,
+    controls 0 of 30, no positive matching the other rule.
+  - The rules were written on these fixtures, so this is not evidence.
+- **Regression, rule matches only.** Pasted, all three rows match. With their From header, the
+  credential miss does not: its link is on the sender's own domain, which this rule does not treat
+  as a destination. Criterion 2, the level with the served model, is not measured yet.
+- **Criterion 3: passes.** Of 36,567 legitimate rows, 12 match the credential rule and none the
+  payment rule.
+  - The 12 are counted as matches on legitimate-labelled data, not as false alarms.
+  - Read one by one: 8 are ordinary service requests (mostly code notices that carry their own
+    code), 4 are quotations, negations or discussion. None is a real request for a secret, and
+    none is mislabelled.
+  - 8 of the 12 come from rows a language model generated (phishfuzzer).
+  - No exception was added for them.
+  - Phishing rows: 46 credential and 7 payment matches of 38,545. The corpora carry no behaviour
+    tags, so this says nothing about recall.
+  - Zero payment matches on legitimate rows do not show that the rule detects anything.
+- **Criterion 4:** not run yet.
+
+**Wiring, 2026-10-14: an experimental evaluation wiring, off by default.**
+
+- `analyze_email_content` calls `intent_rules.intent_findings` after the lure rules, with the same
+  renderings and each rendering's labelled links.
+- `app.INTENT_RULES` is `intent_rules.ENABLED` itself, so the switch an evaluator sets is the one
+  the rules read. It is empty by default.
+- No request field, query parameter, setting or environment variable sets the switch. Only a
+  process that imports `app` can, as `evaluate_serving_pipeline.py --intent-rules` does.
+- Each rule that matches counts once: 3 points and a Medium floor.
+- **Coverage limit:** the rules do not read text that styles may hide. The request and lure rules
+  read it through `_hidden_text_findings`; the intent rules are not wired there.
+- `test_intent_rules_wiring.py` (6 tests) checks, on the committed fixtures only:
+  - no fixture gets a finding while the switch is empty;
+  - no request, query or environment variable turns a rule on;
+  - one hit adds 3 points, a Medium floor and nothing else;
+  - hidden text is not read;
+  - the evaluator restores the switch after a failed analysis;
+  - a switch set in one task or thread stays there.
 
 ### Plan options and mailbox settings in the serving evaluator (2026-10-13)
 
@@ -1366,10 +1412,11 @@ No holdout data exists yet, and none was scored.
 Part 2 rules a configuration turns on. The report records the choice in
 `reproducibility.configuration.intent_rules`.
 
-**No rule is implemented yet,** and none can be turned on. A rule runs only once this build
-implements it, that is when `app.IMPLEMENTED_INTENT_RULES` names it and `app.INTENT_RULES` is its
-evaluation-only switch. Until then the evaluator refuses any value but `none`, before it loads the
-model or reads a message. It never reports a rule as on when nothing applied it.
+A rule runs only if this build implements it, that is when `app.IMPLEMENTED_INTENT_RULES` names
+it and `app.INTENT_RULES` is its evaluation-only switch. Otherwise the evaluator refuses any value
+but `none`, before it loads the model or reads a message, so it never reports a rule as on when
+nothing applied it. When this section was written no rule was implemented. Since 2026-10-14 both
+are, off by default (see "Intent rules in development" above).
 
 **With a rule on,** each message is analysed twice:
 

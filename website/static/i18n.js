@@ -919,6 +919,8 @@ window.PhishGuardI18n = (() => {
     'server.content.sensitive_request.gift_card': "Asks you to buy gift cards or send their numbers; gift cards are a common scam payment method.",
     'server.content.sensitive_request.crypto_transfer': "Asks you to move funds or crypto to a 'new', 'safe' or 'secure' wallet or account; no bank or exchange asks this.",
     'server.content.sensitive_request.remote_access': "Asks you to install remote-access software or share your screen; this lets someone control your device.",
+    'server.content.intent.credential_handover': "Asks you to hand over a password, PIN, one-time code or recovery phrase: by reply, to a person, or on a page that is not the sender's. Genuine services only ask you to sign in on their own site or app.",
+    'server.content.intent.payment_redirection': "Says the account to pay has changed, and asks you to pay the new one or not to check the change. Before paying, confirm new bank details on a phone number you already have.",
     'server.content.shortened_urls': 'Contains shortened URLs (bit.ly, tinyurl, etc.) — hides the true destination domain',
     'server.content.exclamation_marks': 'Excessive exclamation marks ({count}) — emotional manipulation tactic common in scam emails',
     'server.content.capitalization': 'Excessive capitalization ({percent}% uppercase) — used to simulate alarm and urgency',
@@ -1417,7 +1419,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=73'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=74'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

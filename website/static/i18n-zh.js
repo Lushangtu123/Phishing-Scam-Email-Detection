@@ -900,6 +900,8 @@
   'server.content.sensitive_request.gift_card': "要求你购买礼品卡或发送卡号；礼品卡是诈骗常用的付款方式。",
   'server.content.sensitive_request.crypto_transfer': "要求你把资金或加密货币转到“新”“安全”账户或钱包；没有任何银行或交易所会这样要求。",
   'server.content.sensitive_request.remote_access': "要求你安装远程控制软件或共享屏幕；这会让他人控制你的设备。",
+  'server.content.intent.credential_handover': "要求你交出密码、PIN、一次性验证码或恢复短语：通过回复、交给某人，或在不属于发件方的页面上输入。正规服务只会让你在其官网或 App 内登录。",
+  'server.content.intent.payment_redirection': "声称收款账户已变更，并要求你向新账户付款或不要核实变更。付款前，请通过你已有的电话号码核实新的银行信息。",
   'server.content.shortened_urls': '包含短链接 URL（bit.ly、tinyurl 等）— 隐藏了真实的目标域名',
   'server.content.exclamation_marks': '感叹号过多（{count} 个）— 诈骗邮件常用的情绪操纵手法',
   'server.content.capitalization': '大写字母过多（{percent}% 为大写）— 用于制造紧张和紧迫感',
