@@ -22,6 +22,26 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-14 16:55 PT] — Case sign-out: a failed sign-out no longer promises an end "within 30 minutes"
+
+### Why
+- **The finding (P3):** the owner's security re-review of `51e9c9d` found that when the case storage could not end a session, `DELETE /api/cases/session` answered 503 with "the session ends on its own within 30 minutes".
+- **Why that is wrong:** the 30 minutes is an idle limit that slides with each request. Whoever holds the session ID can keep it alive until 8 hours after sign-in, and the review showed it still valid at minute 31 with use.
+- **A second point:** a 503 may also mean that the session was removed but the answer failed.
+
+### Files changed
+- `website/case_api.py` — the 503 says the sign-out could not be confirmed, in the owner's words: "Case storage is unavailable, so sign-out could not be confirmed. The session may still be active. An active session expires after 30 minutes without use or 8 hours after sign-in, whichever comes first." The status stays 503, and the page's handling is unchanged: it does not show this answer, and drops its session either way.
+- `website/tests/test_case_sessions.py` — the failure is injected before anything is deleted (`CaseUnavailable` and `sqlite3.OperationalError`). The test checks:
+  - 503, the exact message and `no-store`;
+  - the session is still stored and still valid: with use it outlives 30 minutes, and after 30 minutes without use it ends (401).
+- `docs/case-workflow.md` — what the sign-out API answers when storage is unavailable. It notes that this is the API's answer, and that how the page shows or handles a failed sign-out is a separate design task.
+- `website/static/cases.test.mjs` — the boundary test's synthetic 503 carries the new message.
+
+### Effect
+- **Only the 503 message changes,** and only when storage cannot record a sign-out.
+- **Planted bug:** with the old message restored, the new test fails for both failures.
+- **Separate design task (not changed):** confirming revocation on the page, handling a failed sign-out, and background revocation (ASVS 7.2.4 server side).
+
 ## [2026-10-14 15:52 PT] — Case sessions: a damaged session record no longer passes the identity check
 
 ### Why

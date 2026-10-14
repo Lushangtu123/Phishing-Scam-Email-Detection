@@ -122,6 +122,29 @@ class CaseSessionApiTests(ApiHarness, DamagedSessionChecks, unittest.TestCase):
         self.assertTrue(self.stored(session), 'a storage fault does not end the session')
         self.assertEqual(self.call('GET', '/api/cases/me', session)[0], 200)
 
+    def test_a_sign_out_the_store_cannot_record_is_reported_as_unconfirmed(self):
+        # Security re-review of 51e9c9d (P3): the answer promised an end "within 30 minutes",
+        # but the idle limit slides with use. The failure is injected before anything is deleted.
+        unconfirmed = ('Case storage is unavailable, so sign-out could not be confirmed. The session may still be '
+                       'active. An active session expires after 30 minutes without use or 8 hours after sign-in, '
+                       'whichever comes first.')
+        for failure in (CaseUnavailable('synthetic outage'), sqlite3.OperationalError('synthetic lock')):
+            with self.subTest(failure=type(failure).__name__):
+                session = self.sign_in()['session']
+                with patch.object(self.service.sessions, 'close', side_effect=failure):
+                    status, body, headers = self.call('DELETE', '/api/cases/session', session)
+                self.assertEqual(status, 503)
+                self.assertEqual(body['detail'], unconfirmed)
+                self.assertEqual(headers[b'cache-control'], b'no-store')
+                # The session is indeed still active: with use it outlives 30 minutes, without
+                # use it ends after 30.
+                self.assertTrue(self.stored(session))
+                for _ in range(2):
+                    self.clock.now += IDLE_SECONDS - 60
+                    self.assertEqual(self.call('GET', '/api/cases/me', session)[0], 200)
+                self.clock.now += IDLE_SECONDS
+                self.assertEqual(self.call('GET', '/api/cases/me', session)[0], 401)
+
     def test_the_access_token_signs_in_and_is_not_a_session(self):
         opened = self.sign_in()
         self.assertEqual((opened['actor'], opened['idle_seconds']), ('alice', IDLE_SECONDS))

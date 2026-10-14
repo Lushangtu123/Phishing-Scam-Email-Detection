@@ -228,7 +228,11 @@ def make_case_router(analyze, *, visible_text, mask_inline_data):
         try:
             sessions(service).close(bearer(request))
         except (CaseUnavailable, sqlite3.Error, OSError):
-            raise HTTPException(503, 'Case storage is unavailable; the session ends on its own within 30 minutes.') from None
+            # The 30 minutes slide with use, so a session is not promised to end then; and the
+            # session may still be active, or may have ended without the answer arriving.
+            raise HTTPException(503, 'Case storage is unavailable, so sign-out could not be confirmed. '
+                                     'The session may still be active. An active session expires after 30 minutes '
+                                     'without use or 8 hours after sign-in, whichever comes first.') from None
         return Response(status_code=204)
 
     async def call(fn, *args, **kwargs):
