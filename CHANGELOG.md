@@ -22,6 +22,22 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-13 20:49 PT] — Split imported mail into development and holdout by family, from headers only
+
+### Why
+- Step 3 of the 2026-10-13 evaluation plan: fresh mail must be divided into development and holdout cohorts so that no family is in both (D11) and no one reads holdout content. Until now that step had no tool, and exports stayed unsplit.
+
+### Files changed
+- `website/tools/split_by_family.py` — reads only each `.eml`'s header block (From, Reply-To, Subject, topmost Received):
+  - **Families:** legitimate mail by sending organisation; phishing by campaign (shared sender, Reply-To or subject template). Families merge transitively, also across runs.
+  - **Assignment:** a family goes to development if any of its messages was seen, was received on or before 2026-10-14 by the provider's Received header, or has no such header. Other families are drawn for holdout from a secret in the ledger. A holdout family contributes at most 3 messages. A family never moves from development to holdout.
+  - **Output:** two separate private directories outside the repository; a hashed ledger beside the holdout; counts only on stdout.
+- `website/tests/test_split_by_family.py` (8 tests, synthetic messages only).
+- `docs/evaluation.md` — the tool, its limits (the landing host is in the body and is not read), and the collection steps updated.
+
+### Effect
+- The owner can split exports collected after 2026-10-14 without opening them. Five planted bugs each fail at least one test: a cap of 5, no subject templates, the body read as headers, earlier development roles ignored, undated mail treated as fresh. No real mail was read or split.
+
 ## [2026-10-13 19:02 PT] — Synthetic fixtures for the intent rules, a baseline, and mail-collection steps
 
 ### Why

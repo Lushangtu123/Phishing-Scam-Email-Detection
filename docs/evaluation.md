@@ -1228,9 +1228,81 @@ before the plan is frozen.
    output directory per provider and label.
 3. Keep every export **outside Git** (or under the ignored `.evaluation-data/`), and do not
    read the exported messages.
-4. Splitting by family into development and holdout needs a step not built yet: a tool that
-   derives family keys (sender organisation; for phishing, campaign) from headers without
-   showing content. Until it exists, exports stay unsplit and unscored.
+4. Split the exports by family with `split_by_family.py` (below), which reads headers only.
+   Exports stay unscored until they are split, and holdout rows stay unscored until the plan
+   is frozen.
+
+### Splitting imported mail by family (2026-10-13)
+
+`website/tools/split_by_family.py` divides the rows that `import_own_mailbox.py` writes into
+development and holdout cohorts. It follows the plan's family rule (D11): a family is never
+split between cohorts and contributes at most 3 holdout messages.
+
+**It reads headers only.** Of each `.eml` it parses only the text before the first blank line
+(`From`, `Reply-To`, `Subject`, the topmost `Received`). Bodies are copied as bytes, never parsed
+or shown. Text rows have no headers, so they are skipped.
+
+**Families.**
+
+- **Legitimate mail:** the sending organisation. This is the From domain's organisational
+  domain, or the whole address on a consumer mailbox such as gmail.com.
+- **Phishing:** the campaign, as far as headers show it. Messages that share any of these are one
+  family: a sender, a Reply-To, or a subject template (numbers, references and reply prefixes
+  removed).
+- Families merge transitively, and across runs through the ledger. A family can grow, but it is
+  never split.
+- **Limit:** the plan also names the landing host, which is in the body. A campaign that changes
+  its sender, Reply-To and subject but keeps its landing host ends up as two families. The owner
+  merges such families by hand.
+
+**Assignment.**
+
+- **Development,** with the whole family, if any of its messages:
+  - is listed with `--seen` (mail already looked at);
+  - was received on or before **2026-10-14**, according to the provider's own topmost
+    `Received` header (D10);
+  - has no such header.
+- **Holdout or development, drawn** for any other new family, with `--holdout-share`
+  (default 0.5). The draw comes from a secret kept in the ledger, so neither a person nor a
+  message's content chooses it.
+- **Holdout families** contribute their 3 earliest messages. The rest are set aside, in neither
+  cohort.
+- **Earlier assignments are kept** (`--previous-ledger`):
+  - a family never moves from development to holdout;
+  - a holdout family that joins a development family moves to development as a whole.
+  - The holdout share and cut-off stay as the first ledger set them.
+
+**Output.**
+
+- Two new private directories outside the repository, neither inside the other. Each holds
+  `messages.jsonl` (rows with `family_id`, `cohort_role` and the provider's date) and its `.eml`
+  copies (mode 0600).
+- The ledger stays with the holdout. It holds keyed hashes, never a domain, address or subject.
+- The tool prints counts only, including holdout messages per provider, language and label
+  (the D10 cells).
+- The import directory still holds every message. Delete it once the counts look right, so
+  the holdout exists only in its own directory.
+
+```sh
+.venv/bin/python website/tools/split_by_family.py \
+  --input .evaluation-data/gmail-legitimate/messages.jsonl \
+  --input .evaluation-data/gmail-phishing/messages.jsonl \
+  --development-dir ~/phishguard-private/development-2026-10-20 \
+  --holdout-dir ~/phishguard-private/holdout-2026-10-20
+# Later rounds: re-import everything since 2026-10-15, then add
+#   --previous-ledger ~/phishguard-private/holdout-2026-10-20/ledger.json
+```
+
+`test_split_by_family.py` (8 tests) covers each rule above with synthetic messages. Five planted
+bugs each fail at least one test:
+
+- a holdout cap of 5;
+- no subject templates;
+- the body read as headers;
+- earlier development roles ignored;
+- messages without a `Received` date treated as fresh.
+
+The tool has not been run on real mail.
 
 ### Plan options and mailbox settings in the serving evaluator (2026-10-13)
 
