@@ -1352,7 +1352,21 @@ Criteria fixed before the first run:
   - Phishing rows: 46 credential and 7 payment matches of 38,545. The corpora carry no behaviour
     tags, so this says nothing about recall.
   - Zero payment matches on legitimate rows do not show that the rule detects anything.
-- **Criterion 4:** not run yet.
+- **Criterion 4: passes** (step 2, golden replay with the rules off, 2026-10-14).
+  - **Inputs:**
+    - every `analyze_email_content` call (1,545) and raw message (523) of the whole unit suite;
+    - the 78 fixtures, pasted and with their From header;
+    - every 40th public-corpus row (2,043).
+  - **Run:** on `main` (`6d5a613`) and on the wiring (`0afeab2`), with the served model, no network
+    (RDAP off, ARC not verified) and `PYTHONHASHSEED=0`.
+  - **Result:** all 4,790 output digests are byte-identical. One corpus row returns an error on both
+    trees.
+  - **Planted bug:** turning both rules on changes 178 items, so the replay sees them. These include
+    the 45 fixture positives and 3 regression rows; no control changes.
+  - **Statement coverage** of the changed code (`sys.settrace`) is 100%:
+    - with the rules off, only the loop line and `intent_findings`' early return run;
+    - the wiring tests run the rest.
+- **Criterion 2:** not run yet (step 3).
 
 **Wiring, 2026-10-14: an experimental evaluation wiring, off by default.**
 
