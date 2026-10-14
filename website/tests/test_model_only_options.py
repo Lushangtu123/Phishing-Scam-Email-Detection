@@ -73,6 +73,10 @@ class ModelOnlyOptionPipelineTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # The committed artifact is pickled for the deployment's Python only.
+        deployment_python = (WEBSITE_DIR.parent / '.python-version').read_text().strip()
+        if f'{sys.version_info.major}.{sys.version_info.minor}' != deployment_python:
+            raise unittest.SkipTest(f'Committed artifact targets Python {deployment_python}')
         cls.pipeline = app.load_content_pipeline_artifact(
             WEBSITE_DIR.parent / PROFILE['CONTENT_MODEL_ARTIFACT'], PROFILE['CONTENT_MODEL_ARTIFACT_SHA256'])
 
