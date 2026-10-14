@@ -11,6 +11,7 @@ import argparse
 import asyncio
 from collections import Counter, defaultdict
 from datetime import date
+from functools import partial
 import hashlib
 import inspect
 import json
@@ -34,6 +35,10 @@ RISK_LEVELS = ALERT_LEVELS | {'safe', 'low', 'unknown'}
 WILSON_95_Z = 1.959963984540054
 MAX_EML_BYTES = 60_000
 ALERT_POLICY = 'medium/high/critical count as alerts; unknown is undetermined'
+# docs/superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md
+MODEL_ONLY_OPTIONS = ('A', 'B', 'C')
+MAILBOX_SETTINGS = ('none', 'recorded')
+PLAN_PATH = 'docs/superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md'
 INCLUSION_POLICY = 'all valid unique inputs; analysis errors abort without a report; training overlap not verified'
 
 
@@ -168,6 +173,42 @@ def _private_summary(outcomes: list[dict]) -> dict:
             'ml_available_count': sum(item['ml_available'] for item in outcomes)}
 
 
+def _plan_counts(items: list[dict]) -> dict:
+    """Alerts, reviews, false passes and Unknown, kept apart (the 2026-10-13 plan)."""
+    counts = Counter()
+    for item in items:
+        counts['undetermined' if item['decision'] == 'undetermined' else
+               'alerted' if item['decision'] == 'alerted' else
+               'reviewed' if item['review'] else 'passed'] += 1
+    total = len(items)
+    rates = {name: _rate_with_interval(counts[name], total) for name in ('alerted', 'reviewed', 'passed', 'undetermined')}
+    return {'n': total, **{name: counts[name] for name in ('alerted', 'reviewed', 'passed', 'undetermined')},
+            **{f'{name}_rate': rate for name, (rate, _ci) in rates.items()},
+            **{f'{name}_rate_95_ci': ci for name, (_rate, ci) in rates.items()}}
+
+
+def _plan_summary(outcomes: list[dict]) -> dict:
+    """Per label, and for phishing whose sender is authenticated, and its decisive subset:
+    authenticated by a non-official domain and model-only, where options B and C differ.
+    On phishing "passed" is a false pass; on legitimate mail, alerts plus reviews are the
+    attention the option costs."""
+    phishing = [item for item in outcomes if item['label'] == 'phishing']
+    legitimate = [item for item in outcomes if item['label'] == 'legitimate']
+    authenticated = [item for item in phishing if item['authenticated']]
+    decisive = [item for item in authenticated if not item['official'] and item['model_only']]
+    legitimate_counts = _plan_counts(legitimate)
+    attention = legitimate_counts['alerted'] + legitimate_counts['reviewed']
+    attention_rate, attention_ci = _rate_with_interval(attention, len(legitimate))
+    return {
+        'phishing': _plan_counts(phishing),
+        'legitimate': {**legitimate_counts, 'attention': attention, 'attention_rate': attention_rate,
+                       'attention_rate_95_ci': attention_ci},
+        'authenticated_phishing': _plan_counts(authenticated),
+        'authenticated_phishing_decisive': _plan_counts(decisive),
+        'authentication_known': sum(item['authenticated'] is not None for item in outcomes),
+    }
+
+
 def _decision(risk: str) -> str:
     return ('undetermined' if risk == 'unknown' else
             'alerted' if risk in ALERT_LEVELS else 'not_alerted')
@@ -188,7 +229,11 @@ def _validated_configuration(configuration: dict | None) -> dict | None:
         return None
     keys = {'trusted_authserv_ids', 'observe_sender_history', 'verification_mode',
             'content_model_enabled', 'auxiliary_enabled'}
-    if not isinstance(configuration, dict) or set(configuration) != keys:
+    # The 2026-10-13 plan's settings; reports made before them omit both (option A, no mailbox).
+    plan_keys = {'model_only_option', 'mailbox_setting'}
+    if (not isinstance(configuration, dict) or not keys <= set(configuration) <= keys | plan_keys
+            or configuration.get('model_only_option', 'A') not in MODEL_ONLY_OPTIONS
+            or configuration.get('mailbox_setting', 'none') not in MAILBOX_SETTINGS):
         raise ValueError('Evaluation configuration is incomplete or unsupported')
     ids = configuration['trusted_authserv_ids']
     if (not isinstance(ids, list) or any(not isinstance(value, str) or
@@ -211,8 +256,11 @@ def evaluate_records(
     configuration: dict | None = None,
     evidence_observer: Callable[[str, str, dict], None] | None = None,
     counterfactual_observer: Callable[[dict, str, str, dict], None] | None = None,
+    holdout_authorized: bool = False,
 ) -> dict:
-    """Run each row through the supplied serving analyzer and emit aggregates."""
+    """Run each row through the supplied serving analyzer and emit aggregates. Rows marked
+    `cohort_role: holdout` are refused before any analysis unless holdout_authorized: the
+    plan keeps the holdout sealed until it is frozen."""
     if not re.fullmatch(r'[0-9a-f]{64}', model_sha256):
         raise ValueError('A full lowercase model SHA-256 is required')
     if duplicate_policy not in {'drop', 'error'}:
@@ -226,6 +274,9 @@ def evaluate_records(
     duplicate_rows = 0
     for index, raw_row in enumerate(rows, 1):
         row = _validated_record(raw_row, index)
+        if row.get('cohort_role') == 'holdout' and not holdout_authorized:
+            raise ValueError(f'Row {index}: holdout rows are sealed until the evaluation plan is frozen '
+                             '(--frozen-plan-commit)')
         try:
             row, content_digest = _prepare_record(row)
         except Exception:
@@ -261,6 +312,11 @@ def evaluate_records(
             'decision': decision,
             'complete': result.get('analysis_complete') is True,
             'ml_available': result.get('ml_status') == 'available',
+            # The plan's measures: a review is neither an alert nor a pass.
+            'review': result.get('model_only_review') is True,
+            'model_only': result.get('fusion_basis') == 'model_only',
+            'authenticated': (result.get('_evaluation') or {}).get('authenticated'),
+            'official': (result.get('_evaluation') or {}).get('official'),
         })
         if evidence_observer is not None:
             evidence_observer(row['label'], decision, result)
@@ -309,6 +365,7 @@ def evaluate_records(
         'first_received_at': min(dates),
         'last_received_at': max(dates),
         'overall': _private_summary(outcomes),
+        'model_only_plan': _plan_summary(outcomes),
         **{'by_' + '_'.join(dimensions): grouped(outcomes, dimensions) for dimensions in (
             ('provider',), ('language',), ('month',), ('provider', 'language'),
             ('provider', 'month'), ('language', 'month'), ('provider', 'language', 'month'))},
@@ -326,25 +383,39 @@ def _jsonl_records(path: Path):
                 raise ValueError(f'Line {line_number}: invalid JSON') from None
 
 
-def analyze_record(row: dict) -> dict:
-    """Analyze one validated row using the configured local app, without history writes."""
+def analyze_record(row: dict, *, mailbox_setting: str = 'none') -> dict:
+    """Analyze one validated row using the configured local app, without history writes.
+
+    mailbox_setting "recorded" reads an .eml as downloaded from the row's verified provider
+    (analyze_raw_email(mailbox_provider=...)); "none" as if no mailbox were chosen. For an .eml
+    the result also carries, for the evaluator only, whether its sender is authenticated."""
     import app
 
+    if mailbox_setting not in MAILBOX_SETTINGS:
+        raise ValueError('Unknown mailbox setting')
     structure = None
     if 'eml_path' in row:
         raw = row['_eml_bytes'] if '_eml_bytes' in row else _read_eml(row['eml_path'])
         structure = app.analyze_raw_email(
             raw, trusted_authserv_ids=app.SETTINGS.trusted_authserv_ids,
+            mailbox_provider=row['provider'] if mailbox_setting == 'recorded' else None,
         )
         request = app.ContentRequest()
+    elif mailbox_setting == 'recorded':
+        raise ValueError('The recorded mailbox setting needs .eml input')
     else:
         request = app.ContentRequest(
             subject=row.get('subject', ''), body=row.get('body', ''),
             raw_email=row.get('raw_email', ''),
         )
-    return json.loads(asyncio.run(app._analyze_content(
+    result = json.loads(asyncio.run(app._analyze_content(
         request, structure, observe_sender_history=False,
     )).body)
+    if structure is not None:
+        result['_evaluation'] = {'authenticated': bool(structure.get('authenticated_sender')
+                                                       or structure.get('verified_official_sender')),
+                                 'official': bool(structure.get('verified_official_sender'))}
+    return result
 
 
 def _evaluation_metadata(configuration: dict) -> dict:
@@ -381,6 +452,22 @@ def _evaluation_metadata(configuration: dict) -> dict:
     }
 
 
+def _frozen_plan(commit: str) -> dict:
+    """The plan at a commit, if it was frozen there: D12's reviewer recorded, not pending."""
+    if not re.fullmatch(r'[0-9a-f]{7,40}', commit or ''):
+        raise SystemExit('--frozen-plan-commit must be a commit hash')
+    try:
+        text = subprocess.run(['git', 'show', f'{commit}:{PLAN_PATH}'], cwd=PROJECT_ROOT, check=True,
+                              capture_output=True, text=True, timeout=10).stdout
+        full = subprocess.run(['git', 'rev-parse', '--verify', commit + '^{commit}'], cwd=PROJECT_ROOT,
+                              check=True, capture_output=True, text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        raise SystemExit('The evaluation plan was not found at that commit') from None
+    if 'not yet assigned' in text or 'not frozen' in text:
+        raise SystemExit('The evaluation plan is not frozen at that commit: the reviewer (D12) is still pending')
+    return {'commit': full, 'plan_sha256': hashlib.sha256(text.encode()).hexdigest()}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input', required=True, type=Path,
@@ -398,6 +485,14 @@ def main() -> None:
                         help='SHA-256 digest of --artifact, as prebuild_demo_model.py printed it')
     parser.add_argument('--counterfactual-output', type=Path,
                         help='Optional aggregate alert transitions after one-family removal')
+    parser.add_argument('--option', choices=MODEL_ONLY_OPTIONS, default='A',
+                        help="How a model-only alert on an original message is labelled (the 2026-10-13 "
+                             "evaluation plan); A is the served behaviour")
+    parser.add_argument('--mailbox-setting', choices=MAILBOX_SETTINGS, default='none',
+                        help='"recorded" reads each .eml as downloaded from its row\'s verified provider')
+    parser.add_argument('--frozen-plan-commit',
+                        help='Commit at which the evaluation plan was frozen (D12 recorded); required '
+                             'before any row marked cohort_role=holdout is scored')
     args = parser.parse_args()
     if (args.artifact is None) != (args.artifact_sha256 is None):
         parser.error('--artifact and --artifact-sha256 go together')
@@ -409,6 +504,7 @@ def main() -> None:
     if any(not re.fullmatch(r'[a-z0-9._-]{1,253}', value) for value in trusted_ids):
         parser.error('Trusted authentication service IDs must contain only ASCII letters, digits, dots, underscores or hyphens')
 
+    frozen_plan = _frozen_plan(args.frozen_plan_commit) if args.frozen_plan_commit else None
     sys.path.insert(0, str(WEBSITE_DIR))
     from content_inference import load_content_pipeline_artifact
     from config import load_settings
@@ -425,7 +521,8 @@ def main() -> None:
     settings = load_settings(evaluation_env)
     configuration = {'trusted_authserv_ids': sorted(settings.trusted_authserv_ids),
                      'observe_sender_history': False, 'verification_mode': settings.effective_verification_mode,
-                     'content_model_enabled': settings.content_model_enabled, 'auxiliary_enabled': False}
+                     'content_model_enabled': settings.content_model_enabled, 'auxiliary_enabled': False,
+                     'model_only_option': args.option, 'mailbox_setting': args.mailbox_setting}
     if args.artifact is not None:
         # A local candidate: it may be trained on private mail, which only a local run may load.
         model_sha256 = args.artifact_sha256.strip().lower()
@@ -438,13 +535,19 @@ def main() -> None:
 
     attribution = EvidenceAttribution() if args.attribution_output else None
     counterfactual = CounterfactualEvidence() if args.counterfactual_output else None
-    with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
-        report = evaluate_records(_jsonl_records(args.input), analyze_record,
-                                  model_sha256=model_sha256, duplicate_policy=args.duplicate_policy,
-                                  configuration=configuration,
-                                  evidence_observer=attribution.add if attribution else None,
-                                  counterfactual_observer=counterfactual.add if counterfactual else None)
-    report['reproducibility'] = _evaluation_metadata(configuration)
+    option_token = app.MODEL_ONLY_OPTION.set(args.option)
+    try:
+        with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
+            report = evaluate_records(_jsonl_records(args.input),
+                                      partial(analyze_record, mailbox_setting=args.mailbox_setting),
+                                      model_sha256=model_sha256, duplicate_policy=args.duplicate_policy,
+                                      configuration=configuration,
+                                      evidence_observer=attribution.add if attribution else None,
+                                      counterfactual_observer=counterfactual.add if counterfactual else None,
+                                      holdout_authorized=frozen_plan is not None)
+    finally:
+        app.MODEL_ONLY_OPTION.reset(option_token)
+    report['reproducibility'] = {**_evaluation_metadata(configuration), 'frozen_plan': frozen_plan}
     if attribution:
         args.attribution_output.write_text(json.dumps(attribution.snapshot(report), indent=2,
                                                 sort_keys=True) + '\n', encoding='utf-8')

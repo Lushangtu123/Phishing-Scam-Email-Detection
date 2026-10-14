@@ -2310,6 +2310,40 @@ async def _add_registration_dates(result: dict, structure: dict | None) -> list[
     return link_hosts
 
 
+# Evaluation only: which option of the 2026-10-13 evaluation plan
+# (docs/superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md) labels a
+# model-only alert on an original message. "A" is the served behaviour; no request can set
+# another value: only an evaluator holding the process can.
+MODEL_ONLY_OPTION: contextvars.ContextVar[str] = contextvars.ContextVar('model_only_option', default='A')
+MODEL_ONLY_OPTIONS = ('A', 'B', 'C')
+_MODEL_ONLY_NOTE = 'Low Risk — Text Model Signal Only'
+
+
+def _apply_model_only_option(result: dict, structure: dict | None, raw_message: bool) -> None:
+    """Relabel A's model-only note on an original message as option B or C would.
+
+    It runs after every other step, so a note that a verified sender lowered, or that the
+    abstention turned into Unknown, is left as it is: B and C abstain wherever A does.
+    B: Medium, as for pasted text, unless the sender is authenticated (a trusted, aligned DMARC
+    pass on a non-consumer domain). C: marked for review, neither an alert nor a pass."""
+    option = MODEL_ONLY_OPTION.get()
+    if (option == 'A' or not raw_message or result.get('fusion_basis') != 'model_only'
+            or result.get('risk_label') != _MODEL_ONLY_NOTE):
+        return
+    if option == 'B':
+        if structure and (structure.get('authenticated_sender') or structure.get('verified_official_sender')):
+            return
+        result['risk_level'] = 'medium'
+        result['risk_label'] = 'Medium Risk — Model Signal Needs Review'
+        if result.get('ml_phishing_probability') is not None:
+            result['combined_phishing_score'] = result['ml_phishing_probability']
+    elif option == 'C':
+        result['model_only_review'] = True
+        result['risk_label'] = 'Needs Review — Text Model Alert Without Independent Support'
+    else:
+        raise ValueError('Unknown model-only option')
+
+
 def _apply_abstention(result: dict, resolved_warnings: set, rendering_uncertain: bool,
                       remote_image_dominant: bool, verified_sender: dict | None) -> None:
     """Undetermined rather than Safe or Low where part of the message could not be read."""
@@ -2404,6 +2438,7 @@ async def _analyze_content_within_budget(
     await _apply_local_review(result, model_view.get('subject', ''), model_view.get('body', ''), link_hosts)
     _apply_requested_answer(result, request.requested)
     _apply_abstention(result, resolved_warnings, rendering_uncertain, remote_image_dominant, verified_sender)
+    _apply_model_only_option(result, structure, raw_message)
     result['mail_type'] = _mail_type(result, bool(structure and structure.get('bulk_mail')))
     result.pop('advertising_terms', None)
     return JSONResponse(annotate_content(result))

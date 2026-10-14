@@ -1172,6 +1172,39 @@ domains) and setting `Reply-To` to the list. This affects list subscribers
 through the rule layer, separately from the model findings above. It is
 recorded as a follow-up, not changed here.
 
+### Plan options and mailbox settings in the serving evaluator (2026-10-13)
+
+For the 2026-10-13 evaluation plan
+([plan](superpowers/specs/2026-10-13-model-only-and-intent-rules-evaluation-plan.md)),
+`evaluate_serving_pipeline.py` takes three new options. A report records them in
+`reproducibility.configuration`; reports made before them still validate as option A with no
+mailbox.
+
+- `--option A|B|C` sets how a model-only alert on an original message is labelled. **A** is
+  served. B and C exist only in this evaluation-only setting (`app.MODEL_ONLY_OPTION`), which no
+  request can reach. They relabel A's note after every other step, so they abstain wherever A
+  does.
+- `--mailbox-setting none|recorded` reads each `.eml` with no mailbox chosen, or as downloaded
+  from the row's verified provider.
+- `--frozen-plan-commit` is required before any row marked `cohort_role: holdout` is scored.
+  `build_private_cohort.py` now writes that role into each row. The commit must contain the
+  plan with its reviewer (D12) recorded; the evaluator refuses a holdout row before analysing it
+  otherwise.
+
+The report's `model_only_plan` block keeps alerts, reviews, false passes and Unknown apart.
+
+- **Phishing:** each outcome is counted for all phishing, for authenticated phishing, and for
+  its decisive subset (authenticated by a non-official domain and model-only).
+- **Legitimate mail:** alerts plus reviews are reported as attention.
+
+A golden replay with the served model checked that A changes nothing:
+
+- The full content analysis of the 518 raw messages the unit tests parse is byte-identical to
+  `main`; 44 of them are model-only.
+- A planted default of B changes 16 of them, so the replay detects it.
+
+No holdout data exists yet, and none was scored.
+
 ### Serving-pipeline fusion on real mail (2026-09-29)
 
 `evaluate_serving_pipeline.py` with `--attribution-output` ran the deployed rules

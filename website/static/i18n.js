@@ -356,6 +356,8 @@ window.PhishGuardI18n = (() => {
     'content.riskLabel.medium': 'Medium Risk — Suspicious Content',
     'content.riskLabel.mediumModel': 'Medium Risk — Model Signal Needs Review',
     'content.riskLabel.lowModel': 'Low Risk — Text Model Signal Only',
+    // Option C of the 2026-10-13 evaluation plan: evaluation only, not served.
+    'content.riskLabel.reviewModel': 'Needs Review — Text Model Alert Without Independent Support',
     'content.riskLabel.low': 'Low Risk — Minor Concerns',
     'content.riskLabel.lowVerified': 'Low Risk — Verified Official Sender',
     'content.riskLabel.lowRequested': 'Low Risk — Confirmed as Your Own Action',
@@ -1415,7 +1417,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=72'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=73'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
@@ -1540,7 +1542,7 @@ window.PhishGuardI18n = (() => {
   // in a feedback report) is shown as sent in English. Other languages use the
   // exact translation of a known label, else a label for the risk level code,
   // else the label as sent.
-  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowModel', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'smsUnknown', 'smsCritical', 'smsHigh', 'remoteUnchecked',
+  const RISK_LABEL_KEYS = ['critical', 'high', 'highModel', 'medium', 'mediumModel', 'low', 'lowModel', 'reviewModel', 'lowVerified', 'lowRequested', 'lowLocal', 'safe', 'smsUnknown', 'smsCritical', 'smsHigh', 'remoteUnchecked',
     'incomplete', 'imageIncomplete'].map(name => `content.riskLabel.${name}`)
     .concat(['critical', 'high', 'medium', 'low'].map(level => `sender.verdict.${level}`));
   function riskLabel(label, level) {
