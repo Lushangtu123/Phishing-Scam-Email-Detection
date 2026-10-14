@@ -113,6 +113,11 @@ class AuxiliarySave(BaseModel):
     confirm_save: bool = Field(strict=True)
 
 
+# A stored session credential: the SHA-256 hex digest of the access token it was opened with,
+# in the form CASE_ANALYST_TOKEN_HASHES requires.
+_CREDENTIAL_DIGEST = re.compile(r'[0-9a-f]{64}')
+
+
 def jev_client(request):
     # Web requests must reserve the shared budget before evaluate(). CLI keeps its cap.
     return JevClient.from_env(os.environ, max_calls=None)
@@ -192,7 +197,13 @@ def make_case_router(analyze, *, visible_text, mask_inline_data):
             raise HTTPException(503, 'Case storage is unavailable. Reload to check whether your last operation completed.') from None
         if session is None:
             raise ended
-        if not hmac.compare_digest(service.analysts.get(session['actor'], ''), session['credential']):
+        # Compare only a configured analyst's digest with a well-formed stored one. An analyst no
+        # longer configured, or a stored credential that is not a SHA-256 hex digest, ends the
+        # session: a damaged record must not pass as an empty string equal to an empty string.
+        actor, credential = session['actor'], session['credential']
+        expected = service.analysts.get(actor) if isinstance(actor, str) else None
+        if (expected is None or not isinstance(credential, str) or not _CREDENTIAL_DIGEST.fullmatch(credential)
+                or not hmac.compare_digest(expected, credential)):
             try:
                 store.close(session_id)
             except (CaseUnavailable, sqlite3.Error, OSError):
