@@ -1172,6 +1172,66 @@ domains) and setting `Reply-To` to the list. This affects list subscribers
 through the rule layer, separately from the model findings above. It is
 recorded as a follow-up, not changed here.
 
+### Synthetic intent-rule fixtures and collecting mail for the 2026-10-13 plan
+
+**Fixtures.** `website/tests/fixtures/intent_rules/` holds synthetic data for the plan's two
+intent rules:
+
+- `development.jsonl`: 75 newly written rows in 37 families, English and Chinese, positives
+  and the plan's control types. Every required scenario is covered in both languages:
+  - a request split across sentences;
+  - a link in another paragraph;
+  - negation scoped to one object;
+  - a quoted warning, which is a control;
+  - a quoted or forwarded instruction, which is a positive.
+- `regression.jsonl`: the two misses from the 2026-10-13 assessment and #60's reproduction.
+
+They are development and regression data only, **never holdout**. Every domain is reserved
+(`.example`, `.test`, `example.org`), apart from the reproduction's own Gmail address.
+`test_intent_fixtures.py` checks their shape, family consistency, coverage and domains.
+
+**Baseline before the rules**
+(`website/tools/intent_fixture_baseline.py`, pasted text, served model). The fixtures are
+measured as pasted text only: as original messages, their reserved sender domains set a
+Medium sender floor that says nothing about the rules.
+
+| Set / language / behaviour / kind | Rows | Alerts | Unknown | Sensitive-request finding | Model-only alerts |
+|---|---:|---:|---:|---:|---:|
+| en credential, positive | 16 | 14 | 0 | 2 | 9 |
+| en credential, control | 10 | 5 | 0 | 0 | 2 |
+| en payment, positive | 14 | 13 | 0 | 0 | 11 |
+| en payment, control | 10 | 9 | 0 | 0 | 8 |
+| zh credential, positive | 8 | 4 | 4 | 4 | 0 |
+| zh credential, control | 4 | 0 | 4 | 0 | 0 |
+| zh payment, positive | 7 | 0 | 7 | 0 | 0 |
+| zh payment, control | 6 | 0 | 6 | 0 | 0 |
+| regression credential | 2 | 1 | 0 | 1 | 0 |
+| regression payment | 1 | 0 | 0 | 0 | 0 |
+
+- **English positives** alert mostly because of the text model: only 2 of 30 have a rule
+  finding. As original messages without other evidence, they would fall to the model-only Low
+  note.
+- **English controls** already draw 14 false alerts out of 20, 10 of them from the model alone.
+  The rules must add none.
+- **Chinese text** is not scored by the model, so its controls and payment positives are
+  Unknown.
+- **Regression:** #60's reproduction alerts, but both assessment misses still do not.
+- These counts describe synthetic development data, not real mail.
+
+**Collecting mail (plan step 3).** The owner collects; no one opens or scores holdout mail
+before the plan is frozen.
+
+1. Use a dedicated test mailbox, signed up to common services, and the owner's own Gmail and
+   Outlook accounts.
+2. Export only mail received **after 2026-10-14**, for example
+   `import_own_mailbox.py --since 2026-10-15 --provider gmail --output <private dir>`, with one
+   output directory per provider and label.
+3. Keep every export **outside Git** (or under the ignored `.evaluation-data/`), and do not
+   read the exported messages.
+4. Splitting by family into development and holdout needs a step not built yet: a tool that
+   derives family keys (sender organisation; for phishing, campaign) from headers without
+   showing content. Until it exists, exports stay unsplit and unscored.
+
 ### Plan options and mailbox settings in the serving evaluator (2026-10-13)
 
 For the 2026-10-13 evaluation plan
