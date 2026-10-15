@@ -22,6 +22,29 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-15 08:55 PT] — Design: PhishGuard's own DKIM verification; checklist: can the holdout meet D10 and D11
+
+### Why
+- The owner agreed an order of work: the independent evaluation first; DKIM self-verification designed alongside it; enterprise context last.
+- This step is design and preparation only. Nothing is implemented, enabled or scored.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-15-dkim-self-verification-design.md`:
+  - **What it checks:** the uploaded raw bytes' own DKIM signatures (dkimpy, already pinned), through a guarded, bounded DNS resolver.
+  - **What it reports:** "no signature", "pass", "fail" and "could not be checked", kept apart, with relaxed and strict alignment to `From`, as a separate evidence type beside `mailbox`, `server` and `arc`.
+  - **Wording:** it names the evidence ("PhishGuard verified the DKIM signature of example.com"), never "verified email".
+  - **Phase 1:** information only, off by default. Its effect on `authenticated_sender` is a later, separately evaluated decision.
+  - **Freeze:** kept apart from the 2026-10-13 plan's baseline.
+  - **Criteria:** five, fixed before any implementation.
+- `docs/superpowers/specs/2026-10-15-holdout-feasibility-checklist.md`:
+  - **Targets:** D10 (400 messages over the four provider-language cells, 30 authenticated phishing, the decisive subset) and D11 (behaviours and control types), with family rules and sources.
+  - **What may be counted:** counts, sources and families, and authentication from the frozen structure analysis. No candidate output is looked at.
+  - **Decision points:** D10 and D11 met; D10 met but not D11 (split in writing before the first scoring, thresholds unchanged); D10 not met; D12 not met.
+  - **A report template.**
+
+### Effect
+- No code or served behaviour changes. The plan stays unfrozen, and no holdout row is scored, until D12 records a real, confirmed independent reviewer.
+
 ## [2026-10-15 08:12 PT] — Text rules read Cyrillic or Greek look-alikes inside Latin words as Latin, and report them
 
 ### Why
