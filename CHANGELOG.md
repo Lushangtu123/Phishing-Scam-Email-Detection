@@ -22,6 +22,28 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-14 20:51 PT] — Evaluation: human-written and LLM-rewritten mail through the served pipeline
+
+### Why
+- The owner asked whether AI-written scams get past the project. Before changing anything, the served pipeline (rules, fusion, abstention and the served model) was measured on PhishFuzzer's human seeds and their own LLM rewrites. The earlier comparison (2026-09-29) scored the model recipe alone.
+
+### Files changed
+- `docs/evaluation.md`, section 5 — the criteria (fixed before the run), the counts by era and label, the results against the criteria, an exploratory per-seed check, the reading and its limits.
+
+### Effect
+- **Detection is not lower for LLM-rewritten phishing:**
+  - recent seeds 85.4% and their variants 90.0%;
+  - legacy seeds 99.1% and their variants 98.4%.
+- **False alerts rise for legacy-style legitimate mail:**
+  - seeds 2.1% (21 of 998) and their variants 7.3% (437 of 5,988), with non-overlapping 95% intervals;
+  - per seed: 210 seeds with a flagged variant only, against 12 the other way.
+- **Recent-style legitimate mail:** 61.8% with the seeds and 70.9% with their variants, with overlapping intervals ("no difference shown"). It is flagged far more than either effect.
+- **Scope:**
+  - development data, counts only;
+  - no code or served behaviour changes;
+  - the PhishFuzzer seed file was downloaded with the owner's approval to the git-ignored `.evaluation-data/`;
+  - scripts and outputs are archived outside the repository.
+
 ## [2026-10-14 16:55 PT] — Case sign-out: a failed sign-out no longer promises an end "within 30 minutes"
 
 ### Why
