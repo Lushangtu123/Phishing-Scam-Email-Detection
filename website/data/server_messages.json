@@ -82,6 +82,7 @@
   "content.regional_phrasing": "Regional or formal English phrasing observed: \"{phrase}\"; not included in the risk score.",
   "content.regional_phrasing_more": "Regional or formal English phrasing observed: \"{phrase}\"...; not included in the risk score.",
   "content.obfuscation": "Character substitution / homoglyph obfuscation detected for: {brands} — e.g. P@yP@l, Amaz0n — used to evade spam filters",
+  "content.mixed_script_words": "{count} word(s) mix Latin letters with Cyrillic or Greek letters that look the same, a way to slip past filters. The checks read these words as plain Latin.",
   "content.category": "{label}",
   "content.nested_category": "{label} — {matched}",
 

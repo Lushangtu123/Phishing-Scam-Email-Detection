@@ -12,6 +12,8 @@ import unicodedata
 from datetime import datetime, timezone
 from email.utils import parseaddr
 from email_structure import (
+    _CONFUSABLE_CAPITALS,
+    _CONFUSABLE_TRANSLATION,
     _ORGANIZATIONAL_DOMAINS,
     _official_sender,
     _CONSUMER_MAILBOX_DOMAINS,
@@ -311,6 +313,72 @@ def _letter_swaps(text: str) -> list[str]:
             candidates.append('i' + token[1:].lower())
         found.update(_LETTER_SWAP_WORDS[word] for word in candidates if word in _LETTER_SWAP_WORDS)
     return sorted(found)
+
+
+# Cyrillic or Greek letters drawn like Latin ones, written inside an English word ("pаssword" with
+# a Cyrillic а): a substitution that slips a request or a keyword past the rules. Inside such a
+# word the rules read them through the look-alike map the domain checks use (email_structure).
+# A word is a run of Latin, Cyrillic or Greek letters (other scripts, such as Chinese, end it);
+# it is a disguised Latin word when it has at least three letters, a Latin letter, a look-alike,
+# and nothing else. A word wholly in Cyrillic or Greek, or a Cyrillic word with a stray Latin
+# letter (it has Cyrillic letters no Latin one imitates), is genuine text and stays as it is.
+# Each letter maps to one letter, so the text keeps its length.
+_LOOKALIKE_LETTERS = {**_CONFUSABLE_CAPITALS, **_CONFUSABLE_TRANSLATION}
+_LOOKALIKE_CHARACTERS = frozenset(chr(code) for code in _LOOKALIKE_LETTERS)
+
+
+def _latin_letter(character: str) -> bool:
+    return character.isalpha() and (character.isascii() or '\u00c0' <= character <= '\u024f'
+                                     or '\u1e00' <= character <= '\u1eff')
+
+
+def _word_letter(character: str) -> bool:
+    """A Latin, Greek or Cyrillic letter (the blocks up to U+052F and U+1E00–U+1FFF)."""
+    return character.isalpha() and (character < '\u0530' or '\u1e00' <= character <= '\u1fff')
+
+
+def _letter_runs(text: str) -> list[tuple[int, int]]:
+    """(start, end) of each word, with the invisible format controls inside it (a zero-width space
+    between "p" and a Cyrillic "а" does not split the word)."""
+    runs, start = [], None
+    for index, character in enumerate(text):
+        if _word_letter(character) or (start is not None and unicodedata.category(character) == 'Cf'):
+            if start is None:
+                start = index
+        elif start is not None:
+            runs.append((start, index))
+            start = None
+    if start is not None:
+        runs.append((start, len(text)))
+    return runs
+
+
+def _mixes_scripts(word: str) -> bool:
+    letters = [character for character in word if character.isalpha()]
+    return (len(letters) >= 3 and any(map(_latin_letter, letters))
+            and not _LOOKALIKE_CHARACTERS.isdisjoint(letters)
+            and all(_latin_letter(character) or character in _LOOKALIKE_CHARACTERS for character in letters))
+
+
+def _mixed_script_words(text: str) -> list[str]:
+    """Words of text that mix Latin letters with Cyrillic or Greek look-alikes."""
+    if not text or _LOOKALIKE_CHARACTERS.isdisjoint(text):
+        return []
+    return [text[start:end] for start, end in _letter_runs(text) if _mixes_scripts(text[start:end])]
+
+
+def _fold_mixed_script(text: str) -> str:
+    """text with the look-alike letters of its mixed words read as the Latin letters they imitate."""
+    if not text or _LOOKALIKE_CHARACTERS.isdisjoint(text):
+        return text or ''
+    parts, last = [], 0
+    for start, end in _letter_runs(text):
+        word = text[start:end]
+        if _mixes_scripts(word):
+            parts += [text[last:start], word.translate(_LOOKALIKE_LETTERS)]
+            last = end
+    parts.append(text[last:])
+    return ''.join(parts)
 
 
 def _detect_obfuscation(text: str) -> list[str]:
@@ -1187,6 +1255,7 @@ def _attachment_mailbox_lure(attachment: dict, sender_domain: str) -> str | None
 
 def _attachment_text_findings(text: str) -> list[dict]:
     """Strong requests in attachment text: callback numbers, secrets, subsidy lures."""
+    text = _fold_mixed_script(text)
     findings = []
     number = _callback_request(text, _OFFICIAL_SERVICE_NUMBERS)
     if number:
@@ -1246,6 +1315,10 @@ def _sensitive_requests(text: str) -> list[str]:
 
 def _text_rule_findings(full_orig: str) -> dict:
     """Keyword categories and text checks for one reading of the message text."""
+    # Look-alike letters inside Latin words are read as Latin: every rule below sees "password".
+    mixed_words = _mixed_script_words(full_orig)
+    if mixed_words:
+        full_orig = _fold_mixed_script(full_orig)
     analysis_text = _strip_invisible_format_controls(full_orig)
     full_lower = analysis_text.lower()
     categories, score, floor = [], 0, 'safe'
@@ -1342,6 +1415,13 @@ def _text_rule_findings(full_orig: str) -> dict:
     if obfuscated:
         score += 3
         wording.append(indicator("high", "content.obfuscation", brands=', '.join(set(obfuscated))))
+
+    # 13. Words mixing Latin with Cyrillic or Greek look-alike letters, read above as Latin.
+    if mixed_words:
+        score += 3
+        if floor == 'safe':
+            floor = 'medium'
+        wording.append(indicator("medium", "content.mixed_script_words", count=len(mixed_words)))
 
     return {"full_orig": full_orig, "analysis_text": analysis_text, "categories": categories, "score": score,
             "presentation": presentation, "floor": floor, "requests": requests, "style": style, "wording": wording}

@@ -913,6 +913,7 @@
   'server.content.regional_phrasing': '发现地区性或正式的英文表达：“{phrase}”；不计入风险评分。',
   'server.content.regional_phrasing_more': '发现地区性或正式的英文表达：“{phrase}”等；不计入风险评分。',
   'server.content.obfuscation': '检测到针对以下名称的字符替换/同形字混淆：{brands} — 例如 P@yP@l、Amaz0n — 用于规避垃圾邮件过滤',
+  'server.content.mixed_script_words': "有 {count} 个单词在拉丁字母中混入了外形相同的西里尔或希腊字母，这是规避过滤的手法；检测时已把这些单词按拉丁字母读取。",
   'server.content.category': '{label}',
   'server.content.nested_category': '{label} — {matched}',
 
