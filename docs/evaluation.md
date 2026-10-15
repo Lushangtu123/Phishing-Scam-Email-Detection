@@ -1048,6 +1048,42 @@ artifact.
   --augmentation-experiment --output .evaluation-data/external/report.json
 ```
 
+### Words that mix Latin with Cyrillic or Greek letters (2026-10-15)
+
+**The gap.** Cyrillic or Greek letters drawn like Latin ones, written inside English words
+(`pаssword` with a Cyrillic а), get past the text rules. Domains and display names are read through
+a look-alike map; text was not. A local synthetic check with the served model found:
+
+- an uploaded `.eml` from a consumer address asking to reply with a password was **Critical** with
+  Latin letters, and **Low** (model signal only) with Cyrillic а;
+- pasted, the same request fell from Critical to Medium.
+
+**Change.**
+
+- **The map:** inside a word that mixes Latin letters with Cyrillic or Greek look-alikes, the rules
+  read those letters through the map the domain checks use. Words written wholly in Cyrillic or
+  Greek are left alone.
+- **A new finding:** such words are reported as `content.mixed_script_words` (Medium). The text
+  model's input is unchanged.
+
+Criteria fixed before the first run:
+
+1. **Synthetic checks** (written with the change, so a check). With look-alike letters inside Latin
+   words, the same request, keyword and brand findings appear as with the Latin text, plus the new
+   finding. None of these gives a new finding or any change:
+   - text wholly in Cyrillic or Greek;
+   - symbols such as `μg`, `TGF-β` or `α-amylase`;
+   - Latin text beside separate Cyrillic words.
+2. **Public corpora** (development data; D8's bound). Of the 36,567 rows labelled legitimate in
+   `phishing-detection/data`, read as pasted text with no sender, at most **36** carry the new
+   finding. Every legitimate row whose served level differs from `main` is reported. Phishing and
+   spam rows are counted, with no requirement.
+3. **Golden replay** with the served model against `main`, on the unit suite's inputs, the intent
+   fixtures and every 40th public-corpus row:
+   - every item whose text has no mixed-script word is byte-identical;
+   - every item that changes has one;
+   - with the mapping disabled, the tests fail.
+
 ### Human-written and LLM-rewritten mail through the served pipeline (2026-10-14)
 
 The question: does AI-written text get past the served pipeline, or get flagged more? The table
