@@ -549,7 +549,7 @@ test('a sign-out that fails or never finishes still drops the old session in the
       if (url === '/api/cases/session' && options.method === 'DELETE') {
         log.push({kind: 'sign-out', bearer});
         return outcome === '503'
-          ? {status: 503, data: {detail: 'Case storage is unavailable; the session ends on its own within 30 minutes.'}}
+          ? {status: 503, data: {detail: 'Case storage is unavailable, so sign-out could not be confirmed. The session may still be active. An active session expires after 30 minutes without use or 8 hours after sign-in, whichever comes first.'}}
           : new Promise(() => {});
       }
       if (url === '/api/cases/session') {

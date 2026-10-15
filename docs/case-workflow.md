@@ -128,7 +128,12 @@ short-lived session, which the page keeps in memory and sends with each request.
 session ends 30 minutes after its last request, 8 hours after sign-in, when you sign
 out or close the tab, or as soon as your token's hash is replaced or removed. Sessions
 live in the case storage (Upstash in Production), so a sign-out holds on every
-instance; the server keeps only a SHA-256 of each session ID. Bookmark this stable
+instance; the server keeps only a SHA-256 of each session ID. If the case storage is
+unavailable when you sign out, the sign-out API (`DELETE /api/cases/session`) answers
+503 and says the sign-out could not be confirmed: the session may still be active, and
+an active session expires after 30 minutes without use or 8 hours after sign-in,
+whichever comes first. This is the API's answer; how the page shows or handles a failed
+sign-out is a separate design task (today the page drops its session either way). Bookmark this stable
 address, not a deployment-specific
 Vercel URL. For local development, open `/cases` on the local server. Create a case from
 subject/body, an original `.eml` file, or a PNG/JPEG/WebP image. Creation saves extracted text and detection
