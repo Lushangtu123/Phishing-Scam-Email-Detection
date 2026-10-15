@@ -1048,6 +1048,85 @@ artifact.
   --augmentation-experiment --output .evaluation-data/external/report.json
 ```
 
+### Words that mix Latin with Cyrillic or Greek letters (2026-10-15)
+
+**The gap.** Cyrillic or Greek letters drawn like Latin ones, written inside English words
+(`pаssword` with a Cyrillic а), get past the text rules. Domains and display names are read through
+a look-alike map; text was not. A local synthetic check with the served model found:
+
+- an uploaded `.eml` from a consumer address asking to reply with a password was **Critical** with
+  Latin letters, and **Low** (model signal only) with Cyrillic а;
+- pasted, the same request fell from Critical to Medium.
+
+**Change.**
+
+- **The map:** inside a word that mixes Latin letters with Cyrillic or Greek look-alikes, the rules
+  read those letters through the map the domain checks use. This covers the shared text rules
+  (email, attachment text, SMS), the mail lure rules and their button labels. Words written wholly
+  in Cyrillic or Greek are left alone; see "First run, and a tightening after it" below for the
+  exact definition.
+- **A new finding:** such words are reported as `content.mixed_script_words` (Medium). The text
+  model's input is unchanged.
+
+Criteria fixed before the first run:
+
+1. **Synthetic checks** (written with the change, so a check). With look-alike letters inside Latin
+   words, the same request, keyword and brand findings appear as with the Latin text, plus the new
+   finding. None of these gives a new finding or any change:
+   - text wholly in Cyrillic or Greek;
+   - symbols such as `μg`, `TGF-β` or `α-amylase`;
+   - Latin text beside separate Cyrillic words.
+2. **Public corpora** (development data; D8's bound). Of the 36,567 rows labelled legitimate in
+   `phishing-detection/data`, read as pasted text with no sender, at most **36** carry the new
+   finding. Every legitimate row whose served level differs from `main` is reported. Phishing and
+   spam rows are counted, with no requirement.
+3. **Golden replay** with the served model against `main`, on the unit suite's inputs, the intent
+   fixtures and every 40th public-corpus row:
+   - every item whose text has no mixed-script word is byte-identical;
+   - every item that changes has one;
+   - with the mapping disabled, the tests fail.
+
+**First run, and a tightening after it.** All three criteria passed on the first run. On the
+corpora, 4 of the 36,567 legitimate rows got the new finding (limit 36), and all 4 rose to Medium
+(2 from Safe, 2 from Unknown). None was a disguised Latin word:
+
+- **Two rows (CEAS):** a Greek letter next to Chinese text. Chinese letters had joined it into one
+  "word" with a Latin `N`.
+- **Two rows (CEAS):** Russian text with a two-letter Latin-Cyrillic fragment.
+
+The definition was then tightened, **after looking at these 4 development rows**, so the figures
+below are development numbers, not independent evidence. Now:
+
+- a word is a run of Latin, Cyrillic or Greek letters only, so other scripts end it;
+- it counts when it has at least 3 letters, a Latin letter, a look-alike, and nothing else. A
+  Cyrillic word with a stray Latin letter keeps Cyrillic letters no Latin one imitates.
+- Three controls were added to the synthetic checks: Chinese beside a Greek letter, a two-letter
+  fragment, and a Russian word with a stray Latin letter.
+
+**Results after tightening** (all three criteria pass):
+
+1. **Synthetic checks:** 7 tests pass, the new controls included.
+   - With the look-alike letters, the request, mailbox-lure, attachment and SMS findings are those
+     of the Latin text, plus the new finding.
+   - An uploaded `.eml` asking to reply with a password is High or Critical again (Low before).
+   - Disabling the mapping, or the detection, makes 8 tests or subtests fail.
+2. **Public corpora:** **0** of 36,567 legitimate rows carry the new finding, and no legitimate row
+   changes level against `main`. Of 38,545 phishing rows, 30 carry it, and 16 change level: 1
+   newly alerted, none cleared. Spam: 0 of 6,444.
+3. **Golden replay:** of 4,802 items, 13 have a mixed-script word.
+   - **8 change, all of them with one.** These are 2 unit-suite inputs, 5 uploaded messages through
+     the full pipeline, and 1 corpus row.
+   - Every item without such a word is byte-identical to `main`.
+   - The 5 unchanged items with one are those messages' structure analyses, which these rules do
+     not read.
+
+**Limits.**
+
+- A word written wholly in look-alike letters (every letter Cyrillic) is left alone, like any
+  Cyrillic word.
+- The text model still reads the original letters.
+- SMS-only rules outside the shared text rules are not mapped.
+
 ### Human-written and LLM-rewritten mail through the served pipeline (2026-10-14)
 
 The question: does AI-written text get past the served pipeline, or get flagged more? The table

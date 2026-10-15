@@ -159,6 +159,7 @@ from content_rules import (
     _registration_findings,
     _sms_delivery_lure,
     _text_rule_findings,
+    _fold_mixed_script,
     _user_content_action,
 )
 
@@ -994,6 +995,7 @@ _PHISHING_TACTICS = {
     "impersonation": {"link.brand_lookalike", "link.idn_confusable", "link.brand_on_free_host",
                       "structure.brand_display_name",
                       "structure.idn_sender_domain", "sender.homoglyph_brand", "content.obfuscation",
+                      "content.mixed_script_words",
                       "link.file_share_elsewhere", "structure.recipient_domain_display"},
     "deceptive_link": {"link.display_mismatch", "link.ip_host", "link.url_userinfo", "link.ipfs_gateway",
                        "link.dev_hosting",
@@ -1533,8 +1535,10 @@ def _hidden_text_findings(scored_parts: list, parts: list[_PartReading], url_par
                       for link in (part_links if text is None else
                                    _extract_links(part, visible_text=text, hidden_labels=True)))
     listed_codes = {item.get('code') for item in listed}
+    hidden_lure_links = tuple((_fold_mixed_script(label), destination) for label, destination in all_links)
     return [item for item in (*_text_rule_findings(hidden_reading)['requests'],
-                              *_lure_findings([(hidden_reading, all_links)], links, sender_domain, display_name))
+                              *_lure_findings([(_fold_mixed_script(hidden_reading), hidden_lure_links)], links,
+                                              sender_domain, display_name))
             if item['code'] not in listed_codes]
 
 
@@ -1625,9 +1629,12 @@ def analyze_email_content(subject: str, body: str, *, content_parts: list[dict] 
     # it shows: the riskiest plausible rendering counts for these rules as for the others.
     sender_domain = parseaddr(sender)[1].rpartition('@')[2].lower()
     display_name = parseaddr(sender)[0]
+    # Look-alike letters inside Latin words read as Latin, in the text and the button labels
+    # (content_rules._fold_mixed_script), as for the other text rules.
     lure_readings = dict.fromkeys(
-        (_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(texts)).strip()),
-         tuple(_reading_links(texts, part_links_by_part, parts, index, off)))
+        (_fold_mixed_script(_strip_invisible_format_controls(re.sub(r'\s+', ' ', '\n'.join(texts)).strip())),
+         tuple((_fold_mixed_script(label), destination)
+               for label, destination in _reading_links(texts, part_links_by_part, parts, index, off)))
         for off, readings in ((False, readings_for_rules), (True, readings_off))
         for index, texts in enumerate(readings))
 

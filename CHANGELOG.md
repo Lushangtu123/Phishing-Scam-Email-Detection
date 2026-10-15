@@ -22,6 +22,35 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-15 08:12 PT] — Text rules read Cyrillic or Greek look-alikes inside Latin words as Latin, and report them
+
+### Why
+- The owner asked whether a Cyrillic а in place of a Latin a is caught. In domains and display names it was. Inside body words it got past the rules: with the served model, an uploaded `.eml` asking to reply with a password was Critical in Latin letters and **Low** with Cyrillic а.
+
+### Files changed
+- `website/content_rules.py`:
+  - **New helpers:** `_mixed_script_words` and `_fold_mixed_script`, using the look-alike map the domain checks already use.
+  - **What counts:** a word is a run of Latin, Cyrillic or Greek letters, with invisible format controls inside it. It counts when it has at least 3 letters, a Latin letter, a look-alike, and nothing else.
+  - **Where it applies:** `_text_rule_findings` (email, hidden text requests, SMS) and attachment text read such words as Latin.
+  - **The new finding** `content.mixed_script_words` (Medium, 3 points) reports them.
+- `website/app.py` — the mail lure rules read their text and button labels the same way. The new finding joins the impersonation tactics of the mail-type note.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the finding's text in English and Chinese. Asset versions: `i18n.js` v151, `i18n-zh.js` v75, `lang-init.js` v78.
+- `website/tests/test_mixed_script_words.py` (7 tests).
+  - **Controls:** text wholly in Cyrillic or Greek, symbols such as `μg` and `TGF-β`, Chinese beside a Greek letter, a two-letter fragment, and a Russian word with a stray Latin letter.
+  - **Paths:** requests, the mailbox lure and its button, attachments, SMS and an uploaded `.eml`.
+- `docs/evaluation.md` — the criteria, fixed before the first run and committed first; both runs; the tightening; the results.
+
+### Effect
+- **First run:** the criteria passed, but 4 of 36,567 legitimate public rows got the finding, none of them a disguised Latin word. The definition was tightened after looking at those 4 development rows.
+- **Results after tightening:**
+  - **Public corpora:** 0 of 36,567 legitimate rows get the finding. Of 38,545 phishing rows, 30 get it, and 16 change level (1 newly alerted).
+  - **Golden replay:** 8 of 4,802 items change, all of them with mixed-script words. Everything else is byte-identical to `main`.
+  - **Planted bugs:** disabling the mapping, or the detection, fails 8 tests each.
+- **Not changed:**
+  - the text model's input;
+  - words wholly in look-alike letters;
+  - SMS-only rules.
+
 ## [2026-10-14 20:51 PT] — Evaluation: human-written and LLM-rewritten mail through the served pipeline
 
 ### Why

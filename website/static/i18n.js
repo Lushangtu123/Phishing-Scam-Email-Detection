@@ -932,6 +932,7 @@ window.PhishGuardI18n = (() => {
     'server.content.regional_phrasing': 'Regional or formal English phrasing observed: "{phrase}"; not included in the risk score.',
     'server.content.regional_phrasing_more': 'Regional or formal English phrasing observed: "{phrase}"...; not included in the risk score.',
     'server.content.obfuscation': 'Character substitution / homoglyph obfuscation detected for: {brands} — e.g. P@yP@l, Amaz0n — used to evade spam filters',
+    'server.content.mixed_script_words': "{count} word(s) mix Latin letters with Cyrillic or Greek letters that look the same, a way to slip past filters. The checks read these words as plain Latin.",
     'server.content.category': '{label}',
     'server.content.nested_category': '{label} — {matched}',
 
@@ -1419,7 +1420,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=74'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=75'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
