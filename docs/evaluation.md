@@ -1048,6 +1048,90 @@ artifact.
   --augmentation-experiment --output .evaluation-data/external/report.json
 ```
 
+### Human-written and LLM-rewritten mail through the served pipeline (2026-10-14)
+
+The question: does AI-written text get past the served pipeline, or get flagged more? The table
+above scored the model recipe alone. This measurement runs the **served pipeline**: rules, fusion,
+abstention and the served model. It is fed pasted subject and body, with no sender, and with RDAP,
+sender history, verification and the intent rules off, as served. Development data only, counts only.
+
+**Data.**
+
+- **PhishFuzzer human seeds:** 3,300 messages, from `PhishFuzzer_emails_original_seed_v1.json` at
+  revision `1e21dd4e`. Downloaded with the owner's approval to `.evaluation-data/`: 8,218,997 bytes,
+  SHA-256 `394d542e…`.
+- **Their LLM rewrites:** 19,800 messages (`phishfuzzer_*.csv`), each linked to its seed by
+  `Original_ID`.
+- **Split by era.** Recent seeds (`Source: Manual`) and their variants; legacy seeds and theirs.
+
+**Criteria fixed before any run.**
+
+- The question is answered only by seeds against their own variants, within one era.
+- **"LLM rewriting lowers detection"** means a variant recall at least 5 points below the seeds'.
+- **"LLM rewriting raises false alerts"** means a legitimate false-alert rate at least 5 points above the seeds'.
+- In both cases the 95% Wilson intervals must not overlap. Otherwise the result is "no difference shown".
+- The human training corpora are in-sample, so they are reported for reference only.
+
+| Group | Label | Rows | Alerts (Medium+) | Unknown | Rate (Wilson 95%) |
+|---|---|---:|---:|---:|---|
+| Seeds, legacy | phishing | 1,023 | 1,014 | 4 | 99.1% (98.3–99.5) |
+| Variants, legacy | phishing | 6,138 | 6,041 | 67 | 98.4% (98.1–98.7) |
+| Seeds, recent | phishing | 103 | 88 | 0 | 85.4% (77.4–91.0) |
+| Variants, recent | phishing | 618 | 556 | 0 | 90.0% (87.3–92.1) |
+| Seeds, legacy | legitimate | 998 | 21 | 0 | 2.1% (1.4–3.2) |
+| Variants, legacy | legitimate | 5,988 | 437 | 2 | 7.3% (6.7–8.0) |
+| Seeds, recent | legitimate | 102 | 63 | 0 | 61.8% (52.1–70.6) |
+| Variants, recent | legitimate | 612 | 434 | 0 | 70.9% (67.2–74.4) |
+| Training corpora, human (in-sample) | phishing | 31,789 | 30,161 | 579 | 94.9% |
+| Training corpora, human (in-sample) | legitimate | 29,967 | 487 | 262 | 1.6% |
+
+Notes on the table:
+
+- **Spam** belongs to neither label. It alerts at 53.5% (legacy seeds), 58.0% (legacy variants)
+  and 42.1% (recent, both).
+- **Errors:** 19 phishing rows of `Phishing_Email.csv` raise a request error and count as not
+  alerted.
+
+**Results against the criteria.**
+
+- **Detection is not lower** in either era:
+  - recent seeds 85.4% and their variants 90.0%;
+  - legacy seeds 99.1% and their variants 98.4%.
+- **False alerts rise for legacy-style legitimate mail:** 2.1% with the seeds, 7.3% with their
+  variants, +5.2 points with intervals apart. The criterion is met.
+- **Recent-style false alerts:** 61.8% with the seeds and 70.9% with the variants. The intervals
+  overlap, so the result is "no difference shown".
+
+The variants of one seed are not independent, so an exploratory check, outside the criteria, paired
+the 998 legacy legitimate seeds with their 6 variants each:
+
+- 210 seeds were not flagged while at least one of their variants was;
+- 12 were the other way round;
+- 779 had no flagged variant.
+
+The rise is spread over many seeds.
+
+**Reading.**
+
+- **AI rewriting does not get phishing past the served pipeline in this data.** Many of its
+  signals (destinations, requests, structure) do not depend on wording.
+- **AI-written legitimate mail is flagged more.** The model's legitimate training mail is old and
+  human-written. This becomes the larger cost as more genuine mail is AI-written.
+- **Recent-style legitimate mail** is flagged far more often than either effect, written by an LLM
+  or not. This is the gap the 2026-10-13 plan's fresh mail addresses.
+
+**Limits.**
+
+- The variants are LLM rewrites of each seed's entities and wording, not scams written from
+  scratch by an AI.
+- Labels are upstream's.
+- Legacy seeds come from SpamAssassin and a Kaggle set.
+- The 205 recent labelled seeds include non-English mail.
+- The training corpora are in-sample.
+
+The criteria, scripts, per-row output (positions, labels, seed IDs and levels, no text) and run
+metadata are archived with the owner's review records outside the repository.
+
 ### Newer phishing, marketing mail and transactional templates (2026-09-29)
 
 Three more sources, evaluation only, in the same git-ignored folder:
