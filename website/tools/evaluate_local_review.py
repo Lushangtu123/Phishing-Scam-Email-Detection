@@ -29,11 +29,11 @@ if str(WEBSITE_DIR) not in sys.path:
     sys.path.insert(0, str(WEBSITE_DIR))
 
 from tools import evaluate_serving_pipeline as serving  # noqa: E402
+from tools import pasted_cohort  # noqa: E402
 import local_review as lr  # noqa: E402
 
-# A pasted message has no upload limit of its own (the paste box caps the text it keeps), so a
-# pasted cohort reads source files up to the browser's 3 MiB request limit, not the .eml 60,000.
-MAX_PASTE_SOURCE_BYTES = 3 * 1024 * 1024
+# The source limit of a pasted cohort, under its earlier name (evaluate_llm_labeler.py reads it).
+MAX_PASTE_SOURCE_BYTES = pasted_cohort.MAX_SOURCE_BYTES
 # What each review indicator says about an alert (app._apply_local_review in shadow mode).
 REVIEW_OUTCOMES = {
     'content.local_review_shadow': 'would_lower',
@@ -51,36 +51,23 @@ def _cohort(spec: str) -> tuple[str, Path]:
     return name, Path(path)
 
 
-def pasted(row: dict) -> dict:
-    """The row as a reader would paste it: the subject and the visible text of each part."""
-    import app
-
-    if '_eml_bytes' in row or row.get('raw_email'):
-        structure = app.analyze_raw_email(row.get('_eml_bytes') or row['raw_email'], trusted_authserv_ids=())
-        parts = [app._visible_content_text(part['content']) if part['content_type'] == 'text/html'
-                 else part['content'] for part in structure['content_parts']]
-        subject, body = structure['subject'], '\n'.join(parts)
-    else:
-        subject, body = row.get('subject', ''), row.get('body', '')
-    return {'label': row['label'], 'provider': row['provider'], 'received_at': row['received_at'],
-            'subject': subject.strip()[:500], 'body': body.strip()[:50_000]}
-
-
-def load_cohort(path: Path, *, paste: bool, limit: int | None = None) -> list[dict]:
-    rows = []
+def load_cohort(path: Path, *, paste: bool, limit: int | None = None) -> tuple[list[dict], dict]:
+    """The cohort's rows, and for a pasted cohort the rows excluded rather than truncated, by reason
+    (tools/pasted_cohort.py: no ARC lookups, no truncation, metadata kept)."""
+    rows, excluded = [], Counter()
     for index, row in enumerate(serving._jsonl_records(path), 1):
         if limit is not None and len(rows) >= limit:
             break
         row = serving._validated_record(row, index)
-        if paste and 'eml_path' in row:
-            raw = Path(row['eml_path']).read_bytes()
-            if not raw.strip() or len(raw) > MAX_PASTE_SOURCE_BYTES:
-                raise ValueError(f'Row {index}: email file must contain 1 byte to 3 MiB')
-            rows.append(pasted({**row, '_eml_bytes': raw}))
+        if paste:
+            try:
+                rows.append(pasted_cohort.pasted(row))
+            except pasted_cohort.PasteExcluded as exclusion:
+                excluded[exclusion.reason] += 1
             continue
         prepared, _digest = serving._prepare_record(row)
-        rows.append(pasted(prepared) if paste else prepared)
-    return rows
+        rows.append(prepared)
+    return rows, dict(sorted(excluded.items()))
 
 
 def count_cohort(rows: list[dict], analyze) -> dict:
@@ -150,8 +137,9 @@ def main(argv=None) -> None:
     settings = load_settings(env)
     model_sha256 = profile['CONTENT_MODEL_ARTIFACT_SHA256'].lower()
     pipeline = load_content_pipeline_artifact(PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_sha256)
-    cohorts = ([(name, load_cohort(path, paste=False, limit=args.limit)) for name, path in args.input]
-               + [(name, load_cohort(path, paste=True, limit=args.limit)) for name, path in args.paste])
+    loaded = ([(name, *load_cohort(path, paste=False, limit=args.limit)) for name, path in args.input]
+              + [(name, *load_cohort(path, paste=True, limit=args.limit)) for name, path in args.paste])
+    cohorts = [(name, rows) for name, rows, _excluded in loaded]
 
     models = {}
     with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
@@ -176,6 +164,8 @@ def main(argv=None) -> None:
         'prompt_sha256': hashlib.sha256((lr.PROMPT + json.dumps(lr.SCHEMA, sort_keys=True)).encode()).hexdigest(),
         'model_digests': {model: digests.get(model) for model in args.model},
         'pasted_cohorts': [name for name, _path in args.paste],
+        # Pasted rows excluded instead of truncated, by reason.
+        'paste_exclusions': {name: excluded for name, _rows, excluded in loaded if excluded},
         'content_model_sha256': model_sha256,
     }
     report = {'schema_version': 1, 'mode': 'shadow', 'models': models, 'configuration': configuration,

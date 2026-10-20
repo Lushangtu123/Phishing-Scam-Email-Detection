@@ -315,6 +315,27 @@ module, model, rule or threshold changes.
    - truncation restored;
    - default ARC verification restored.
 
+**Results against the criteria (2026-10-20).** All synthetic; no real mail was extracted or
+evaluated.
+
+| | Result |
+|---|---|
+| 1 | Met. `tools/pasted_cohort.py` reads with `arc_result=None`. `email_structure` and the served path are unchanged |
+| 2 | Met. A subject of 500 and a body of 50,000 characters are kept; 501 and 50,001 are excluded, with the reason. Sources are read up to 3 MiB; empty or larger files are excluded. A file over the 60,000-byte `.eml` limit whose visible text fits is kept whole |
+| 3 | Met. Every non-content field survives: label, provider, date, language, `cohort_role`, family, behaviour. A holdout row in pasted mode is still refused |
+| 4 | Met. `--paste` reports `paste_exclusions` and `paste_excluded_lines` in the input integrity and records `input_mode`; excluded rows stay in the input count and digest. `--paste` with a recorded mailbox is refused |
+| 5 | Met. Extracting a Google-sealed synthetic message, alone or through the evaluator in process or from the command line, records no outbound attempt. Read with default ARC verification, the same message does attempt a lookup |
+| 6 | Met. Restoring truncation failed 7 tests; restoring default ARC verification failed 3 |
+
+- **`evaluate_local_review.py`.** It now uses the same extraction and reports its exclusions. One of
+  its tests had counted a 100,000-character body as a message, which only truncation allowed. It
+  now checks that such a body is excluded and counted, and that a file over the `.eml` limit whose
+  text fits is still read.
+- **Unit suite:** 1,443 tests pass (15 skipped).
+- **Not changed, found in passing.** `evaluate_llm_labeler.py` also reads messages with default ARC
+  verification, so labelling sealed private mail without a mailbox could look up keys. That tool is
+  outside this change.
+
 ### Evaluators without registry lookups (2026-10-19)
 
 **What was found.**

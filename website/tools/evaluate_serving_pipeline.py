@@ -302,6 +302,10 @@ def _scoring_sha256() -> str:
     return hashlib.sha256(b'private-serving-scoring-v1\0' + _json_bytes(payload)).hexdigest()
 
 
+# How rows are analysed: as submitted, or as a reader would paste them (tools/pasted_cohort.py).
+INPUT_MODES = ('as_submitted', 'pasted')
+
+
 # Services an evaluation must not reach (docs/evaluation.md, 2026-10-19). The deployment profile
 # turns RDAP lookups on; an evaluation turns them, and the other services, off.
 OFFLINE_ENVIRONMENT = {'RDAP_LOOKUPS': 'false', 'SENDER_HISTORY_ENABLED': 'false',
@@ -344,9 +348,10 @@ def _validated_configuration(configuration: dict | None) -> dict | None:
             'content_model_enabled', 'auxiliary_enabled'}
     # The 2026-10-13 plan's settings; reports made before them omit both (option A, no mailbox).
     plan_keys = {'model_only_option', 'mailbox_setting', 'intent_rules'}
-    # The services a run could reach (2026-10-19); earlier reports omit them.
-    service_keys = {'external_services', 'network_services_enabled'}
+    # The services a run could reach (2026-10-19) and the input mode (2026-10-20); earlier reports omit them.
+    service_keys = {'external_services', 'network_services_enabled', 'input_mode'}
     if (not isinstance(configuration, dict) or not keys <= set(configuration) <= keys | plan_keys | service_keys
+            or configuration.get('input_mode', 'as_submitted') not in INPUT_MODES
             or not isinstance(configuration.get('external_services', {}), dict)
             or type(configuration.get('network_services_enabled', False)) is not bool
             or configuration.get('model_only_option', 'A') not in MODEL_ONLY_OPTIONS
@@ -375,10 +380,15 @@ def evaluate_records(
     evidence_observer: Callable[[str, str, dict], None] | None = None,
     counterfactual_observer: Callable[[dict, str, str, dict], None] | None = None,
     holdout_authorized: bool = False,
+    paste: bool = False,
 ) -> dict:
     """Run each row through the supplied serving analyzer and emit aggregates. Rows marked
     `cohort_role: holdout` are refused before any analysis unless holdout_authorized: the
-    plan keeps the holdout sealed until it is frozen."""
+    plan keeps the holdout sealed until it is frozen. With paste, each row is analysed as a
+    reader would paste it (tools/pasted_cohort.py); a row that cannot be pasted whole is
+    excluded and counted by reason, with its input line, never truncated."""
+    from tools import pasted_cohort
+
     if not re.fullmatch(r'[0-9a-f]{64}', model_sha256):
         raise ValueError('A full lowercase model SHA-256 is required')
     if duplicate_policy not in {'drop', 'error'}:
@@ -390,11 +400,23 @@ def evaluate_records(
     input_digests = []
     included_digests = []
     duplicate_rows = 0
+    paste_excluded: dict[str, list[int]] = defaultdict(list)
     for index, raw_row in enumerate(rows, 1):
         row = _validated_record(raw_row, index)
         if row.get('cohort_role') == 'holdout' and not holdout_authorized:
             raise ValueError(f'Row {index}: holdout rows are sealed until the evaluation plan is frozen '
                              '(--frozen-plan-commit)')
+        if paste:
+            try:
+                row = pasted_cohort.pasted(row)
+            except pasted_cohort.PasteExcluded as exclusion:
+                paste_excluded[exclusion.reason].append(index)
+                # Excluded rows stay part of the supplied cohort's identity.
+                input_digests.append(hashlib.sha256(_json_bytes(
+                    ['paste-excluded', exclusion.reason, row['label'], row['provider'], row['received_at']])).digest())
+                continue
+            except Exception:
+                raise RuntimeError(f'Row {index}: message input could not be read') from None
         try:
             row, content_digest = _prepare_record(row)
         except Exception:
@@ -486,6 +508,11 @@ def evaluate_records(
             ).hexdigest(),
             'warnings': ([f'{duplicate_rows} duplicate rows were excluded from all metrics.']
                          if duplicate_rows else []),
+            **({'input_mode': 'pasted',
+                'paste_exclusions': {reason: len(lines) for reason, lines in sorted(paste_excluded.items())},
+                # Input line numbers only, so P1 and P2 can be paired by source message.
+                'paste_excluded_lines': {reason: lines for reason, lines in sorted(paste_excluded.items())}}
+               if paste else {}),
         },
         'alert_policy': ALERT_POLICY,
         'confidence_intervals': 'two-sided 95% Wilson score intervals',
@@ -641,12 +668,17 @@ def main() -> None:
                         help='Intent rules of the 2026-10-13 plan to turn on (evaluation only). Refused until '
                              'this build implements the rule. With a rule on, each message is also analysed '
                              'without rules, to count the alerts the rules add')
+    parser.add_argument('--paste', action='store_true',
+                        help='Analyse each row as a reader would paste it: subject and visible text, no '
+                             'headers, read with ARC off; rows too long are excluded and counted, never truncated')
     parser.add_argument('--frozen-plan-commit',
                         help='Commit at which the evaluation plan was frozen (D12 recorded); required '
                              'before any row marked cohort_role=holdout is scored')
     args = parser.parse_args()
     if (args.artifact is None) != (args.artifact_sha256 is None):
         parser.error('--artifact and --artifact-sha256 go together')
+    if args.paste and args.mailbox_setting == 'recorded':
+        parser.error('--paste reads no headers, so it cannot use a recorded mailbox')
     paths = [path.resolve() for path in (args.input, args.attribution_output,
                                         args.counterfactual_output) if path is not None]
     if len(paths) != len(set(paths)):
@@ -677,7 +709,8 @@ def main() -> None:
                      'observe_sender_history': False, 'verification_mode': settings.effective_verification_mode,
                      'content_model_enabled': settings.content_model_enabled, 'auxiliary_enabled': False,
                      'model_only_option': args.option, 'mailbox_setting': args.mailbox_setting,
-                     'intent_rules': args.intent_rules, **external_services(app, settings, evaluation_env)}
+                     'intent_rules': args.intent_rules, **external_services(app, settings, evaluation_env),
+                     'input_mode': 'pasted' if args.paste else 'as_submitted'}
     if args.artifact is not None:
         # A local candidate: it may be trained on private mail, which only a local run may load.
         model_sha256 = args.artifact_sha256.strip().lower()
@@ -702,7 +735,7 @@ def main() -> None:
                                       configuration=configuration,
                                       evidence_observer=attribution.add if attribution else None,
                                       counterfactual_observer=counterfactual.add if counterfactual else None,
-                                      holdout_authorized=frozen_plan is not None)
+                                      holdout_authorized=frozen_plan is not None, paste=args.paste)
     finally:
         app.MODEL_ONLY_OPTION.reset(option_token)
     report['reproducibility'] = {**_evaluation_metadata(configuration), 'frozen_plan': frozen_plan}

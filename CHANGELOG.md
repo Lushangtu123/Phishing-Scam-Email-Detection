@@ -22,6 +22,37 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 09:32 PT] — Pasted cohorts without truncation or ARC lookups
+
+### Why
+- Step 1 of the false-alert diagnosis needs P2: the owner's original messages analysed as pasted text. The existing helper, `evaluate_local_review.pasted()`, had three faults:
+  - it cut subjects to 500 and bodies to 50,000 characters without saying so;
+  - it read messages with default ARC verification, so extracting a Google-sealed message could look up keys in DNS;
+  - it kept only label, provider and date, so a `cohort_role: holdout` marker would be lost.
+- The serving evaluator had no pasted mode. The criteria were fixed at `39cc7d7`, before the implementation.
+
+### Files changed
+- `website/tools/pasted_cohort.py` (new):
+  - extraction with `arc_result=None`;
+  - subjects over 500 characters, bodies over 50,000, and empty sources or sources over 3 MiB are excluded with a fixed reason, never truncated;
+  - every non-content field is kept.
+- `website/tools/evaluate_serving_pipeline.py`:
+  - `--paste` (refused with a recorded mailbox) and `evaluate_records(paste=True)`;
+  - exclusions counted by reason with their input lines;
+  - `input_mode` in the configuration.
+- `website/tools/evaluate_local_review.py`: uses the shared extraction and reports `paste_exclusions`; `MAX_PASTE_SOURCE_BYTES` stays as an alias for `evaluate_llm_labeler.py`.
+- `website/tests/test_pasted_cohort.py` (new, 7 tests). `website/tests/test_evaluate_local_review.py`: its over-limit test now expects exclusion instead of truncation.
+- `docs/evaluation.md`: criteria and results. `docs/data-and-model.md`: the `--paste` mode.
+
+### Effect
+- **Limits.** 500/50,000 characters are kept and 501/50,001 excluded; a file over the 60,000-byte `.eml` limit whose text fits is kept whole.
+- **No lookups.** Extracting a Google-sealed synthetic message records no outbound attempt, in process or from the command line; with default ARC verification the same message does attempt one.
+- **Holdout.** Holdout rows stay refused in pasted mode.
+- **Planted defects.** Restored truncation failed 7 tests; restored default ARC verification failed 3.
+- **Unit suite.** 1,443 tests pass (15 skipped).
+- **Unchanged.** Serving modules, model, rules and thresholds. No real mail was extracted or evaluated.
+- **Not changed, found in passing.** `evaluate_llm_labeler.py` also reads messages with default ARC verification.
+
 ## [2026-10-20 08:30 PT] — Design: offline ARC verification for evaluations
 
 ### Why
