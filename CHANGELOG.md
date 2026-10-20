@@ -22,6 +22,27 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 10:10 PT] — Design: pairing P1 and P2 in memory
+
+### Why
+- Step 1 compares the owner's downloads read as `.eml` (P1) and as pasted text (P2), on the messages both modes actually analyse, paired by source. Since #81, reports give reason counts only, so the pairing must happen in memory within one run, and only aggregates may leave it.
+- Design and acceptance criteria only. Two technical reviews' blockers are resolved; the last review judged the design ready for approval. Approving it and authorizing the implementation are the owner's own decisions: nothing is implemented, and no mail is read.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-20-p1-p2-pairing-design.md` (new). It covers:
+  - **Shape.** A thin new tool that reuses the existing evaluation logic.
+  - **Reading.** The input is cleaned first, then each original is read once into a trusted snapshot. A source over 3 MiB gets no digest.
+  - **Duplicates.** Stable representatives: the smallest source digest, never input order.
+  - **Four sets by source.** Only counts and set digests leave the process; a "neither" set with an unhashed member has a `null` digest and an unhashed count.
+  - **Conservation.** Over the validated input records, duplicate copies included.
+  - **Prepared rows.** An in-process-only entry, with its protections and regression tests.
+  - **Empty sets and errors.** Empty sets get zero counts and no evaluator call. Errors are position-free.
+  - **The 3 × 3 decision table.** In the private report only.
+  - **Criteria.** Eleven acceptance criteria, including a golden comparison at a pinned full commit SHA; the last lists eleven planted defects.
+
+### Effect
+- No code, rule, model or evaluation changes.
+
 ## [2026-10-20 09:32 PT] — Pasted cohorts without truncation or ARC lookups
 
 ### Why
