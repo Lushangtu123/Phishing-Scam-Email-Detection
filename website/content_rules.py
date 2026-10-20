@@ -914,6 +914,8 @@ def _without_mail_addresses(text: str) -> str:
     if '@' not in text:
         return text
     return _MAIL_ADDRESS.sub(lambda match: ' address ' if match.group(1) else match.group(0), text)
+
+
 # Labels in small capitals ("Cᴏɴғɪʀᴍ ᴀᴄᴄᴏᴜɴᴛ"), which have no compatibility decomposition.
 _SMALL_CAPITALS = str.maketrans({'ᴀ': 'a', 'ʙ': 'b', 'ᴄ': 'c', 'ᴅ': 'd', 'ᴇ': 'e', 'ꜰ': 'f', 'ғ': 'f', 'ɢ': 'g',
                                  'ʜ': 'h', 'ɪ': 'i', 'ᴊ': 'j', 'ᴋ': 'k', 'ʟ': 'l', 'ᴍ': 'm', 'ɴ': 'n', 'ᴏ': 'o',
