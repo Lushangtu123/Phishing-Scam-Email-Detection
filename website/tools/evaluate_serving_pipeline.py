@@ -99,12 +99,15 @@ def _tags(row: dict) -> list:
     return [behaviours, row['control_type']] if 'control_type' in row else [behaviours] if behaviours else []
 
 
-def _read_eml(path: str) -> bytes:
-    with Path(path).open('rb') as source:
-        raw = source.read(MAX_EML_BYTES + 1)
+def _checked_eml(raw: bytes) -> bytes:
     if len(raw) > MAX_EML_BYTES or not raw.strip():
         raise ValueError('Email file must contain 1 to 60,000 bytes')
     return raw
+
+
+def _read_eml(path: str) -> bytes:
+    with Path(path).open('rb') as source:
+        return _checked_eml(source.read(MAX_EML_BYTES + 1))
 
 
 def _json_bytes(value) -> bytes:
@@ -112,13 +115,15 @@ def _json_bytes(value) -> bytes:
                       separators=(',', ':')).encode('ascii')
 
 
-def _prepare_record(row: dict) -> tuple[dict, str]:
-    """Snapshot effective input once; paths and ignored annotations are not identity."""
+def _prepare_record(row: dict, snapshot: bytes | None = None) -> tuple[dict, str]:
+    """Snapshot effective input once; paths and ignored annotations are not identity. A snapshot
+    comes only from an in-process caller that already read the file (evaluate_records'
+    snapshots); it is checked like a file read."""
     prepared = dict(row)
     # JSONL must not be able to supply the evaluator's internal byte snapshot.
     prepared.pop('_eml_bytes', None)
     if 'eml_path' in prepared:
-        raw = _read_eml(prepared['eml_path'])
+        raw = _read_eml(prepared['eml_path']) if snapshot is None else _checked_eml(snapshot)
         prepared['_eml_bytes'] = raw
         payload = b'eml-bytes\0' + raw
     elif prepared.get('raw_email'):
@@ -381,13 +386,24 @@ def evaluate_records(
     counterfactual_observer: Callable[[dict, str, str, dict], None] | None = None,
     holdout_authorized: bool = False,
     paste: bool = False,
+    snapshots: list[bytes] | None = None,
 ) -> dict:
     """Run each row through the supplied serving analyzer and emit aggregates. Rows marked
     `cohort_role: holdout` are refused before any analysis unless holdout_authorized: the
     plan keeps the holdout sealed until it is frozen. With paste, each row is analysed as a
     reader would paste it (tools/pasted_cohort.py); a row that cannot be pasted whole is
-    excluded and counted by reason, never truncated."""
+    excluded and counted by reason, never truncated.
+
+    snapshots, for in-process callers only (tools/evaluate_paired_modes.py), gives the bytes the
+    caller already read for each row's eml_path, in the order of rows, so no file is read again.
+    No JSONL field or command-line option sets it. Validation, the holdout refusal, the
+    conflicting-metadata check and the size limits apply as for a file read."""
     from tools import pasted_cohort
+
+    if snapshots is not None:
+        rows = list(rows)
+        if len(snapshots) != len(rows) or not all(isinstance(raw, bytes) for raw in snapshots):
+            raise ValueError('Each row needs exactly one byte snapshot')
 
     if not re.fullmatch(r'[0-9a-f]{64}', model_sha256):
         raise ValueError('A full lowercase model SHA-256 is required')
@@ -406,9 +422,13 @@ def evaluate_records(
         if row.get('cohort_role') == 'holdout' and not holdout_authorized:
             raise ValueError(f'Row {index}: holdout rows are sealed until the evaluation plan is frozen '
                              '(--frozen-plan-commit)')
+        snapshot = snapshots[index - 1] if snapshots is not None else None
+        if snapshot is not None and 'eml_path' not in row:
+            raise ValueError(f'Row {index}: a byte snapshot belongs to an eml_path row')
         if paste:
             try:
-                row = pasted_cohort.from_input(row)
+                row = (pasted_cohort.from_input(row) if snapshot is None else pasted_cohort.pasted(
+                    {**{key: value for key, value in row.items() if not key.startswith('_')}, '_eml_bytes': snapshot}))
             except pasted_cohort.PasteExcluded as exclusion:
                 paste_excluded[exclusion.reason] += 1
                 # Excluded rows stay part of the supplied cohort's identity.
@@ -418,7 +438,7 @@ def evaluate_records(
             except Exception:
                 raise RuntimeError(f'Row {index}: message input could not be read') from None
         try:
-            row, content_digest = _prepare_record(row)
+            row, content_digest = _prepare_record(row, None if paste else snapshot)
         except Exception:
             raise RuntimeError(f'Row {index}: message input could not be read') from None
         # Tags join the metadata only where present, so untagged inputs keep their digests.

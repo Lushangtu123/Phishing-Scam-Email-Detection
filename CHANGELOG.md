@@ -22,6 +22,33 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 10:39 PT] — P1/P2 pairing tool, on synthetic inputs
+
+### Why
+- The owner approved the step 1 criteria (#80) and the pairing design (#82) on 2026-10-20. The implementation is authorized for synthetic inputs only, up to tests, PR and CI, not merged.
+- Not authorized: real mail, the 1a measurement, downloads and key collection.
+- The design's acceptance criteria were fixed before the implementation. Its golden comparisons use the pinned commit `52b091c9f131495aa5746d736ea30a85df7ba888`.
+
+### Files changed
+- `website/tools/evaluate_paired_modes.py` (new):
+  - each original is read once into a trusted snapshot after validation, holdout refusal and cleaning;
+  - duplicates are decided by the smallest source digest;
+  - sources fall into pairs, P1 only, P2 only and neither, with counts, reasons and set digests only (`null` with an unhashed member);
+  - empty sets get no evaluator call;
+  - errors are position-free;
+  - the 3 × 3 decision table stays in the private report.
+- `website/tools/evaluate_serving_pipeline.py`: `evaluate_records(snapshots=…)`, an in-process entry for bytes already read. It refuses snapshots for rows without `eml_path`, and a list that does not match the rows. `_read_eml` keeps its check in `_checked_eml`.
+- `website/tests/test_paired_modes.py` (new, 14 tests, all synthetic).
+- `docs/superpowers/specs/2026-10-20-false-alert-diagnosis-criteria.md`, `docs/superpowers/specs/2026-10-20-p1-p2-pairing-design.md`: status lines record the owner's approval, its date and scope.
+- `docs/evaluation.md`: results. `docs/data-and-model.md`: the tool.
+
+### Effect
+- **Criteria.** Design criteria 1–10 are met on synthetic inputs, and all 11 planted defects made tests fail.
+- **Existing entry unchanged.** Without snapshots, `evaluate_records` on the 1,713 archived unit-suite inputs gives byte-identical results to the pinned commit: 2,227 evaluations, including 23 expected errors.
+- **Found, not changed.** A plain-text `.eml` with one 55,000-character token takes the served analysis about 10 seconds.
+- **Unit suite.** 1,460 tests pass (15 skipped).
+- **Unchanged.** No serving module, model, rule or threshold changes. No real mail was read.
+
 ## [2026-10-20 10:10 PT] — Design: pairing P1 and P2 in memory
 
 ### Why
