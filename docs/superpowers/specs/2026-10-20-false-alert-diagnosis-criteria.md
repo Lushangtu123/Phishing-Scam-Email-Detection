@@ -1,11 +1,15 @@
 # Criteria: step 1, diagnosing false alerts on development data
 
-**Status: draft criteria, not yet approved.** Drafted on 2026-10-20 at the owner's request, and
-revised the same day after a technical review.
+**Status: approved by the owner on 2026-10-20.** Drafted the same day at the owner's request and
+revised after technical reviews.
 
-- Nothing runs, downloads or reads mail until the owner approves these criteria.
-- Once approved, they are fixed before the first run. A later change is a new, dated version of
-  this file, with its reason.
+- **What the approval covers:** these criteria. It is not an authorization to run.
+- **Still separate decisions, none of them authorized yet:**
+  - reading or extracting real mail;
+  - the phase 1a measurement;
+  - each public download.
+- **Fixed before the first run.** A later change is a new, dated version of this file, with its
+  reason.
 
 ## The question
 
