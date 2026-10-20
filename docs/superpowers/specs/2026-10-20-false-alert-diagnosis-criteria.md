@@ -82,15 +82,20 @@ the owner's machine.
 | P1 | The 92 genuine downloads of 2026-09-30 (Gmail and Outlook account and service notices, all legitimate) | `.eml`, mailbox recorded | 79 (13 are over the 60,000-byte `.eml` limit) |
 | P2 | The same 92 | pasted: subject and visible text | 92 |
 
-- **Comparing the two modes.** Only the 79 messages in both P1 and P2, as pairs, are compared.
-  The 13 that exist only as pasted text are reported separately, never pooled into the comparison.
+- **Comparing the two modes.** P2 is extracted from the same 92 originals as P1. Each mode is
+  validated, deduplicated and filtered for exclusions on its own. The two are then paired by
+  source message, and only the actual intersection is compared. The messages in P2 alone are
+  reported separately, never pooled into the comparison. 79 pairs and 13 extra messages are the
+  expected counts, not a certain result.
 - **How P2's text is extracted:**
   - from the P1 originals;
   - with ARC verification off (`arc_result=None`), since extraction needs no authentication;
   - under the network guard.
 
   A subject over 500 characters or a body over 50,000 is **excluded and counted, never
-  truncated**. The existing `evaluate_local_review.pasted()` truncates silently and verifies ARC,
+  truncated**. A source file is read up to a fixed limit. Every row keeps its metadata, so a
+  holdout marker cannot be lost in the conversion: label, provider, date and, where present,
+  `cohort_role`. The existing `evaluate_local_review.pasted()` truncates silently and verifies ARC,
   so it cannot be used as it is. The needed change is a tool change, approved and tested before the
   batch.
 - **Not this batch:** the development side of the 2026-10-13 split (P3).
@@ -133,6 +138,18 @@ needs its own approval, naming the file, source and size.
 Overlapping removals are not added together. An alert that several families each turn into a
 non-alert counts under each of them.
 
+**Failed replays.** The counterfactual tool counts a replay that raises as `analysis_failed`.
+
+- **Kept apart.** Failures are reported separately. They are never merged into "undetermined" or
+  into a successful removal, and never dropped.
+- **The sum must hold.** For each family and label, the transitions plus the failures equal the
+  baseline's alerts.
+- **Failures block routing.** While a family has unresolved failures in a cohort, that family is
+  not routed in that cohort.
+
+**Undetermined signals.** Only the fixed signals the attribution tool already records are reported
+for undetermined results. What they cannot tell apart stays unlocated.
+
 ## Exploratory routing lines (fixed now; routing only, never acceptance)
 
 Every line is reported with its n/N.
@@ -166,7 +183,7 @@ Every line is reported with its n/N.
 
 - **Layout.** One table per cohort, with private and public, and pasted and `.eml`, kept apart.
   Each states its mailbox setting, ARC handling and n/N. Cohorts under 30 rows are flagged.
-- **The P1/P2 comparison** uses the 79 pairs only. The 13 pasted-only messages are listed apart.
+- **The P1/P2 comparison** uses the actual pairs only. The pasted-only messages are listed apart.
 - **Results against these criteria,** including every routing line not reached and every
   unlocated case.
 - **Archive.** The criteria copy, the pinned configuration, the commands, the cohort digests, the

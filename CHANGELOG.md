@@ -32,7 +32,8 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - `docs/superpowers/specs/2026-10-20-false-alert-diagnosis-criteria.md` (new, draft, revised after a technical review). It covers:
   - **Pinned configuration.** One commit, model and input versions for the whole batch.
   - **Phase 1a only.** Inputs where ARC does not run: `.eml` with the mailbox recorded, and pasted text. Mail without a mailbox waits for offline ARC; no ARC-off run.
-  - **Cohorts.** Expected counts with raw, deduplicated, excluded and successful counts reported. The P1/P2 comparison uses the 79 pairs only, with the 13 pasted-only messages listed apart. P3 is out.
+  - **Cohorts.** Expected counts with raw, deduplicated, excluded and successful counts reported. P1 and P2 are each validated, deduplicated and filtered, then paired by source message; only the actual intersection is compared (79 pairs and 13 pasted-only messages are expected, not certain). P3 is out.
+  - **Failed replays.** `analysis_failed` is kept apart, never merged or dropped; transitions plus failures equal the baseline's alerts, and a family with unresolved failures is not routed.
   - **Phishing losses.** Alert-to-non-alert and alert-to-undetermined are reported separately.
   - **Undetermined results.** Only their co-occurring signals are reported, since the counterfactual tool replays alerts only.
   - **Routing lines.** Exploratory and always with n/N: 50% sensitivity to the outermost fusion's model probability; 30% for a rule family; "no main removal path located yet"; and 20% undetermined, out of all inputs.
