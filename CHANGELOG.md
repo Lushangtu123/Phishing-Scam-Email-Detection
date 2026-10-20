@@ -22,6 +22,33 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-19 17:41 PT] — Data licenses: what each data source states, with revisions and attribution
+
+### Why
+- Using PhishGuard in one company's analyst-assisted investigations needs the data's licenses checked alongside the evaluation. The owner asked for an inventory of every training and evaluation source.
+- Read only: license pages, dataset cards, `LICENSE` files and the metadata APIs of Hugging Face, Zenodo, Mendeley Data and GitHub. No dataset was downloaded. The conclusions are for the owner or legal counsel.
+
+### Files changed
+- `docs/data-licenses.md` (new). For each source: revision, stated license, commercial use as stated, attribution, and what is uncertain. Covers:
+  - the 7 corpus files of the served model, plus its 1,044 project-written hard negatives;
+  - the 6 reference files shipped in `website/data/`;
+  - the UCI benchmark shown on the site;
+  - 12 evaluation-only sources.
+
+  Also an attribution section and 8 open questions.
+- `docs/evaluation.md`: PhishFuzzer's license cell (2026-09-29 table) corrected. CC BY 4.0 is the arXiv license of the paper; the dataset has none.
+- `docs/data-and-model.md`, `README.md`: link to the new page.
+
+### Effect
+- **Served model** (artifact `a0a503a0…1746`):
+  - **Revisions:** each training file's SHA-256 matches the source at a fixed revision: Hugging Face `34085a03` and `89afcc39`, Mendeley SpaPhish version 1/2, Zenodo 8339691 by MD5.
+  - **Commercial use is unclear.** In PhishNChips `core_emails.csv` (2,000 rows), 66 rows carry OpenPhish URLs permitted for academic research only, and 662 Tranco domains are used under academic-use norms. `Phishing_Email.csv` is LGPL-3.0. CEAS 2008's own terms were not found.
+- **Repository and deployment:** the repository is public with no `LICENSE`. It and the deployment bundle hold a copy of the Spamhaus DROP lists (1,783 networks), whose terms grant no license.
+- **Evaluation sources:**
+  - **Not allowed commercially, or no license:** phishing_pot (CC BY-NC 4.0), UniqueData (CC BY-NC-ND 4.0), PhishFuzzer (no license), SpamAssassin easy_ham (no license; copyright with the senders).
+  - **No recorded origin:** DataCon 2023 day 1 and the trec06c sample.
+- No code, model, rule or verdict changed.
+
 ## [2026-10-15 08:55 PT] — Design: PhishGuard's own DKIM verification; checklist: can the holdout meet D10 and D11
 
 ### Why
