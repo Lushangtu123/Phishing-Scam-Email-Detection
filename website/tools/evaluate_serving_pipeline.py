@@ -302,6 +302,39 @@ def _scoring_sha256() -> str:
     return hashlib.sha256(b'private-serving-scoring-v1\0' + _json_bytes(payload)).hexdigest()
 
 
+# Services an evaluation must not reach (docs/evaluation.md, 2026-10-19). The deployment profile
+# turns RDAP lookups on; an evaluation turns them, and the other services, off.
+OFFLINE_ENVIRONMENT = {'RDAP_LOOKUPS': 'false', 'SENDER_HISTORY_ENABLED': 'false',
+                       'PHISHGUARD_JEV_ENABLED': 'false', 'LOCAL_LLM_REVIEW_ENABLED': 'false'}
+
+
+def evaluation_environment(profile: dict, trusted_ids=()) -> dict:
+    """The environment a private evaluation runs in: the deployment profile without its services."""
+    return {**profile, 'TRUSTED_AUTHSERV_IDS': ','.join(trusted_ids), 'VERIFICATION_MODE': 'off',
+            'CASE_MANAGEMENT_ENABLED': 'false', **OFFLINE_ENVIRONMENT}
+
+
+def external_services(app, settings, environment: dict) -> dict:
+    """The services this run could reach, read from its loaded configuration. ARC verification stays
+    as served: analyze_record lets analyze_raw_email verify a chain, looking up only the keys of the
+    known sealers (email_structure.ARC_SEALERS). The network flag is false only if all are off."""
+    import email_structure
+    from jev import configuration as jev_configuration
+
+    services = {
+        'rdap_lookups': bool(settings.rdap_lookups_enabled),
+        'sender_history': bool(settings.sender_history_enabled),
+        'jev': jev_configuration(environment)['status'] != 'disabled',
+        'local_llm_review': bool(app.LOCAL_REVIEW.enabled),
+        'arc_key_lookups': sorted(email_structure.ARC_SEALERS),
+        # The setting of /api/verify-email; content analysis does not use it.
+        'email_verification_mode': settings.effective_verification_mode,
+    }
+    network = any((services['rdap_lookups'], services['sender_history'], services['jev'],
+                   services['local_llm_review'], services['arc_key_lookups']))
+    return {'external_services': services, 'network_services_enabled': network}
+
+
 def _validated_configuration(configuration: dict | None) -> dict | None:
     # A supplied analyzer must declare its configuration; do not guess it from
     # the current machine or accidentally serialize arbitrary environment data.
@@ -311,7 +344,11 @@ def _validated_configuration(configuration: dict | None) -> dict | None:
             'content_model_enabled', 'auxiliary_enabled'}
     # The 2026-10-13 plan's settings; reports made before them omit both (option A, no mailbox).
     plan_keys = {'model_only_option', 'mailbox_setting', 'intent_rules'}
-    if (not isinstance(configuration, dict) or not keys <= set(configuration) <= keys | plan_keys
+    # The services a run could reach (2026-10-19); earlier reports omit them.
+    service_keys = {'external_services', 'network_services_enabled'}
+    if (not isinstance(configuration, dict) or not keys <= set(configuration) <= keys | plan_keys | service_keys
+            or not isinstance(configuration.get('external_services', {}), dict)
+            or type(configuration.get('network_services_enabled', False)) is not bool
             or configuration.get('model_only_option', 'A') not in MODEL_ONLY_OPTIONS
             or configuration.get('mailbox_setting', 'none') not in MAILBOX_SETTINGS
             or configuration.get('intent_rules', 'none') not in INTENT_RULE_SETTINGS):
@@ -626,9 +663,7 @@ def main() -> None:
     from tools.counterfactual_evidence import CounterfactualEvidence
 
     profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text(encoding='utf-8'))['env']
-    evaluation_env = {**profile, 'TRUSTED_AUTHSERV_IDS': ','.join(trusted_ids),
-                      'SENDER_HISTORY_ENABLED': 'false', 'VERIFICATION_MODE': 'off',
-                      'CASE_MANAGEMENT_ENABLED': 'false', 'PHISHGUARD_JEV_ENABLED': 'false'}
+    evaluation_env = evaluation_environment(profile, trusted_ids)
     # Import-time settings must not inherit the invoking shell's trust or services.
     with patch.dict(os.environ, evaluation_env, clear=True):
         import app
@@ -642,7 +677,7 @@ def main() -> None:
                      'observe_sender_history': False, 'verification_mode': settings.effective_verification_mode,
                      'content_model_enabled': settings.content_model_enabled, 'auxiliary_enabled': False,
                      'model_only_option': args.option, 'mailbox_setting': args.mailbox_setting,
-                     'intent_rules': args.intent_rules}
+                     'intent_rules': args.intent_rules, **external_services(app, settings, evaluation_env)}
     if args.artifact is not None:
         # A local candidate: it may be trained on private mail, which only a local run may load.
         model_sha256 = args.artifact_sha256.strip().lower()

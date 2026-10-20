@@ -22,6 +22,36 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-19 20:50 PT] — Evaluators without registry lookups, with their services recorded
+
+### Why
+- **RDAP inherited.** Both evaluators started from `vercel.json`, which has set `RDAP_LOOKUPS=true` since 2026-10-02 (`13c6da8`), and neither turned it off. A run therefore asked registries' RDAP servers about the registrable domains of the evaluated mail's sender and links, never addresses or URL paths, and those answers could differ between runs.
+- **Wrong record.** The public evaluator recorded `network_services_enabled: false` regardless.
+- **History.** Whether any earlier run on private mail looked domains up is not established. Only runs after 2026-10-02 could have, and it has to be checked against each run's date and configuration.
+- The criteria were fixed at `0f59ced`, before the implementation, and must hold before the false-alert diagnosis of development data.
+
+### Files changed
+- `website/tools/evaluate_serving_pipeline.py`:
+  - `OFFLINE_ENVIRONMENT` turns RDAP, sender history, Jev and the local review off;
+  - `evaluation_environment()` builds the run's environment;
+  - `external_services()` records the effective settings, including ARC key lookups for known sealers, which stay as served;
+  - the configuration validator accepts the new keys.
+- `website/tools/evaluate_public_corpus.py`: `public_evaluation_environment()` with the same services off. The report records the effective settings instead of a constant.
+- `website/tests/network_guard.py` (new): refuses and records every connection, datagram and name lookup, in-process or from a child process's start (`sitecustomize`).
+- `website/tests/test_evaluator_network.py` (new, 7 tests): environments, recorded settings, in-process runs (baseline, identity, all families, attribution) and command-line runs of both evaluators, with a positive control for each guard.
+- `website/tests/fixtures/evaluation/baseline.json`: regenerated; see Effect.
+- `docs/evaluation.md`: criteria and results. `docs/data-and-model.md`: the evaluators' services.
+
+### Effect
+- No outbound attempt in either evaluator, in process or as a command, on inputs with `.com` and `.net` sender and link domains. With RDAP on, the same in-process runs do attempt lookups.
+- Zero outbound calls were verified only for this round's synthetic inputs, which carry no ARC seal. Mail with a seal can still trigger DNS lookups of ARC keys, so the evaluators are not yet fully offline.
+- **Recorded settings.** RDAP, sender history, Jev and the local review are off. `network_services_enabled` stays `true` because ARC verification may still look up `google.com` signing keys for sealed messages without a mailbox. That is a separate decision.
+- **Planted defects.** RDAP left on failed 4 tests; a constant `network_services_enabled` failed 3.
+- **Comparisons.** `compare_evaluations.py` treats reports from before and after this change as having different configurations.
+- **CI baseline regenerated.** `website/tests/fixtures/evaluation/baseline.json` (synthetic, 2026-09-21) was regenerated with this evaluator, because the CI comparison against it failed with "Incomparable configuration". Only its `reproducibility` block changed; every metric, count and cohort digest is identical.
+- **Unchanged.** Serving modules and `vercel.json` (production keeps RDAP).
+- **Unit suite.** 1,429 tests pass (15 skipped).
+
 ## [2026-10-19 20:39 PT] — Correction to the tools v2 entry: D was partly verified, E deviates; follow-up tests
 
 ### Why

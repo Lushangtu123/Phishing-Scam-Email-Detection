@@ -24,7 +24,8 @@ if str(WEBSITE_DIR) not in sys.path:
 from tools.evaluation_data import Corpus, load_corpus
 from tools import evaluate_serving_pipeline as serving
 from tools.evaluate_serving_pipeline import (
-    ALERT_LEVELS, RISK_LEVELS, _summary, _json_bytes, analyze_record, _evaluation_metadata,
+    ALERT_LEVELS, OFFLINE_ENVIRONMENT, RISK_LEVELS, _summary, _json_bytes, analyze_record, _evaluation_metadata,
+    external_services,
 )
 
 
@@ -134,6 +135,12 @@ def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Co
     }
 
 
+def public_evaluation_environment(profile: dict) -> dict:
+    """The deployment profile without its services and with no trusted server."""
+    return {**profile, 'TRUSTED_AUTHSERV_IDS': '', 'EMAIL_VERIFICATION_ENABLED': 'false',
+            'CASE_MANAGEMENT_ENABLED': 'false', **OFFLINE_ENVIRONMENT}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', required=True, type=Path)
@@ -159,8 +166,7 @@ def main() -> None:
     from tools.evidence_attribution import EvidenceAttribution
     from tools.counterfactual_evidence import CounterfactualEvidence
     profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text())['env']
-    evaluation_env = {**profile, 'TRUSTED_AUTHSERV_IDS': '', 'SENDER_HISTORY_ENABLED': 'false',
-                      'EMAIL_VERIFICATION_ENABLED': 'false', 'CASE_MANAGEMENT_ENABLED': 'false'}
+    evaluation_env = public_evaluation_environment(profile)
     with patch.dict(os.environ, evaluation_env, clear=True):
         import app
     settings = load_settings(evaluation_env)
@@ -176,7 +182,7 @@ def main() -> None:
     except ValueError:
         parser.error('Corpus failed duplicate-label or model-integrity validation')
     metadata = _evaluation_metadata({'trusted_authserv_ids': [], 'observe_sender_history': False,
-                                    'network_services_enabled': False})
+                                    **external_services(app, settings, evaluation_env)})
     metadata['evaluator_sha256'] = hashlib.sha256(Path(__file__).read_bytes() +
         (WEBSITE_DIR / 'tools/evaluation_data.py').read_bytes() +
         (WEBSITE_DIR / 'tools/counterfactual_evidence.py').read_bytes() +
