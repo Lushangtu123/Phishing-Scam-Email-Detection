@@ -38,18 +38,30 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - every non-content field is kept.
 - `website/tools/evaluate_serving_pipeline.py`:
   - `--paste` (refused with a recorded mailbox) and `evaluate_records(paste=True)`;
-  - exclusions counted by reason with their input lines;
+  - exclusions counted by reason only;
   - `input_mode` in the configuration.
+- `website/tools/compare_evaluations.py`: the input accounting adds pasted exclusions, and both reports must agree on `input_mode` and `paste_exclusions`.
+- **Fixed after a technical review of `9ac7bec`:**
+  - input rows go through `pasted_cohort.from_input()`, which drops internal fields, so a JSONL `_eml_bytes` can no longer replace the file `eml_path` names;
+  - one size check covers files, bytes and strings, a string by its UTF-8 bytes;
+  - a pasted report with exclusions passes the comparator against itself;
+  - excluded rows' line numbers are no longer written.
 - `website/tools/evaluate_local_review.py`: uses the shared extraction and reports `paste_exclusions`; `MAX_PASTE_SOURCE_BYTES` stays as an alias for `evaluate_llm_labeler.py`.
-- `website/tests/test_pasted_cohort.py` (new, 7 tests). `website/tests/test_evaluate_local_review.py`: its over-limit test now expects exclusion instead of truncation.
+- `website/tests/test_pasted_cohort.py` (new, 10 tests). `website/tests/test_evaluate_local_review.py`: its over-limit test now expects exclusion instead of truncation.
 - `docs/evaluation.md`: criteria and results. `docs/data-and-model.md`: the `--paste` mode.
 
 ### Effect
 - **Limits.** 500/50,000 characters are kept and 501/50,001 excluded; a file over the 60,000-byte `.eml` limit whose text fits is kept whole.
 - **No lookups.** Extracting a Google-sealed synthetic message records no outbound attempt, in process or from the command line; with default ARC verification the same message does attempt one.
 - **Holdout.** Holdout rows stay refused in pasted mode.
-- **Planted defects.** Restored truncation failed 7 tests; restored default ARC verification failed 3.
-- **Unit suite.** 1,443 tests pass (15 skipped).
+- **Planted defects, rerun on the final code:**
+  - restored truncation: 8 failures;
+  - restored default ARC: 3;
+  - internal fields kept: 1;
+  - string limit skipped: 1;
+  - comparator ignoring exclusions: 1.
+- **Exclusion digests.** An excluded row's digest covers its reason and a little metadata, not the source file; the originals' version rests on the separately pinned input.
+- **Unit suite.** 1,446 tests pass (15 skipped).
 - **Unchanged.** Serving modules, model, rules and thresholds. No real mail was extracted or evaluated.
 - **Not changed, found in passing.** `evaluate_llm_labeler.py` also reads messages with default ARC verification.
 

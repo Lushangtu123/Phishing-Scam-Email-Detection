@@ -113,7 +113,8 @@ the pinned Python 3.12 environment:
 
 With `--paste`, the serving evaluator analyses each row as a reader would paste it: subject and
 visible text, read with ARC verification off. A subject over 500 characters, a body over 50,000 or
-a source over 3 MiB is excluded and counted by reason, with its input line, never truncated.
+a source over 3 MiB (a string counted by its UTF-8 bytes) is excluded and counted by reason, never truncated.
+The report gives reason counts only; internal fields in an input row are ignored.
 
 Both evaluators start from the deployment profile but turn its services off: no RDAP registry
 lookups, sender history, Jev or local language-model review. The report records the services the

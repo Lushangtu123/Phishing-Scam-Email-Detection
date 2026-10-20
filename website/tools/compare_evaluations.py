@@ -101,7 +101,13 @@ def _compare_private(baseline, candidate, errors, changes):
             raise ValueError('Missing inclusion or scoring policy')
         for key in ('input_rows', 'evaluated_rows', 'duplicate_rows'):
             if not integer(integrity[key]): raise ValueError('Invalid input count')
-        if (integrity['input_rows'] != integrity['evaluated_rows'] + integrity['duplicate_rows']
+        # A pasted run counts the rows it excluded instead of truncating them (2026-10-20).
+        mode, exclusions = integrity.get('input_mode'), integrity.get('paste_exclusions', {})
+        if (mode not in (None, 'pasted') or ('paste_exclusions' in integrity) != (mode == 'pasted')
+                or not isinstance(exclusions, dict)
+                or not all(isinstance(key, str) and integer(value) for key, value in exclusions.items())):
+            raise ValueError('Invalid pasted-input exclusions')
+        if (integrity['input_rows'] != integrity['evaluated_rows'] + integrity['duplicate_rows'] + sum(exclusions.values())
                 or integrity['evaluated_rows'] != report['overall']['n']
                 or (integrity['duplicate_policy'] == 'error' and integrity['duplicate_rows'])):
             raise ValueError('Inconsistent input accounting')
@@ -130,6 +136,10 @@ def _compare_private(baseline, candidate, errors, changes):
     for key in ('dataset_sha256', 'evaluated_cohort_sha256', 'fingerprint_schema',
                 'duplicate_policy', 'deduplication', 'input_rows', 'evaluated_rows', 'duplicate_rows'):
         same(baseline['input_integrity'], candidate['input_integrity'], key, 'input_integrity.')
+    # Present only in pasted runs: both reports must agree on them, absent or not.
+    for key in ('input_mode', 'paste_exclusions'):
+        if baseline['input_integrity'].get(key) != candidate['input_integrity'].get(key):
+            errors.append(f'Incomparable input_integrity.{key}')
     for dimension, a in reports[0].items():
         b = reports[1][dimension]
         if set(a) != set(b): errors.append(f'Incomparable groups {dimension}')

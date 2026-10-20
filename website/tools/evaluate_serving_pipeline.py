@@ -386,7 +386,7 @@ def evaluate_records(
     `cohort_role: holdout` are refused before any analysis unless holdout_authorized: the
     plan keeps the holdout sealed until it is frozen. With paste, each row is analysed as a
     reader would paste it (tools/pasted_cohort.py); a row that cannot be pasted whole is
-    excluded and counted by reason, with its input line, never truncated."""
+    excluded and counted by reason, never truncated."""
     from tools import pasted_cohort
 
     if not re.fullmatch(r'[0-9a-f]{64}', model_sha256):
@@ -400,7 +400,7 @@ def evaluate_records(
     input_digests = []
     included_digests = []
     duplicate_rows = 0
-    paste_excluded: dict[str, list[int]] = defaultdict(list)
+    paste_excluded: Counter[str] = Counter()
     for index, raw_row in enumerate(rows, 1):
         row = _validated_record(raw_row, index)
         if row.get('cohort_role') == 'holdout' and not holdout_authorized:
@@ -408,9 +408,9 @@ def evaluate_records(
                              '(--frozen-plan-commit)')
         if paste:
             try:
-                row = pasted_cohort.pasted(row)
+                row = pasted_cohort.from_input(row)
             except pasted_cohort.PasteExcluded as exclusion:
-                paste_excluded[exclusion.reason].append(index)
+                paste_excluded[exclusion.reason] += 1
                 # Excluded rows stay part of the supplied cohort's identity.
                 input_digests.append(hashlib.sha256(_json_bytes(
                     ['paste-excluded', exclusion.reason, row['label'], row['provider'], row['received_at']])).digest())
@@ -508,10 +508,8 @@ def evaluate_records(
             ).hexdigest(),
             'warnings': ([f'{duplicate_rows} duplicate rows were excluded from all metrics.']
                          if duplicate_rows else []),
-            **({'input_mode': 'pasted',
-                'paste_exclusions': {reason: len(lines) for reason, lines in sorted(paste_excluded.items())},
-                # Input line numbers only, so P1 and P2 can be paired by source message.
-                'paste_excluded_lines': {reason: lines for reason, lines in sorted(paste_excluded.items())}}
+            # Reason counts only: which rows were excluded is never written.
+            **({'input_mode': 'pasted', 'paste_exclusions': dict(sorted(paste_excluded.items()))}
                if paste else {}),
         },
         'alert_policy': ALERT_POLICY,

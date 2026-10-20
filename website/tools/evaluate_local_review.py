@@ -61,7 +61,7 @@ def load_cohort(path: Path, *, paste: bool, limit: int | None = None) -> tuple[l
         row = serving._validated_record(row, index)
         if paste:
             try:
-                rows.append(pasted_cohort.pasted(row))
+                rows.append(pasted_cohort.from_input(row))
             except pasted_cohort.PasteExcluded as exclusion:
                 excluded[exclusion.reason] += 1
             continue

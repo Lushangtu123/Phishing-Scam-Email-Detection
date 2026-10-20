@@ -8,6 +8,10 @@ docs/evaluation.md, "Pasted cohorts without truncation or ARC" (2026-10-20):
   read limit, is excluded with a fixed reason, for the caller to count.
 - Every field but the message content stays on the row, so a holdout marker (cohort_role)
   survives the conversion.
+- A row read from an input file goes through from_input(), which drops internal fields first: a
+  row cannot replace the file its eml_path names with bytes of its own.
+- One size check covers every source: a file or bytes by their length, a string by its UTF-8
+  encoding.
 """
 from __future__ import annotations
 
@@ -32,15 +36,21 @@ class PasteExcluded(ValueError):
         self.reason = reason
 
 
+def checked_source(raw: str | bytes) -> str | bytes:
+    """The source unchanged, if it holds text and is within the limit: bytes by their length, a
+    string by its UTF-8 encoding."""
+    size = len(raw) if isinstance(raw, (bytes, bytearray)) else len(raw.encode('utf-8', 'surrogatepass'))
+    if not raw.strip():
+        raise PasteExcluded('empty_source')
+    if size > MAX_SOURCE_BYTES:
+        raise PasteExcluded('source_too_large')
+    return raw
+
+
 def read_source(path: str | Path) -> bytes:
     """An original message's bytes, reading at most one byte past the limit."""
     with Path(path).open('rb') as source:
-        raw = source.read(MAX_SOURCE_BYTES + 1)
-    if not raw.strip():
-        raise PasteExcluded('empty_source')
-    if len(raw) > MAX_SOURCE_BYTES:
-        raise PasteExcluded('source_too_large')
-    return raw
+        return checked_source(source.read(MAX_SOURCE_BYTES + 1))
 
 
 def pasted(row: dict) -> dict:
@@ -50,11 +60,9 @@ def pasted(row: dict) -> dict:
 
     if '_eml_bytes' in row or row.get('raw_email') or 'eml_path' in row:
         if '_eml_bytes' in row:
-            raw = row['_eml_bytes']
-            if len(raw) > MAX_SOURCE_BYTES:
-                raise PasteExcluded('source_too_large')
+            raw = checked_source(row['_eml_bytes'])
         elif row.get('raw_email'):
-            raw = row['raw_email']
+            raw = checked_source(row['raw_email'])
         else:
             raw = read_source(row['eml_path'])
         # ARC off: the text is the same either way, and a seal check would look up keys in DNS.
@@ -73,3 +81,9 @@ def pasted(row: dict) -> dict:
         raise PasteExcluded('no_text')
     return {**{key: value for key, value in row.items() if key not in _CONTENT_FIELDS},
             'subject': subject, 'body': body}
+
+
+def from_input(row: dict) -> dict:
+    """pasted() for a row read from an input file. Internal fields (keys starting with "_") are set
+    only by the evaluators, so they are dropped first."""
+    return pasted({key: value for key, value in row.items() if not key.startswith('_')})

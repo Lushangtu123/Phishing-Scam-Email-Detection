@@ -65,6 +65,72 @@ class LimitTests(unittest.TestCase):
             self.assertNotIn('<div', result['body'])
 
 
+class SourceTests(unittest.TestCase):
+    """Review of 2026-10-20: an input row cannot supply its own bytes, and every source has one limit."""
+
+    def test_an_input_row_cannot_replace_the_file_it_names(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'original.eml'
+            path.write_bytes(plain_eml('Original', 'Team notes alpha.'))
+            injected = 'Subject: Injected\r\n\r\nInjected body.\r\n'
+            row = {**META, 'eml_path': str(path), '_eml_bytes': injected}
+            self.assertEqual(pasted_cohort.from_input(row)['body'], 'Team notes alpha.')
+            seen = []
+            serving.evaluate_records([row], lambda row: seen.append(row['body']) or {'risk_level': 'low'},
+                                     model_sha256='a' * 64, paste=True)
+            self.assertEqual(seen, ['Team notes alpha.'])
+            cohort = Path(folder) / 'cohort.jsonl'
+            cohort.write_text(json.dumps(row) + '\n')
+            from tools import evaluate_local_review
+            rows, excluded = evaluate_local_review.load_cohort(cohort, paste=True)
+            self.assertEqual(([found['body'] for found in rows], excluded), (['Team notes alpha.'], {}))
+
+    def test_a_string_source_is_limited_by_its_utf8_bytes(self):
+        limit = pasted_cohort.MAX_SOURCE_BYTES
+        # Fewer characters than the limit, more UTF-8 bytes than it.
+        over = 'Subject: Notes\r\n\r\n' + '€' * (limit // 3 + 1)
+        self.assertLess(len(over), limit)
+        for row in ({**META, 'raw_email': over}, {**META, '_eml_bytes': over.encode()}):
+            with self.subTest(field=next(iter(set(row) - set(META)))), \
+                    self.assertRaises(pasted_cohort.PasteExcluded) as raised:
+                pasted_cohort.pasted(row)
+            self.assertEqual(raised.exception.reason, 'source_too_large')
+        self.assertEqual(pasted_cohort.pasted({**META, 'raw_email': 'Subject: Notes\r\n\r\nTeam notes.'})['body'],
+                         'Team notes.')
+
+
+class ComparisonTests(unittest.TestCase):
+    """A pasted report with exclusions keeps its input accounting and compares with itself."""
+
+    def report(self, bodies):
+        # The comparator needs both classes: the last row is phishing.
+        rows = [{**META, 'id': str(index), 'subject': 'Notes', 'body': body,
+                 'label': 'phishing' if index == len(bodies) - 1 else 'legitimate'} for index, body in enumerate(bodies)]
+        configuration = {'trusted_authserv_ids': [], 'observe_sender_history': False, 'verification_mode': 'off',
+                         'content_model_enabled': True, 'auxiliary_enabled': False, 'input_mode': 'pasted'}
+        return serving.evaluate_records(rows, lambda row: {'risk_level': 'low', 'analysis_complete': True,
+                                                           'ml_status': 'available'},
+                                        model_sha256='a' * 64, configuration=configuration, paste=True)
+
+    def test_exclusions_are_part_of_the_input_accounting(self):
+        from tools.compare_evaluations import compare
+        report = self.report(['Team notes one.', 'b' * 50_001, 'Team notes two.'])
+        integrity = report['input_integrity']
+        self.assertEqual((integrity['input_rows'], integrity['evaluated_rows'], integrity['paste_exclusions']),
+                         (3, 2, {'body_too_long': 1}))
+        result = compare(report, json.loads(json.dumps(report)))
+        self.assertTrue(result['passed'], result['errors'])
+        tampered = json.loads(json.dumps(report))
+        tampered['input_integrity']['paste_exclusions'] = {'body_too_long': 2}
+        self.assertFalse(compare(report, tampered)['passed'])
+        from tools.compare_evaluations import _compare_private
+        with self.assertRaisesRegex(ValueError, 'Inconsistent input accounting'):
+            _compare_private(report, tampered, [], [])
+        other = self.report(['Team notes one.', 'b' * 50_001, 'Team notes two.'])
+        other['input_integrity']['paste_exclusions'] = {'subject_too_long': 1}
+        self.assertFalse(compare(report, other)['passed'])
+
+
 class MetadataTests(unittest.TestCase):
     def test_every_field_but_the_content_is_kept(self):
         row = {**META, 'cohort_role': 'holdout', 'family_id': 'f' * 16, 'behaviour': 'credential_handover',
@@ -105,8 +171,8 @@ class ArcTests(unittest.TestCase):
     def test_the_serving_evaluator_in_pasted_mode_makes_no_lookup(self):
         with tempfile.TemporaryDirectory() as folder:
             rows = []
-            for name, raw in (('sealed', self.sealed), ('long', plain_eml('s' * 501, 'Team notes.')),
-                              ('notes', plain_eml('Notes', 'Team notes for the week.'))):
+            for name, raw in (('id-sealed', self.sealed), ('id-subject', plain_eml('s' * 501, 'Team notes.')),
+                              ('id-notes', plain_eml('Notes', 'Team notes for the week.'))):
                 (Path(folder) / f'{name}.eml').write_bytes(raw)
                 rows.append({**META, 'id': name, 'eml_path': str(Path(folder) / f'{name}.eml')})
             with (blocked_network() as attempts, patch.dict(es._ARC_KEY_CACHE, clear=True),
@@ -116,8 +182,10 @@ class ArcTests(unittest.TestCase):
         integrity = report['input_integrity']
         self.assertEqual((integrity['input_rows'], integrity['evaluated_rows']), (3, 2))
         self.assertEqual(integrity['paste_exclusions'], {'subject_too_long': 1})
-        self.assertEqual(integrity['paste_excluded_lines'], {'subject_too_long': [2]})
         self.assertEqual(integrity['input_mode'], 'pasted')
+        # Reason counts only: nothing says which row was excluded.
+        self.assertNotIn('paste_excluded_lines', integrity)
+        self.assertFalse(any(name in json.dumps(report) for name in ('id-sealed', 'id-subject', 'id-notes')))
 
 
 class CommandLineTests(unittest.TestCase):
