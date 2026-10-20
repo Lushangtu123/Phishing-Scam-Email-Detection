@@ -276,6 +276,91 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Pasted cohorts without truncation or ARC (2026-10-20)
+
+**What was found.** `evaluate_local_review.pasted()`, the existing way to make a pasted cohort from
+original messages, has three faults:
+
+- **It truncates.** It cuts subjects to 500 characters and bodies to 50,000 without saying so.
+- **It may look keys up.** It reads the message with `analyze_raw_email`'s default ARC
+  verification, so extracting a Google-sealed message's text could look up keys in DNS.
+- **It drops metadata.** Its rows keep only the label, provider and date, so a `cohort_role:
+  holdout` marker would be lost.
+
+The serving evaluator has no pasted mode at all. Step 1 of the false-alert diagnosis needs both
+(`docs/superpowers/specs/2026-10-20-false-alert-diagnosis-criteria.md`, P2).
+
+**Criteria, fixed before the implementation.** Only `website/tools/` and tests change. No serving
+module, model, rule or threshold changes.
+
+1. **ARC off for extraction.** It passes `arc_result=None` explicitly. No global ARC setting
+   changes.
+2. **No truncation.** A subject over 500 characters or a body over 50,000 is excluded and counted.
+   Source files are read up to a fixed limit, and a larger or empty file is excluded and counted.
+3. **Metadata kept.** Every field except the message content stays on the row: label, provider,
+   date and, where present, `cohort_role`, family, behaviour and control type. The serving
+   evaluator therefore still refuses a holdout row after conversion.
+4. **The serving evaluator gains `--paste`.**
+   - Exclusions are counted by reason in the report, with the input line numbers of excluded rows,
+     so P1 and P2 can be paired by source message. *(Revised after review, 2026-10-20: line numbers
+     are no longer written, see below.)*
+   - The input mode is recorded in the configuration.
+   - `--paste` with a recorded mailbox is refused, since pasted text has no headers.
+5. **Tests on synthetic inputs:**
+   - the length boundaries (500/501, 50,000/50,001) and the source limit;
+   - zero outbound calls while extracting an ARC-sealed message, under `network_guard.py`, with a
+     positive control: the same message read with default ARC verification attempts a lookup;
+   - metadata kept, and holdout rows refused;
+   - exclusion counts in the report, in-process and from the command line.
+6. **Planted defects.** Each must make a test fail:
+   - truncation restored;
+   - default ARC verification restored.
+
+**Results against the criteria (2026-10-20).** All synthetic; no real mail was extracted or
+evaluated.
+
+| | Result |
+|---|---|
+| 1 | Met. `tools/pasted_cohort.py` reads with `arc_result=None`. `email_structure` and the served path are unchanged |
+| 2 | Met. A subject of 500 and a body of 50,000 characters are kept; 501 and 50,001 are excluded, with the reason. Sources are read up to 3 MiB; empty or larger files are excluded. A file over the 60,000-byte `.eml` limit whose visible text fits is kept whole |
+| 3 | Met. Every non-content field survives: label, provider, date, language, `cohort_role`, family, behaviour. A holdout row in pasted mode is still refused |
+| 4 | Met, as revised below. `--paste` reports `paste_exclusions` (reason counts) in the input integrity and records `input_mode`; excluded rows stay in the input count and digest. `--paste` with a recorded mailbox is refused |
+| 5 | Met. Extracting a Google-sealed synthetic message, alone or through the evaluator in process or from the command line, records no outbound attempt. Read with default ARC verification, the same message does attempt a lookup |
+| 6 | Met. Restoring truncation failed 7 tests; restoring default ARC verification failed 3. Rerun on the final code: 8 and 3 |
+
+**Revision after review (2026-10-20).** A technical review of the first implementation (`9ac7bec`)
+reproduced three faults and one conflict with the rules on synthetic inputs. All four are fixed in
+this change, each with a test and a planted defect:
+
+- **An input row could replace its file.** A JSONL row could carry `_eml_bytes`, and the
+  extraction read those bytes instead of the file its `eml_path` names. Both evaluators now go
+  through `pasted_cohort.from_input()`, which drops every internal field (keys starting with `_`)
+  first. Keeping them failed 1 test.
+- **A `raw_email` string bypassed the 3 MiB limit.** One check now covers every source: a file or
+  bytes by their length, a string by its UTF-8 encoding. A string with fewer characters than the
+  limit but more UTF-8 bytes is excluded. Skipping the check failed 1 test.
+- **A report with exclusions failed the comparator.** `compare_evaluations.py` required input rows
+  to equal evaluated plus duplicate rows, so a pasted report with an exclusion failed even against
+  itself. It now adds the exclusions and requires both reports to agree on `input_mode` and
+  `paste_exclusions`. Such a report passes against itself; a tampered count fails. Ignoring the
+  exclusions failed 1 test.
+- **Line numbers left the counts-only boundary.** Criterion 4 had asked for the input line numbers
+  of excluded rows. They identify single messages, so they are no longer written: the report gives
+  reason counts only. Pairing P1 and P2 by source message has to happen in memory, within one run.
+  That is not part of this change.
+- **What an excluded row's digest shows.** It covers its reason, label, provider and date, not
+  the source file. That the originals did not change rests on the separately pinned input version
+  (step 1 criteria).
+
+- **`evaluate_local_review.py`.** It now uses the same extraction and reports its exclusions. One of
+  its tests had counted a 100,000-character body as a message, which only truncation allowed. It
+  now checks that such a body is excluded and counted, and that a file over the `.eml` limit whose
+  text fits is still read.
+- **Unit suite:** 1,446 tests pass (15 skipped).
+- **Not changed, found in passing.** `evaluate_llm_labeler.py` also reads messages with default ARC
+  verification, so labelling sealed private mail without a mailbox could look up keys. That tool is
+  outside this change.
+
 ### Evaluators without registry lookups (2026-10-19)
 
 **What was found.**

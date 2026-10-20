@@ -105,14 +105,21 @@ class ComparisonToolTests(unittest.TestCase):
 
     def test_a_pasted_cohort_is_not_bound_by_the_upload_limit(self):
         with tempfile.TemporaryDirectory() as directory:
+            # Over the 60,000-byte .eml limit, but its visible text is within the paste limit.
             eml = Path(directory) / 'large.eml'
             eml.write_bytes(b'From: Alex Chen <alex.chen@gmail.com>\r\nSubject: Long notes\r\n'
-                            b'Content-Type: text/plain; charset=utf-8\r\n\r\n' + b'Team notes for the week. ' * 4000)
+                            b'Content-Type: text/html; charset=utf-8\r\n\r\n'
+                            + b'<div style="color:#333">Team notes for the week.</div>\r\n' * 1200)
+            # Its visible text is over the paste limit: excluded and counted, never truncated (2026-10-20).
+            longer = Path(directory) / 'longer.eml'
+            longer.write_bytes(b'From: Alex Chen <alex.chen@gmail.com>\r\nSubject: Long notes\r\n'
+                               b'Content-Type: text/plain; charset=utf-8\r\n\r\n' + b'Team notes for the week. ' * 4000)
             cohort = Path(directory) / 'cohort.jsonl'
-            cohort.write_text(json.dumps({'provider': 'gmail', 'received_at': '2026-10-01', 'label': 'legitimate',
-                                          'eml_path': str(eml)}) + '\n', encoding='utf-8')
+            cohort.write_text(''.join(json.dumps({'provider': 'gmail', 'received_at': '2026-10-01', 'label': 'legitimate',
+                                                  'eml_path': str(path)}) + '\n' for path in (eml, longer)), encoding='utf-8')
             report = json.loads(self.run_tool(directory, '--paste', f'big={cohort}'))
             self.assertEqual(report['models']['stub-model']['cohorts']['big']['legitimate']['messages'], 1)
+            self.assertEqual(report['configuration']['paste_exclusions'], {'big': {'body_too_long': 1}})
             # As an upload the same file is over the 60,000-byte .eml limit.
             with self.assertRaises(ValueError):
                 self.run_tool(directory, '--input', f'big={cohort}')
