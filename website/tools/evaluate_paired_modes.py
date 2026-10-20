@@ -79,11 +79,16 @@ def _sources(rows, read):
         raise PairedRunError('A holdout row was supplied; the holdout stays sealed')
     if any('eml_path' not in row for row in validated):
         raise PairedRunError('Every input row must name an original .eml file')
-    sources = []
+    sources, snapshots = [], {}
     for row in validated:
         clean = {key: value for key, value in row.items() if not key.startswith('_')}
+        # One read per file, whatever path names it: rows naming the same file share its snapshot.
         try:
-            snapshot = read(clean['eml_path'])
+            status = os.stat(clean['eml_path'])
+            identity = (status.st_dev, status.st_ino)
+            if identity not in snapshots:
+                snapshots[identity] = read(clean['eml_path'])
+            snapshot = snapshots[identity]
         except Exception:
             raise PairedRunError('A source file could not be read') from None
         too_large = len(snapshot) > pasted_cohort.MAX_SOURCE_BYTES
@@ -140,9 +145,26 @@ def _set_of(source) -> str:
     return 'pairs' if has_p1 and has_p2 else 'p1_only' if has_p1 else 'p2_only' if has_p2 else 'neither'
 
 
-def evaluate_paired(rows, *, model_sha256: str, configurations: dict, read=_read_snapshot) -> dict:
+def evaluate_paired(rows, *, model_sha256: str, configurations: dict, read=_read_snapshot,
+                    reproducibility: dict | None = None) -> dict:
     """The private report of a paired run. configurations holds the 'p1' and 'p2' evaluation
-    configurations (as evaluate_serving_pipeline.py records them)."""
+    configurations (as evaluate_serving_pipeline.py records them). reproducibility, if given, holds
+    each mode's run metadata: each set report then carries it, and its sidecars name the evaluated
+    commit, as evaluate_serving_pipeline.py's own command line records them.
+
+    Every failure leaves as a PairedRunError with a fixed message, raised outside any handler: it
+    has no cause and no context, so no original message, row or text travels with it."""
+    try:
+        return _evaluate_paired(rows, model_sha256=model_sha256, configurations=configurations, read=read,
+                                reproducibility=reproducibility)
+    except PairedRunError as error:
+        message = str(error)
+    except Exception:
+        message = 'The paired run failed'
+    raise PairedRunError(message)
+
+
+def _evaluate_paired(rows, *, model_sha256: str, configurations: dict, read, reproducibility) -> dict:
     from tools.counterfactual_evidence import CounterfactualEvidence
     from tools.evidence_attribution import EvidenceAttribution
 
@@ -185,6 +207,9 @@ def evaluate_paired(rows, *, model_sha256: str, configurations: dict, read=_read
                 raise
             except Exception:
                 raise PairedRunError('An analysis failed or a row was refused') from None
+            if reproducibility is not None:
+                # Before the sidecars, which read the evaluated commit from it.
+                report['reproducibility'] = {**reproducibility[mode], 'frozen_plan': None}
             reports[set_name][mode] = {'report': report, 'set_digest': _set_digest([s['digest'] for s in group]),
                                        'counterfactual': counterfactual.snapshot(report),
                                        'attribution': attribution.snapshot(report)}
@@ -215,17 +240,44 @@ def evaluate_paired(rows, *, model_sha256: str, configurations: dict, read=_read
     }
 
 
+class _Arguments(argparse.ArgumentParser):
+    """Argument errors in a fixed form: argparse would echo the arguments, which may hold paths."""
+
+    def error(self, message):
+        self.exit(2, 'Paired run stopped: invalid arguments\n')
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    """Whether two paths name one file: the same resolved path, or, for files that exist, the same
+    file through a symbolic or hard link."""
+    try:
+        if a.resolve() == b.resolve():
+            return True
+        return a.exists() and b.exists() and os.path.samefile(a, b)
+    except OSError:
+        return True  # cannot tell: treat as the same, so nothing is overwritten
+
+
 def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = _Arguments(description=__doc__.splitlines()[0], allow_abbrev=False)
     parser.add_argument('--input', required=True, type=Path, help='JSONL of the original sources (eml_path rows)')
     parser.add_argument('--output', required=True, type=Path, help='the private report, beside the private data')
     args = parser.parse_args(argv)
-    if not args.input.is_absolute() or not args.output.is_absolute() or args.input.resolve() == args.output.resolve():
-        parser.error('--input and --output must be distinct absolute paths')
     try:
+        if not args.input.is_absolute() or not args.output.is_absolute() or _same_file(args.input, args.output):
+            raise PairedRunError('--input and --output must be distinct absolute paths')
         from config import load_settings
         from content_inference import load_content_pipeline_artifact
 
+        try:
+            rows = list(serving._jsonl_records(args.input))
+        except Exception:
+            raise PairedRunError('The input file is not valid JSONL') from None
+        # The report must never replace an original: compare with every source, through any link.
+        sources = [Path(row['eml_path']) for row in rows
+                   if isinstance(row, dict) and isinstance(row.get('eml_path'), str)]
+        if any(_same_file(args.output, source) for source in sources):
+            raise PairedRunError('The output would overwrite a source file')
         profile = json.loads((PROJECT_ROOT / 'vercel.json').read_text(encoding='utf-8'))['env']
         environment = serving.evaluation_environment(profile)
         with patch.dict(os.environ, environment, clear=True):
@@ -240,12 +292,10 @@ def main(argv=None) -> None:
                 **serving.external_services(app, settings, environment)}
         configurations = {'p1': {**base, 'mailbox_setting': 'recorded', 'input_mode': 'as_submitted'},
                           'p2': {**base, 'mailbox_setting': 'none', 'input_mode': 'pasted'}}
-        try:
-            rows = list(serving._jsonl_records(args.input))
-        except Exception:
-            raise PairedRunError('The input file is not valid JSONL') from None
+        metadata = {mode: serving._evaluation_metadata(configuration) for mode, configuration in configurations.items()}
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
-            report = evaluate_paired(rows, model_sha256=model_sha256, configurations=configurations)
+            report = evaluate_paired(rows, model_sha256=model_sha256, configurations=configurations,
+                                     reproducibility=metadata)
         report['tool'] = {'file_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
         report['reproducibility'] = serving._evaluation_metadata(configurations)
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8')

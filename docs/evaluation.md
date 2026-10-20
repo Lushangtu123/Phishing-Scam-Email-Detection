@@ -309,6 +309,55 @@ commit `52b091c9f131495aa5746d736ea30a85df7ba888`. No real mail was read.
   test uses ordinary lines. The served path is outside this change.
 - **Unit suite:** 1,460 tests pass (15 skipped).
 
+#### Correction after the review of `7a4bb93` (2026-10-20)
+
+The table above records the claims as they stood at `7a4bb93`, and is kept as it was. A technical
+review of that commit found that three rows said more than had been shown. It also found a defect no
+criterion covered. All five findings are fixed on the same branch, on synthetic inputs.
+
+| Finding | At `7a4bb93` | Now |
+|---|---|---|
+| Criterion 3: a file named twice was read twice | Two rows naming the same original read it twice. Only distinct files had been tested | One read per file, by device and inode. Four rows naming two files, through the same path and a hard link, read twice. Conflicting labels on the copies are still refused |
+| Criterion 6: no pinned comparison | The test compared with the branch's own `evaluate_records`, not the pinned commit | Compared with the pinned commit from the command line on both sides (below) |
+| Criterion 8: argument errors | `argparse` echoed unknown arguments and their values, which may be paths, on standard error | Every argument error prints one fixed line and exits with status 2. Abbreviated options are refused |
+| Criterion 8: in-process errors | An exception raised while making the views left the in-process entry with its own message | Every failure leaves as `PairedRunError` with a fixed message, raised outside any handler, so it carries no cause or context |
+| Not covered by a criterion: the report could replace an original | Only the input JSONL was guarded | The report path is refused before the model loads if it names any original: the same path, `./` aliases, a symbolic link or a hard link |
+
+**Criterion 6 against the pinned commit.**
+
+- **The run.** The branch's tool ran from the command line on the ten synthetic sources of
+  criterion 1. Then `evaluate_serving_pipeline.py` at `52b091c9f131495aa5746d736ea30a85df7ba888`
+  ran on each set's members, with `--mailbox-setting recorded` for P1 and `--paste` for P2. Both
+  sides used the committed model and the network guard, which recorded 0 attempts.
+- **Membership.** It came from the known synthetic fixtures, not from the tool.
+- **Result.** The four set-and-mode reports (pairs in P1 and P2, P1 only, P2 only), with 4, 4, 2
+  and 1 evaluated rows, are byte-identical outside their run metadata.
+- **Run metadata.** The configuration, the deployment profile digest, the Python and package
+  versions and `frozen_plan` are identical. Only the commit, its dirty flag and the source digest
+  differ, as they must between two checkouts.
+- **Sidecars.** The counterfactual and attribution sidecars are identical except their evaluated
+  commit, which names each side's own commit.
+- **Found by this comparison.** At `7a4bb93`, a set report carried only its configuration, so its
+  sidecars named no evaluated commit (`null`). From the command line, each set report now carries
+  its mode's full run metadata before the sidecars are taken, as the existing command line does.
+
+**Planted defects.** Criterion 11's eleven defects were run again, with eight new ones:
+
+- default `argparse` errors;
+- no boundary for unexpected exceptions;
+- a boundary that keeps the cause;
+- the output checked only against the input;
+- links not followed;
+- one read per row;
+- snapshots keyed by path text;
+- a set report without its commit.
+
+All 19 made tests fail. Each changed file was restored byte for byte after its run.
+
+- **Unit suite:** 1,465 tests pass (15 skipped).
+- **Not changed:** the long-token timing noted above stays a separate case. The review did not
+  measure it again.
+
 ### Pasted cohorts without truncation or ARC (2026-10-20)
 
 **What was found.** `evaluate_local_review.pasted()`, the existing way to make a pasted cohort from

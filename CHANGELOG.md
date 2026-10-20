@@ -22,6 +22,34 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 13:46 PT] — P1/P2 pairing tool: fixes after the review of 7a4bb93
+
+### Why
+- A technical review of `7a4bb93` (PR #83) found five problems and held the merge:
+  - argument errors echoed their values;
+  - extraction errors left the in-process entry with their own message;
+  - the report could overwrite an original;
+  - a file named twice was read twice;
+  - criterion 6 had no comparison with the pinned commit.
+- The entry below claimed criteria 3, 6 and 8 as met. That said more than had been shown at `7a4bb93`. It stays as it was; this entry corrects it.
+- Still authorized for synthetic inputs only, up to tests, PR and CI. Not merged; no real mail, 1a measurement, download or key collection.
+
+### Files changed
+- `website/tools/evaluate_paired_modes.py`:
+  - one snapshot per file, by device and inode;
+  - a single exception boundary: every failure leaves as `PairedRunError` with a fixed message and no cause or context;
+  - argument errors in one fixed line (exit status 2), with abbreviations off;
+  - the report path refused, before the model loads, if it names the input or any original through the same path, an alias, a symbolic link or a hard link;
+  - from the command line, each set report carries its mode's run metadata, so its sidecars name the evaluated commit (they named none).
+- `website/tests/test_paired_modes.py`: 5 new tests, 19 in all, synthetic only.
+- `docs/evaluation.md`: a dated correction section after the original results table, which is kept. `docs/data-and-model.md`: the read-once and output rules.
+
+### Effect
+- **Criterion 6 against the pinned commit.** The branch's tool and `evaluate_serving_pipeline.py` at `52b091c9f131495aa5746d736ea30a85df7ba888` both ran from the command line, on the ten synthetic sources, with the committed model and the network guard (0 attempts). The four set-and-mode reports (4, 4, 2 and 1 evaluated rows) are byte-identical outside the run metadata that names a checkout. The sidecars are identical except their evaluated commit.
+- **Planted defects.** All 19 made tests fail: criterion 11's eleven, run again, and eight for the fixes.
+- **Unit suite.** 1,465 tests pass (15 skipped); the 532 frontend tests pass.
+- **Not changed.** The long-token timing stays a separate case. No serving module, model, rule or threshold changes.
+
 ## [2026-10-20 10:39 PT] — P1/P2 pairing tool, on synthetic inputs
 
 ### Why

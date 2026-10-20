@@ -292,6 +292,97 @@ class PrivacyTests(unittest.TestCase):
         self.assertNotRegex(str(raised.exception), r'\d')
 
 
+class ReviewFixTests(unittest.TestCase):
+    """The review of 7a4bb93 (2026-10-20): argument errors, the exception boundary, the output path,
+    and one read per file."""
+
+    def command(self, *arguments):
+        return subprocess.run([sys.executable, str(WEBSITE_DIR / 'tools/evaluate_paired_modes.py'), *arguments],
+                              capture_output=True, text=True, timeout=120)
+
+    def test_argument_errors_echo_nothing(self):
+        for arguments in (['--input', '/tmp/marker-file-1.jsonl', '--output', '/tmp/out.json', '--marker-id-1', 'x'],
+                          ['--output', '/tmp/marker-file-1.json'], ['--inp', '/tmp/marker-file-1.jsonl']):
+            with self.subTest(arguments=arguments[-2:]):
+                completed = self.command(*arguments)
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stderr.strip(), 'Paired run stopped: invalid arguments')
+                self.assertNotIn('marker', completed.stdout + completed.stderr)
+        completed = self.command('--input', 'marker-file-relative.jsonl', '--output', '/tmp/out.json')
+        self.assertEqual(completed.stderr.strip(), 'Paired run stopped: --input and --output must be distinct absolute paths')
+
+    def test_no_failure_carries_its_original_message(self):
+        def failing(row):
+            raise RuntimeError('marker-id-1 Marker subject one /tmp/marker-file-1.eml')
+
+        sources = standard(self)
+        for patcher in (patch.object(pasted_cohort, 'pasted', failing),
+                        patch.object(paired, '_metadata', failing)):
+            with self.subTest(target=patcher.attribute), patcher, self.assertRaises(paired.PairedRunError) as raised:
+                run(sources.rows)
+            self.assertEqual(str(raised.exception), 'The paired run failed')
+            self.assertIsNone(raised.exception.__cause__)
+            self.assertIsNone(raised.exception.__context__)
+        sources.rows[0]['cohort_role'] = 'holdout'
+        with self.assertRaises(paired.PairedRunError) as raised:
+            run(sources.rows)
+        self.assertIsNone(raised.exception.__context__)
+
+    def test_the_report_never_overwrites_a_source(self):
+        sources = Sources(self)
+        original = sources.add(eml('Marker subject one', 'Team notes for the week.'))
+        content = original.read_bytes()
+        source_file = sources.folder / 'sources.jsonl'
+        source_file.write_text(json.dumps(sources.rows[0]) + '\n')
+        symbolic, hard = sources.folder / 'link.json', sources.folder / 'hard.json'
+        symbolic.symlink_to(original)
+        os.link(original, hard)
+        for output in (original, symbolic, hard, sources.folder / '.' / original.name, source_file):
+            with self.subTest(output=output.name):
+                completed = self.command('--input', str(source_file), '--output', str(output))
+                self.assertEqual(completed.returncode, 1)
+                self.assertIn(completed.stderr.strip(), {'Paired run stopped: The output would overwrite a source file',
+                                                         'Paired run stopped: --input and --output must be distinct absolute paths'})
+                self.assertNotIn('marker', completed.stderr)
+                self.assertEqual(original.read_bytes(), content)
+
+    def test_a_file_named_twice_is_read_once(self):
+        sources = Sources(self)
+        original = sources.add(eml('Marker subject one', 'Team notes for the week.'))
+        sources.add(eml('Request', 'Please reply with your password and verify your account today.'), label='phishing')
+        hard = sources.folder / 'marker-file-hard.eml'
+        os.link(original, hard)
+        sources.rows.append({**sources.rows[0], 'id': 'marker-id-again'})            # the same path
+        sources.rows.append({**sources.rows[0], 'id': 'marker-id-hard', 'eml_path': str(hard)})  # a hard link
+        reads = []
+
+        def read(path):
+            reads.append(path)
+            return paired._read_snapshot(path)
+
+        report = run(sources.rows, read=read)
+        self.assertEqual(len(reads), 2)  # the two files, not the four rows
+        self.assertEqual(report['input_integrity']['valid_records'], 4)
+        self.assertEqual(report['input_integrity']['sets'], {'pairs': 2, 'p1_only': 0, 'p2_only': 0, 'neither': 2})
+        self.assertEqual(report['input_integrity']['without_view']['p1'], {'duplicate_source': 2})
+        conflicting = [*sources.rows[:2], {**sources.rows[0], 'label': 'phishing'}]
+        with self.assertRaisesRegex(paired.PairedRunError, 'conflicting'):
+            run(conflicting)
+
+    def test_each_set_report_names_its_commit(self):
+        sources = Sources(self)
+        sources.add(eml('Notes', 'Team notes for the week.'))
+        sources.add(eml('Request', 'Please reply with your password and verify your account today.'),
+                    label='phishing')
+        metadata = {mode: {'git_commit': mode[1] * 40, 'configuration': CONFIGURATIONS[mode]} for mode in CONFIGURATIONS}
+        report = run(sources.rows, reproducibility=metadata)
+        for mode, entry in report['reports']['pairs'].items():
+            with self.subTest(mode=mode):
+                self.assertEqual(entry['report']['reproducibility'], {**metadata[mode], 'frozen_plan': None})
+                for sidecar in ('counterfactual', 'attribution'):
+                    self.assertEqual(entry[sidecar]['tool']['evaluated_commit'], mode[1] * 40)
+
+
 class NetworkTests(unittest.TestCase):
     """Criterion 9: an ARC-sealed source makes no lookup, in process and from the command line."""
 
@@ -336,6 +427,16 @@ class NetworkTests(unittest.TestCase):
         for marker in MARKERS:
             self.assertNotIn(marker, json.dumps(private))
         self.assertIn('decision_table', private)
+        # Each set report and its sidecars record the commit evaluated, as the existing command line does.
+        commit = private['reproducibility']['git_commit']
+        for mode, entry in private['reports']['pairs'].items():
+            with self.subTest(mode=mode):
+                self.assertEqual(entry['report']['reproducibility']['git_commit'], commit)
+                self.assertEqual(entry['report']['reproducibility']['configuration'],
+                                 private['reproducibility']['configuration'][mode])
+                self.assertIsNone(entry['report']['reproducibility']['frozen_plan'])
+                for sidecar in ('counterfactual', 'attribution'):
+                    self.assertEqual(entry[sidecar]['tool']['evaluated_commit'], commit)
         # A failing run prints a fixed message and no row.
         source_file.write_text(json.dumps({**sources.rows[0], 'label': 'spam'}) + '\n')
         failed = subprocess.run([sys.executable, str(WEBSITE_DIR / 'tools/evaluate_paired_modes.py'),
