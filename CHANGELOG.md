@@ -22,6 +22,61 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 13:46 PT] — P1/P2 pairing tool: fixes after the review of 7a4bb93
+
+### Why
+- A technical review of `7a4bb93` (PR #83) found five problems and held the merge:
+  - argument errors echoed their values;
+  - extraction errors left the in-process entry with their own message;
+  - the report could overwrite an original;
+  - a file named twice was read twice;
+  - criterion 6 had no comparison with the pinned commit.
+- The entry below claimed criteria 3, 6 and 8 as met. That said more than had been shown at `7a4bb93`. It stays as it was; this entry corrects it.
+- Still authorized for synthetic inputs only, up to tests, PR and CI. Not merged; no real mail, 1a measurement, download or key collection.
+
+### Files changed
+- `website/tools/evaluate_paired_modes.py`:
+  - one snapshot per file, by device and inode;
+  - a single exception boundary: every failure leaves as `PairedRunError` with a fixed message and no cause or context;
+  - argument errors in one fixed line (exit status 2), with abbreviations off;
+  - the report path refused, before the model loads, if it names the input or any original through the same path, an alias, a symbolic link or a hard link;
+  - from the command line, each set report carries its mode's run metadata, so its sidecars name the evaluated commit (they named none).
+- `website/tests/test_paired_modes.py`: 5 new tests, 19 in all, synthetic only.
+- `docs/evaluation.md`: a dated correction section after the original results table, which is kept. `docs/data-and-model.md`: the read-once and output rules.
+
+### Effect
+- **Criterion 6 against the pinned commit.** The branch's tool and `evaluate_serving_pipeline.py` at `52b091c9f131495aa5746d736ea30a85df7ba888` both ran from the command line, on the ten synthetic sources, with the committed model and the network guard (0 attempts). The four set-and-mode reports (4, 4, 2 and 1 evaluated rows) are byte-identical outside the run metadata that names a checkout. The sidecars are identical except their evaluated commit.
+- **Planted defects.** All 19 made tests fail: criterion 11's eleven, run again, and eight for the fixes.
+- **Unit suite.** 1,465 tests pass (15 skipped); the 532 frontend tests pass.
+- **Not changed.** The long-token timing stays a separate case. No serving module, model, rule or threshold changes.
+
+## [2026-10-20 10:39 PT] — P1/P2 pairing tool, on synthetic inputs
+
+### Why
+- The owner approved the step 1 criteria (#80) and the pairing design (#82) on 2026-10-20. The implementation is authorized for synthetic inputs only, up to tests, PR and CI, not merged.
+- Not authorized: real mail, the 1a measurement, downloads and key collection.
+- The design's acceptance criteria were fixed before the implementation. Its golden comparisons use the pinned commit `52b091c9f131495aa5746d736ea30a85df7ba888`.
+
+### Files changed
+- `website/tools/evaluate_paired_modes.py` (new):
+  - each original is read once into a trusted snapshot after validation, holdout refusal and cleaning;
+  - duplicates are decided by the smallest source digest;
+  - sources fall into pairs, P1 only, P2 only and neither, with counts, reasons and set digests only (`null` with an unhashed member);
+  - empty sets get no evaluator call;
+  - errors are position-free;
+  - the 3 × 3 decision table stays in the private report.
+- `website/tools/evaluate_serving_pipeline.py`: `evaluate_records(snapshots=…)`, an in-process entry for bytes already read. It refuses snapshots for rows without `eml_path`, and a list that does not match the rows. `_read_eml` keeps its check in `_checked_eml`.
+- `website/tests/test_paired_modes.py` (new, 14 tests, all synthetic).
+- `docs/superpowers/specs/2026-10-20-false-alert-diagnosis-criteria.md`, `docs/superpowers/specs/2026-10-20-p1-p2-pairing-design.md`: status lines record the owner's approval, its date and scope.
+- `docs/evaluation.md`: results. `docs/data-and-model.md`: the tool.
+
+### Effect
+- **Criteria.** Design criteria 1–10 are met on synthetic inputs, and all 11 planted defects made tests fail.
+- **Existing entry unchanged.** Without snapshots, `evaluate_records` on the 1,713 archived unit-suite inputs gives byte-identical results to the pinned commit: 2,227 evaluations, including 23 expected errors.
+- **Found, not changed.** A plain-text `.eml` with one 55,000-character token takes the served analysis about 10 seconds.
+- **Unit suite.** 1,460 tests pass (15 skipped).
+- **Unchanged.** No serving module, model, rule or threshold changes. No real mail was read.
+
 ## [2026-10-20 10:10 PT] — Design: pairing P1 and P2 in memory
 
 ### Why

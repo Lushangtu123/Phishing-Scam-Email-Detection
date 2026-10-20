@@ -116,6 +116,13 @@ visible text, read with ARC verification off. A subject over 500 characters, a b
 a source over 3 MiB (a string counted by its UTF-8 bytes) is excluded and counted by reason, never truncated.
 The report gives reason counts only; internal fields in an input row are ignored.
 
+`evaluate_paired_modes.py` reads each original once and analyses it both as submitted (mailbox
+recorded) and pasted, pairing the two by source in memory. A file named by several rows, through
+the same path or a link, is still read once. Only counts, reasons and set digests leave the run; the
+decision table of the pairs stays in the private report. The report path must differ from the input
+and from every original, through any link, and every error, including an argument error, has a
+fixed message.
+
 Both evaluators start from the deployment profile but turn its services off: no RDAP registry
 lookups, sender history, Jev or local language-model review. The report records the services the
 run could still reach (`external_services`, `network_services_enabled`). For raw messages with no

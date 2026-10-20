@@ -1,12 +1,13 @@
 # Design: pairing P1 and P2 in memory
 
-**Status: design and acceptance criteria only, not approved.** Drafted on 2026-10-20 at the owner's
-request. Revised the same day twice after technical reviews: first for the blockers found, then to
-settle how unhashed members and the conservation denominator are stated.
+**Status: design approved by the owner on 2026-10-20.** Drafted the same day at the owner's
+request, and revised twice after technical reviews.
 
-- Nothing is implemented.
-- No mail is read, extracted, downloaded or measured.
-- Implementing it is a separate decision.
+- **Implementation is authorized for synthetic inputs only,** up to tests, PR and CI. It is not
+  authorized to be merged.
+- **Golden comparisons** (criteria 6 and 10) use the pinned full commit SHA
+  `52b091c9f131495aa5746d736ea30a85df7ba888`, the `main` commit the implementation branches from.
+- **Not authorized:** reading or extracting real mail, measurement and downloads.
 
 ## Why
 

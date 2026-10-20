@@ -276,6 +276,88 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### P1/P2 pairing tool (2026-10-20)
+
+`website/tools/evaluate_paired_modes.py` implements the pairing design
+(`docs/superpowers/specs/2026-10-20-p1-p2-pairing-design.md`). The owner approved the design and
+authorized the implementation on 2026-10-20, for synthetic inputs only, up to PR and CI. The design's
+acceptance criteria were fixed before the implementation. Its golden comparisons use the pinned
+commit `52b091c9f131495aa5746d736ea30a85df7ba888`. No real mail was read.
+
+- **The tool.** One trusted snapshot per original. Duplicates by the smallest source digest. Four
+  sets by source. Counts, reasons and set digests only. Position-free errors. The 3 × 3 decision
+  table in the private report.
+- **The in-process entry.** `evaluate_records` gains `snapshots`, so the P1 view is not read again.
+  It refuses a snapshot for a row without `eml_path`, and a list that does not match the rows.
+
+| Criterion | Result |
+|---|---|
+| 1 Sets | Met. Ten synthetic sources (the seven cases, plus a phishing pair) give 4 pairs, 2 P1 only, 1 P2 only and 3 neither. The shared-text case pairs the smaller source digest. A holdout row is refused before any read |
+| 2 Order | Met. Three shuffles and the reverse give byte-identical reports |
+| 3 Read once | Met. Each original is read once, and the evaluator's own file read is never called. Rewriting every original after the snapshots changes nothing |
+| 4 Conservation | Met. The sets sum to the 10 validated records, duplicate copies included. Each evaluated set's count equals its report's evaluated rows. The decision table sums to the pairs |
+| 5 Same sources | Met. Both modes' pair reports carry the same set digest, and changing one original changes it. "neither" with an unhashed member is `null`, with an unhashed count of 1 |
+| 6 Boundary | Met. Each set's report in each mode is byte-identical to `evaluate_records` on the same rows in that mode |
+| 7 Empty sets | Met. With only pairs, the evaluator is called twice: the pairs in P1 and in P2 |
+| 8 No membership | Met. Reports, standard output and standard error hold no identifier, path, subject, `Row`/`Line` or digit-bearing error. This holds for a malformed row, an unreadable file and a failing analysis |
+| 9 Zero outbound | Met. An ARC-sealed synthetic source records no attempt, in process and from the command line |
+| 10 Prepared rows | Met. No JSONL field or command-line option turns the entry on. Through it, holdout, conflicting metadata and the `.eml` size limit still apply. Without it, `evaluate_records` on the 1,713 archived unit-suite inputs (2,227 evaluations, as submitted and pasted) is byte-identical to the pinned commit, including its 23 expected errors |
+| 11 Planted defects | Met. All 11 made tests fail |
+
+- **Found in passing, not changed.** A plain-text `.eml` whose body is one 55,000-character token
+  takes the served analysis about 10 seconds; ordinary lines of the same length take 0.34. The
+  test uses ordinary lines. The served path is outside this change.
+- **Unit suite:** 1,460 tests pass (15 skipped).
+
+#### Correction after the review of `7a4bb93` (2026-10-20)
+
+The table above records the claims as they stood at `7a4bb93`, and is kept as it was. A technical
+review of that commit found that three rows said more than had been shown. It also found a defect no
+criterion covered. All five findings are fixed on the same branch, on synthetic inputs.
+
+| Finding | At `7a4bb93` | Now |
+|---|---|---|
+| Criterion 3: a file named twice was read twice | Two rows naming the same original read it twice. Only distinct files had been tested | One read per file, by device and inode. Four rows naming two files, through the same path and a hard link, read twice. Conflicting labels on the copies are still refused |
+| Criterion 6: no pinned comparison | The test compared with the branch's own `evaluate_records`, not the pinned commit | Compared with the pinned commit from the command line on both sides (below) |
+| Criterion 8: argument errors | `argparse` echoed unknown arguments and their values, which may be paths, on standard error | Every argument error prints one fixed line and exits with status 2. Abbreviated options are refused |
+| Criterion 8: in-process errors | An exception raised while making the views left the in-process entry with its own message | Every failure leaves as `PairedRunError` with a fixed message, raised outside any handler, so it carries no cause or context |
+| Not covered by a criterion: the report could replace an original | Only the input JSONL was guarded | The report path is refused before the model loads if it names any original: the same path, `./` aliases, a symbolic link or a hard link |
+
+**Criterion 6 against the pinned commit.**
+
+- **The run.** The branch's tool ran from the command line on the ten synthetic sources of
+  criterion 1. Then `evaluate_serving_pipeline.py` at `52b091c9f131495aa5746d736ea30a85df7ba888`
+  ran on each set's members, with `--mailbox-setting recorded` for P1 and `--paste` for P2. Both
+  sides used the committed model and the network guard, which recorded 0 attempts.
+- **Membership.** It came from the known synthetic fixtures, not from the tool.
+- **Result.** The four set-and-mode reports (pairs in P1 and P2, P1 only, P2 only), with 4, 4, 2
+  and 1 evaluated rows, are byte-identical outside their run metadata.
+- **Run metadata.** The configuration, the deployment profile digest, the Python and package
+  versions and `frozen_plan` are identical. Only the commit, its dirty flag and the source digest
+  differ, as they must between two checkouts.
+- **Sidecars.** The counterfactual and attribution sidecars are identical except their evaluated
+  commit, which names each side's own commit.
+- **Found by this comparison.** At `7a4bb93`, a set report carried only its configuration, so its
+  sidecars named no evaluated commit (`null`). From the command line, each set report now carries
+  its mode's full run metadata before the sidecars are taken, as the existing command line does.
+
+**Planted defects.** Criterion 11's eleven defects were run again, with eight new ones:
+
+- default `argparse` errors;
+- no boundary for unexpected exceptions;
+- a boundary that keeps the cause;
+- the output checked only against the input;
+- links not followed;
+- one read per row;
+- snapshots keyed by path text;
+- a set report without its commit.
+
+All 19 made tests fail. Each changed file was restored byte for byte after its run.
+
+- **Unit suite:** 1,465 tests pass (15 skipped).
+- **Not changed:** the long-token timing noted above stays a separate case. The review did not
+  measure it again.
+
 ### Pasted cohorts without truncation or ARC (2026-10-20)
 
 **What was found.** `evaluate_local_review.pasted()`, the existing way to make a pasted cohort from
