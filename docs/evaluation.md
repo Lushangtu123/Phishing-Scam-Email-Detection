@@ -276,6 +276,57 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Evaluators without registry lookups (2026-10-19)
+
+**What was found.**
+
+- **Both evaluators inherit RDAP.** `evaluate_serving_pipeline.py` and `evaluate_public_corpus.py`
+  start from the deployment profile in `vercel.json`, which has had `RDAP_LOOKUPS=true` since
+  2026-10-02 (`13c6da8`). Neither turns it off.
+- **What a run looks up.** It asks registries' RDAP servers about the registrable domains of the
+  sender and the links. Official brands, mail providers, file-sharing services, shared suffixes and
+  IP addresses are left out. Never an address or a URL path.
+- **Effect on results.** The answers can differ between runs.
+- **A wrong record.** The public evaluator records `network_services_enabled: false` regardless.
+- **History.** The evaluators have copied the profile since 2026-09-20/21, so only their runs
+  after 2026-10-02 could have looked domains up. Whether any run on private mail did is not
+  established here. It has to be checked against each run's date and configuration.
+
+**Criteria, fixed before the implementation.** Only `website/tools/` and tests change; `vercel.json`
+and the serving modules do not.
+
+1. **Services off.** Both evaluators set `RDAP_LOOKUPS=false`. They also set sender history, Jev
+   and the local language-model review off explicitly.
+2. **Effective settings recorded.** Each report records the settings the run actually used, read
+   from the loaded configuration, not written as constants:
+   - RDAP lookups, sender history, Jev, the local review, and the email-verification mode (which
+     content analysis does not use);
+   - ARC verification. `analyze_record` lets `analyze_raw_email` verify an ARC chain when a raw
+     message has no trusted result and no mailbox is chosen. Its DNS lookups are limited to the
+     keys of known sealers (`ARC_SEALERS`, today `google.com`); `test_arc_sealed_results.py`
+     checks that other sealers are never looked up. This change leaves ARC as it is and records
+     it.
+
+   `network_services_enabled` is false only if every one of these is off. Otherwise the report
+   names each setting.
+3. **No outbound calls.** Socket connections, datagrams and name resolution all fail and are
+   recorded during:
+   - each evaluator's baseline;
+   - the identity replay and every counterfactual family;
+   - attribution;
+   - a command-line run of each evaluator.
+
+   The inputs include sender and link domains that RDAP would look up. They carry no ARC seal, so
+   the ARC exception in 2 does not apply. Nothing may be recorded, and each run must succeed.
+4. **Planted defects.** Each must make a test fail:
+   - RDAP left on;
+   - `network_services_enabled` written as a constant false while ARC verification is on.
+5. **Serving unchanged.** No serving module changes; the production profile still has RDAP on.
+
+**ARC is not decided here.** Its key lookups can still occur for sealed messages evaluated without
+a mailbox. Whether evaluators should also skip them, which changes how such messages are read, is a
+separate decision.
+
 ### Offline signal attribution (2026-09-27)
 
 The optional sidecar was run on the same 244 reference-filtered historical
