@@ -111,6 +111,12 @@ the pinned Python 3.12 environment:
 .venv/bin/python website/tools/evaluate_serving_pipeline.py --input /absolute/path/to/consented-mail.jsonl
 ```
 
+Both evaluators start from the deployment profile but turn its services off: no RDAP registry
+lookups, sender history, Jev or local language-model review. The report records the services the
+run could still reach (`external_services`, `network_services_enabled`). For raw messages with no
+trusted result and no chosen mailbox, ARC verification may still look up the signing keys of
+known sealers (today `google.com`).
+
 Add `--attribution-output /absolute/private/path/attribution.json` to write a
 separate, optional aggregate diagnostic. It counts fixed content-category and
 link-rule IDs, every content and link finding code from a fixed list (once per

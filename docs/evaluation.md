@@ -327,6 +327,21 @@ and the serving modules do not.
 a mailbox. Whether evaluators should also skip them, which changes how such messages are read, is a
 separate decision.
 
+**Results against the criteria (2026-10-19).**
+
+| | Result |
+|---|---|
+| 1 | Met. `OFFLINE_ENVIRONMENT` sets RDAP, sender history, Jev and the local review off in both evaluators' environments; a test checks each directly. `vercel.json` still sets `RDAP_LOOKUPS=true` |
+| 2 | Met. Reports record `external_services`, read from the loaded settings: RDAP, sender history, Jev and the local review are off; ARC key lookups are possible only for `google.com`; the email-verification mode is `off` for the serving evaluator and the profile's `lite` for the public one, which content analysis does not use. `network_services_enabled` is `true` because of ARC, and `false` in a test with no known sealers |
+| 3 | Met. With every connection, datagram and name lookup refused and recorded, nothing was recorded during the serving evaluation (baseline, identity replay, all 12 families, attribution), the public evaluation (the same), or a command-line run of each evaluator. The inputs have a `.com` sender and a `.net` link. The same in-process runs with RDAP on did record attempts, and so did a one-line connection under the command-line guard: the guard sees a call when there is one |
+| 4 | Met. With RDAP left on in the evaluation environment, 4 tests failed. With `network_services_enabled` written as a constant false, 3 failed |
+| 5 | Met. Only `website/tools/evaluate_serving_pipeline.py`, `website/tools/evaluate_public_corpus.py` and tests change |
+
+- **Comparisons across this change.** The serving report's configuration now carries the services,
+  so `compare_evaluations.py` treats reports from before and after this change as having different
+  configurations. That is correct: before it, RDAP was on.
+- **Unit suite:** 1,429 tests pass (15 skipped).
+
 ### Offline signal attribution (2026-09-27)
 
 The optional sidecar was run on the same 244 reference-filtered historical
