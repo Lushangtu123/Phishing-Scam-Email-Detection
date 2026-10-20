@@ -65,6 +65,27 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - **Unchanged.** Serving modules, model, rules and thresholds. No real mail was extracted or evaluated.
 - **Not changed, found in passing.** `evaluate_llm_labeler.py` also reads messages with default ARC verification.
 
+## [2026-10-20 09:07 PT] — Draft criteria: step 1, diagnosing false alerts on development data
+
+### Why
+- The diagnostic tools are complete (#76, #77) and the evaluators run without registry lookups (#78). The next step is to find which evidence the alerts on legitimate development mail are sensitive to, and what removing it would cost on phishing.
+- The criteria must be fixed in writing before anything runs. This is a draft for the owner's approval: no mail is read, nothing is downloaded and nothing is measured.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-20-false-alert-diagnosis-criteria.md` (new, draft, revised after a technical review). It covers:
+  - **Pinned configuration.** One commit, model and input versions for the whole batch.
+  - **Phase 1a only.** Inputs where ARC does not run: `.eml` with the mailbox recorded, and pasted text. Mail without a mailbox waits for offline ARC; no ARC-off run.
+  - **Cohorts.** Expected counts with raw, deduplicated, excluded and successful counts reported. P1 and P2 are each validated, deduplicated and filtered, then paired by source message; only the actual intersection is compared (79 pairs and 13 pasted-only messages are expected, not certain). P3 is out.
+  - **Failed replays.** `analysis_failed` is kept apart, never merged or dropped; transitions plus failures equal the baseline's alerts, and a family with unresolved failures is not routed.
+  - **Phishing losses.** Alert-to-non-alert and alert-to-undetermined are reported separately.
+  - **Undetermined results.** Only their co-occurring signals are reported, since the counterfactual tool replays alerts only.
+  - **Routing lines.** Exploratory and always with n/N: 50% sensitivity to the outermost fusion's model probability; 30% for a rule family; "no main removal path located yet"; and 20% undetermined, out of all inputs.
+  - **Network guard.** It covers every step that reads mail, including text extraction.
+- **A finding the draft records.** `evaluate_local_review.pasted()`, the existing way to make pasted cohorts, silently truncates subjects and bodies and verifies ARC while extracting text. The criteria therefore require a separately approved extraction change before the batch.
+
+### Effect
+- No code, rule, model or evaluation changes.
+
 ## [2026-10-20 08:30 PT] — Design: offline ARC verification for evaluations
 
 ### Why
