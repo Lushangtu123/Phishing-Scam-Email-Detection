@@ -333,7 +333,7 @@ separate decision.
 |---|---|
 | 1 | Met. `OFFLINE_ENVIRONMENT` sets RDAP, sender history, Jev and the local review off in both evaluators' environments; a test checks each directly. `vercel.json` still sets `RDAP_LOOKUPS=true` |
 | 2 | Met. Reports record `external_services`, read from the loaded settings: RDAP, sender history, Jev and the local review are off; ARC key lookups are possible only for `google.com`; the email-verification mode is `off` for the serving evaluator and the profile's `lite` for the public one, which content analysis does not use. `network_services_enabled` is `true` because of ARC, and `false` in a test with no known sealers |
-| 3 | Met. With every connection, datagram and name lookup refused and recorded, nothing was recorded during the serving evaluation (baseline, identity replay, all 12 families, attribution), the public evaluation (the same), or a command-line run of each evaluator. The inputs have a `.com` sender and a `.net` link. The same in-process runs with RDAP on did record attempts, and so did a one-line connection under the command-line guard: the guard sees a call when there is one |
+| 3 | Met. With every connection, datagram and name lookup refused and recorded, nothing was recorded during the serving evaluation (baseline, identity replay, all 12 families, attribution), the public evaluation (the same), or a command-line run of each evaluator. The inputs have a `.com` sender and a `.net` link. The same in-process runs with RDAP on did record attempts, and so did a one-line connection under the command-line guard: the guard sees a call when there is one. Zero outbound calls were verified only for this round's synthetic inputs, which carry no ARC seal. Mail with a seal can still trigger DNS lookups of ARC keys, so the evaluators are not yet fully offline. |
 | 4 | Met. With RDAP left on in the evaluation environment, 4 tests failed. With `network_services_enabled` written as a constant false, 3 failed |
 | 5 | Met. Only `website/tools/evaluate_serving_pipeline.py`, `website/tools/evaluate_public_corpus.py` and tests change |
 
@@ -560,6 +560,55 @@ data has its own criteria, fixed before it runs.
   them off. A run therefore asks registries' RDAP servers about the sender and link domains of the
   mail it evaluates, and those answers can differ between runs. This version does not change it.
   It needs a decision before any run on private mail.
+
+**Correction (2026-10-19, after the merge at `d7bf89a`).** The criteria and the results above stay
+as first written. Two rows say more than was shown:
+
+- **D was only partly verified.**
+  - In attached messages, the tests checked points and floor only for text requests.
+  - For lures, HTML tricks, weak cues and intent rules in attached messages, and for shortened
+    links in attachments, only the replay counts showed the codes disappearing. That does not
+    show the contribution was computed correctly.
+- **E deviates from its list as written.** `requested_question` changed in 12 inputs.
+  - A Codex technical review judged this derived change reasonable.
+  - That is not the owner's acceptance.
+  - It is separate from, and no substitute for, D12's independent review.
+
+**Follow-up tests (2026-10-19).** These are recorded apart; they do not turn the rows above into a
+full pass after the fact.
+
+- **D, attached messages.** Each of these sits alone in an attached message:
+  - a mailbox lure;
+  - a password form;
+  - a recipient-prefilled link;
+  - mixed-script words;
+  - a shortened link;
+  - one intent finding (rules on).
+
+  The attached message alone loses exactly the finding's points (4, 4, 3, 3, 2 and 3) and the
+  floor it set. Attached, the finding goes and every other finding stays. The outer total and
+  floor are the maximum of the outer message's own result and the attached message's.
+- **D, attachment links.** A shortened link in a PDF attachment's links loses its 2 points and
+  leaves the floor as it was.
+- **E.** The model status, displayed probability, warnings, findings, total score and floor stay
+  as in the baseline. `requested_question` follows the existing conditions of
+  `_apply_requested_answer`, read from the baseline and from the replay:
+  - an account notice;
+  - a Medium or High alert resting on the text model;
+  - a Safe or Low floor;
+  - no other Medium or higher finding;
+  - no answer yet.
+
+  The tests cover the four account notices of `test_requested_notice.py`, which ask at baseline
+  and not after the replay. They also cover two controls that never ask: a notice with
+  independent evidence, and mail that is no notice. An attached notice's result is unchanged.
+- **Planted defects.** Each must make a test fail:
+  - a mixed-script cue counted at 2 points instead of 3: 3 tests failed;
+  - a fusion without the model probability in attached messages too: 1 failed;
+  - `requested_question` always true in this family: 14 failures, counting subtests.
+
+  A planted "always false" passed, and should: without a model probability in the outermost
+  fusion the basis cannot be model-only or model-led, so false is the correct answer there.
 
 ### Routine sender mailbox correction (2026-09-27)
 

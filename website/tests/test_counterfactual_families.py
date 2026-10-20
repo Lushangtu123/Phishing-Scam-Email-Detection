@@ -379,6 +379,135 @@ class OuterFusionTests(unittest.TestCase):
         base, after = self.assert_only_fusion_differs(eml(attached(inner)))
         self.assertEqual(after['message_structure']['nested_messages'], base['message_structure']['nested_messages'])
 
+    def test_the_requested_question_follows_its_own_conditions(self):
+        """Follow-up to criterion E (docs/evaluation.md, correction of 2026-10-19): the question "did you
+        do this yourself?" may change with the fusion, and only as app._apply_requested_answer decides it:
+        an account notice, a Medium or High alert resting on the text model (model-only or model-led),
+        a floor of Safe or Low, no other Medium or higher finding, and no answer yet. The list of
+        criterion E stays as it was; this key is tested here as the derived change it is."""
+        from test_requested_notice import NOTICES
+
+        def notice(subject, body):
+            text = f'{subject}\n{body}'
+            return bool(app._ACCOUNT_NOTICE.search(text)) and not app._NOT_OWN_ACTION_NOTICE.search(text)
+
+        def expected(subject, body, result):
+            return notice(subject, body) and app._rests_on_text_model(result)
+
+        asked = changed = 0
+        cases = [*NOTICES,
+                 # Independent evidence: a link to an IP address sets a floor and a High finding.
+                 ('Reset your password', NOTICES[2][1] + ' Reset it here: http://192.0.2.10/reset'),
+                 # Not a notice of the reader's own action.
+                 ('Lunch on Friday', 'Are we still on for lunch on Friday at noon? Let me know.')]
+        for subject, body in cases:
+            with self.subTest(subject=subject, body=body[:30]):
+                row = pasted(body, subject)
+                base, after = analyze_record(row), reanalyze_without(row, 'outer_fusion_without_model_probability')
+                # The conditions are read from the final result, which is the result the question saw
+                # when nothing after it changed the level: a complete analysis, no answer, option A.
+                self.assertTrue(base['analysis_complete'] and after['analysis_complete'])
+                self.assertEqual(base['requested_question'], expected(subject, body, base))
+                self.assertEqual(after['requested_question'], expected(subject, body, after))
+                differing = {key for key in base if base[key] != after[key]}
+                self.assertLessEqual(differing, self.ALLOWED | {'requested_question'})
+                for key in ('ml_status', 'ml_phishing_probability', 'analysis_warnings', 'extra_indicators',
+                            'total_score', 'risk_floor'):
+                    self.assertEqual(after.get(key), base.get(key), key)
+                if 'requested_question' in differing:
+                    changed += 1
+                    # It changed with the fusion basis, from a model-driven reading to another.
+                    self.assertIn(base['fusion_basis'], {'model_only', 'model_led'})
+                    self.assertNotEqual(after['fusion_basis'], base['fusion_basis'])
+                asked += base['requested_question']
+                if body.endswith('/reset'):  # a notice, but other evidence stands behind the alert
+                    self.assertTrue(notice(subject, body))
+                    self.assertTrue(base['risk_floor'] not in {'safe', 'low'} or any(
+                        item.get('level') in {'medium', 'high', 'critical'} for item in base['extra_indicators']))
+                if subject == 'Lunch on Friday':  # not a notice of the reader's own action
+                    self.assertFalse(notice(subject, body))
+        self.assertEqual(asked, len(NOTICES))  # every notice asks at baseline; the two controls never do
+        self.assertGreater(changed, 0)
+
+    def test_an_attached_notice_keeps_its_own_result(self):
+        from test_requested_notice import NOTICES
+        subject, body = NOTICES[3]
+        inner = (f'From: Accounts <accounts@notice-desk.example.com>\r\nTo: user@example.org\r\nSubject: {subject}\r\n'
+                 f'Content-Type: text/plain; charset=utf-8\r\n\r\n{body}\r\n').encode()
+        base, after = self.assert_only_fusion_differs(eml(attached(inner)))
+        self.assertEqual(after['message_structure']['nested_messages'], base['message_structure']['nested_messages'])
+        self.assertEqual(after['requested_question'], base['requested_question'])
+
+
+class AttachedMessageFamilyTests(unittest.TestCase):
+    """Follow-up to criterion D (docs/evaluation.md, correction of 2026-10-19): each family's contribution
+    in an attached message, and shortened links in an attachment, with their points and floors."""
+
+    def setUp(self):
+        patcher = patch.object(app, '_content_pipeline', None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    OUTER = eml(b'From: Colleague <pat@example.org>\r\nTo: user@example.org\r\nSubject: Forward\r\n\r\n'
+                b'See the attached message.\r\n')
+
+    def assert_attached(self, inner, family, code, points, floor, analyze=analyze_record):
+        """The inner message alone loses the finding's points and floor; attached, the finding goes, the
+        other findings stay, and the outer result is the maximum of its own and the attached message's."""
+        alone_base, alone = analyze(eml(inner)), reanalyze_without(eml(inner), family, analyze)
+        self.assertIn(code, {found for found, _prefixes in findings(alone_base)})
+        self.assertEqual(findings(alone), without_code(findings(alone_base), {code}))
+        self.assertEqual(alone_base['total_score'] - alone['total_score'], points)
+        self.assertEqual(alone['risk_floor'], floor)
+        row = eml(attached(inner))
+        base, after = analyze(row), reanalyze_without(row, family, analyze)
+        self.assertIn((code, ('prefix.attached_message',)), findings(base))
+        self.assertEqual(findings(after), without_code(findings(base), {code}))
+        own = reanalyze_without(self.OUTER, family, analyze)
+        self.assertEqual(after['message_structure']['nested_messages'][0]['risk_level'], alone['risk_level'])
+        self.assertEqual(after['total_score'], max(own['total_score'], alone['total_score']))
+        self.assertEqual(after['risk_floor'], max(own['risk_floor'], alone['risk_level'], key=RANK.get))
+        return base, after
+
+    def test_lures_in_an_attached_message(self):
+        inner = html_mail(MAILBOX.format(attributes='class="button"'))
+        self.assert_attached(inner, 'lures', 'content.mailbox_lure', 4, 'medium')
+
+    def test_html_tricks_in_an_attached_message(self):
+        form = html_mail('<form><input type="password"></form><p>Team lunch on Friday.</p>')
+        self.assert_attached(form, 'html_tricks', 'content.password_form', 4, 'medium')
+        self.assert_attached(PREFILLED, 'html_tricks', 'link.recipient_prefilled', 3, 'high')
+
+    def test_weak_cues_in_an_attached_message(self):
+        mixed = ('From: Colleague <pat@example.org>\r\nTo: user@example.org\r\nSubject: Lunch\r\n'
+                 'Content-Type: text/plain; charset=utf-8\r\n\r\nHello ' + cyrillic('team') + ', lunch is at noon.\r\n').encode()
+        self.assert_attached(mixed, 'weak_cues', 'content.mixed_script_words', 3, 'safe')
+        short = (b'From: Colleague <pat@example.org>\r\nTo: user@example.org\r\nSubject: Slides\r\n\r\n'
+                 b'The slides from the team meeting: https://bit.ly/demo\r\n')
+        self.assert_attached(short, 'weak_cues', 'content.shortened_urls', 2, 'safe')
+
+    def test_intent_rules_in_an_attached_message(self):
+        analyze = partial(analyze_record, intent_rules=('credential', 'payment'))
+        codes = {'content.intent.credential_handover', 'content.intent.payment_redirection'}
+        for line in (WEBSITE_DIR / 'tests/fixtures/intent_rules/development.jsonl').read_text(encoding='utf-8').splitlines():
+            record = json.loads(line)
+            inner = (f'From: Colleague <pat@example.org>\r\nTo: user@example.org\r\nSubject: {record["subject"]}\r\n'
+                     f'Content-Type: text/plain; charset=utf-8\r\n\r\n{record["body"]}\r\n').encode()
+            found = codes & {code for code, _prefixes in findings(analyze(eml(inner)))}
+            # An inner message with one intent finding and no other floor, so its points and floor are its own.
+            if len(found) == 1 and analyze(eml(inner))['risk_floor'] == 'medium':
+                self.assert_attached(inner, 'intent_rules', found.pop(), 3, 'safe', analyze)
+                return
+        self.fail('no development fixture shows a single intent finding with only its own floor')
+
+    def test_shortened_links_in_an_attachment(self):
+        row = eml(with_attachment(pdf(['Meeting notes for the team.'], ['https://bit.ly/demo']), 'notes.pdf', 'application/pdf'))
+        base, after = analyze_record(row), reanalyze_without(row, 'weak_cues')
+        self.assertIn(('content.shortened_urls', ('prefix.pdf_attachment',)), findings(base))
+        self.assertEqual(findings(after), without_code(findings(base), {'content.shortened_urls'}))
+        self.assertEqual(base['total_score'] - after['total_score'], 2)
+        self.assertEqual(after['risk_floor'], base['risk_floor'])  # a shortened link sets no floor
+
 
 class CommandLineTests(unittest.TestCase):
     """The serving evaluator hands its own analyzer to the replays."""
