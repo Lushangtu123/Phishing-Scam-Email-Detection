@@ -357,6 +357,139 @@ controls of its own. The brand-lookalike removal changes no `hard_ham` alert
 after the Apple Core correction; display-domain mismatch accounts for most of
 the link-family transitions, but 15 become undetermined rather than nonalerts.
 
+### Counterfactual and attribution tools, version 2 (2026-10-19)
+
+**Why.** A coverage check on 2026-10-19 replayed the unit suite's own synthetic inputs through
+each family above:
+
+- 1,714 inputs: 513 raw messages and 1,201 pasted texts;
+- 1 empty pasted input was rejected, so 1,713 were analysed.
+
+Many scoring findings were removed by no family at all:
+
+- the strong text requests: callback, subsidy and sensitive-information requests;
+- every lure;
+- password forms, hidden padding and recipient-prefilled links;
+- requests found only in text that styles may hide;
+- attachment text;
+- the weak cues, from mixed-script words to the link count.
+
+Version 1 had four other gaps:
+
+- **Settings.** The replays used `analyze_record`'s defaults, so a baseline run with a mailbox or
+  intent rules was replayed without them. The model-only option was inherited correctly from the
+  evaluator's context.
+- **Attached messages.** Their structure evidence survived `message_structure`.
+- **Attachment links.** Their findings carry no `rule_id`, so the two single-rule replays skipped
+  them.
+- **Attribution.** The sidecar counted only twelve link rule IDs among the findings.
+
+The criteria, scripts and counts are archived with the owner's records outside the repository.
+That check shows tool coverage only, not false-alert rates. It is no basis for removing or
+changing a detection rule.
+
+**Criteria, fixed before the implementation.** Version 2 changes only `website/tools/` and its
+tests. No serving module changes.
+
+1. **New families.** Each removes its evidence where it is found, so the finding's points and
+   floor go with it. Removing the code from the result alone is not enough.
+
+   | Family | What it removes |
+   |---|---|
+   | `text_requests` | The pressured-credential, callback, subsidy and sensitive-information request checks. They find nothing in the body's readings, in text that styles may hide, in attachment text or in attached messages. Overlaps `content_keywords` on pressured credentials |
+   | `lures` | The mailbox, account-hold, delivery and fine lures, file shares elsewhere, user-content actions, and the attachment account and mailbox lures |
+   | `html_tricks` | Password forms (the check still runs, so its warnings stay), hidden image padding, same-colour padding, recipient-prefilled links, and requests or lures found only in text that styles may hide |
+   | `weak_cues` | Exclamation marks, capitalisation, generic greeting, large amounts, generic calls to action, obfuscation (text and display name), mixed-script words, shortened URLs (body and attachments), subject question marks and the link count. Their points, presentation points and the mixed-script Medium floor go too. Look-alike letters are still read as Latin |
+   | `intent_rules` | The intent rules find nothing. Replayed only when the evaluation turns rules on; otherwise reported as not applicable |
+   | `outer_fusion_without_model_probability` | The outermost final fusion gets no model probability, as if the model had given no reading. Everything before it stays as it was: scoring availability, view judgement, warning resolution and presentation handling. Attached messages are analysed as before. Its probability is not set to 0. `content_model` keeps its meaning: the model is off for the whole analysis, side effects included |
+
+2. **Fixes to the version 1 families:**
+   - Replays run through the evaluation's own analyzer, with the same mailbox setting and intent
+     rules as the baseline.
+   - `message_structure` also clears the structure evidence of attached messages, at every depth.
+   - A single-rule link replay runs when the rule appears by `rule_id` or by `code`.
+
+**Acceptance.**
+
+- **A. Serving analysis unchanged.**
+  - No serving module changes.
+  - The archived 1,713 inputs give byte-identical `analyze_record` results on `main` and on the
+    branch.
+- **B. Identity first.** Before any removal, a replay with no intervention must reproduce the
+  baseline result byte for byte (JSON with sorted keys). It runs with the same mailbox setting,
+  model-only option and intent rules. If any input differs, the tool stops with an error.
+- **C. Version 1 families.** Run with no mailbox, option A and no intent rules, the per-input
+  result of each version 1 family is unchanged, except:
+  - `message_structure` on inputs whose attached messages carry structure evidence;
+  - the two single-rule link families on inputs where that rule fired only on attachment links.
+
+  Each difference is listed (input hash, family, decision before and after) and has a test. A
+  further test checks that, with a mailbox chosen, the replays use that mailbox.
+- **D. New families.**
+  - **Isolated cases.** One finding at a time, placed in the body, in text that styles may hide,
+    in attachment text and in an attached message:
+    - the target code is gone;
+    - the total score falls by that finding's points;
+    - the floor returns to what the other evidence sets;
+    - every other code is unchanged.
+  - **Combined inputs.** These are not checked as codes × points: attachment requests and lures
+    share one +4, and an attached message's score and floor merge into the outer result by
+    maximum. The tests check that the target contribution is gone, that the other direct evidence
+    remains, and that the result follows the original aggregation.
+- **E. Outer fusion without the model probability.** Only the risk level, label, combined score,
+  fusion basis and what follows from them may differ:
+  - the verified-sender and abstention steps;
+  - the model-only option;
+  - the mail-type note.
+
+  The model status, the displayed probability, the warnings and the resolved views equal the
+  baseline. Attached messages' results are unchanged.
+- **F. Restoration.** An exception inside a replay leaves the patched functions, module
+  attributes, model-only option and intent-rule context as they were. The next input's identity
+  replay still equals its baseline.
+- **G. Versioned reports.**
+  - The sidecars become `counterfactual-evidence/v2` and `evidence-attribution/v2`. Each records
+    the tool version, the tool files' SHA-256 and the evaluated commit.
+  - **Attribution** counts a fixed allowlist of `content.*` and `link.*` codes, including the new
+    strong rules and `link.ipfs_gateway`, once per input. A unit test checks that every such code
+    registered in `server_messages.json` is on the list. A code outside the list is counted only
+    as a fixed `code.unrecognized` marker, with no parameters, and the report then says its
+    coverage is incomplete.
+  - Earlier reports and the 2026-09-27 section above stay as they are. A family with the same
+    name in v1 and v2 is not directly comparable.
+- **H. Planted defects.** Each must make a test fail:
+  - a new family that leaves its floor in place;
+  - an identity replay run with a different mailbox setting.
+
+**Scope.** Synthetic replays show tool coverage, not error rates. The diagnosis of development
+data has its own criteria, fixed before it runs.
+
+**Results against the criteria (2026-10-19).**
+
+- **Inputs.** The same 1,713 archived synthetic inputs, replayed with the tools of `main`
+  (`3cf1ce2`) and of this branch. The branch tool file `counterfactual_evidence.py` has SHA-256
+  `bd9a575b…5117`.
+- **Not used:** real mail, public corpora and the holdout.
+
+| | Result |
+|---|---|
+| A | **Met.** Every changed file is under `website/tools/` or `website/tests/`. With RDAP lookups off, all 1,713 baselines are byte-identical on `main` and the branch. With the deployment profile's RDAP lookups on, one input differed, only in `domain_registrations` for one domain: a live registry answer that varies between processes and is stable within one |
+| B | **Met.** The replay without intervention equals the baseline for all 1,713 inputs, not only alerts. This holds with no mailbox, option A and no intent rules, and also with Gmail recorded as the mailbox for raw messages, option B and both intent rules |
+| C | **Met.** The only differences from version 1 are 14 `message_structure` results, on exactly the 14 raw inputs whose attached messages carry structure evidence. No decision changed. No other version 1 family differs (RDAP off). No input here fires a link rule only on attachment links; a unit test covers that case, and another checks that the replays use the recorded mailbox |
+| D | **Met.** Each of the 26 scoring codes no family removed in the coverage check is now removed by its family in every input that shows it: from `content.callback_request` in 634 inputs to `content.subject_question_marks` in 1. No family adds a code. Unit tests check isolated findings in the body, in text styles may hide, in attachment text and in an attached message. They also check the shared +4 of attachment findings and the maximum with an attached message. The intent-rule family removes the intent findings of 74 inputs and nothing else |
+| E | **Met, with one key the list did not name.** In all 1,713 inputs, the model status, displayed probability, warnings, findings, total score, floor and the attached messages' summaries are unchanged. What changed: fusion basis (419 inputs), combined score (355), level and label (299, of which 160 changed decision) and mail type (1). `requested_question` also changed in 12 inputs. `_apply_requested_answer` sets that key from whether the alert rests on the text model, and the fusion basis changed in each of the 12. The criterion's list does not name this step; it is reported here rather than added to the list after the run |
+| F | **Met.** Unit tests: after an exception inside any of the 13 families, the patched functions, module attributes, keyword registry, model-only option and intent-rule context are as before. A failing replay is counted, and the next input's identity still holds |
+| G | **Met.** The sidecars are `counterfactual-evidence/v2` and `evidence-attribution/v2`, with the tool file's SHA-256 and the evaluated commit. A unit test checks the attribution list against all 60 `content.*` and `link.*` codes in `server_messages.json`. Another checks that an unknown code becomes a fixed `code.unrecognized` marker with no parameters and marks coverage incomplete. Command-line runs of both evaluators produce version 2 sidecars, each with every alert's identity verified |
+| H | **Met.** Leaving the mixed-script floor in place failed 2 tests. Replaying without the evaluation's analyzer failed 3. Building the serving evaluator's replays without its analyzer failed the command-line test, through the identity check |
+
+- **Statement coverage** of the two tool modules under their tests: 202 of 208 statements in
+  `counterfactual_evidence.py` and 80 of 87 in `evidence_attribution.py`. The missed statements are
+  error branches from version 1.
+- **RDAP in the evaluators.** `vercel.json` turns RDAP lookups on, and neither evaluator turns
+  them off. A run therefore asks registries' RDAP servers about the sender and link domains of the
+  mail it evaluates, and those answers can differ between runs. This version does not change it.
+  It needs a decision before any run on private mail.
+
 ### Routine sender mailbox correction (2026-09-27)
 
 The sender rule treated complete role names including `subscriptions`,

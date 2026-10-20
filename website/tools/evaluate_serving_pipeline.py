@@ -653,14 +653,16 @@ def main() -> None:
             PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_sha256,
         )
 
+    analyze = partial(analyze_record, mailbox_setting=args.mailbox_setting, intent_rules=intent_rules)
     attribution = EvidenceAttribution() if args.attribution_output else None
-    counterfactual = CounterfactualEvidence() if args.counterfactual_output else None
+    # Replays run through the same analyzer, so with the baseline's mailbox setting and intent rules;
+    # the model-only option below holds for both.
+    counterfactual = (CounterfactualEvidence(analyze=analyze, intent_rules_enabled=bool(intent_rules))
+                      if args.counterfactual_output else None)
     option_token = app.MODEL_ONLY_OPTION.set(args.option)
     try:
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
-            report = evaluate_records(_jsonl_records(args.input),
-                                      partial(analyze_record, mailbox_setting=args.mailbox_setting,
-                                              intent_rules=intent_rules),
+            report = evaluate_records(_jsonl_records(args.input), analyze,
                                       model_sha256=model_sha256, duplicate_policy=args.duplicate_policy,
                                       configuration=configuration,
                                       evidence_observer=attribution.add if attribution else None,

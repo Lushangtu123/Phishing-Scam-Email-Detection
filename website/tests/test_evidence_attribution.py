@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tools.evidence_attribution import EvidenceAttribution
+from tools.evidence_attribution import CODES, EvidenceAttribution
 from tools.evaluate_serving_pipeline import evaluate_records
 
 
@@ -96,6 +96,55 @@ class EvidenceAttributionTests(unittest.TestCase):
             collector.snapshot({**report, 'evaluation_scope': 'private.example'})
         with self.assertRaises(ValueError):
             collector.snapshot({**report, 'model_artifact_sha256': 'private.example'})
+
+
+class CodeAttributionTests(unittest.TestCase):
+    """Version 2: content and link findings by code, from a fixed list, once per input."""
+    report = {'evaluation_scope': 'public_corpus_local_serving_pipeline', 'model_artifact_sha256': 'a' * 64,
+              'evaluated_cohort_sha256': 'b' * 64, 'counts': {'evaluated': 2},
+              'reproducibility': {'git_commit': 'c' * 40}}
+
+    def test_the_list_covers_every_registered_content_and_link_code(self):
+        messages = json.loads((Path(__file__).resolve().parents[1] / 'data/server_messages.json').read_text())
+        registered = {code for code in messages if code.startswith(('content.', 'link.'))}
+        self.assertEqual(registered - CODES, set())
+        self.assertIn('link.ipfs_gateway', CODES)
+
+    def test_codes_count_once_per_input_wherever_they_are_found(self):
+        collector = EvidenceAttribution()
+        private = 'call 1-888-555-0199 at secret.example'
+        callback = {'level': 'high', 'msg': private, 'code': 'content.callback_request', 'params': {'number': private}}
+        collector.add('legitimate', 'alerted', {'risk_level': 'high', 'extra_indicators': [
+            callback, {**callback, 'prefixes': [{'code': 'prefix.pdf_text', 'params': {}}]},
+            {'code': 'link.ipfs_gateway', 'rule_id': 'link.ipfs_gateway', 'params': {'host': private}},
+            {'code': 'sender.unrecognized_provider'}, {'code': 'warning.remote_images'}]})
+        collector.add('legitimate', 'alerted', {'risk_level': 'high', 'extra_indicators': [
+            {'code': 'content.mailbox_lure', 'prefixes': [{'code': 'prefix.attached_message'}]}]})
+        snapshot = collector.snapshot(self.report)
+        signals = snapshot['outcomes']['legitimate_alerted']['signals']
+        self.assertEqual(signals['code.content.callback_request'], 1)
+        self.assertEqual(signals['code.content.mailbox_lure'], 1)
+        self.assertEqual(signals['rule.link.ipfs_gateway'], 1)
+        self.assertEqual(signals['code.link.ipfs_gateway'], 1)
+        # Sender, structure and warning codes keep their aggregate signals.
+        self.assertFalse(any(name.startswith(('code.sender', 'code.warning')) for name in signals))
+        self.assertEqual((snapshot['schema_version'], snapshot['code_coverage']), ('evidence-attribution/v2', 'all_recognized'))
+        self.assertEqual(snapshot['tool']['evaluated_commit'], 'c' * 40)
+        self.assertRegex(snapshot['tool']['file_sha256'], r'^[0-9a-f]{64}$')
+        self.assertNotIn(private, json.dumps(snapshot))
+
+    def test_an_unknown_code_is_only_a_fixed_marker_and_coverage_is_incomplete(self):
+        collector = EvidenceAttribution()
+        private = 'secret.example/private-client'
+        collector.add('phishing', 'alerted', {'risk_level': 'high', 'extra_indicators': [
+            {'code': 'content.new_rule_' + private, 'params': {'host': private}, 'msg': private},
+            {'code': 'link.another_new_rule', 'params': {'host': private}}]})
+        collector.add('phishing', 'not_alerted', {'risk_level': 'low', 'extra_indicators': []})
+        snapshot = collector.snapshot(self.report)
+        self.assertEqual(snapshot['outcomes']['phishing_alerted']['signals']['code.unrecognized'], 1)
+        self.assertEqual((snapshot['unrecognized_code_inputs'], snapshot['code_coverage']), (1, 'incomplete'))
+        self.assertNotIn(private, json.dumps(snapshot))
+        self.assertNotIn('new_rule', json.dumps(snapshot))
 
 
 if __name__ == '__main__':

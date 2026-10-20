@@ -113,8 +113,10 @@ the pinned Python 3.12 environment:
 
 Add `--attribution-output /absolute/private/path/attribution.json` to write a
 separate, optional aggregate diagnostic. It counts fixed content-category and
-link-rule IDs, sender/structure signals, model state and uninspected-image
-coverage by human label and final decision. It writes no per-message rows,
+link-rule IDs, every content and link finding code from a fixed list (once per
+input; a code outside the list counts only as `code.unrecognized` and marks the
+report's code coverage incomplete), sender/structure signals, model state and
+uninspected-image coverage by human label and final decision. It writes no per-message rows,
 matched terms, addresses, URLs or indicator prose. Counts indicate which signals
 occurred together with a decision, **not** which signal caused it; the existing
 scoring, thresholds and comparison policy are unchanged. Keep the diagnostic
@@ -127,8 +129,14 @@ link rule removed at a time. The aggregate transitions show which removals
 would change an alert to a nonalert or an undetermined result, alongside the
 effect on detected phishing messages. The sidecar contains fixed family names
 and counts, not individual messages; overlapping transitions cannot be added
-together. See
-[the evaluation procedure](evaluation.md#offline-counterfactual-alert-diagnostics).
+together. Replays run through the evaluation's own analyzer, with its mailbox
+setting, model-only option and intent rules, and each alert is first replayed
+with no intervention, which must reproduce the baseline exactly. Besides
+sender, structure, links, keywords and the model, version 2 removes the text
+requests, lures, HTML tricks, weak cues and intent rules, and runs the
+outermost fusion without the model probability. See
+[the evaluation procedure](evaluation.md#offline-counterfactual-alert-diagnostics)
+and [version 2](evaluation.md#counterfactual-and-attribution-tools-version-2-2026-10-19).
 
 Exact repeats are excluded from metrics by default (`--duplicate-policy drop`).
 Use `--duplicate-policy error` to reject a cohort containing any exact duplicate.

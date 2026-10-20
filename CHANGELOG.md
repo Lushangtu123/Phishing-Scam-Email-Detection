@@ -22,6 +22,39 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-19 20:16 PT] — Counterfactual and attribution tools, version 2
+
+### Why
+- A coverage check on the unit suite's 1,713 synthetic inputs (archived outside the repository) found that the diagnostic tools missed most of the strong rules. No counterfactual family removed the text requests, lures, password forms, hidden padding, attachment text or weak cues, and attribution counted only twelve link rule IDs.
+- The replays also ignored the baseline's mailbox setting and intent rules, kept attached messages' structure evidence and skipped attachment link rules.
+- The tools must be complete before the false-alert diagnosis of development data, which has its own criteria. Criteria A–H were fixed at `803b08f`, before the implementation.
+
+### Files changed
+- `website/tools/counterfactual_evidence.py`:
+  - **Analyzer and identity.** Replays run through the evaluation's own analyzer. Each alert is first replayed with no intervention, which must reproduce the baseline byte for byte, or the tool stops.
+  - **Six new families:** `text_requests`, `lures`, `html_tricks`, `weak_cues`, `intent_rules` (only when rules are on) and `outer_fusion_without_model_probability`. Each removes its evidence where it is found, with its points and floor.
+  - **Fixes:** `message_structure` clears attached messages at every depth; single link rules also match by code.
+  - **Sidecar:** `counterfactual-evidence/v2`, with the tool file's SHA-256 and the evaluated commit.
+- `website/tools/evidence_attribution.py`:
+  - every content and link finding by code, from a fixed list of 60 codes, once per input;
+  - unknown codes only as `code.unrecognized`, which marks coverage incomplete;
+  - `link.ipfs_gateway` added to the rule IDs;
+  - sidecar `evidence-attribution/v2`.
+- `website/tools/evaluate_serving_pipeline.py`, `website/tools/evaluate_public_corpus.py`: pass their analyzer to the replays; the public evaluator's own hash includes the attribution tool.
+- `website/tests/test_counterfactual_families.py` (new, 19 tests). Also `test_counterfactual_evidence.py` (fakes answer the identity replay), `test_evidence_attribution.py` (+3) and `test_public_evaluation.py` (+1 command-line test).
+- `docs/evaluation.md`: the criteria (committed first) and the results. `docs/data-and-model.md`: the sidecars' description.
+
+### Effect
+- **No serving change.** With RDAP off, the 1,713 baselines are byte-identical on `main` and the branch.
+- **Identity.** It holds for all 1,713 inputs under two sets of settings.
+- **Version 1 families.** They differ only on the 14 inputs whose attached messages carry structure evidence. No decision changed.
+- **Coverage.** All 26 codes that no family removed are now removed wherever they appear.
+- **Outer fusion family.** It changed only the fusion results, plus `requested_question` in 12 inputs. That key follows from the fusion basis but is not on the criterion's list; it is reported, not added afterwards.
+- **Planted defects.** Three were planted, and each failed tests.
+- **Statement coverage.** 202/208 and 80/87; only version 1 error branches were missed.
+- **Unit suite.** 1,422 tests pass (15 skipped).
+- **Found, not changed.** Both evaluators keep `vercel.json`'s `RDAP_LOOKUPS=true`, so a run looks up the evaluated mail's sender and link domains at registries' RDAP servers, and those answers vary between runs. It needs a decision before any run on private mail.
+
 ## [2026-10-19 17:41 PT] — Data licenses: what each data source states, with revisions and attribution
 
 ### Why
