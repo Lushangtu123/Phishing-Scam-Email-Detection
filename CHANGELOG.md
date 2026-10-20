@@ -22,6 +22,32 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-19 20:39 PT] — Correction to the tools v2 entry: D was partly verified, E deviates; follow-up tests
+
+### Why
+- The entry of 2026-10-19 20:16 and the results in `docs/evaluation.md` said more than was shown. A Codex technical review found two overstatements:
+  - **D:** in attached messages, only text requests had points and floor checked; shortened links in attachments were not checked either.
+  - **E:** `requested_question` changed outside the criterion's list.
+- The original criteria and results stay. This entry corrects them and records the follow-up tests apart.
+
+### Files changed
+- `docs/evaluation.md`: a correction and a follow-up section under "Counterfactual and attribution tools, version 2". The original table is unchanged.
+- `website/tests/test_counterfactual_families.py`, 7 more tests:
+  - **D:** lures, HTML tricks, weak cues and intent rules in an attached message; a shortened link in an attachment. Each checks points, floor and aggregation by maximum.
+  - **E:** `requested_question` against the existing conditions of `_apply_requested_answer` on 4 account notices and 2 controls; an attached notice's result is unchanged.
+
+### Effect
+- **Correction to the 20:16 entry:**
+  - D was partly verified at `d7bf89a`.
+  - E deviates from its list as written. A Codex technical review judged the `requested_question` change a reasonable derived change. That is not the owner's acceptance, and it is separate from D12.
+- **Follow-up results:** all 7 tests pass.
+- **Planted defects:**
+  - a mixed-script cue at 2 points instead of 3: 3 failures;
+  - attached messages also fused without the model probability: 1 failure;
+  - `requested_question` always true in this family: 14 failures, counting subtests;
+  - "always false" passes, as it should: without a model probability in the outermost fusion the question cannot hold.
+- No tool, rule or serving code changed.
+
 ## [2026-10-19 20:16 PT] — Counterfactual and attribution tools, version 2
 
 ### Why
