@@ -22,6 +22,26 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 08:30 PT] — Design: offline ARC verification for evaluations
+
+### Why
+- After the evaluators stopped their RDAP and other service calls, ARC verification is the only remaining path to the network. For a Google-sealed raw message with no trusted result and no mailbox, it looks up the seal's public key in DNS.
+- The zero-outbound result therefore covers only inputs without ARC seals. Live lookups also reveal when such a message is evaluated, and make results depend on DNS at the time.
+- Design only, at the owner's request: nothing is implemented, no key is collected, and no mail is read or measured.
+
+### Files changed
+- `docs/superpowers/specs/2026-10-20-offline-arc-verification-design.md` (new). It covers:
+  - **Snapshot.** A versioned, hashed snapshot of public keys. The expected whole-file hash sits in the external frozen configuration, and real snapshots stay outside the repository.
+  - **Verification.** A snapshot mode for the evaluators only, with real `dkim.arc_verify` verification. A missing key is `unverified` and never falls back to live DNS; a withdrawn key (`p=` empty) fails.
+  - **Isolation.** No key crosses between snapshots or between snapshot and live caches.
+  - **Counting.** One primary ARC outcome per baseline input; replays are counted apart.
+  - **Meaning.** A snapshot result reflects the snapshot's key state only. A key withdrawn after it can still verify in snapshot mode while live DNS refuses, so the two modes may differ, and bridging equality holds only where the key responses match.
+  - **Criteria.** Eight criteria with six planted defects, fixed before any implementation.
+  - **Settled choices.** The owner adopted four as this round's design choices: where a real snapshot lives, where selectors come from, when to collect, and snapshot mode for the frozen plan. A frozen snapshot is never overwritten; a later one is a new version with its own configuration. Settling the selector-source rule does not authorize reading any particular private or holdout mail.
+
+### Effect
+- No code, rule, model or evaluation changes.
+
 ## [2026-10-19 20:50 PT] — Evaluators without registry lookups, with their services recorded
 
 ### Why
