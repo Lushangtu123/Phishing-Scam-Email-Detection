@@ -108,6 +108,8 @@ class PublicEvaluationTests(unittest.TestCase):
         seen = []
 
         def replay(row, family):
+            if family is None:  # the identity replay reproduces the baseline
+                return {'risk_level': 'high'}
             seen.append(family)
             return {'risk_level': 'low'}
 
@@ -119,10 +121,33 @@ class PublicEvaluationTests(unittest.TestCase):
         diagnosis = collector.snapshot(report)
         self.assertEqual(report['counts']['evaluated'], 2)
         self.assertEqual(report['counts']['duplicates'], 1)
-        self.assertEqual(len(seen), len(FAMILIES))
+        self.assertEqual(seen, list(collector.families))
+        self.assertEqual(len(seen), len(FAMILIES) - 1)  # intent rules are off
         self.assertEqual(diagnosis['baseline_outcomes']['legitimate_alerted'], 1)
         self.assertEqual(diagnosis['baseline_outcomes']['phishing_undetermined'], 1)
         self.assertNotIn('Private attack text', json.dumps(diagnosis))
+
+    def test_command_line_sidecars_are_version_2_with_verified_identities(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from test_hidden_text_rules import CALLBACK
+        from test_review_2026_10_01 import deployment_pipeline
+        deployment_pipeline(self)  # skips where the committed artifact cannot load
+        manifest = self.corpus([self.row(), self.row(id='scam', label='phishing', subject='Renewal', body=CALLBACK)])
+        outputs = {name: self.root / f'{name}.json' for name in ('report', 'counterfactual', 'attribution')}
+        completed = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parents[1] / 'tools/evaluate_public_corpus.py'),
+             '--manifest', str(manifest), '--output', str(outputs['report']),
+             '--counterfactual-output', str(outputs['counterfactual']), '--attribution-output', str(outputs['attribution'])],
+            capture_output=True, text=True, timeout=300)
+        self.assertEqual(completed.returncode, 0, completed.stderr[-2000:])
+        counterfactual = json.loads(outputs['counterfactual'].read_text())
+        alerts = counterfactual['baseline_outcomes']['phishing_alerted'] + counterfactual['baseline_outcomes']['legitimate_alerted']
+        self.assertGreater(alerts, 0)
+        self.assertEqual((counterfactual['schema_version'], counterfactual['identity_verified_alerts']),
+                         ('counterfactual-evidence/v2', alerts))
+        self.assertEqual(counterfactual['not_applicable'], ['intent_rules'])
+        self.assertEqual(json.loads(outputs['attribution'].read_text())['schema_version'], 'evidence-attribution/v2')
+        self.assertNotIn(CALLBACK, outputs['counterfactual'].read_text() + outputs['attribution'].read_text())
 
     def test_missing_provenance_invalid_labels_and_missing_files_fail_closed(self):
         for row in (self.row(label='spam'), self.row(label=[]), self.row(source_id={}),

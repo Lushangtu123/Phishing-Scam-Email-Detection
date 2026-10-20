@@ -464,6 +464,32 @@ tests. No serving module changes.
 **Scope.** Synthetic replays show tool coverage, not error rates. The diagnosis of development
 data has its own criteria, fixed before it runs.
 
+**Results against the criteria (2026-10-19).**
+
+- **Inputs.** The same 1,713 archived synthetic inputs, replayed with the tools of `main`
+  (`3cf1ce2`) and of this branch. The branch tool file `counterfactual_evidence.py` has SHA-256
+  `bd9a575b…5117`.
+- **Not used:** real mail, public corpora and the holdout.
+
+| | Result |
+|---|---|
+| A | **Met.** Every changed file is under `website/tools/` or `website/tests/`. With RDAP lookups off, all 1,713 baselines are byte-identical on `main` and the branch. With the deployment profile's RDAP lookups on, one input differed, only in `domain_registrations` for one domain: a live registry answer that varies between processes and is stable within one |
+| B | **Met.** The replay without intervention equals the baseline for all 1,713 inputs, not only alerts. This holds with no mailbox, option A and no intent rules, and also with Gmail recorded as the mailbox for raw messages, option B and both intent rules |
+| C | **Met.** The only differences from version 1 are 14 `message_structure` results, on exactly the 14 raw inputs whose attached messages carry structure evidence. No decision changed. No other version 1 family differs (RDAP off). No input here fires a link rule only on attachment links; a unit test covers that case, and another checks that the replays use the recorded mailbox |
+| D | **Met.** Each of the 26 scoring codes no family removed in the coverage check is now removed by its family in every input that shows it: from `content.callback_request` in 634 inputs to `content.subject_question_marks` in 1. No family adds a code. Unit tests check isolated findings in the body, in text styles may hide, in attachment text and in an attached message. They also check the shared +4 of attachment findings and the maximum with an attached message. The intent-rule family removes the intent findings of 74 inputs and nothing else |
+| E | **Met, with one key the list did not name.** In all 1,713 inputs, the model status, displayed probability, warnings, findings, total score, floor and the attached messages' summaries are unchanged. What changed: fusion basis (419 inputs), combined score (355), level and label (299, of which 160 changed decision) and mail type (1). `requested_question` also changed in 12 inputs. `_apply_requested_answer` sets that key from whether the alert rests on the text model, and the fusion basis changed in each of the 12. The criterion's list does not name this step; it is reported here rather than added to the list after the run |
+| F | **Met.** Unit tests: after an exception inside any of the 13 families, the patched functions, module attributes, keyword registry, model-only option and intent-rule context are as before. A failing replay is counted, and the next input's identity still holds |
+| G | **Met.** The sidecars are `counterfactual-evidence/v2` and `evidence-attribution/v2`, with the tool file's SHA-256 and the evaluated commit. A unit test checks the attribution list against all 60 `content.*` and `link.*` codes in `server_messages.json`. Another checks that an unknown code becomes a fixed `code.unrecognized` marker with no parameters and marks coverage incomplete. Command-line runs of both evaluators produce version 2 sidecars, each with every alert's identity verified |
+| H | **Met.** Leaving the mixed-script floor in place failed 2 tests. Replaying without the evaluation's analyzer failed 3. Building the serving evaluator's replays without its analyzer failed the command-line test, through the identity check |
+
+- **Statement coverage** of the two tool modules under their tests: 202 of 208 statements in
+  `counterfactual_evidence.py` and 80 of 87 in `evidence_attribution.py`. The missed statements are
+  error branches from version 1.
+- **RDAP in the evaluators.** `vercel.json` turns RDAP lookups on, and neither evaluator turns
+  them off. A run therefore asks registries' RDAP servers about the sender and link domains of the
+  mail it evaluates, and those answers can differ between runs. This version does not change it.
+  It needs a decision before any run on private mail.
+
 ### Routine sender mailbox correction (2026-09-27)
 
 The sender rule treated complete role names including `subscriptions`,

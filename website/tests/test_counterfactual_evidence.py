@@ -21,6 +21,8 @@ class CounterfactualEvidenceTests(unittest.TestCase):
         calls = []
 
         def replay(row, family):
+            if family is None:  # the identity replay reproduces the baseline
+                return {'risk_level': 'high'}
             calls.append((row['id'], family))
             if family == 'sender_analysis':
                 return {'risk_level': 'low' if row['id'] == 'legitimate' else 'unknown'}
@@ -33,7 +35,8 @@ class CounterfactualEvidenceTests(unittest.TestCase):
         collector.add({'id': 'phishing', 'body': private}, 'phishing', 'alerted', {'risk_level': 'high'})
         collector.add({'id': 'untouched', 'body': private}, 'legitimate', 'not_alerted', {'risk_level': 'low'})
         report = collector.snapshot(self.report(3))
-        self.assertEqual(len(calls), 2 * len(FAMILIES))
+        self.assertEqual(len(calls), 2 * len(collector.families))
+        self.assertEqual(len(collector.families), len(FAMILIES) - 1)  # intent rules are off
         self.assertEqual(report['baseline_outcomes']['legitimate_not_alerted'], 1)
         legitimate = report['after_removal']['sender_analysis']['legitimate_alerted']
         phishing = report['after_removal']['sender_analysis']['phishing_alerted']
@@ -45,7 +48,7 @@ class CounterfactualEvidenceTests(unittest.TestCase):
         self.assertNotIn('untouched', json.dumps(report))
 
     def test_denominator_identity_and_baseline_decision_are_verified(self):
-        collector = CounterfactualEvidence(lambda row, family: {'risk_level': 'low'})
+        collector = CounterfactualEvidence(lambda row, family: {'risk_level': 'high' if family is None else 'low'})
         with self.assertRaises(ValueError):
             collector.add({}, 'legitimate', 'alerted', {'risk_level': 'low'})
         collector.add({}, 'legitimate', 'alerted', {'risk_level': 'high'})
@@ -57,15 +60,14 @@ class CounterfactualEvidenceTests(unittest.TestCase):
     def test_absent_specific_link_rule_skips_only_that_replay(self):
         called = []
 
+        baseline = {'risk_level': 'high', 'extra_indicators': [{'rule_id': 'link.display_mismatch'}]}
+
         def replay(row, family):
             called.append(family)
-            return {'risk_level': 'low'}
+            return baseline if family is None else {'risk_level': 'low'}
 
         collector = CounterfactualEvidence(replay)
-        collector.add({}, 'legitimate', 'alerted', {
-            'risk_level': 'high', 'extra_indicators': [
-                {'rule_id': 'link.display_mismatch'}],
-        })
+        collector.add({}, 'legitimate', 'alerted', baseline)
         self.assertIn('link_display_mismatch', called)
         self.assertNotIn('link_brand_lookalike', called)
         report = collector.snapshot(self.report(1))
@@ -73,7 +75,7 @@ class CounterfactualEvidenceTests(unittest.TestCase):
                          ['legitimate_alerted']['alerted'], 1)
 
     def test_private_evaluator_observes_only_included_rows(self):
-        collector = CounterfactualEvidence(lambda row, family: {'risk_level': 'low'})
+        collector = CounterfactualEvidence(lambda row, family: {'risk_level': 'high' if family is None else 'low'})
         rows = [{'provider': 'gmail', 'received_at': '2026-09-01', 'label': 'legitimate',
                  'subject': 'Note', 'body': 'Private message content'},
                 {'provider': 'gmail', 'received_at': '2026-09-01', 'label': 'legitimate',

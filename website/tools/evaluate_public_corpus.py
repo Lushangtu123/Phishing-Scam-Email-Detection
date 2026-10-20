@@ -168,7 +168,7 @@ def main() -> None:
     pipeline = load_content_pipeline_artifact(PROJECT_ROOT / profile['CONTENT_MODEL_ARTIFACT'], model_hash)
     try:
         attribution = EvidenceAttribution() if args.attribution_output else None
-        counterfactual = CounterfactualEvidence() if args.counterfactual_output else None
+        counterfactual = CounterfactualEvidence(analyze=analyze_record) if args.counterfactual_output else None
         with patch.object(app, '_content_pipeline', pipeline), patch.object(app, 'SETTINGS', settings):
             report = evaluate_corpus(corpus, analyze_record, model_sha256=model_hash, reference=reference,
                                      evidence_observer=attribution.add if attribution else None,
@@ -179,7 +179,8 @@ def main() -> None:
                                     'network_services_enabled': False})
     metadata['evaluator_sha256'] = hashlib.sha256(Path(__file__).read_bytes() +
         (WEBSITE_DIR / 'tools/evaluation_data.py').read_bytes() +
-        (WEBSITE_DIR / 'tools/counterfactual_evidence.py').read_bytes()).hexdigest()
+        (WEBSITE_DIR / 'tools/counterfactual_evidence.py').read_bytes() +
+        (WEBSITE_DIR / 'tools/evidence_attribution.py').read_bytes()).hexdigest()
     report['reproducibility'] = metadata
     serialized = json.dumps(report, indent=2, sort_keys=True) + '\n'
     if attribution:
