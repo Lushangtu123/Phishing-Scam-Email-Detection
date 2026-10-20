@@ -240,13 +240,23 @@
   "records_sha256": "aa5e558bcbca8e0d9bd0dd986c6f8cf65da612c4bd598aacbcd245b4ae13f1b7",
   "reproducibility": {
     "configuration": {
-      "network_services_enabled": false,
+      "external_services": {
+        "arc_key_lookups": [
+          "google.com"
+        ],
+        "email_verification_mode": "lite",
+        "jev": false,
+        "local_llm_review": false,
+        "rdap_lookups": false,
+        "sender_history": false
+      },
+      "network_services_enabled": true,
       "observe_sender_history": false,
       "trusted_authserv_ids": []
     },
-    "deployment_profile_sha256": "f835e66c25095e20a9492f69c1998d0756f2bf7076e988da9ca9c61ed8c87b00",
-    "evaluator_sha256": "d0bbfa37a7bb2b53efc5ba54c07ab320353968303747eca533a96c19d94ca0db",
-    "git_commit": "5fc42fe99659dc4f4ced645b98d0643b267df4aa",
+    "deployment_profile_sha256": "d7b9f012cf51d139d8304eeca756655efc07a39fd4b6b913f142d0fb44796e4a",
+    "evaluator_sha256": "6c7ad03c6318276d33ed0081d86cf91a6b19b323df354e0408d16960f4365ffa",
+    "git_commit": "6f0cd9615d95a36ac84ef00fdb2a6fae714f4f33",
     "git_dirty": true,
     "package_versions": {
       "fastapi": "0.141.1",
@@ -263,7 +273,7 @@
       "system": "Darwin"
     },
     "python_version": "3.12.9",
-    "source_sha256": "e3a144938784d0dbc97e62aedaa2d947f10e0544fd82816e3863ed690382c229"
+    "source_sha256": "c6cd060fd390fe8680728f52179e0e592048952a71be6a3c11a342966a9794ce"
   },
   "schema_version": 1,
   "scoring_sha256": "1639b65ab3a1fdfd91fac7168a8dabe9325c96d8b998ff85e399ac9f386eb927",

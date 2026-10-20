@@ -39,6 +39,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - `website/tools/evaluate_public_corpus.py`: `public_evaluation_environment()` with the same services off. The report records the effective settings instead of a constant.
 - `website/tests/network_guard.py` (new): refuses and records every connection, datagram and name lookup, in-process or from a child process's start (`sitecustomize`).
 - `website/tests/test_evaluator_network.py` (new, 7 tests): environments, recorded settings, in-process runs (baseline, identity, all families, attribution) and command-line runs of both evaluators, with a positive control for each guard.
+- `website/tests/fixtures/evaluation/baseline.json`: regenerated; see Effect.
 - `docs/evaluation.md`: criteria and results. `docs/data-and-model.md`: the evaluators' services.
 
 ### Effect
@@ -46,6 +47,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - **Recorded settings.** RDAP, sender history, Jev and the local review are off. `network_services_enabled` stays `true` because ARC verification may still look up `google.com` signing keys for sealed messages without a mailbox. That is a separate decision.
 - **Planted defects.** RDAP left on failed 4 tests; a constant `network_services_enabled` failed 3.
 - **Comparisons.** `compare_evaluations.py` treats reports from before and after this change as having different configurations.
+- **CI baseline regenerated.** `website/tests/fixtures/evaluation/baseline.json` (synthetic, 2026-09-21) was regenerated with this evaluator, because the CI comparison against it failed with "Incomparable configuration". Only its `reproducibility` block changed; every metric, count and cohort digest is identical.
 - **Unchanged.** Serving modules and `vercel.json` (production keeps RDAP).
 - **Unit suite.** 1,429 tests pass (15 skipped).
 

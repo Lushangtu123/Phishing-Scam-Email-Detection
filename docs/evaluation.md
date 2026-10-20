@@ -337,9 +337,14 @@ separate decision.
 | 4 | Met. With RDAP left on in the evaluation environment, 4 tests failed. With `network_services_enabled` written as a constant false, 3 failed |
 | 5 | Met. Only `website/tools/evaluate_serving_pipeline.py`, `website/tools/evaluate_public_corpus.py` and tests change |
 
-- **Comparisons across this change.** The serving report's configuration now carries the services,
-  so `compare_evaluations.py` treats reports from before and after this change as having different
+- **Comparisons across this change.** Both reports' configurations now carry the services, so
+  `compare_evaluations.py` treats reports from before and after this change as having different
   configurations. That is correct: before it, RDAP was on.
+- **The synthetic CI baseline.** `website/tests/fixtures/evaluation/baseline.json` dates from
+  2026-09-21, before RDAP was turned on. Against it, the CI comparison failed with "Incomparable
+  configuration". It was regenerated with this evaluator. Only its `reproducibility` block changed:
+  configuration, commit, source, profile and evaluator digests. Every metric, count and cohort
+  digest is identical to the old file, and the CI comparison passes again.
 - **Unit suite:** 1,429 tests pass (15 skipped).
 
 ### Offline signal attribution (2026-09-27)
