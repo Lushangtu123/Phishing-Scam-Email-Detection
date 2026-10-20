@@ -26,6 +26,8 @@ The optional content model can load:
 | `SpaPhish.csv` | Human-annotated Spanish email corpus via Mendeley Data | Yes, SHA-256 pinned |
 | `phishfuzzer_{train,val,test}.csv` | Optional local three-class export | No |
 
+Each source's license, revision and attribution: [data licenses](data-licenses.md).
+
 Synthetic benchmark and template data can improve coverage but do not establish
 real-world effectiveness. Report metrics only with the exact `data_source`,
 `split_strategy`, threshold, and false-negative rate returned by the trained

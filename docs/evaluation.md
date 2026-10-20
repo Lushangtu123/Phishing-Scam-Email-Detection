@@ -982,7 +982,7 @@ SHA-256s:
 | Source | Contents used | Revision | License |
 |---|---|---|---|
 | [DiFraud](https://huggingface.co/datasets/redasers/difraud) phishing subset | 15,272 messages (6,074 phishing / 9,198 legitimate). Legitimate mail is mostly 2014–2016 organisational mail (23.5% DNC, 3.2% Sony, 3.0% Hacking Team markers; 8.2% Enron); phishing mostly mentions 2005–2007 | `f8fa04af` | MIT |
-| [PhishFuzzer](https://github.com/DataPhish/PhishFuzzer) | 3,300 seeds (1,126 phishing / 1,100 valid / 1,074 spam) and 19,800 LLM entity-rephrased variants. Only the 300 `Source: Manual` seeds are recent (2022–2026, 102 valid, 103 phishing; English, Norwegian, Hungarian, German); the rest derive from SpamAssassin and a Kaggle phishing set | `1e21dd4e` | No LICENSE file in the repository; the paper states CC BY 4.0 |
+| [PhishFuzzer](https://github.com/DataPhish/PhishFuzzer) | 3,300 seeds (1,126 phishing / 1,100 valid / 1,074 spam) and 19,800 LLM entity-rephrased variants. Only the 300 `Source: Manual` seeds are recent (2022–2026, 102 valid, 103 phishing; English, Norwegian, Hungarian, German); the rest derive from SpamAssassin and a Kaggle phishing set | `1e21dd4e` | None for the dataset: no LICENSE file and none in the README. CC BY 4.0 is the arXiv license of the paper itself (corrected 2026-10-19; see [data licenses](data-licenses.md)) |
 | [phishing_pot](https://github.com/rf-peixoto/phishing_pot) | 500 phishing `.eml` (seed 20260929) via `prepare_public_pilot.py`, paired with 500 SpamAssassin easy_ham (2003) | pinned by the pilot tool | CC BY-NC 4.0 (non-commercial) |
 
 ### Serving pipeline on 1,000 original EML files

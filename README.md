@@ -168,6 +168,8 @@ Phishing-Scam-Email-Detection/
 - [API and message codes](docs/api.md)
 - [Deployment, configuration and Python environments](docs/deployment.md)
 - [Data, text model and benchmarks](docs/data-and-model.md)
+- [Data licenses](docs/data-licenses.md): what each training, evaluation and shipped data source
+  states about its license, revision and attribution.
 - [Testing](docs/testing.md)
 - [Optional features](docs/optional-features.md): the case workspace, image and QR
   recognition, enhanced OCR, the local language-model review and Jev opinions.
