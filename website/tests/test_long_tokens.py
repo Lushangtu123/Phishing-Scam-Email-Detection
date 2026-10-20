@@ -56,7 +56,8 @@ class LongTokenTests(unittest.TestCase):
 
     def test_the_rules_read_the_text_without_addresses(self):
         # Unchanged behaviour of both callers: an address in the lure does not end its sentence.
-        lure = 'Your mailbox pat@example.org is full and incoming messages are on hold.'
+        # Each lure matches only through the address.
+        lure = 'Your mailbox pat@example.org will be deactivated today.'
         self.assertTrue(content_rules._mailbox_lure(lure, [('Verify now', 'https://example.net/')]))
         self.assertEqual(content_rules._attachment_mailbox_lure(
             {'extracted_text': 'The mailbox pat@example.org will be deactivated today.',
