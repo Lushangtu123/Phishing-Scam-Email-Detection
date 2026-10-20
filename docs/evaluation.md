@@ -276,6 +276,45 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Pasted cohorts without truncation or ARC (2026-10-20)
+
+**What was found.** `evaluate_local_review.pasted()`, the existing way to make a pasted cohort from
+original messages, has three faults:
+
+- **It truncates.** It cuts subjects to 500 characters and bodies to 50,000 without saying so.
+- **It may look keys up.** It reads the message with `analyze_raw_email`'s default ARC
+  verification, so extracting a Google-sealed message's text could look up keys in DNS.
+- **It drops metadata.** Its rows keep only the label, provider and date, so a `cohort_role:
+  holdout` marker would be lost.
+
+The serving evaluator has no pasted mode at all. Step 1 of the false-alert diagnosis needs both
+(`docs/superpowers/specs/2026-10-20-false-alert-diagnosis-criteria.md`, P2).
+
+**Criteria, fixed before the implementation.** Only `website/tools/` and tests change. No serving
+module, model, rule or threshold changes.
+
+1. **ARC off for extraction.** It passes `arc_result=None` explicitly. No global ARC setting
+   changes.
+2. **No truncation.** A subject over 500 characters or a body over 50,000 is excluded and counted.
+   Source files are read up to a fixed limit, and a larger or empty file is excluded and counted.
+3. **Metadata kept.** Every field except the message content stays on the row: label, provider,
+   date and, where present, `cohort_role`, family, behaviour and control type. The serving
+   evaluator therefore still refuses a holdout row after conversion.
+4. **The serving evaluator gains `--paste`.**
+   - Exclusions are counted by reason in the report, with the input line numbers of excluded rows,
+     so P1 and P2 can be paired by source message.
+   - The input mode is recorded in the configuration.
+   - `--paste` with a recorded mailbox is refused, since pasted text has no headers.
+5. **Tests on synthetic inputs:**
+   - the length boundaries (500/501, 50,000/50,001) and the source limit;
+   - zero outbound calls while extracting an ARC-sealed message, under `network_guard.py`, with a
+     positive control: the same message read with default ARC verification attempts a lookup;
+   - metadata kept, and holdout rows refused;
+   - exclusion counts in the report, in-process and from the command line.
+6. **Planted defects.** Each must make a test fail:
+   - truncation restored;
+   - default ARC verification restored.
+
 ### Evaluators without registry lookups (2026-10-19)
 
 **What was found.**
