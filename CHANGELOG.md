@@ -36,7 +36,8 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - **Isolation.** No key crosses between snapshots or between snapshot and live caches.
   - **Counting.** One primary ARC outcome per baseline input; replays are counted apart.
   - **Meaning.** A snapshot result reflects the snapshot's key state only. A key withdrawn after it can still verify in snapshot mode while live DNS refuses, so the two modes may differ, and bridging equality holds only where the key responses match.
-  - **Criteria and proposals.** Eight criteria with six planted defects, fixed before any implementation. The review's proposed answers to the open questions are recorded as proposals, not decisions.
+  - **Criteria.** Eight criteria with six planted defects, fixed before any implementation.
+  - **Settled choices.** The owner adopted four as this round's design choices: where a real snapshot lives, where selectors come from, when to collect, and snapshot mode for the frozen plan. A frozen snapshot is never overwritten; a later one is a new version with its own configuration. Settling the selector-source rule does not authorize reading any particular private or holdout mail.
 
 ### Effect
 - No code, rule, model or evaluation changes.

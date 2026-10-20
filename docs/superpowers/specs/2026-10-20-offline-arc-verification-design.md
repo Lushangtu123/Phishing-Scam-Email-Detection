@@ -1,7 +1,8 @@
 # Design: offline ARC verification for evaluations
 
 **Status: design and criteria only.** Drafted on 2026-10-20 at the owner's request, and revised the
-same day after a technical review.
+same day after a technical review. The owner adopted the four design choices at the end the same
+day.
 
 - Nothing is implemented. No private or holdout mail is read, and no measurement runs.
 - Each of these is a separate later decision:
@@ -121,8 +122,8 @@ removes the network.
      with a stub resolver in tests, and in snapshot mode. Results must be byte-identical **only
      where the stub and the snapshot give the same key responses**. Cases where they differ, such as
      a key withdrawn after the snapshot, are listed apart with each mode's outcome.
-   - **The 2026-10-13 plan.** The proposed answer below is snapshot mode. Its frozen configuration
-     would then record the mode, the snapshot version and the whole-file hash. The baseline and
+   - **The 2026-10-13 plan.** The settled choice below is snapshot mode. Its frozen configuration
+     records the mode, the snapshot version and the whole-file hash. The baseline and
      every candidate are scored with the same snapshot. A snapshot-mode result is labelled as such
      and is not presented as the served result.
 
@@ -188,17 +189,22 @@ removes the network.
    - a snapshot key read from, or written to, the live cache;
    - a replay counted in the baseline's ARC outcomes.
 
-## Proposed answers to the open questions
+## Settled design choices
 
-These come from the technical review the owner forwarded on 2026-10-20. They are proposals, not
-decisions.
+The owner adopted these four as this round's design choices on 2026-10-20. They came from the
+technical review the owner forwarded.
 
-| Question | Proposed answer |
+| Question | Choice |
 |---|---|
 | Where a real snapshot lives | Outside the repository, beside the evaluation data. The repository holds only the format definition and synthetic test snapshots: the keys are public, but the selector list and collection record need not be |
 | Where selectors come from | An explicit list from the owner, or a header source the owner names and authorizes. By default no private or holdout mail is read |
 | When to collect | After implementation and synthetic validation, before the plan is frozen. Then fixed, and never replaced in view of scores |
 | The mode for the frozen plan | Snapshot mode, only after the bridging and zero-outbound checks pass. The baseline and every candidate use the same snapshot. The plan is still not declared frozen until D12 and its other conditions are met |
+
+- **Once frozen, this round's snapshot is never overwritten.** A later update is a new snapshot
+  version with its own frozen configuration.
+- **Settling the selector-source rule is not an authorization.** It does not permit reading any
+  particular private or holdout mail. Each source still needs the owner's own approval.
 
 Until this exists, any diagnostic run with ARC off is labelled separately and not taken as the
 served result.
