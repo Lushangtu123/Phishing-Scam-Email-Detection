@@ -22,6 +22,22 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 19:15 PT] — Long-token timing: F2 corrected after the review of f54d6e0
+
+### Why
+- A technical review of `f54d6e0` (PR #84) held the merge. The F2 row was recorded as met, but the comparison left out one of the 6,316 unit-suite inputs: it made two DNS attempts, and the criteria require every call and void a run with any attempt. So F2 was not met at `f54d6e0`. The entry below stays as it was; this one corrects it.
+- The same row described that input as an ARC lookup "for a chosen mailbox"; no mailbox was chosen.
+- The review also found the sentence on background load during timing too strong.
+
+### Files changed
+- `docs/evaluation.md`: a dated correction section after "Analysis time of one long token (2026-10-20)", which is kept. It holds the three findings, the rerun, and why the earlier guarded-only run had in effect the same answers.
+
+### Effect
+- **F2 run again.** The replay answers every ARC key lookup offline with "no key", as `test_arc_sealed_results.py` does for a failed lookup, with `blocked_network()` still on. The baseline `343af04` and the head `f54d6e0` ran with the model on and off, plus a second baseline run.
+- **Coverage.** Every input is included: 6,316 unit-suite inputs, 3,187 corpus rows and 197 grid inputs. Each of the five runs made 0 network attempts, and the stub answered 12 key lookups per run.
+- **Result.** In each configuration, 15,897 function results are byte-identical; F2 is now met. Each side also equals its earlier guarded-only run on every row.
+- **Not redone.** Timing grids, random-string checks and planted defects. No code changes.
+
 ## [2026-10-20 15:18 PT] — One long token no longer takes the analysis 10 seconds
 
 ### Why

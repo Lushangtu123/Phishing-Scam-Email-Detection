@@ -373,6 +373,44 @@ before the first measurement.
 T is a token's time and C the control's, both at `n_max`. A ratio is "–" where 40,000 characters do
 not fit in the mode.
 
+#### Correction after the review of `f54d6e0` (2026-10-20)
+
+The section above records the claims as they stood at `f54d6e0`, and is kept as it was. A technical
+review of that commit found that the F2 row said more than had been shown.
+
+| Finding | At `f54d6e0` | Now |
+|---|---|---|
+| F2: one input left out | Recorded as met, although one of the 6,316 unit-suite inputs was voided for two network attempts. The criteria require every call the suite makes, and an attempt voids its run. So F2 was not met at `f54d6e0` | Met. Every input is included, with 0 network attempts (below) |
+| F2: the voided input described wrongly | "ARC keys for a chosen mailbox" | No mailbox was chosen (`mailbox_provider=None`). The input is a synthetic test message sealed under `d=google.com`, `s=arc-test`, with a key the test generates at random. Without a mailbox, `analyze_raw_email` verified the seal and looked its key up in DNS |
+| Wording about load | "so the extra load does not decide anything" | Too strong: the load was not measured. The before-change grid ran beside other jobs and shows the size of the problem, not clean times. F1 is judged on the after-change grid, which ran alone |
+
+**F2, run again.**
+
+- **The stub.** The replay now answers every ARC key lookup offline with "no key", as
+  `test_arc_sealed_results.py` does for a failed lookup. So a sealed chain is not trusted, and
+  nothing leaves the process. The key that signed the captured seal cannot be regenerated, so a
+  stub returning it was not possible. `blocked_network()` stays on.
+- **The run.** `343af04` against the pull request head `f54d6e0`, with the model on and off. The
+  inputs are the same 6,316 unit-suite inputs, the 3,187 corpus rows (the same seeded sample,
+  drawn again) and the 197 grid inputs.
+- **Result.** Every row is compared, and none is void: 0 network attempts in each of the five
+  runs. The stub answered 12 key lookups per run. Each configuration compared 15,897 results of
+  the four functions, and all were byte-identical. Two baseline runs were identical.
+- **Against the earlier runs.** Each side's stubbed results equal its guarded-only results of
+  `f54d6e0`'s replay on every row, input 59 included. Under the guard alone, only input 59's
+  lookups reached a socket, and the reason was checked:
+  - every `google.com` seal among the captured `analyze_raw_email` inputs names the same key,
+    `arc-test._domainkey.google.com`;
+  - under the guard, the first lookup of it makes 2 attempts and returns "no key" without an
+    error;
+  - `_arc_dns_txt` caches that answer, so a second lookup makes none.
+
+  So the earlier comparison already had the stub's answers, in effect.
+- **Unchanged.** The new function's check on the replay's 10,303 texts (all equal) and the
+  coverage of the changed statements and both conditionals.
+- **Not redone.** The timing grids, F3 on random strings, the planted defects and the regression
+  test; the review asked for none of them.
+
 ### P1/P2 pairing tool (2026-10-20)
 
 `website/tools/evaluate_paired_modes.py` implements the pairing design
