@@ -232,9 +232,12 @@ class ConfirmationTests(unittest.TestCase):
         batch, _groups = campaigns(self)
         batch.fill('synthetic-plain.com', 3)
         batch.add('Alice <alice.synthetic@gmail.com>', 'Account alpha notice', reply_to=f'U <user0x0@{DIFFUSE}>')
+        k = batch.add('K <k@synthetic-k.com>', 'Rota kilo')  # joined to l by the subject template alone, as in v1
+        l = batch.add('L <l@synthetic-l.com>', 'Rota kilo')
         report, private = batch.run()
         self.assertEqual(report['diffuse_domains']['unconfirmed'], 1)
         self.assertEqual(private['groups'], private['v1_rule_groups'])
+        self.assertTrue(together(private, k, l))
         report, private = batch.run(rejected=[DIFFUSE])
         self.assertEqual(report['diffuse_domains']['rejected'], 1)
         self.assertEqual(private['groups'], private['v1_rule_groups'])
