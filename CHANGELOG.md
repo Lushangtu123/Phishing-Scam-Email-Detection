@@ -22,6 +22,28 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 20:29 PT] — Reviews in the public evaluator
+
+### Why
+- A draft of criteria for a calibration experiment counts the work a person does on legitimate mail as alerts, reviews and Unknown. The draft is kept outside the repository and is not approved.
+- Only the serving evaluator reported reviews. The public evaluator dropped the review mark, so its reports could not give that count, and a missing count must not be read as zero.
+- The owner authorized this implementation on 2026-10-20, on synthetic inputs only, up to PR and CI. It is not merged.
+
+### Files changed
+- `website/tools/evaluate_public_corpus.py`:
+  - each analysis's `model_only_review` mark is kept in memory (`_review`);
+  - `plan_counts` reports per label `alerted`, `reviewed`, `passed` and `undetermined`, by the serving evaluator's `_plan_counts`, and on legitimate mail also `attention` and `attention_with_undetermined`;
+  - `plan_scoring_sha256` versions them on their own; `scoring_sha256` is unchanged.
+- `website/tests/test_public_plan_counts.py` (new, 5 tests, synthetic).
+- `docs/evaluation.md`: "Reviews in the public evaluator (2026-10-20)".
+
+### Effect
+- **Checks.** Same counts as the serving evaluator on 11 synthetic analysis results. Failures are counted as Unknown, never as reviewed.
+- **Golden replay.** `343af04` against `69b7e61`: 19 captured `evaluate_corpus` calls and two command-line runs are byte-identical outside the new fields and the pre-listed run metadata.
+- **CI and tests.** The CI synthetic baseline passes unchanged. All 6 planted defects fail the tests, and all 17 added statement lines are covered.
+- **Today's count.** Under the served option A, no analysis sets the review mark, so `reviewed` is 0 on every public cohort. The report now measures it instead of assuming it.
+- **Unchanged.** No served analysis, model, rule or threshold changes.
+
 ## [2026-10-20 13:46 PT] — P1/P2 pairing tool: fixes after the review of 7a4bb93
 
 ### Why

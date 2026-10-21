@@ -276,6 +276,42 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Reviews in the public evaluator (2026-10-20)
+
+**Why.** A draft of criteria for a calibration experiment (kept outside the repository, and not
+approved) counts a person's work on legitimate mail as alerts, reviews and Unknown. Only the serving
+evaluator reported reviews. The public evaluator did not keep the review mark, so its reports could
+not give that count, and a missing count must not be read as zero.
+
+**What changed.** Only `website/tools/evaluate_public_corpus.py` and a new test file:
+
+- **The mark.** Each analysis's own `model_only_review` mark is kept in memory, read as the serving
+  evaluator reads it. A failed analysis has none. Reports hold counts only.
+- **`plan_counts`.** Per label: `alerted`, `reviewed`, `passed` and `undetermined`, by the serving
+  evaluator's `_plan_counts`, with rates and Wilson intervals. On legitimate mail also `attention`
+  (alerted + reviewed, as the serving evaluator defines it) and `attention_with_undetermined`.
+- **`plan_scoring_sha256`.** It versions these statistics on their own. `scoring_sha256` keeps its
+  meaning and value.
+- **Unchanged:** the served analysis, the model, rules and thresholds. Earlier reports are not
+  backfilled.
+
+**What the count shows today.** Under the served model-only option A, the analysis never sets the
+review mark: only option C does, and only on original messages. So with today's configuration,
+`reviewed` is 0 on every public cohort. The report now measures that rather than assuming it.
+
+**Checked on synthetic inputs only, against criteria fixed before the change:**
+
+| Criterion | Result |
+|---|---|
+| Versioned apart | Met. `scoring_sha256` equals the CI baseline's; the new statistics have their own hash |
+| Same counts as the serving evaluator | Met. 11 synthetic analysis results, the same through both evaluators. They cover a review alone, a review with an alert or Unknown (an alert or Unknown wins), no reviews, and a label with no messages |
+| Failures | Met. The public evaluator counts a failed analysis as a failure and as Unknown, never as reviewed; the serving evaluator stops on it. That difference is kept |
+| Golden replay | Met. `343af04` (before) against `69b7e61` (after): the 19 `evaluate_corpus` calls of the two existing test modules, and the command line on the CI synthetic manifest and on 6 further synthetic records. Byte-identical once the new fields are removed, together with `git_commit`, `git_dirty` and `evaluator_sha256` and the sidecars' `evaluated_commit`. Those were the only differences allowed, and were listed before the run. `source_sha256` is unchanged. 0 network attempts |
+| CI synthetic baseline | Met. `compare_evaluations.py` passes against the unchanged `baseline.json` |
+| Planted defects | Met. Each of 6 made a test fail: the mark dropped; a review ranked before an alert or Unknown; a failure counted as reviewed; attention without reviews; the old scoring hash changed; per-input marks written to the report |
+
+All 17 added statement lines run under the tests.
+
 ### P1/P2 pairing tool (2026-10-20)
 
 `website/tools/evaluate_paired_modes.py` implements the pairing design
