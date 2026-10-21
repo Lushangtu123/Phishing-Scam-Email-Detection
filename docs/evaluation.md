@@ -276,6 +276,36 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Candidate phishing groups, version 2 (2026-10-21)
+
+`website/tools/phishing_candidate_groups_v2.py` implements the
+[approved design](superpowers/specs/2026-10-21-phishing-candidate-groups-v2.md). It is a separate tool:
+
+- `split_by_family.py` and its tests are byte-identical to `main`;
+- v1's ledger and the 2026-10-13 plan's split are untouched.
+
+The owner authorized the implementation on 2026-10-21, on synthetic inputs only, up to PR and CI. The tool
+has not been run on real mail.
+
+**What it does.**
+
+- **Copies.** They follow a trusted download-time manifest. Files are read only up to the first blank line.
+- **Merging.** It keeps v1's keys and cross-field merging, and adds thread links.
+- **Diffuse domains.** A sender domain flagged as diffuse (K = 20, P = 0.5) and confirmed by `owner-01`
+  no longer merges on its own, in any field.
+- **Output.** Counts only. Flagged domain values go to a private list for the confirmer.
+
+**Checked against the design's criteria, synthetic inputs only:**
+
+| Criterion | Result |
+|---|---|
+| S1 v1 unchanged | Met. No diff to `split_by_family.py` or `test_split_by_family.py`; its 8 tests pass. The new tool imports v1's key functions and changes none of them |
+| S2–S13 | Met. 23 tests in `test_phishing_candidate_groups_v2.py` cover each criterion. For example: 5 campaigns on one confirmed domain give 5 groups where v1's rules give 1; only thread evidence joins two otherwise unrelated messages; Reply-To, cross-domain templates and template bridges cannot bypass the rule; unconfirmed flags equal v1's groups on input without thread links; an input order change leaves the report byte-identical |
+| Reading bounds | Met. A 1.2 MB body is never read past the first 64 KiB block. A header with no blank line within reach is read only to 262,144 + 64 KiB bytes |
+| S14 planted defects | Met. Each of 19 makes a test fail by an assertion, not a crash: one for each S14 item, the change to v1 included |
+| Coverage | 346 of 349 executable lines run under the tests. The three left are the module's line 0, a `sys.path` insert that only runs outside the tests, and `main()` under `__main__`, which the subprocess tests run |
+| Network | 0 attempts under the network guard |
+
 ### Reviews in the public evaluator (2026-10-20)
 
 **Why.** A draft of criteria for a calibration experiment (kept outside the repository, and not
