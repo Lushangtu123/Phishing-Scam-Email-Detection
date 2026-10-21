@@ -433,6 +433,62 @@ class OutputTests(unittest.TestCase):
                     self.assertRaisesRegex(v2.GroupingError, '^A v1 family-split ledger is not an input of this tool$'):
                 v2.group_candidates(batch.root, *arguments)
 
+    def test_inputs_that_cannot_be_trusted_stop_the_run(self):
+        batch, _groups = campaigns(self)
+        manifest = batch.manifest()
+        text = manifest.read_text()
+        manifest.write_text('\n' + text + '\n')  # blank lines are allowed
+        v2.group_candidates(batch.root, manifest)
+        for bad in ('not a manifest line\n', '', text + text.splitlines()[0] + '\n'):
+            with self.subTest(manifest=bad[:20]), self.assertRaisesRegex(v2.GroupingError, '^The manifest is malformed$'):
+                manifest.write_text(bad)
+                v2.group_candidates(batch.root, manifest)
+        manifest = batch.manifest()
+        confirmations = batch.base / 'confirmations.json'
+        for bad in ('{not json', json.dumps({'schema': 'other', 'confirmer': 'owner-01', 'domains': {}}),
+                    json.dumps({'schema': v2.CONFIRMATIONS_SCHEMA, 'confirmer': 'Owner One', 'domains': {}}),
+                    json.dumps({'schema': v2.CONFIRMATIONS_SCHEMA, 'confirmer': 'owner-01', 'domains': {DIFFUSE: 'maybe'}})):
+            with self.subTest(confirmations=bad[:30]), \
+                    self.assertRaisesRegex(v2.GroupingError, '^The confirmations are malformed$'):
+                confirmations.write_text(bad)
+                v2.group_candidates(batch.root, manifest, confirmations)
+        (batch.root / 'link.eml').symlink_to(batch.root / batch.paths[0])
+        with self.assertRaisesRegex(v2.GroupingError, '^The input folder holds a symbolic link$'):
+            v2.group_candidates(batch.root, manifest)
+
+    def test_a_message_without_a_sender_and_bare_thread_ids(self):
+        batch = Batch(self)
+        nobody = batch.add(None, raw=b'To: reader@synthetic-inbox.com\r\nSubject: Alpha memo\r\n\r\nbody\r\n')
+        root = batch.add('A <a@synthetic-a.com>', 'Bravo memo', message_id='bare.1@synthetic-a.com')
+        reply = batch.add('B <b@synthetic-b.com>', 'Charlie memo', in_reply_to='bare.1@synthetic-a.com')
+        report, private = batch.run()
+        counts = report['counts']
+        self.assertEqual((counts['no_sender_address'], counts['valid_records'], counts['conservation_holds']), (1, 2, 1))
+        self.assertNotIn(nobody, {path for group in private['groups'] for path in group})
+        self.assertTrue(together(private, root, reply))  # an ID without brackets is accepted as it is
+
+    def test_command_line_errors_are_fixed_messages(self):
+        batch, _groups = campaigns(self)
+        manifest = batch.manifest()
+        base = ['--root', str(batch.root), '--manifest', str(manifest)]
+        for arguments, expected in (
+                (['--root', 'relative', '--manifest', str(manifest), '--output', str(batch.base / 'r.json')],
+                 'Grouping stopped: Every path must be absolute'),
+                (base + ['--output', str(batch.root / 'r.json')], 'Grouping stopped: An output would overwrite an input')):
+            stderr = io.StringIO()
+            with self.subTest(expected=expected), redirect_stderr(stderr), self.assertRaises(SystemExit):
+                v2.main(arguments)
+            self.assertEqual(stderr.getvalue().strip(), expected)
+        stderr = io.StringIO()
+        with patch.object(v2, 'group_candidates', side_effect=RuntimeError(f'{batch.root} {DIFFUSE}')), \
+                redirect_stderr(stderr), self.assertRaises(SystemExit):
+            v2.main(base + ['--output', str(batch.base / 'r.json')])
+        self.assertEqual(stderr.getvalue().strip(), 'Grouping stopped: an unexpected error')
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            v2.main(['--root', str(batch.root), '--unknown', DIFFUSE])
+        self.assertEqual((raised.exception.code, stderr.getvalue().strip()), (2, 'Grouping stopped: invalid arguments'))
+
     def test_no_network(self):
         batch, _groups = campaigns(self)
         batch.add('W <w@synthetic-e.com>', 'Echo memo', message_id='<w.1@synthetic-e.com>')
