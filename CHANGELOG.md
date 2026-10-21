@@ -41,7 +41,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - **Checks.** Same counts as the serving evaluator on 11 synthetic analysis results. Failures are counted as Unknown, never as reviewed.
 - **Golden replay.** `343af04` against `69b7e61`: 19 captured `evaluate_corpus` calls and two command-line runs are byte-identical outside the new fields and the pre-listed run metadata.
 - **CI and tests.** The CI synthetic baseline passes unchanged. All 6 planted defects fail the tests, and all 17 added statement lines are covered.
-- **Today's count.** Under the served option A, no analysis sets the review mark, so `reviewed` is 0 on every public cohort. The report now measures it instead of assuming it.
+- **What to expect.** By the source code, the served option A does not set the review mark (only option C does, on original messages), so a public cohort's `reviewed` should be 0 today. This is an inference from the source, not a measurement: this change was measured on synthetic inputs only, and no public cohort was rerun.
 - **Unchanged.** No served analysis, model, rule or threshold changes.
 
 ## [2026-10-20 13:46 PT] — P1/P2 pairing tool: fixes after the review of 7a4bb93

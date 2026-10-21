@@ -295,9 +295,14 @@ not give that count, and a missing count must not be read as zero.
 - **Unchanged:** the served analysis, the model, rules and thresholds. Earlier reports are not
   backfilled.
 
-**What the count shows today.** Under the served model-only option A, the analysis never sets the
-review mark: only option C does, and only on original messages. So with today's configuration,
-`reviewed` is 0 on every public cohort. The report now measures that rather than assuming it.
+**What to expect from the count.**
+
+- **From the source code.** The served model-only option A does not set the review mark; only option
+  C does, and only on original messages (`app._apply_model_only_option`). So under today's
+  configuration a public cohort's `reviewed` should be 0.
+- **What was measured.** That expectation is an inference from the source. No public cohort was
+  rerun for this change, which was measured on synthetic inputs only.
+- **From now on.** A future public report will measure the count rather than leave it missing.
 
 **Checked on synthetic inputs only, against criteria fixed before the change:**
 
