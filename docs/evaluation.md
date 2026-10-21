@@ -276,6 +276,141 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Analysis time of one long token (2026-10-20)
+
+This follows up the long-token timing that the P1/P2 section below found in passing. The criteria
+(`docs/superpowers/specs/2026-10-20-long-token-timing-criteria.md`) were committed in `47ea22f`,
+before the first measurement.
+
+- **Inputs.** All synthetic: seven token shapes, five modes, lengths up to each mode's limit, and
+  controls of ordinary lines of the same length. No real mail, no download.
+- **Configuration.** The evaluator's offline settings (RDAP, sender history, Jev and the local
+  review off), the committed model, `PYTHONHASHSEED=0`, and `blocked_network()` in process. The
+  grids recorded 0 network attempts.
+- **What the numbers are.** Median of three runs. One process, one machine (Apple M2 Max,
+  Python 3.12.9). This is **not a denial-of-service measurement**: concurrency, the rate limit,
+  the analysis pool and Vercel's 30-second limit were not measured.
+
+**Before the change (`343af04`).**
+
+- **Reproduced.** In E-plain at 55,000 characters, S1, S2, S4 and S6 take 9.2 to 13.8 s. Ordinary
+  lines take 0.43 s.
+- **Affected.** Fifteen of the 35 shape and mode pairs: S1, S2, S4, S6 and S7, each in E-plain,
+  E-html and P-body. Their time grows 3.74 to 3.87 times from 20,000 to 40,000 characters, so it is
+  quadratic.
+- **Not affected:**
+  - S3 (base64) and S5 (URL-like): a `/` ends the run every few dozen characters.
+  - E-href: a token in an attribute is not in the text the rules read.
+  - P-subject: 500 characters.
+
+**Located.**
+
+- **The step.** `content_rules._mailbox_lure` takes 88 to 97% of the analysis time in each of the
+  six profiled cells, almost all of it in one `re.sub`.
+- **Why it is quadratic.** `[\w.+-]+@[\w-]+(?:\.[\w-]+)+` replaces mail addresses before the
+  lure is read. On a run of address characters that holds no address, it is tried again from
+  every character, and each try reads to the end of the run.
+- **Called directly.** The time grows 3.98 to 4.00 times from 20,000 to 40,000 characters. At
+  100,000 characters, which no served input can reach, it takes 30 to 47 s.
+- **A second caller.** `_attachment_mailbox_lure` uses the same pattern on attachment text.
+
+**The change.** `_without_mail_addresses` serves both callers.
+
+- Its pattern has a second alternative that takes a run holding no address whole. The replacement
+  keeps that run as it was.
+- Text without an `@` is returned unchanged.
+- The replaced text is the same as before; the proof is in the table below.
+
+| Criterion | Result |
+|---|---|
+| F1 Time | Met for all 35 pairs (table below). The 15 affected pairs take 0.12 to 0.47 s at the limit, against controls of 0.16 to 0.44 s. Every 40k/20k ratio is 1.47 to 2.01 |
+| F2 Same results | Met. The replay compared `343af04` and the branch, with the model on and off: 6,316 unit-suite calls captured at `343af04`, 3,187 public corpus rows (a seeded sample of nine files, pasted) and the 197 grid inputs. Each configuration compared 15,896 results of the four functions, nested calls included, and all were byte-identical. One unit-suite row made two DNS attempts (ARC keys for a chosen mailbox). The guard refused them, and that row is void. Two baseline runs were identical, so the replay is deterministic |
+| F3 Function-level check | Met. All 40,000 seeded random strings, 15,593 of them with an address, give the old pattern's result. So do all 10,303 texts the replay passed to the new function, 1,719 of them with an `@` |
+| F4 Coverage | Met. The replay ran every changed statement, and both outcomes of both conditionals |
+| F5 Planted defects | Met. Eight plants and two reverts each make `test_long_tokens.py` fail. The first run missed one plant, the body caller skipping the replacement: the test's lure matched without crossing the address. Each lure in the test now matches only through the address, and the second run caught every plant |
+| F6 Regression test | Met. Bound 1.0 s: the fixed calls take at most 26 ms (38 times less), and the baseline took 8.4 to 10.3 s (the bound is under a third) |
+| F7 Checks | Met locally: 1,468 unit tests pass (15 skipped), as do `compileall`, `ruff` and the 532 Node tests. CI runs on the pull request |
+| F8 Scope | Met. One pattern, one function and its two callers in `content_rules.py`, plus a test. No model, rule, weight, threshold, limit or dependency changes |
+
+- **Which commit.** Everything after the change was measured at `cd646f3`. The pull request adds
+  two blank lines to `content_rules.py`, which leave its syntax tree identical.
+- **When each measurement ran.** The baseline grid ran while the unit-suite capture and other
+  measurements also ran. Its affected cells are 9 to 32 times their controls, so the extra load
+  does not decide anything. The grid after the change ran alone. The profiles ran beside the
+  replays, so their shares count, not their absolute times.
+- **Not shown:**
+  - that any other step is linear beyond the shapes and modes above;
+  - how the CI runners time the test's bound.
+
+| Mode | Shape | n_max | Before: T / C (s) | 40k/20k | After: T / C (s) | 40k/20k |
+|---|---|---|---|---|---|---|
+| E-plain | S1 | 55,000 | 10.14 / 0.43 | 3.81 | 0.28 / 0.43 | 1.96 |
+| E-plain | S2 | 55,000 | 13.79 / 0.43 | 3.87 | 0.34 / 0.43 | 1.96 |
+| E-plain | S3 | 55,000 | 0.46 / 0.43 | 1.97 | 0.43 / 0.43 | 1.96 |
+| E-plain | S4 | 55,000 | 9.16 / 0.43 | 3.74 | 0.45 / 0.43 | 1.97 |
+| E-plain | S5 | 55,000 | 0.50 / 0.43 | 1.98 | 0.48 / 0.43 | 1.95 |
+| E-plain | S6 | 55,000 | 9.43 / 0.43 | 3.76 | 0.42 / 0.43 | 1.94 |
+| E-plain | S7 | 19,944 | 1.44 / 0.16 | – | 0.12 / 0.16 | – |
+| E-html | S1 | 55,000 | 10.15 / 0.45 | 3.84 | 0.29 / 0.44 | 1.96 |
+| E-html | S2 | 55,000 | 13.88 / 0.45 | 3.86 | 0.35 / 0.44 | 1.96 |
+| E-html | S3 | 55,000 | 0.48 / 0.45 | 1.95 | 0.44 / 0.44 | 1.96 |
+| E-html | S4 | 55,000 | 9.52 / 0.45 | 3.75 | 0.47 / 0.44 | 1.97 |
+| E-html | S5 | 55,000 | 0.52 / 0.45 | 1.95 | 0.49 / 0.44 | 1.96 |
+| E-html | S6 | 55,000 | 9.79 / 0.45 | 3.76 | 0.43 / 0.44 | 1.97 |
+| E-html | S7 | 19,933 | 1.48 / 0.17 | – | 0.13 / 0.16 | – |
+| E-href | S1–S6 | 55,000 | 0.02 / 0.02 | 1.45–1.51 | 0.02 / 0.02 | 1.47–1.57 |
+| E-href | S7 | 19,922 | 0.01 / 0.01 | – | 0.01 / 0.01 | – |
+| P-body | S1 | 50,000 | 8.74 / 0.41 | 3.85 | 0.26 / 0.40 | 1.98 |
+| P-body | S2 | 50,000 | 11.83 / 0.41 | 3.84 | 0.32 / 0.40 | 1.98 |
+| P-body | S3 | 50,000 | 0.43 / 0.41 | 1.98 | 0.40 / 0.40 | 2.00 |
+| P-body | S4 | 50,000 | 7.87 / 0.41 | 3.75 | 0.42 / 0.40 | 1.99 |
+| P-body | S5 | 50,000 | 0.46 / 0.41 | 1.99 | 0.44 / 0.40 | 1.97 |
+| P-body | S6 | 50,000 | 8.07 / 0.41 | 3.77 | 0.39 / 0.40 | 1.98 |
+| P-body | S7 | 50,000 | 8.78 / 0.41 | 3.84 | 0.30 / 0.40 | 2.01 |
+| P-subject | S1–S6 | 500 | 0.02 / 0.02 | – | 0.02 / 0.02 | – |
+| P-subject | S7 | 500 | 0.04 / 0.02 | – | 0.04 / 0.02 | – |
+
+T is a token's time and C the control's, both at `n_max`. A ratio is "–" where 40,000 characters do
+not fit in the mode.
+
+#### Correction after the review of `f54d6e0` (2026-10-20)
+
+The section above records the claims as they stood at `f54d6e0`, and is kept as it was. A technical
+review of that commit found that the F2 row said more than had been shown.
+
+| Finding | At `f54d6e0` | Now |
+|---|---|---|
+| F2: one input left out | Recorded as met, although one of the 6,316 unit-suite inputs was voided for two network attempts. The criteria require every call the suite makes, and an attempt voids its run. So F2 was not met at `f54d6e0` | Met. Every input is included, with 0 network attempts (below) |
+| F2: the voided input described wrongly | "ARC keys for a chosen mailbox" | No mailbox was chosen (`mailbox_provider=None`). The input is a synthetic test message sealed under `d=google.com`, `s=arc-test`, with a key the test generates at random. Without a mailbox, `analyze_raw_email` verified the seal and looked its key up in DNS |
+| Wording about load | "so the extra load does not decide anything" | Too strong: the load was not measured. The before-change grid ran beside other jobs and shows the size of the problem, not clean times. F1 is judged on the after-change grid, which ran alone |
+
+**F2, run again.**
+
+- **The stub.** The replay now answers every ARC key lookup offline with "no key", as
+  `test_arc_sealed_results.py` does for a failed lookup. So a sealed chain is not trusted, and
+  nothing leaves the process. The key that signed the captured seal cannot be regenerated, so a
+  stub returning it was not possible. `blocked_network()` stays on.
+- **The run.** `343af04` against the pull request head `f54d6e0`, with the model on and off. The
+  inputs are the same 6,316 unit-suite inputs, the 3,187 corpus rows (the same seeded sample,
+  drawn again) and the 197 grid inputs.
+- **Result.** Every row is compared, and none is void: 0 network attempts in each of the five
+  runs. The stub answered 12 key lookups per run. Each configuration compared 15,897 results of
+  the four functions, and all were byte-identical. Two baseline runs were identical.
+- **Against the earlier runs.** Each side's stubbed results equal its guarded-only results of
+  `f54d6e0`'s replay on every row, input 59 included. Under the guard alone, only input 59's
+  lookups reached a socket, and the reason was checked:
+  - every `google.com` seal among the captured `analyze_raw_email` inputs names the same key,
+    `arc-test._domainkey.google.com`;
+  - under the guard, the first lookup of it makes 2 attempts and returns "no key" without an
+    error;
+  - `_arc_dns_txt` caches that answer, so a second lookup makes none.
+
+  So the earlier comparison already had the stub's answers, in effect.
+- **Unchanged.** The new function's check on the replay's 10,303 texts (all equal) and the
+  coverage of the changed statements and both conditionals.
+- **Not redone.** The timing grids, F3 on random strings, the planted defects and the regression
+  test; the review asked for none of them.
+
 ### P1/P2 pairing tool (2026-10-20)
 
 `website/tools/evaluate_paired_modes.py` implements the pairing design

@@ -904,8 +904,18 @@ def _unlisted_off_sender_host(destination: str, sender_domain: str) -> str | Non
 
 
 # The reader's address inside a sentence ("квота jose@example.org перевищена") would end
-# the sentence at its dots.
-_MAIL_ADDRESS = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# the sentence at its dots. The second alternative takes a run of address characters that
+# holds no address whole: retried from each of its characters, a run of 55,000 took 10 s.
+_MAIL_ADDRESS = re.compile(r"([\w.+-]+@[\w-]+(?:\.[\w-]+)+)|[\w.+-]+")
+
+
+def _without_mail_addresses(text: str) -> str:
+    """Each mail address replaced by " address "; the rest of the text as it was."""
+    if '@' not in text:
+        return text
+    return _MAIL_ADDRESS.sub(lambda match: ' address ' if match.group(1) else match.group(0), text)
+
+
 # Labels in small capitals ("Cᴏɴғɪʀᴍ ᴀᴄᴄᴏᴜɴᴛ"), which have no compatibility decomposition.
 _SMALL_CAPITALS = str.maketrans({'ᴀ': 'a', 'ʙ': 'b', 'ᴄ': 'c', 'ᴅ': 'd', 'ᴇ': 'e', 'ꜰ': 'f', 'ғ': 'f', 'ɢ': 'g',
                                  'ʜ': 'h', 'ɪ': 'i', 'ᴊ': 'j', 'ᴋ': 'k', 'ʟ': 'l', 'ᴍ': 'm', 'ɴ': 'n', 'ᴏ': 'o',
@@ -914,7 +924,7 @@ _SMALL_CAPITALS = str.maketrans({'ᴀ': 'a', 'ʙ': 'b', 'ᴄ': 'c', 'ᴅ': 'd', 
 
 def _mailbox_lure(text: str, links, sender_domain: str = '') -> bool:
     """A mailbox lure whose action link leads off the sender's domain to an unlisted one."""
-    text = _MAIL_ADDRESS.sub(' address ', text)
+    text = _without_mail_addresses(text)
     if not (_MAILBOX_LURE.search(_han_compact(text)) or _MAILBOX_LURE_OTHER.search(text)):
         return False
     labels = (((label or '').translate(_SMALL_CAPITALS), destination) for label, destination in links or ())
@@ -1246,7 +1256,7 @@ _ATTACHMENT_MAILBOX_LURE = re.compile(rf"\b{_MAILBOX_ACCOUNT_EN}\b[^.!?\n]{{0,80
 def _attachment_mailbox_lure(attachment: dict, sender_domain: str) -> str | None:
     """The host a mailbox lure in a document attachment links to, off the sender's domain:
     the body says a line or nothing, and a Word file says the mailbox needs an update."""
-    text = re.sub(r'\s+', ' ', _MAIL_ADDRESS.sub(' address ', attachment.get('extracted_text') or ''))
+    text = re.sub(r'\s+', ' ', _without_mail_addresses(attachment.get('extracted_text') or ''))
     if not (_MAILBOX_LURE.search(_han_compact(text)) or _ATTACHMENT_MAILBOX_LURE.search(text)):
         return None
     return next(filter(None, (_unlisted_off_sender_host(destination, sender_domain)

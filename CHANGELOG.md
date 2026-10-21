@@ -22,6 +22,46 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 19:15 PT] — Long-token timing: F2 corrected after the review of f54d6e0
+
+### Why
+- A technical review of `f54d6e0` (PR #84) held the merge. The F2 row was recorded as met, but the comparison left out one of the 6,316 unit-suite inputs: it made two DNS attempts, and the criteria require every call and void a run with any attempt. So F2 was not met at `f54d6e0`. The entry below stays as it was; this one corrects it.
+- The same row described that input as an ARC lookup "for a chosen mailbox"; no mailbox was chosen.
+- The review also found the sentence on background load during timing too strong.
+
+### Files changed
+- `docs/evaluation.md`: a dated correction section after "Analysis time of one long token (2026-10-20)", which is kept. It holds the three findings, the rerun, and why the earlier guarded-only run had in effect the same answers.
+
+### Effect
+- **F2 run again.** The replay answers every ARC key lookup offline with "no key", as `test_arc_sealed_results.py` does for a failed lookup, with `blocked_network()` still on. The baseline `343af04` and the head `f54d6e0` ran with the model on and off, plus a second baseline run.
+- **Coverage.** Every input is included: 6,316 unit-suite inputs, 3,187 corpus rows and 197 grid inputs. Each of the five runs made 0 network attempts, and the stub answered 12 key lookups per run.
+- **Result.** In each configuration, 15,897 function results are byte-identical; F2 is now met. Each side also equals its earlier guarded-only run on every row.
+- **Not redone.** Timing grids, random-string checks and planted defects. No code changes.
+
+## [2026-10-20 15:18 PT] — One long token no longer takes the analysis 10 seconds
+
+### Why
+- The P1/P2 work (#83) found in passing that a plain-text `.eml` whose body is one 55,000-character token took the served analysis about 10 s, against 0.34 s for ordinary lines. It was measured once. The owner asked for a separate follow-up, and a review asked that it not be called a denial of service without its own measurement.
+- The criteria (`docs/superpowers/specs/2026-10-20-long-token-timing-criteria.md`) were committed before the first measurement. All inputs are synthetic.
+
+### Files changed
+- `website/content_rules.py`: `_MAIL_ADDRESS` gains a second alternative that takes a run of address characters holding no address whole. The new `_without_mail_addresses` keeps such runs and returns text without an `@` unchanged. Both callers use it: `_mailbox_lure` and `_attachment_mailbox_lure`.
+- `website/tests/test_long_tokens.py` (new, 3 tests):
+  - five long runs through the function and both callers, each under 1.0 s;
+  - the replaced text equal to the old pattern's on 18 edge cases and 3,000 seeded random strings;
+  - one lure per caller that matches only through its address.
+- `docs/superpowers/specs/2026-10-20-long-token-timing-criteria.md` (new): the criteria. `docs/evaluation.md`: "Analysis time of one long token (2026-10-20)", every shape and mode before and after.
+
+### Effect
+- **Located.** `_mailbox_lure` took 88–97% of the analysis time, almost all in one `re.sub`. The address pattern was tried again from every character of a run with no address, so the time was quadratic: 3.74–3.87 times from 20,000 to 40,000 characters.
+- **Before (`343af04`), at each mode's limit.** In E-plain, E-html and P-body, shapes S1, S2, S4, S6 and S7 took 7.9–13.9 s at 50,000–55,000 characters, against 0.41–0.45 s for ordinary lines. S7 in `.eml` modes took 1.4–1.5 s at its ~19,940-character limit. The other 20 shape and mode pairs were not affected.
+- **After, at the same limits.** These 15 pairs take 0.12–0.47 s, and all 35 pairs meet the time criterion. Every 40k/20k ratio is 1.47–2.01. One process on one machine, offline; no claim about denial of service.
+- **Same results.** A golden replay against `343af04` was byte-identical with the model on and off: 15,896 results of `_analyze_content`, `analyze_email_content`, `analyze_sms` and `analyze_raw_email` in each. It covered 6,316 unit-suite calls, 3,187 public corpus rows and 197 grid inputs. One unit-suite row was voided for two refused DNS attempts.
+- **Function-level check.** The new function equals the old pattern's replacement on 40,000 random strings and on all 10,303 texts the replay gave it. Every changed statement ran.
+- **Planted defects.** Eight plants and two reverts each make the new tests fail.
+- **Unit suite.** 1,468 tests pass (15 skipped); the 532 Node tests pass.
+- **Not changed.** No model, rule, weight, threshold, input limit or dependency changes.
+
 ## [2026-10-20 13:46 PT] — P1/P2 pairing tool: fixes after the review of 7a4bb93
 
 ### Why
