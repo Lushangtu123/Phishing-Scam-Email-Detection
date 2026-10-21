@@ -22,6 +22,27 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-21 13:05 PT] — Candidate phishing groups from headers, version 2
+
+### Why
+- **The calibration plan needs countable phishing families.** v1 (`split_by_family.py`) merges phishing on an organisational sender domain. On the 3,657 phishing_pot messages added after `49f63777`, one such key held 2,114 messages from 1,800 distinct addresses inside a 2,266-message group (headers only, counts only). That key may cause false merges; neither its identity nor campaign membership is established.
+- **Approved and authorized.** The owner approved the v2 design on 2026-10-21 (K = 20, P = 0.5, 256 KiB header limit, cross-field links kept, template hubs reported only, a separate tool, `owner-01` confirms domains), with two added rules. The owner authorized the implementation on synthetic inputs only, up to PR and CI, not merged.
+
+### Files changed
+- `website/tools/phishing_candidate_groups_v2.py` (new):
+  - copies follow a trusted manifest, and files are read up to the first blank line;
+  - v1's keys are kept, with thread links added;
+  - a confirmed diffuse domain no longer merges on its own;
+  - the report holds counts only, and flagged domains go to a private list.
+- `website/tests/test_phishing_candidate_groups_v2.py` (new, 23 tests, synthetic).
+- `docs/superpowers/specs/2026-10-21-phishing-candidate-groups-v2.md` (new): the approved design in English.
+- `docs/evaluation.md`: "Candidate phishing groups, version 2 (2026-10-21)".
+
+### Effect
+- **Unchanged.** `split_by_family.py`, its tests, the v1 ledger, the served analysis, the model, the rules and the thresholds.
+- **Acceptance criteria.** S1–S13 are met on synthetic inputs. All 19 planted defects make tests fail, and 346 of 349 executable lines are covered. There are 0 network attempts.
+- **Not done.** No real mail was read: the tool has not been run on phishing_pot, and no domain has been confirmed.
+
 ## [2026-10-20 23:09 PT] — certifi 2026.10.19: a security exception to the cooling period
 
 ### Why
