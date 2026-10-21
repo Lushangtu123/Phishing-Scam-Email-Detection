@@ -38,6 +38,35 @@ def _scoring_sha256() -> str:
     return hashlib.sha256(b'public-scoring-v1\0' + _json_bytes(payload)).hexdigest()
 
 
+def _review(result: dict) -> bool:
+    # The analysis's own model-only review mark, read as evaluate_serving_pipeline.py reads it; a
+    # failed analysis has none. Kept per input in memory only: reports hold counts.
+    return result.get('model_only_review') is True
+
+
+def _plan_counts_by_label(outcomes: list[dict]) -> dict:
+    """Alerts, reviews, passes and Unknown per label, by the serving evaluator's _plan_counts. On
+    legitimate mail, attention is alerts plus reviews, as the serving evaluator defines it; attention
+    with Unknown is every legitimate message a person has to look at."""
+    counts = {label: serving._plan_counts([item for item in outcomes if item['label'] == label])
+              for label in sorted(serving.LABELS)}
+    legitimate = counts['legitimate']
+    attention = legitimate['alerted'] + legitimate['reviewed']
+    for name, value in (('attention', attention), ('attention_with_undetermined', attention + legitimate['undetermined'])):
+        rate, interval = serving._rate_with_interval(value, legitimate['n'])
+        legitimate.update({name: value, f'{name}_rate': rate, f'{name}_rate_95_ci': interval})
+    return counts
+
+
+def _plan_scoring_sha256() -> str:
+    # Versioned apart from scoring_sha256, which keeps its meaning: the review mark, its
+    # classification and these summaries.
+    payload = [inspect.getsource(_review), inspect.getsource(serving._plan_counts),
+               inspect.getsource(_plan_counts_by_label), inspect.getsource(serving._rate_with_interval),
+               {'labels': sorted(serving.LABELS), 'wilson_95_z': serving.WILSON_95_Z}]
+    return hashlib.sha256(b'public-plan-scoring-v1\0' + _json_bytes(payload)).hexdigest()
+
+
 def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Corpus | None = None,
                     evidence_observer: Callable[[str, str, dict | None], None] | None = None,
                     counterfactual_observer: Callable[[dict, str, str, dict | None], None] | None = None) -> dict:
@@ -93,6 +122,7 @@ def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Co
             'decision': decision,
             'complete': result.get('analysis_complete') is True,
             'ml_available': result.get('ml_status') == 'available',
+            'review': _review(result),
         })
         if evidence_observer is not None:
             evidence_observer(row['label'], decision, evidence)
@@ -116,6 +146,7 @@ def evaluate_corpus(corpus: Corpus, analyze, *, model_sha256: str, reference: Co
         'manifest_sha256': corpus.manifest_sha256, 'records_sha256': corpus.records_sha256,
         'sources': corpus.sources, 'model_artifact_sha256': model_sha256,
         'counts': counts, 'overall': _summary(outcomes), **grouped,
+        'plan_counts': _plan_counts_by_label(outcomes), 'plan_scoring_sha256': _plan_scoring_sha256(),
         'training_independence': 'not_verified', 'temporal_isolation': 'not_verified',
         'overlap_check': {
             'status': 'checked_against_supplied_reference' if reference else 'not_verified',
