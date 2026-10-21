@@ -287,22 +287,24 @@ class ConfirmationTests(unittest.TestCase):
 
 class ReadingTests(unittest.TestCase):
     def counted_reads(self):
-        sizes = []
+        """Bytes read per file, and the largest single read, through the tool's own open()."""
+        read_bytes, largest = {}, [0]
         real_open = builtins.open
 
         def counting_open(path, mode='r', *args, **kwargs):
             stream = real_open(path, mode, *args, **kwargs)
-            read = stream.read
+            read, name = stream.read, Path(path).name
 
             def counted(size=-1):
                 data = read(size)
-                sizes.append(len(data))
+                read_bytes[name] = read_bytes.get(name, 0) + len(data)
+                largest[0] = max(largest[0], len(data))
                 return data
 
             stream.read = counted
             return stream
 
-        return sizes, patch.object(v2, 'open', counting_open, create=True)
+        return read_bytes, largest, patch.object(v2, 'open', counting_open, create=True)
 
     def test_s11_reading_boundaries(self):
         batch = Batch(self)
@@ -314,21 +316,25 @@ class ReadingTests(unittest.TestCase):
         head = 'From: D <d@synthetic-d.com>\r\nX-Pad: '
         at_limit = batch.add(None, raw=(head + 'p' * (v2.HEADER_LIMIT - len(head))).encode() + b'\r\n\r\nbody')
         over = batch.add(None, raw=(head + 'p' * (v2.HEADER_LIMIT + 1 - len(head))).encode() + b'\r\n\r\nbody')
+        far = batch.add(None, raw=(head + 'p' * 400_000).encode() + b'\r\n\r\nbody')  # no blank line within reach
         no_blank = batch.add(None, raw=b'From: E <e@synthetic-e.com>\r\nSubject: Echo memo')
-        sizes, counting = self.counted_reads()
+        read_bytes, largest, counting = self.counted_reads()
         with counting:
             report, private = batch.run()
         counts = report['counts']
-        self.assertEqual((counts['accepted'], counts['accepted_without_blank_line'], counts['header_too_large']), (3, 1, 1))
+        self.assertEqual((counts['accepted'], counts['accepted_without_blank_line'], counts['header_too_large']), (3, 1, 2))
         self.assertEqual(counts['input_files'], counts['valid_records'] + counts['duplicate_copies']
                          + counts['header_too_large'] + counts['no_sender_address'])
         self.assertEqual(counts['conservation_holds'], 1)
         flat = {path for group in private['groups'] for path in group}
         self.assertTrue({normal, spanning, at_limit, no_blank} <= flat)
         self.assertNotIn(over, flat)
-        # The 2 MiB body after the first blank line is never read whole: one 64 KiB block suffices.
-        self.assertLessEqual(max(sizes), v2.BLOCK_SIZE)
-        self.assertLess(sum(sizes), 6 * v2.BLOCK_SIZE + 2 * v2.HEADER_LIMIT)
+        self.assertNotIn(far, flat)
+        # Reading stops at the first blank line, or once none can start within the limit; 64 KiB at a time.
+        self.assertLessEqual(largest[0], v2.BLOCK_SIZE)
+        self.assertEqual(read_bytes[normal], v2.BLOCK_SIZE)  # its 1.2 MB body is never read
+        self.assertLessEqual(read_bytes[far], v2.HEADER_LIMIT + v2.BLOCK_SIZE)
+        self.assertLess(read_bytes[far], (batch.root / far).stat().st_size)
         self.assertEqual(len(group_of(private, normal)), 1)
 
     def test_s11b_copies_follow_the_manifest(self):
