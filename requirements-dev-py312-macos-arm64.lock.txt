@@ -1,5 +1,7 @@
 # Resolved from requirements-dev.txt on 2026-10-10 with uv 0.12.23 (uv pip install
 # --exclude-newer 2026-10-03T00:00:00Z, the cooling-period cutoff in pyproject.toml).
+# 2026-10-20: certifi alone moved to 2026.10.19, the owner's security exception (GHSA-6q48-6c7w-9gw2;
+# docs/deployment.md); installed from the wheel whose SHA-256 matches PyPI's.
 # Verified: CPython 3.12.9, macOS arm64, pip check, backend unittest suite, Vercel runtime smoke.
 # Full installed development package snapshot; excludes pip. The serving packages equal uv.lock.
 # No wheel hashes. Linux, Windows, Python 3.13 and notebook extras unverified.
@@ -7,7 +9,7 @@ annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
 authres==1.2.0
-certifi==2026.7.22
+certifi==2026.10.19
 charset-normalizer==3.5.2
 click==8.5.0
 cloudpickle==3.1.2

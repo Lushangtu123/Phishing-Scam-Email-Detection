@@ -22,6 +22,30 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-20 23:09 PT] — certifi 2026.10.19: a security exception to the cooling period
+
+### Why
+- **The advisory.** GHSA-6q48-6c7w-9gw2 (critical, published 2026-10-20): certifi bundled emSign root CAs whose intermediate CA keys were compromised. The deployment lock held the affected 2026.7.22, reached through tldextract → requests.
+- **The patched versions.** The maintainer's advisory lists 2026.10.18 as patched. GitHub's advisory recommends 2026.10.19, which also restores roots that were not affected.
+- **The cooling period.** 2026.10.19 was uploaded on 2026-10-20 at 02:24 UTC, under the 7 days the project requires. The owner approved an exception for certifi alone on 2026-10-20. Every other package keeps the period, scikit-learn included.
+
+### Files changed
+- `pyproject.toml`: `exclude-newer-package = { certifi = "2026-10-20T03:00:00Z" }`. The global `exclude-newer` stays at 2026-10-03.
+- `uv.lock` (uv 0.12.23, `uv lock --upgrade-package certifi`): certifi 2026.7.22 → 2026.10.19 and the per-package cutoff; nothing else changes.
+- `requirements-dev-py312-macos-arm64.lock.txt`: certifi 2026.10.19, with a note.
+- `docs/deployment.md`: the exception, how it was verified, and what is still open.
+
+### Effect
+- **Verified.**
+  - The lock's sdist and wheel hashes equal PyPI's (`035c1e85…`, `42d35340…`).
+  - `uv lock --check` passes, and `uv pip check` passes on the development environment (40 packages).
+  - The Vercel runtime smoke test passes.
+  - The unit suite, compileall, ruff and the frontend tests pass (see the PR).
+- **Still open.** This replaces only certifi's own trust store. The app's outbound HTTPS uses the standard library's `urllib` and the system trust store. Two things are not verified:
+  - whether Vercel's runtime points `SSL_CERT_FILE` at certifi;
+  - whether the system store trusts the affected roots.
+- **Next round.** Pillow (optional vision service only) waits for the next upgrade round.
+
 ## [2026-10-20 20:29 PT] — Reviews in the public evaluator
 
 ### Why

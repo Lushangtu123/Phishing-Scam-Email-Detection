@@ -74,6 +74,32 @@ change the pins in `requirements.txt` and `pyproject.toml`, move `exclude-newer`
 environment. Render and local installs still use `requirements*.txt`, so their
 transitive versions are not locked.
 
+**The one exception to the cooling period: certifi 2026.10.19 (2026-10-20).**
+
+- **Why.** Advisory GHSA-6q48-6c7w-9gw2 (critical, published 2026-10-20): certifi bundled emSign
+  root CAs whose intermediate CA keys were compromised. The locked 2026.7.22 is affected.
+- **Which version.** The maintainer's advisory lists 2026.10.18 as patched. GitHub's advisory
+  recommends 2026.10.19, which also restores roots that were not affected. 2026.10.19 is used. It
+  was uploaded on 2026-10-20 at 02:24 UTC, under 7 days earlier.
+- **The owner's approval.** On 2026-10-20 the owner approved this exception for certifi alone.
+  - It is set as `exclude-newer-package = { certifi = "2026-10-20T03:00:00Z" }`.
+  - The global `exclude-newer` stays at 2026-10-03, and every other package, scikit-learn included,
+    keeps the cooling period.
+  - Remove the line once the global cutoff passes it.
+- **Verified.**
+  - The lock's sdist and wheel hashes equal PyPI's (`035c1e85…`, `42d35340…`).
+  - The `uv.lock` diff changes only certifi and adds the per-package cutoff.
+  - `uv lock --check` and `uv pip check` pass.
+- **Still open.** This replaces only certifi's own trust store. The app's outbound HTTPS calls
+  (RDAP, sender history, Jev, case sync, local review, the vision service) use the standard
+  library's `urllib`, so they use the system trust store, not certifi. certifi reaches the
+  deployment only through tldextract → requests, and tldextract uses its bundled suffix list
+  offline. Two things are not verified:
+  - whether Vercel's runtime points `SSL_CERT_FILE` at certifi;
+  - whether the system store also trusts the affected emSign roots.
+
+  The system store is outside this change.
+
 The Vercel runtime installs pinned NumPy, SciPy, scikit-learn, joblib, and
 threadpoolctl versions for inference but not pandas. These are the versions
 validated by the current serving smoke test; the committed model predates
