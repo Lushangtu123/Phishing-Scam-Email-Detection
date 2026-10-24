@@ -22,6 +22,31 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-23 23:52 PT] — Rules read compatibility forms and disguising accents as plain words (F1)
+
+### Why
+- **A reported bypass, reproduced locally.** A security review (Codex and DeepSeek) found that one disguised word stopped the request rules. The word was written in fullwidth or mathematical-bold letters (`ｃｏｄｅ`, `𝐜𝐨𝐝𝐞`), with one such letter, or with a combining mark (`c̈ode`). In every case a request to reply with a one-time code fell from High to Low: 5 variants × pasted and `.eml` = 10 of the reviewer's 98 probes. The fix follows pass criteria the owner approved before any measurement (r3, 2026-10-23).
+
+### Files changed
+- `website/content_rules.py`:
+  - new `_rule_match_text`: NFKC, then the existing look-alike fold again. After that, accents are removed from a word only when what is left is exactly one of 40 listed words (`pässword`, `cöde`). `résumé`, `café` and `ещё` keep theirs.
+  - `_text_rule_findings` now matches its keyword categories and its credential, callback, subsidy and sensitive-request rules against that copy.
+  - The returned `analysis_text` and `full_orig`, the model input and the displayed text are unchanged. A callback number found only in the copy is quoted as the message wrote it (new `_original_fragment`).
+- `website/tests/test_sensitive_requests.py`: 5 tests. They cover:
+  - 18 input/output pairs for `_rule_match_text`;
+  - 8 disguised requests and 7 texts that must not be requests;
+  - the returned text staying as written;
+  - one end-to-end High.
+- `docs/evaluation.md`: "Compatibility forms and accents in the rule-matching copy (2026-10-23)".
+
+### Effect
+- **Fixed acceptance run against `main` `19781558`.** Same adapter, same model `a0a503a0…`, network guard with 0 attempts. Inputs: 60,052 analyses (98 probes, 73 synthetic cases, and five frozen public groups of 59,881 records). All approved criteria pass:
+  - **The 10 downgraded probes are High again** with `content.sensitive_request.one_time_code`. No other probe is lower than on `main`; 5 password probes rose from Medium to High.
+  - **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level.
+  - **Model isolation:** every model call (view digest, internal probability, status) and every returned `analysis_text`/`full_orig` digest is identical for all 60,052 analyses.
+- **Planted defects:** removing NFKC, or removing accents from every word, each fails the normalisation pairs and the unit tests.
+- **Checks:** unit tests 1,498 (15 skipped), compileall, ruff, Node 532.
+
 ## [2026-10-21 13:05 PT] — Candidate phishing groups from headers, version 2
 
 ### Why
