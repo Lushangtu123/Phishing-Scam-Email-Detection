@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 from html import escape as escape_html
 from urllib.parse import unquote
 
@@ -224,9 +225,47 @@ def _display_host_aligns(visible: str, target: str) -> bool:
     return _domains_align(visible, target)
 
 
+# Words that present the address after them, alone ("Visit example.com", "Sign in to example.com") or with a
+# separator ("Sign in: example.com", "登录：example.com"). Any other word in between does not count.
+_NAVIGATION_BEFORE_HOST = re.compile(
+    r'(?<!\w)(?:visit|open|go to|log\s*in (?:to|at)|sign\s*in (?:to|at))\s*$'
+    r'|(?:访问|打开|登录|登陆)\s*$'
+    r'|(?<!\w)(?:visit|open|go\s+to|log[\s-]*in|sign[\s-]*in)\s*(?::|->|→|»|\||[-–—])\s*$'
+    r'|(?:访问|打开|登录|登陆)\s*(?::|->|→|»|\||[-–—])\s*$', re.IGNORECASE)
+# A navigation form spans at most four whitespace-separated words ("sign - in :"); the search starts twice
+# that far back, so it finds what a search of the whole text before the address finds.
+_NAVIGATION_WORDS = 8
+
+
+def _link_label_copy(label: str) -> str:
+    """The copy of a link's label that the address rules read: format controls removed, compatibility forms as
+    plain letters ("ｅxample．org"), and look-alike letters inside Latin words read as Latin, as the text rules
+    read them. Pure Cyrillic or Greek words stay as they are."""
+    from content_rules import _fold_mixed_script  # content_rules imports this module
+
+    label = ''.join(character for character in label if unicodedata.category(character) != 'Cf')
+    return _fold_mixed_script(unicodedata.normalize('NFKC', label))
+
+
+def _navigation_before(text: str, end: int) -> bool:
+    """Whether a navigation form ends right before text[end], read from a few words back: a long label takes
+    linear time, not one search of everything before each word."""
+    start = end
+    for _ in range(_NAVIGATION_WORDS):
+        while start > 0 and text[start - 1].isspace():
+            start -= 1
+        while start > 0 and not text[start - 1].isspace():
+            start -= 1
+    return bool(_NAVIGATION_BEFORE_HOST.search(text, start, end))
+
+
 def _visible_link_host(link_text: str) -> str:
-    """Extract an address presented to the reader, not a domain in article prose."""
-    link_text = link_text.strip(" \t\r\n<>()[]{}'\",;.!?")
+    """Extract an address presented to the reader, not a domain in article prose.
+
+    The label is read through _link_label_copy, so "Sign in to ｅxample.org" presents example.org; the host
+    returned is what the label is read as, and the comparison, the tracked-sales check and the message all use it.
+    """
+    link_text = _link_label_copy(link_text).strip(" \t\r\n<>()[]{}'\",;.!?")
     matches = re.finditer(
         r"(?<![\w@./-])(?P<prefix>https?://|www\.)?"
         r"(?P<host>[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -248,10 +287,6 @@ def _visible_link_host(link_text: str) -> str:
         address_label = match.start() == 0 and bool(re.fullmatch(
             r'(?::[0-9]{1,5})?(?:[/?#]\S*)?', link_text[match.end():],
         ))
-        navigation = bool(re.search(
-            r'(?<!\w)(?:visit|open|go to|log\s*in (?:to|at)|sign\s*in (?:to|at))\s*$'
-            r'|(?:访问|打开|登录|登陆)\s*$', link_text[:match.start()], re.IGNORECASE,
-        ))
         # A complete filename such as invoice.pdf labels a document, not its
         # hosting domain. Keep explicit addresses, paths/ports and real public
         # suffixes (including file-like .zip/.mov) eligible for mismatch checks.
@@ -267,7 +302,8 @@ def _visible_link_host(link_text: str) -> str:
         )
         if filename_label:
             continue
-        if (domain or ip) and (match.group('prefix') or address_label or navigation):
+        if (domain or ip) and (match.group('prefix') or address_label
+                               or _navigation_before(link_text, match.start())):
             return host
     return ""
 
