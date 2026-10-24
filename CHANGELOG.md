@@ -35,11 +35,13 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - **Exempting forms:** a negation ("never", "请勿"), an attribution ("if anyone asks you to", "骗子要求你"), or a negated subject ("No one will ask you to", "没有人会要求你").
   - **Allowed in between:** "Do not, under any circumstances, send", "请勿向任何人提供".
   - **Clauses:** they end at `.!?;` and line breaks, and in Chinese also at `。！？；`. Commas do not end a clause, and the whole clause is read.
-  - **`别`:** it counts only at the start of a phrase or after 请、你、您、们、可、也、都、就 or 先.
+  - **`别`:** it counts only at the start of a phrase or after 请、你、您、们、可、也、都、就 or 先. A follow-up review (Codex, 2026-10-24) accepted these nine characters as this round's addition to the approved list.
   - The old `_SENSITIVE_REQUEST_NEGATION` is removed.
-- `website/tests/test_sensitive_requests.py`: 5 tests. They cover:
+- `website/tests/test_sensitive_requests.py`: 6 tests. They cover:
   - 52 paired cases;
   - the `分别` and long-adverb regressions;
+  - each of the nine characters before `别`, `特别`, and `大家别` (still a request, as on `main`);
+  - negations of another action ("Never delay, send your password");
   - the longest forms;
   - four long inputs under 1 second;
   - 3 end-to-end High results.
@@ -52,6 +54,14 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level.
   - **Model isolation:** every model call and every returned text digest is identical.
 - **The frozen inputs do not reach the two regressions.** `997ee55` gives byte-identical per-item results to `1dd65f3`. The regressions are covered by the new unit tests and planted defects instead.
+- **Supplementary cases:** 24 cases, kept outside the frozen set, cover the review's checks:
+  - the nine characters, a bare `别`, and `别` after a comma;
+  - `分别`, `特别` and `大家别`;
+  - 38 and 5,000 allowed adverbs;
+  - the longest forms;
+  - a disallowed word between the negation and the request.
+
+  On `997ee55` all 24 give the expected result. On `main`, 7 do.
 - **Planted defects (6):** each fails the cases named for it:
   - restoring the old rule;
   - an attribution anywhere in the clause;
@@ -60,7 +70,7 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
   - a bare `别`;
   - shorter longest forms.
 - **Speed:** at most 70 ms on adversarial inputs of up to 180,000 characters.
-- **Checks:** unit tests 1,498 (15 skipped), compileall, ruff, Node 532.
+- **Checks:** unit tests 1,499 (15 skipped), compileall, ruff, Node 532.
 
 ## [2026-10-21 13:05 PT] — Candidate phishing groups from headers, version 2
 

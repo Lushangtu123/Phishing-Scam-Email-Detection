@@ -180,14 +180,27 @@ class NegationScopeTests(unittest.TestCase):
 
     def test_bie_negates_on_its_own_not_as_the_end_of_a_word(self):
         # "分别" (separately) once read as "别" (don't) and cleared a request that main flagged.
+        # Only after 请、你、您、们、可、也、都、就 or 先, or with nothing Chinese before it, is 别 a negation
+        # (reviewed 2026-10-24). "大家别…" is still read as a request, as on main.
         for text, kinds in (('请分别回复验证码', ['one_time_code']),
-                            ('请分别把验证码和密码发给我', ['one_time_code', 'password_pin'])):
+                            ('请分别把验证码和密码发给我', ['one_time_code', 'password_pin']),
+                            ('请特别提供验证码给客服。', ['one_time_code']),
+                            ('大家别把验证码发给我。', ['one_time_code'])):
             with self.subTest(text=text):
                 self.assertEqual(content_rules._sensitive_requests(text),
                                  [f'content.sensitive_request.{kind}' for kind in kinds])
-        for text in ('别回复验证码', '请别把验证码告诉别人', '你们别把验证码发给任何人', '他说，别把密码发给他人'):
+        for text in ('别回复验证码', '他说，别把密码发给他人', '请别把验证码告诉别人。', '你别把验证码发给别人。',
+                     '您别把验证码告诉他人。', '你们别把验证码发给任何人。', '可别把验证码告诉别人。', '也别把验证码发给别人。',
+                     '大家都别把验证码告诉别人。', '就别把验证码发给他了。', '先别把验证码发给对方。'):
             with self.subTest(text=text):
                 self.assertEqual(content_rules._sensitive_requests(text), [])
+
+    def test_a_negation_of_another_action_does_not_exempt_the_request(self):
+        for text, kind in (('Never delay, send your password to our agent.', 'password_pin'),
+                           ('Do not wait — reply with your verification code now.', 'one_time_code'),
+                           ('请勿拖延回复验证码。', 'one_time_code')):
+            with self.subTest(text=text):
+                self.assertEqual(content_rules._sensitive_requests(text), [f'content.sensitive_request.{kind}'])
 
     def test_the_whole_clause_is_read_however_long_the_allowed_words_run(self):
         # Allowed adverbs and set phrases may repeat: a fixed look-back window once cut the negation off.

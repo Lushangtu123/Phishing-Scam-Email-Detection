@@ -293,7 +293,7 @@ or real-mail release acceptance.
 
 The forms and words were fixed in a file and approved by the owner before measuring. A review of the first commit then found two regressions; the fixes are additions to the approved list:
 
-- **`别`:** it also matched the end of `分别` (separately), so `请分别回复验证码` lost the rule `main` applies. `别` now counts only at the start of a phrase or after 请、你、您、们、可、也、都、就 or 先.
+- **`别`:** it also matched the end of `分别` (separately), so `请分别回复验证码` lost the rule `main` applies. `别` now counts only at the start of a phrase or after 请、你、您、们、可、也、都、就 or 先. A second review accepted these nine characters as this round's addition.
 - **The look-back:** a 300-character window cut the negation off when allowed adverbs ran longer ("Never directly … directly send your password").
   - The clause is now read whole. A backward walk skips any number of allowed adverbs, phrases and fillers, then the longest form (12 words, 9 characters).
   - Time stays linear: at most 70 ms on inputs of up to 180,000 characters.
@@ -321,7 +321,14 @@ G4 and G5 are training data. Here they only show side effects.
 
   Every case has a control.
 - **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level. Model isolation is identical for all 60,052 analyses.
-- **What the frozen inputs miss:** they do not reach the two regressions. `997ee55` gives byte-identical per-item results to the first commit, so the regressions are shown by unit tests and planted defects.
+- **What the frozen inputs miss:** they do not reach the two regressions. `997ee55` gives byte-identical per-item results to the first commit, so the regressions are shown by unit tests, planted defects and 24 supplementary cases.
+  - **Supplementary cases, kept outside the frozen set:**
+    - each of the nine characters before `别`, a bare `别`, and `别` after a comma;
+    - `分别`, `特别` and `大家别`;
+    - 38 and 5,000 allowed adverbs;
+    - the longest forms;
+    - a disallowed word between the negation and the request.
+  - **Results:** on `997ee55` all 24 give the expected result. On `main`, 7 do: `main` has no bare `别` negation, and it exempts negations of another action.
 - **Planted defects:** six, each failing the cases named for it:
   - restoring the old rule;
   - an attribution anywhere in the clause;
