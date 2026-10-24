@@ -3,6 +3,7 @@ inside Latin words do not hide it, and a separator may follow the navigation wor
 Criteria fixed before the change: security-audit F3 pass criteria, approved 2026-10-24."""
 import asyncio
 import json
+import random
 import re
 import subprocess
 import sys
@@ -85,21 +86,40 @@ class LabelHostTests(unittest.TestCase):
         self.assertEqual(link_analysis._link_label_copy('Sign in to ｅxa​mple.org'), 'Sign in to example.org')
         self.assertEqual(link_analysis._link_label_copy('пример.рф'), 'пример.рф')
 
-    def test_the_short_search_finds_what_the_whole_search_finds(self):
+    def test_forms_of_any_length_are_read(self):
+        # A fixed look-back of eight words once cut "Sign" off these (review of 24c8fd5).
+        for label in ('Sign' + ' -' * 8 + ' in: example.org', 'Log' + ' -' * 8 + ' in: example.org',
+                      'Sign' + ' -' * 20 + ' in: example.org', 'Sign in:' + ' ' * 300 + 'example.org'):
+            with self.subTest(label=label[:30]):
+                self.assertEqual(link_analysis._visible_link_host(label), 'example.org')
+        self.assertEqual(link_analysis._visible_link_host('x' + ' -' * 8 + ' in: example.org'), '')
+
+    def test_the_backwards_reading_finds_what_the_forward_search_finds(self):
+        # Every end position of fixed and seeded random texts: the reversed forms against the approved forms
+        # searched over all of text[:end].
         texts = ['Sign in to example.org', 'Sign in:' + ' ' * 300 + 'example.org', 'sign  -  in  :  example.org',
+                 'Sign' + ' -' * 20 + ' in: x', 'Log' + ' -' * 9 + ' in: x', 'xsign in: y', 'Sign in - - x',
                  'Please log in to example.org now, or go to: other.org', '请登录：example.org 或 访问 other.org',
-                 'one two three four five six seven eight nine sign in: x.org', 'log in to\nexample.org',
-                 'Visit -> a.org | open » b.org — sign-in – c.org']
+                 'log in to\nexample.org', 'Visit -> a.org | open » b.org — sign-in – c.org', 'a.org:' * 20]
+        pieces = ['sign', 'Sign', 'SIGN', 'log', 'Log', 'in', 'In', 'to', 'at', 'go', 'visit', 'Visit', 'open', 'opened',
+                  'signed', 'login', 'signin', 'x', 'a.org', 'example.org', 'word', '_', '1', ' ', ' ', '  ', '\t', '\n',
+                  '-', '-', '–', '—', ':', '->', '>', '→', '»', '|', '访问', '打开', '登录', '登陆', '请', '已', '：', 'é']
+        generator = random.Random(20261024)
+        texts += [''.join(generator.choice(pieces) for _ in range(generator.randint(1, 12))) for _ in range(2000)]
         for text in texts:
+            backwards = text[::-1]
             for end in range(len(text) + 1):
-                with self.subTest(text=text[:30], end=end):
-                    self.assertEqual(link_analysis._navigation_before(text, end),
-                                     bool(link_analysis._NAVIGATION_BEFORE_HOST.search(text[:end])))
+                if link_analysis._navigation_before(backwards, end) != bool(
+                        link_analysis._NAVIGATION_BEFORE_HOST.search(text[:end])):
+                    self.fail(f'differs at {end} in {text!r}')
 
     def test_long_labels_take_linear_time(self):
-        # On main, 50,000 characters of words or dotted names took 9 to 15 seconds.
+        # On main, 50,000 characters of words or dotted names took 9 to 15 seconds; at 24c8fd5, names with no
+        # space between them ("a.org:a.org:…") still took over 4 seconds.
         for label in ('a.b ' * 12500, 'word ' * 10000, '1.2.3 ' * 8300, 'x.pdf ' * 8300, 'sign in: ' * 5555,
-                      'Sign in to' + ' ' * 49980 + 'example.org'):
+                      'Sign in to' + ' ' * 49980 + 'example.org', 'a.org:' * 8333 + 'zz', 'a.b.' * 12500,
+                      'in:a.org' * 6250, 'Sign' + ' -' * 24990 + ' in: example.org',
+                      ('x' + ' -' * 50 + ' in: a.org ') * 450, ('x' + ' -' * 500 + ' in: a.org ') * 49):
             with self.subTest(label=label[:12]):
                 start = time.perf_counter()
                 link_analysis._visible_link_host(label)

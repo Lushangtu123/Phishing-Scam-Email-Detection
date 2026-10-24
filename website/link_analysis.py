@@ -232,9 +232,15 @@ _NAVIGATION_BEFORE_HOST = re.compile(
     r'|(?:访问|打开|登录|登陆)\s*$'
     r'|(?<!\w)(?:visit|open|go\s+to|log[\s-]*in|sign[\s-]*in)\s*(?::|->|→|»|\||[-–—])\s*$'
     r'|(?:访问|打开|登录|登陆)\s*(?::|->|→|»|\||[-–—])\s*$', re.IGNORECASE)
-# A navigation form spans at most four whitespace-separated words ("sign - in :"); the search starts twice
-# that far back, so it finds what a search of the whole text before the address finds.
-_NAVIGATION_WORDS = 8
+# The same forms written backwards, matched on the reversed label from the address back. A form can be any
+# length ("sign - - … - in:"), so no fixed look-back holds it; read backwards, each check reads only what could
+# belong to a form ending at that address, and a long label takes linear time. Tests check that both find the
+# same forms.
+_NAVIGATION_BEFORE_HOST_REVERSED = re.compile(
+    r'\s*(?:tisiv|nepo|ot og|(?:ot|ta) ni\s*gol|(?:ot|ta) ni\s*ngis)(?!\w)'
+    r'|\s*(?:问访|开打|录登|陆登)'
+    r'|\s*(?::|>-|→|»|\||[-–—])\s*(?:tisiv|nepo|ot\s+og|ni[\s-]*gol|ni[\s-]*ngis)(?!\w)'
+    r'|\s*(?::|>-|→|»|\||[-–—])\s*(?:问访|开打|录登|陆登)', re.IGNORECASE)
 
 
 def _link_label_copy(label: str) -> str:
@@ -247,16 +253,10 @@ def _link_label_copy(label: str) -> str:
     return _fold_mixed_script(unicodedata.normalize('NFKC', label))
 
 
-def _navigation_before(text: str, end: int) -> bool:
-    """Whether a navigation form ends right before text[end], read from a few words back: a long label takes
-    linear time, not one search of everything before each word."""
-    start = end
-    for _ in range(_NAVIGATION_WORDS):
-        while start > 0 and text[start - 1].isspace():
-            start -= 1
-        while start > 0 and not text[start - 1].isspace():
-            start -= 1
-    return bool(_NAVIGATION_BEFORE_HOST.search(text, start, end))
+def _navigation_before(reversed_text: str, end: int) -> bool:
+    """Whether a navigation form ends right before position end of the text that reversed_text reverses:
+    what _NAVIGATION_BEFORE_HOST.search(text[:end]) finds, read backwards from end."""
+    return bool(_NAVIGATION_BEFORE_HOST_REVERSED.match(reversed_text, len(reversed_text) - end))
 
 
 def _visible_link_host(link_text: str) -> str:
@@ -266,6 +266,7 @@ def _visible_link_host(link_text: str) -> str:
     returned is what the label is read as, and the comparison, the tracked-sales check and the message all use it.
     """
     link_text = _link_label_copy(link_text).strip(" \t\r\n<>()[]{}'\",;.!?")
+    reversed_text = None
     matches = re.finditer(
         r"(?<![\w@./-])(?P<prefix>https?://|www\.)?"
         r"(?P<host>[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -302,8 +303,13 @@ def _visible_link_host(link_text: str) -> str:
         )
         if filename_label:
             continue
-        if (domain or ip) and (match.group('prefix') or address_label
-                               or _navigation_before(link_text, match.start())):
+        if not (domain or ip):
+            continue
+        if match.group('prefix') or address_label:
+            return host
+        if reversed_text is None:
+            reversed_text = link_text[::-1]
+        if _navigation_before(reversed_text, match.start()):
             return host
     return ""
 
