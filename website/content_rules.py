@@ -6,6 +6,7 @@ combines their findings with the structure, sender, links and model. Needs nothi
 from __future__ import annotations
 
 import base64
+from bisect import bisect_right
 import domain_age
 import re
 import unicodedata
@@ -744,15 +745,24 @@ _SENSITIVE_REQUEST_EXEMPT_EN = re.compile(
     r"|\s*,\s*(?:under\s+any\s+circumstances|even\s+if\s+(?:asked|someone\s+asks|anyone\s+asks|they\s+ask)|for\s+any\s+reason"
     r"|for\s+your\s+(?:safety|security)|ever)\s*,\s*"
     r"|\s*[—–-]{1,2}\s*(?:under\s+any\s+circumstances|even\s+if\s+(?:asked|someone\s+asks|anyone\s+asks|they\s+ask)"
-    r"|for\s+any\s+reason|for\s+your\s+(?:safety|security))\s*[—–-]{1,2}\s*)*\s*$", re.IGNORECASE)
+    r"|for\s+any\s+reason|for\s+your\s+(?:safety|security))\s*[—–-]{1,2}\s*)*\s*\Z", re.IGNORECASE)
+# "别" negates on its own ("别回复", "请别", "你们别"), not as the end of a word such as "分别" or "特别".
 _SENSITIVE_REQUEST_EXEMPT_ZH = re.compile(
-    r"(?:千万不要|绝对不要|请不要|千万别|不要|切勿|请勿|绝不|不得|严禁|勿|别"
+    r"(?:千万不要|绝对不要|请不要|千万别|不要|切勿|请勿|绝不|不得|严禁|勿|(?:(?<![\u3400-\u9fff\uf900-\ufaff])|(?<=[请你您们可也都就先]))别"
     r"|(?:如果有人|若有人|有人|任何人|凡是|骗子|诈骗分子)(?:要求|让|叫|请|要)(?:你|您)?"
     r"|(?:不会|绝不会|从不|从来不会)(?:要求|让|请)(?:你|您)"
     r"|(?:没有人|没人|任何人都不)会?(?:要求|让|请)(?:你|您))"
-    r"(?:\s*(?:随意|轻易|向任何人|对任何人|给任何人|再))*\s*$")
-# How far back a clause is read: more than any exempting form and what may follow it.
-_SENSITIVE_REQUEST_LOOKBACK = 300
+    r"(?:\s*(?:随意|轻易|向任何人|对任何人|给任何人|再))*\s*\Z")
+_SENSITIVE_REQUEST_CLAUSE_END_EN = re.compile(r"[.!?;\n]")
+_SENSITIVE_REQUEST_CLAUSE_END_ZH = re.compile(r"[。！？；.!?;\n]")
+# The words of the adverbs and set phrases allowed between an exempting form and the request, any
+# number of them, and the longest forms: 12 English words ("none of our agents is ever going to
+# ever ask you to"), 9 Chinese characters ("任何人都不会要求您").
+_SENSITIVE_REQUEST_TAIL_WORDS_EN = frozenset({
+    'ever', 'directly', 'please', 'kindly', 'again', 'under', 'any', 'circumstances', 'even', 'if', 'asked',
+    'someone', 'asks', 'anyone', 'they', 'ask', 'for', 'reason', 'your', 'safety', 'security'})
+_SENSITIVE_REQUEST_TAIL_FILLERS_ZH = ('向任何人', '对任何人', '给任何人', '随意', '轻易', '再')
+_SENSITIVE_REQUEST_FORM_WORDS_EN, _SENSITIVE_REQUEST_FORM_CHARS_ZH = 12, 9
 _SENSITIVE_REQUEST_CODES = {
     'one_time_code': 'content.sensitive_request.one_time_code',
     'password_pin': 'content.sensitive_request.password_pin',
@@ -1323,6 +1333,44 @@ def _advertising_terms(text: str) -> list[str]:
     return found
 
 
+def _exempt_form_start_en(text: str, clause_start: int, end: int) -> int:
+    """Where an exempting form before end can begin: back over any number of the allowed adverbs
+    and set phrases, then over as many words as the longest form has. The clause is read whole,
+    in time linear in what is read."""
+    index = end
+    while index > clause_start:
+        if text[index - 1].isspace() or text[index - 1] in ',—–-':
+            index -= 1
+            continue
+        start = index
+        while start > clause_start and text[start - 1].isalpha():
+            start -= 1
+        if start == index or text[start:index].lower() not in _SENSITIVE_REQUEST_TAIL_WORDS_EN:
+            break
+        index = start
+    for _ in range(_SENSITIVE_REQUEST_FORM_WORDS_EN):
+        while index > clause_start and text[index - 1].isspace():
+            index -= 1
+        while index > clause_start and not text[index - 1].isspace():
+            index -= 1
+    return index
+
+
+def _exempt_form_start_zh(text: str, clause_start: int, end: int) -> int:
+    """As _exempt_form_start_en, for the Chinese fillers and forms."""
+    index = end
+    while index > clause_start:
+        if text[index - 1].isspace():
+            index -= 1
+            continue
+        filler = next((filler for filler in _SENSITIVE_REQUEST_TAIL_FILLERS_ZH
+                       if index - len(filler) >= clause_start and text.startswith(filler, index - len(filler))), None)
+        if filler is None:
+            break
+        index -= len(filler)
+    return max(clause_start, index - _SENSITIVE_REQUEST_FORM_CHARS_ZH)
+
+
 def _sensitive_requests(text: str) -> list[str]:
     """Message codes for requests to hand over codes, secrets, gift cards, crypto or remote access.
 
@@ -1330,15 +1378,19 @@ def _sensitive_requests(text: str) -> list[str]:
     it to someone else ("never share this code", "if anyone asks you to send…", "请勿告知他人").
     """
     found: list[str] = []
-    for patterns, clause_end, exempt in ((_SENSITIVE_REQUEST_EN, r"[.!?;\n]", _SENSITIVE_REQUEST_EXEMPT_EN),
-                                         (_SENSITIVE_REQUEST_ZH, r"[。！？；.!?;\n]", _SENSITIVE_REQUEST_EXEMPT_ZH)):
+    for patterns, clause_end, exempt, form_start in (
+            (_SENSITIVE_REQUEST_EN, _SENSITIVE_REQUEST_CLAUSE_END_EN, _SENSITIVE_REQUEST_EXEMPT_EN, _exempt_form_start_en),
+            (_SENSITIVE_REQUEST_ZH, _SENSITIVE_REQUEST_CLAUSE_END_ZH, _SENSITIVE_REQUEST_EXEMPT_ZH, _exempt_form_start_zh)):
+        clause_starts = None
         for kind, pattern in patterns.items():
             code = _SENSITIVE_REQUEST_CODES[kind]
             if code in found:
                 continue
             for match in pattern.finditer(text):
-                before = text[max(0, match.start() - _SENSITIVE_REQUEST_LOOKBACK):match.start()]
-                if not exempt.search(re.split(clause_end, before)[-1]):
+                if clause_starts is None:
+                    clause_starts = [0] + [boundary.end() for boundary in clause_end.finditer(text)]
+                clause_start = clause_starts[bisect_right(clause_starts, match.start()) - 1]
+                if not exempt.search(text, form_start(text, clause_start, match.start()), match.start()):
                     found.append(code)
                     break
     return found

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -176,6 +177,40 @@ class NegationScopeTests(unittest.TestCase):
                     self.assertEqual(found, [])
                 else:
                     self.assertIn(f'content.sensitive_request.{kind}', found)
+
+    def test_bie_negates_on_its_own_not_as_the_end_of_a_word(self):
+        # "分别" (separately) once read as "别" (don't) and cleared a request that main flagged.
+        for text, kinds in (('请分别回复验证码', ['one_time_code']),
+                            ('请分别把验证码和密码发给我', ['one_time_code', 'password_pin'])):
+            with self.subTest(text=text):
+                self.assertEqual(content_rules._sensitive_requests(text),
+                                 [f'content.sensitive_request.{kind}' for kind in kinds])
+        for text in ('别回复验证码', '请别把验证码告诉别人', '你们别把验证码发给任何人', '他说，别把密码发给他人'):
+            with self.subTest(text=text):
+                self.assertEqual(content_rules._sensitive_requests(text), [])
+
+    def test_the_whole_clause_is_read_however_long_the_allowed_words_run(self):
+        # Allowed adverbs and set phrases may repeat: a fixed look-back window once cut the negation off.
+        for count in (38, 5000):
+            with self.subTest(count=count):
+                self.assertEqual(content_rules._sensitive_requests(
+                    'Never' + ' directly' * count + ' send your password.'), [])
+                self.assertEqual(content_rules._sensitive_requests(
+                    'Never' + ' directly' * count + ' now send your password.'),
+                    ['content.sensitive_request.password_pin'])
+        for text in ('Never,   for your   safety ,' + ' ' * 400 + 'reply with your one-time passcode.',
+                     'None of our agents is ever going to ever ask you to send your password.',
+                     '任何人都不会要求您提供验证码。', '请勿' + '随意' * 500 + '提供验证码。'):
+            with self.subTest(text=text[:40]):
+                self.assertEqual(content_rules._sensitive_requests(text), [])
+
+    def test_many_requests_in_one_long_clause_take_linear_time(self):
+        for text in ('never share your verification code, ' * 3000, 'Never' + ' directly' * 20000 + ' send your password',
+                     '请勿向任何人提供验证码，' * 4000, 'x' * 50000 + ' share your verification code'):
+            with self.subTest(length=len(text)):
+                start = time.perf_counter()
+                content_rules._sensitive_requests(text)
+                self.assertLess(time.perf_counter() - start, 1.0)
 
     def test_an_unrelated_negation_no_longer_lowers_a_code_request(self):
         rest = 'Please reply with the one-time verification code from the sign-in message so I can finish the setup.'
