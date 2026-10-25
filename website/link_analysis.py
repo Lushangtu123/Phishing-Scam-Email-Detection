@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import unicodedata
 from html import escape as escape_html
 from urllib.parse import unquote
 
@@ -224,9 +225,48 @@ def _display_host_aligns(visible: str, target: str) -> bool:
     return _domains_align(visible, target)
 
 
+# Words that present the address after them, alone ("Visit example.com", "Sign in to example.com") or with a
+# separator ("Sign in: example.com", "登录：example.com"). Any other word in between does not count.
+_NAVIGATION_BEFORE_HOST = re.compile(
+    r'(?<!\w)(?:visit|open|go to|log\s*in (?:to|at)|sign\s*in (?:to|at))\s*$'
+    r'|(?:访问|打开|登录|登陆)\s*$'
+    r'|(?<!\w)(?:visit|open|go\s+to|log[\s-]*in|sign[\s-]*in)\s*(?::|->|→|»|\||[-–—])\s*$'
+    r'|(?:访问|打开|登录|登陆)\s*(?::|->|→|»|\||[-–—])\s*$', re.IGNORECASE)
+# The same forms written backwards, matched on the reversed label from the address back. A form can be any
+# length ("sign - - … - in:"), so no fixed look-back holds it; read backwards, each check reads only what could
+# belong to a form ending at that address, and a long label takes linear time. Tests check that both find the
+# same forms.
+_NAVIGATION_BEFORE_HOST_REVERSED = re.compile(
+    r'\s*(?:tisiv|nepo|ot og|(?:ot|ta) ni\s*gol|(?:ot|ta) ni\s*ngis)(?!\w)'
+    r'|\s*(?:问访|开打|录登|陆登)'
+    r'|\s*(?::|>-|→|»|\||[-–—])\s*(?:tisiv|nepo|ot\s+og|ni[\s-]*gol|ni[\s-]*ngis)(?!\w)'
+    r'|\s*(?::|>-|→|»|\||[-–—])\s*(?:问访|开打|录登|陆登)', re.IGNORECASE)
+
+
+def _link_label_copy(label: str) -> str:
+    """The copy of a link's label that the address rules read: format controls removed, compatibility forms as
+    plain letters ("ｅxample．org"), and look-alike letters inside Latin words read as Latin, as the text rules
+    read them. Pure Cyrillic or Greek words stay as they are."""
+    from content_rules import _fold_mixed_script  # content_rules imports this module
+
+    label = ''.join(character for character in label if unicodedata.category(character) != 'Cf')
+    return _fold_mixed_script(unicodedata.normalize('NFKC', label))
+
+
+def _navigation_before(reversed_text: str, end: int) -> bool:
+    """Whether a navigation form ends right before position end of the text that reversed_text reverses:
+    what _NAVIGATION_BEFORE_HOST.search(text[:end]) finds, read backwards from end."""
+    return bool(_NAVIGATION_BEFORE_HOST_REVERSED.match(reversed_text, len(reversed_text) - end))
+
+
 def _visible_link_host(link_text: str) -> str:
-    """Extract an address presented to the reader, not a domain in article prose."""
-    link_text = link_text.strip(" \t\r\n<>()[]{}'\",;.!?")
+    """Extract an address presented to the reader, not a domain in article prose.
+
+    The label is read through _link_label_copy, so "Sign in to ｅxample.org" presents example.org; the host
+    returned is what the label is read as, and the comparison, the tracked-sales check and the message all use it.
+    """
+    link_text = _link_label_copy(link_text).strip(" \t\r\n<>()[]{}'\",;.!?")
+    reversed_text = None
     matches = re.finditer(
         r"(?<![\w@./-])(?P<prefix>https?://|www\.)?"
         r"(?P<host>[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
@@ -248,10 +288,6 @@ def _visible_link_host(link_text: str) -> str:
         address_label = match.start() == 0 and bool(re.fullmatch(
             r'(?::[0-9]{1,5})?(?:[/?#]\S*)?', link_text[match.end():],
         ))
-        navigation = bool(re.search(
-            r'(?<!\w)(?:visit|open|go to|log\s*in (?:to|at)|sign\s*in (?:to|at))\s*$'
-            r'|(?:访问|打开|登录|登陆)\s*$', link_text[:match.start()], re.IGNORECASE,
-        ))
         # A complete filename such as invoice.pdf labels a document, not its
         # hosting domain. Keep explicit addresses, paths/ports and real public
         # suffixes (including file-like .zip/.mov) eligible for mismatch checks.
@@ -267,7 +303,13 @@ def _visible_link_host(link_text: str) -> str:
         )
         if filename_label:
             continue
-        if (domain or ip) and (match.group('prefix') or address_label or navigation):
+        if not (domain or ip):
+            continue
+        if match.group('prefix') or address_label:
+            return host
+        if reversed_text is None:
+            reversed_text = link_text[::-1]
+        if _navigation_before(reversed_text, match.start()):
             return host
     return ""
 

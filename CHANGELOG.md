@@ -22,6 +22,45 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-24 20:50 PT] — A link's label is read as the address it presents (F3)
+
+### Why
+- **A reported bypass, reproduced locally.** A security review (Codex and DeepSeek) found that a link opening `portal.example.net` but labelled `Sign in to example.org` was flagged High. The same link labelled `Sign in: example.org`, `Sign in to ｅxample.org` (fullwidth e) or `Sign in to 𝗲xample.org` (mathematical e) was not: pasted Safe, `.eml` Low, in 6 of the reviewer's 98 probe runs. The fix follows pass criteria the owner approved before any measurement (F3 r2, 2026-10-24).
+- **A follow-up review of the first commit (`24c8fd5`) found two problems**, fixed in `5fa3ba0`:
+  - an eight-word look-back cut off long forms such as `Sign - - - - - - - - in: example.org`;
+  - a 50,000-character label with no spaces still took over 4 seconds.
+
+### Files changed
+- `website/link_analysis.py`:
+  - **Label copy:** `_visible_link_host` reads the label through the new `_link_label_copy`. It removes format controls, applies NFKC, and reads look-alike letters inside Latin words as Latin, as the text rules do. The label itself is unchanged.
+  - **Navigation forms:** `_NAVIGATION_BEFORE_HOST` (the approved forms) adds a separator after the navigation words (`Sign in: `, `Login - `, `登录：`). Any other word in between still does not count.
+  - **Backwards matching:** `_NAVIGATION_BEFORE_HOST_REVERSED` holds the same forms written backwards. It is matched from each address back, so forms of any length are read and a label takes linear time.
+  - **Displayed host:** the comparison, the tracked-sales check and the message all use the host the label is read as.
+- `website/tests/test_link_label_host.py` (new, 10 tests). They cover:
+  - 44 label → host pairs;
+  - reading backwards against the approved forward search, at every position of 2,000 seeded random texts;
+  - forms of any length;
+  - 12 long labels under 1 second;
+  - both import orders;
+  - the reported forms end to end;
+  - two multi-link orders;
+  - three disguised brands behind a tracker, which stay `phishing` (the marketing control stays `advertising`);
+  - mentions and filenames.
+- `docs/evaluation.md`: "Link labels read as the address they present (2026-10-24)".
+
+### Effect
+- **Fixed acceptance run against `main` `19781558`.** Measured commit `5fa3ba0`, same adapter and model `a0a503a0…`, network guard with 0 attempts. Inputs: 61,578 analyses (98 probes, 55 synthetic cases, G1–G5 as for F1/F2, and two new `.eml` groups: G6, 1,297 phishing_pot messages; G7, 247 hard_ham messages). F3-1 to F3-8 all pass:
+  - **The 6 downgraded probes are High again** with `link.display_mismatch`. No other probe is lower.
+  - **Synthetic cases:** all 55 meet their assertions. These include the exact mail type and finding parameters, and the label behind each finding.
+  - **Public groups:** 0 of 61,425 records changed level, rule codes, floor, indicators or mail type. Legitimate groups: 0 new alerts.
+  - **Model isolation:** model calls and returned text are identical.
+- **`24c8fd5` passed the same frozen criteria but was not accepted.** Its per-item results equal `5fa3ba0`'s byte for byte, so the frozen inputs do not reach the two problems. The evidence for their fix is:
+  - **Equivalence:** the forward and backward matches agree at every position.
+  - **Planted defects:** 11 code defects, each caught by its named test, including the eight-word look-back and a forward search per address.
+  - **An independent check:** 229,067 positions, 0 differences.
+- **Speed:** a 50,000-character label took 9 to 15 seconds on `main` (words, dotted names, filenames). The no-space label took over 4 seconds at `24c8fd5`. Every shape tested now takes under 0.04 seconds.
+- **Checks:** unit tests 1,503 (15 skipped), compileall, ruff, Node 532.
+
 ## [2026-10-24 00:18 PT] — A negation exempts a sensitive request only when it governs it (F2)
 
 ### Why
