@@ -92,7 +92,8 @@ one is added later.
   of "30") and a scroll reveal once moved a button between mousedown and mouseup.
 - While capturing: `animations: 'disabled'` (finite animations and transitions,
   such as the score ring, jump to their end; infinite ones reset), `caret:
-  'hide'`, and `screenshot.css` hides the three decorative background blobs.
+  'hide'`, and `screenshot.css` hides the decorative background: the three blobs and the WebGL
+  mesh gradient drawn over them (`bg-shader.mjs`, which only mounts with a GPU).
   Result screenshots also hide the sticky navbar (`visibility`, so the layout is
   kept), which would otherwise be drawn over the top of a tall element.
 - The spec waits for `networkidle`, the Chinese dictionary (`data-i18n-pending`

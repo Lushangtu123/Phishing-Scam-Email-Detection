@@ -13,11 +13,13 @@ phishing positive control and an uncertain-rendering control.
 A lint job runs pinned `ruff` with `ruff.toml`, which enables only syntax
 errors and pyflakes defects (undefined names, unused imports and variables);
 style rules and exploratory notebooks are out of scope.
-Versioned static URLs (`/static/app.js?v=46`) are cached by browsers for a day,
-so a changed file needs a new `?v=`. `website/tools/asset-versions/manifest.json`
+Versioned static URLs (`/static/app.js?v=46`) are cached by browsers for a year
+(`immutable`), so a changed file needs a new `?v=`. `website/tools/asset-versions/manifest.json`
 pins each versioned file's version and SHA-256, and
 `website/static/asset-versions.test.mjs` fails when a file changes without a
-bump. After editing such a file, run
+bump. A versioned module's pin also lists the SHA-256 of every file it imports by
+relative URL (`vision-worker.mjs` → `vision-core.mjs`, the vendored Paper Shaders files), so
+changing an imported file needs a new `?v=` on the module that imports it. After editing such a file, run
 `node website/tools/asset-versions/update.mjs`: it bumps the integer `?v=`
 everywhere the file is referenced (repeating when a bump changes another
 versioned file, such as `vision.js` referencing `vision-worker.mjs`) and

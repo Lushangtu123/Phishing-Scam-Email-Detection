@@ -2156,7 +2156,7 @@ test('forced-colours mode keeps dots, rings, badges and level labels distinguish
     return css.slice(start, css.indexOf('\n}\n', start));
   };
   const home = block(appSource('style.css'), 'style.css');
-  assert.match(home, /\.bg-fluid, \.orb, \.orb-ring \{ display: none; \}/);
+  assert.match(home, /\.bg-fluid, \.bg-shader, \.orb, \.orb-ring \{ display: none; \}/);
   assert.match(home, /\.risk-item \.risk-dot[^{]*\{ forced-color-adjust: none; background: CanvasText;/);
   assert.match(home, /\.ring-track \{ stroke: CanvasText; \}/);
   assert.match(home, /\.ring-fg \{ stroke: Highlight !important; \}/);

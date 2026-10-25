@@ -2,6 +2,7 @@
    Animations and transitions are already stopped by `animations: 'disabled'`
    and the caret by `caret: 'hide'`. */
 
-/* The three decorative background blobs are large blurred, blended gradients
-   drifting behind the page; they carry no layout and dominate a pixel diff. */
-.bg-fluid { display: none !important; }
+/* The decorative background carries no layout and would dominate a pixel diff: the three
+   blurred, blended blobs drifting behind the page, and the WebGL mesh gradient that
+   bg-shader.mjs draws over them where WebGL2 works (GPU- and driver-dependent pixels). */
+.bg-fluid, .bg-shader { display: none !important; }

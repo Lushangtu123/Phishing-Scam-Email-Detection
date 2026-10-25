@@ -51,6 +51,10 @@
     "version": "56",
     "sha256": "b645dce8ca3b01829706ac6c673bd3d57872e4668aa412a6de609cde7dcaebb1"
   },
+  "bg-shader.mjs": {
+    "version": "1",
+    "sha256": "249e0235487253c14259ae67be779e8db2f4604567fd3b59de49df62c7b9da4c"
+  },
   "cases-theme.js": {
     "version": "1",
     "sha256": "0063880df85f7931e32af1d00b4b2ead6751cf722ebad6f162586a0076e89950"
@@ -96,8 +100,8 @@
     "sha256": "75de1dd9c937a1b0d3c75d8bb2ef2c09f0063ec9271564234a0bd5deac55d415"
   },
   "style.css": {
-    "version": "72",
-    "sha256": "a050d78dc25e417ed298cb5fc300e40cffdce74d653dcadb8d50231011ad554f"
+    "version": "73",
+    "sha256": "2ccea1c58677350106ee86f3c88f1a0912c491b8b772fb6ee1fd8ac399843b15"
   },
   "theme-init.js": {
     "version": "1",
@@ -107,9 +111,44 @@
     "version": "4.4.0",
     "sha256": "0e2326c6868072bec1592760c6729043caeea2960a2b46cee6a2192aac6abff0"
   },
+  "vendor/paper-shaders/0.0.81/shader-mount.js": {
+    "version": "1",
+    "sha256": "748659a8144a253b34d94e21ed2c5e3a6539fdcd33a5bd7786b9cd10929db8ef",
+    "imports": {
+      "vendor/paper-shaders/0.0.81/vertex-shader.js": "cd9856f2e071e0c18794dd9c5a1663c11d72cbc68b0403b555d190f412b3e8db"
+    }
+  },
+  "vendor/paper-shaders/0.0.81/shaders/mesh-gradient.js": {
+    "version": "1",
+    "sha256": "aad38aed891d48c9a7f1fd0da8935492f44b657db37a66b4fdf111996c746424",
+    "imports": {
+      "vendor/paper-shaders/0.0.81/shader-sizing.js": "db0eb176c9a66c03653770a542adcf4cf8efc07b0929d9e257f49c05d82013fe",
+      "vendor/paper-shaders/0.0.81/shader-utils.js": "26ba187ff4b02715bd98d8ff409c508efcc3881a1f45ceeb08d00b71b145eb2e"
+    }
+  },
   "vision-worker.mjs": {
     "version": "10",
-    "sha256": "144f1780bec74ce698ef643736c49eee23dbd6f0b44cccec576ab1892a673a2a"
+    "sha256": "144f1780bec74ce698ef643736c49eee23dbd6f0b44cccec576ab1892a673a2a",
+    "imports": {
+      "vendor/vision/css-parser.mjs": "f280d564e3d1989ceae2b3a3f44547178ebd700b9232913b8b4ad95a083d9105",
+      "vendor/vision/html-parser.mjs": "079e08eac5d919b1291ff7c0f84bf70f91acce9e297b8966281abc87c9f3841e",
+      "vendor/vision/jsQR.js": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859",
+      "vendor/vision/postal-mime/address-parser.js": "893f32e8d45a9c571a403eb83bb7896e78bdd08996a2fad5ee7cf77c89517f74",
+      "vendor/vision/postal-mime/base64-decoder.js": "a4dc92b730d7917eaab7057c680e7297007371ce914231b8239262e0fd9ea358",
+      "vendor/vision/postal-mime/base64-encoder.js": "71161ff0ab6bedf58a047d3fc5631b50d5f60655938a418d9f49cac75bc01251",
+      "vendor/vision/postal-mime/decode-strings.js": "71e2890cd6c7ff8142eba5b1f7d400415a62791a26388820892573a35ecb814f",
+      "vendor/vision/postal-mime/html-entities.js": "9a81283d735d6c150b0f363d661458a8f15a225d46c48a54b74bae8f5ed61c28",
+      "vendor/vision/postal-mime/mime-node.js": "ceb3c4f9b6b42bb5b754c5b380df2aefa8edb566138da28b883ff6a5d89afe1e",
+      "vendor/vision/postal-mime/pass-through-decoder.js": "f4634372883fae15571f79b16f13ded743006fb3fc9c8d4e68e785f36c72dc44",
+      "vendor/vision/postal-mime/postal-mime.js": "e87743ef76b041fc7245074b304cc5d22b527f058cd6bb08df4622479ca76b6c",
+      "vendor/vision/postal-mime/qp-decoder.js": "680c6278d36287773cae17720a9af902ea0f8764233733a8c9b767cfd6eadbb7",
+      "vendor/vision/postal-mime/text-format.js": "88de6ee6bde6cb5ce170197acd7af3090d0ddfd6eab01a6e8ae670564e5e3d7d",
+      "vendor/vision/tesseract.esm.min.js": "da6267cfe5036ae718a59eece3b5744a4655b0b8faa9f16259362b783d74c9bb",
+      "vision-cid.mjs": "20d6321ae2e143ffc0be32f5d9f04d809197d9616bed15f6b40dfb530ed34f24",
+      "vision-core.mjs": "39b912d8c1695b005c309ca53e5102f1538b1e7a58c562403343eef53dc2bc4e",
+      "vision-email.mjs": "2130f38bda7a3043c583e8b7e6bffd858882dea3bcda52d873e7038986af35e7",
+      "vision-html.mjs": "b92b27134546d7ecc4828603fca166f4097a52b95e635045cf760b2eb0b1530a"
+    }
   },
   "vision.js": {
     "version": "12",

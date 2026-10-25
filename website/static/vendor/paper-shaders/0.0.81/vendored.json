@@ -1,0 +1,66 @@
+{
+  "package": "@paper-design/shaders",
+  "version": "0.0.81",
+  "license": "Apache-2.0",
+  "published": "2026-09-17T09:51:43.283Z",
+  "source": "https://github.com/paper-design/shaders",
+  "tarball": {
+    "url": "https://registry.npmjs.org/@paper-design/shaders/-/shaders-0.0.81.tgz",
+    "integrity": "sha512-jeGdyjMscZ2bxmQdo8lhwUufHUf4iq3s1ayjh8PXU7Go42Rw8E3I0It1FZdc3HuWt5J82m//DRWaxsRqRfA4Gg==",
+    "sha256": "65e31106239e9c2da8be52c4371d61efe625fa95fb9f2944977be9622c2aba88"
+  },
+  "files": {
+    "shader-mount.js": {
+      "from": "package/dist/shader-mount.js",
+      "upstreamSha256": "a7eb58aa60f2d59b669e031af01e1f9ee0974a7805b38ff14704438462c461b1",
+      "sha256": "748659a8144a253b34d94e21ed2c5e3a6539fdcd33a5bd7786b9cd10929db8ef",
+      "bytes": 21694,
+      "patches": [
+        {
+          "upstream": "/* * * * * * * * * * * * * * * * * * * * * * * * * * * *\n",
+          "patched": "/* MODIFIED FILE: changed by PhishGuard from @paper-design/shaders 0.0.81 (dist/shader-mount.js).\n * The constructor no longer inserts a <style> element, which the page CSP (style-src 'self')\n * blocks; the same rules are in website/static/style.css (@layer paper-shaders).\n * See PATCHES.md in this directory. Apache-2.0: see LICENSE and NOTICE. */\n/* * * * * * * * * * * * * * * * * * * * * * * * * * * *\n"
+        },
+        {
+          "upstream": "    if (!this.ownerDocument.querySelector(\"style[data-paper-shader]\")) {\n      const styleElement = this.ownerDocument.createElement(\"style\");\n      styleElement.innerHTML = defaultStyle;\n      styleElement.setAttribute(\"data-paper-shader\", \"\");\n      this.ownerDocument.head.prepend(styleElement);\n    }\n",
+          "patched": "    // PhishGuard patch: no <style> injection (CSP style-src 'self'); defaultStyle is in style.css.\n"
+        }
+      ]
+    },
+    "vertex-shader.js": {
+      "from": "package/dist/vertex-shader.js",
+      "upstreamSha256": "cd9856f2e071e0c18794dd9c5a1663c11d72cbc68b0403b555d190f412b3e8db",
+      "sha256": "cd9856f2e071e0c18794dd9c5a1663c11d72cbc68b0403b555d190f412b3e8db",
+      "bytes": 5370
+    },
+    "shaders/mesh-gradient.js": {
+      "from": "package/dist/shaders/mesh-gradient.js",
+      "upstreamSha256": "aad38aed891d48c9a7f1fd0da8935492f44b657db37a66b4fdf111996c746424",
+      "sha256": "aad38aed891d48c9a7f1fd0da8935492f44b657db37a66b4fdf111996c746424",
+      "bytes": 3627
+    },
+    "shader-sizing.js": {
+      "from": "package/dist/shader-sizing.js",
+      "upstreamSha256": "db0eb176c9a66c03653770a542adcf4cf8efc07b0929d9e257f49c05d82013fe",
+      "sha256": "db0eb176c9a66c03653770a542adcf4cf8efc07b0929d9e257f49c05d82013fe",
+      "bytes": 758
+    },
+    "shader-utils.js": {
+      "from": "package/dist/shader-utils.js",
+      "upstreamSha256": "26ba187ff4b02715bd98d8ff409c508efcc3881a1f45ceeb08d00b71b145eb2e",
+      "sha256": "26ba187ff4b02715bd98d8ff409c508efcc3881a1f45ceeb08d00b71b145eb2e",
+      "bytes": 3669
+    },
+    "LICENSE": {
+      "from": "package/LICENSE",
+      "upstreamSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    "NOTICE": {
+      "from": "package/NOTICE",
+      "upstreamSha256": "06cf1515dc4628ae4a10f04f394ce746c6edba1ad0ed5d3f7df7ab1781dfe868",
+      "sha256": "06cf1515dc4628ae4a10f04f394ce746c6edba1ad0ed5d3f7df7ab1781dfe868",
+      "bytes": 91
+    }
+  }
+}

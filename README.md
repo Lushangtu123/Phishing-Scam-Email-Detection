@@ -122,6 +122,20 @@ node --test website/static/*.test.mjs
 CI also lints with `ruff`, smoke-tests the Vercel profile and compares screenshots; see
 [testing](docs/testing.md).
 
+## Homepage background
+
+The homepage background is a slow mesh gradient drawn with WebGL2 by
+`website/static/bg-shader.mjs`, using [Paper Shaders](https://github.com/paper-design/shaders)
+(`@paper-design/shaders` 0.0.81, Apache-2.0) vendored in
+`website/static/vendor/paper-shaders/0.0.81/`: only the five files MeshGradient needs, with one
+patch. `ShaderMount` would add a `<style>` element, which the page's CSP blocks, so the patch removes
+that and `style.css` carries the same rules. The CSS colour fields stay whenever WebGL2 is
+missing, software-rendered or fails. The background is a still frame under reduced motion or
+Save-Data, and its colours follow the theme. `website/static/paper-shaders-vendor.test.mjs` checks
+the copy byte for byte against the npm package. `PATCHES.md` in that directory shows the patch
+and the upgrade steps. 0.0.82 was held back by the seven-day rule in `AGENTS.md`; it can be
+adopted on or after 2026-10-28.
+
 ## Project structure
 
 ```text

@@ -22,6 +22,65 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-24 22:50 PT] — Homepage background: a WebGL mesh gradient over the CSS colour fields
+
+### Why
+- Replace the three CSS-blurred colour fields behind the homepage with Paper Shaders' MeshGradient (WebGL2). The fields stay as the fallback.
+- **0.0.81, not 0.0.82.** `@paper-design/shaders` 0.0.82 was published on 2026-10-21, inside the seven-day cooling period (`AGENTS.md`). 0.0.81 (2026-09-17) is used. 0.0.82 only changes `ShaderMount`: context release on dispose, `antialias`/`depth`/`stencil` off by default, and no extra frame from `setUniforms` while animating. It can be adopted on or after 2026-10-28; `bg-shader.mjs` already does the first two itself.
+- `ShaderMount` inserts a `<style>` element, which the page CSP (`style-src 'self'`) blocks, even when empty. A minimal patch removes that, and `style.css` carries the same rules.
+
+### Files changed
+- `website/static/vendor/paper-shaders/0.0.81/` (new): the five files MeshGradient's import graph reaches, at their `dist/` paths, plus `LICENSE` and `NOTICE`. `shader-mount.js` has one patch (two hunks: a "MODIFIED FILE" notice and the 6-line `<style>` block removed). The other four files are byte-identical to the npm tarball. The tarball's `sha512` matches the registry's `dist.integrity`. `vendored.json` records the hashes, and `PATCHES.md` holds the diff and the upgrade steps.
+- `website/static/bg-shader.mjs` (new):
+  - loaded as `<script type="module">`; it fetches the library only after the load event, when the browser is idle;
+  - checks for WebGL2, `ResizeObserver`, `visualViewport` and forced colours, and catches every error;
+  - mounts with `failIfMajorPerformanceCaveat`, so software renderers keep the CSS fields;
+  - sets `html.bg-shader-ready` only after the first frame is drawn;
+  - updates the colours live from `data-theme` (no remount) and restores the fields on context loss;
+  - draws a still frame (speed 0, no rAF loop) under reduced motion or Save-Data, followed live;
+  - `minPixelRatio` 1, `maxPixelCount` 1.2 MP, speed 0.15, distortion 0.3, swirl 0.06, grain overlay 0.015 for dithering.
+- `website/static/style.css` (?v=72 → 73): `.bg-shader` layer, 1.2 s crossfade, the `@layer paper-shaders` rules, reduced-motion and forced-colours rules.
+- `website/static/index.html`: `<div class="bg-shader">` after `.bg-fluid`; the module script last.
+- `website/static/404.html`: the style.css version only. The 404 page keeps the CSS fields.
+- `website/tools/asset-versions/asset-versions.mjs`: a versioned module's pin also lists the SHA-256 of every file it imports by relative URL, transitively. Changing an imported file now needs a new `?v=` on its importer; `update.mjs` bumps it and cascades. Imports of missing files and relative `?v=` URLs are reported. `vision-worker.mjs` had its 18 imports pinned without a version change.
+- `website/tools/asset-versions/manifest.json`: new pins for `bg-shader.mjs`, the two library entry modules (with their imports) and `vision-worker.mjs`'s imports.
+- `website/static/bg-shader.test.mjs` (new, 13 tests):
+  - no WebGL2 / ResizeObserver / visualViewport / forced colours: no fetch;
+  - a constructor error, a failed fetch or a shader that never draws: canvas removed, context released, fields kept;
+  - success; live theme, reduced-motion and Save-Data switches; missing browser APIs; load-then-idle timing; context loss;
+  - palette contrast over every mixture plus grain; markup and CSS placement.
+- `website/static/paper-shaders-vendor.test.mjs` (new, 6 tests):
+  - the directory name equals the recorded version, and the file set is exact;
+  - every file matches its recorded hash; the patched file minus the patch equals the upstream hash, and `PATCHES.md` shows each changed line;
+  - CSP check: no `<style>` creation, `innerHTML`, style attribute, `eval` or `new Function` in the vendored code;
+  - `defaultStyle`'s declarations are all in `style.css`, and the import graph is closed.
+- `website/static/asset-versions.test.mjs`: 5 new tests (relative imports followed; missing/`?v=` imports reported; import changes bump and cascade; first pinning without a bump; the real manifest covers the vision worker and the shader library).
+- `website/static/app.test.mjs`: the forced-colours rule now also hides `.bg-shader`.
+- `website/tools/visual/screenshot.css`, `website/tools/visual/README.md`: screenshots hide `.bg-shader` as well as `.bg-fluid`.
+- `README.md`, `docs/testing.md`: the background and its upgrade path; import pins; the year-long `immutable` cache (the doc still said a day).
+
+### Effect
+- Served library: 35,118 bytes raw / 10,466 gzip (5 files), plus `bg-shader.mjs` 9,514 / 3,646. Sent only to browsers with WebGL2.
+- Chromium 141 headless, median of 7 loads, before → after (ms):
+
+  | Mode | Width | FCP | LCP | CLS | Long tasks |
+  |---|---|---|---|---|---|
+  | software WebGL (default headless; fields kept) | 1280 | 196 → 212 | 196 → 212 | 0 → 0 | 1 → 1 |
+  | software WebGL (default headless; fields kept) | 390 | 156 → 160 | 156 → 160 | 0 → 0 | 1 → 1 |
+  | explicit SwiftShader (shader mounted) | 1280 | 200 → 196 | 200 → 196 | 0 → 0 | 1 → 3 |
+  | explicit SwiftShader (shader mounted) | 390 | 148 → 144 | 152 → 152 | 0 → 0 | 1 → 2 |
+  | explicit SwiftShader (shader mounted) | 1280, reduced motion | 244 → 236 | 244 → 236 | 0 → 0 | 1 → 2 |
+
+  The extra task is the synchronous WebGL context creation and shader compile, after load. In this GPU-less sandbox it took 92 ms (390 px), 96 ms (reduced motion) and 1,271 ms (1280 px animated, where the CPU-emulated GPU process is also compositing the page's CSS animations). Real GPUs were not measurable here. In use: one `render()` per animation frame (39 over 40 frames), and 0 renders under reduced motion, Save-Data or a hidden tab.
+- Contrast of 9 key texts (nav, hero badge/subtitle, stat label, section eyebrow/title, result email/scope/score label) × 2 themes × 1280/390. Worst case over 6 phases of the drifting fields → worst case over 7 shader frames:
+  - the lowest value rises from 3.93:1 to 4.47:1 (light result-score label on its tinted banner);
+  - the four texts below 4.5:1 with the fields (3.93, 4.17, 4.25, 4.26) are 4.47–4.55 now;
+  - 14 of 34 values are lower than the fields' worst at that spot, by at most 12.5% (dark eyebrow 11.38 → 9.96; lowest of them 4.55);
+  - every text token keeps ≥ 4.5:1 on any colour the gradient can draw (tested). The fields' brightest spots gave `--text-dim` 3.96:1 (light) and 4.11:1 (dark).
+- CSP / console: 59/59 browser checks. Zero violations and zero console errors on load, the theme cycle (auto → light → dark → auto plus a system change), the language switch, sender and content analyses, the 404 page, and with `--disable-webgl`, `--disable-3d-apis` or software WebGL. In those three the fields stay and `.bg-shader` is left empty.
+- Visual suite: 17/17 against local baselines rendered from the previous commit, also with no differing pixel allowed. With the shader mounted (explicit SwiftShader): 17/17 at the normal tolerance. The 1–4 differing pixels in strict mode also appear for the previous commit under the same flags (raster backend). The committed baselines are unchanged; the CI container has no GPU, so the shader does not mount there and is hidden in screenshots anyway.
+- Tests: frontend 532 → 556; visual server 5; Python 1493 (15 skipped), unchanged.
+
 ## [2026-10-21 13:05 PT] — Candidate phishing groups from headers, version 2
 
 ### Why

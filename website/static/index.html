@@ -17,7 +17,7 @@
   <script src="/static/theme-init.js?v=1"></script>
   <script src="/static/lang-init.js?v=78"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/static/style.css?v=72" />
+  <link rel="stylesheet" href="/static/style.css?v=73" />
 </head>
 <body>
 <a class="skip-link" href="#main"><span data-i18n="nav.skip">Skip to main content</span></a>
@@ -28,6 +28,8 @@
   <span class="blob blob-2"></span>
   <span class="blob blob-3"></span>
 </div>
+<!-- WebGL mesh gradient drawn over the fields by bg-shader.mjs, which then hides them; empty without WebGL2. -->
+<div class="bg-shader" aria-hidden="true"></div>
 
 <!-- ── Navigation ──────────────────────────────────────────────────────────── -->
 <nav class="navbar">
@@ -1201,5 +1203,8 @@
 <script defer src="/static/analytics-init.js?v=1"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
+<!-- Decorative background: a module script, deferred like those above. It fetches its library
+     only after the load event, when the browser is idle, and never throws. -->
+<script type="module" src="/static/bg-shader.mjs?v=1"></script>
 </body>
 </html>

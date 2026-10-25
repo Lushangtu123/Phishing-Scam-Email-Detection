@@ -121,6 +121,29 @@ body {
 @keyframes drift-b { from { transform: translate3d(0,0,0) scale(1.05); }     to { transform: translate3d(-8vmax, 10vmax, 0) scale(0.96); } }
 @keyframes drift-c { from { transform: translate3d(0,0,0) scale(0.98); }     to { transform: translate3d(7vmax, -7vmax, 0) scale(1.06); } }
 
+/* WebGL background (bg-shader.mjs): a mesh gradient drawn into a canvas in .bg-shader, in the
+   same place as the colour fields. Once its first frame is drawn, <html> gets .bg-shader-ready:
+   the canvas fades in over the fields, which are then hidden. Without WebGL2 (or if anything
+   fails) the class is never set and the fields stay. */
+.bg-shader {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+  opacity: 0; transition: opacity 1.2s var(--ease);
+}
+.bg-shader > canvas { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+:root.bg-shader-ready .bg-shader { opacity: 1; }
+:root.bg-shader-ready .bg-fluid { visibility: hidden; transition: visibility 0s linear 1.2s; }
+:root.bg-shader-ready .blob { animation-play-state: paused; }
+/* The rules Paper Shaders' ShaderMount would add as a <style> element, which the page CSP
+   (style-src 'self') blocks; see vendor/paper-shaders/0.0.81/PATCHES.md. Layered, as upstream,
+   so every unlayered rule above wins. */
+@layer paper-shaders {
+  :where([data-paper-shader]) { isolation: isolate; position: relative; }
+  :where([data-paper-shader]) canvas {
+    contain: strict; display: block; position: absolute; inset: 0; z-index: -1;
+    width: 100%; height: 100%; border-radius: inherit; corner-shape: inherit;
+  }
+}
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
@@ -1698,6 +1721,7 @@ kbd {
   .blob, .orb, .orb-ring, .orb-chip, .pulse-dot, .gradient-text,
   .hero-content, .hero-visual, .scan-card, .scan-beam, .scan-badge-alert,
   .scan-line-skel.flagged { animation: none !important; }
+  .bg-shader, :root.bg-shader-ready .bg-fluid { transition: none; }
   .scan-beam { display: none; }
   .ring-fg { transition: none; }
   .reveal { opacity: 1; }
@@ -1711,7 +1735,7 @@ kbd {
 /* Tints, shadows and gradients are dropped in this mode, so status that relied
    on them gets a system colour or a border; the colour fields are hidden. */
 @media (forced-colors: active) {
-  .bg-fluid, .orb, .orb-ring { display: none; }
+  .bg-fluid, .bg-shader, .orb, .orb-ring { display: none; }
   /* Qualified so the rule outranks the per-level colours (.risk-high .risk-dot …). */
   .risk-item .risk-dot, .orb-chip .chip-dot, .pulse-dot { forced-color-adjust: none; background: CanvasText; box-shadow: none; }
   .score-ring svg { forced-color-adjust: none; }
