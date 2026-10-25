@@ -276,6 +276,70 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Link labels read as the address they present (2026-10-24)
+
+**Finding.** A security review reproduced locally:
+
+- **On `main`:** a link to `portal.example.net` labelled `Sign in to example.org` got `link.display_mismatch` and High.
+- **The bypass:** labelled `Sign in: example.org`, `Sign in to ｅxample.org` or `Sign in to 𝗲xample.org`, it got neither (6 of the reviewer's 98 probe runs). `_visible_link_host` extracted only ASCII hosts, after navigation words followed by a space.
+
+**Change.**
+
+- **The label copy:** the label is read through `_link_label_copy`:
+  1. format controls removed;
+  2. NFKC;
+  3. look-alike letters inside Latin words read as Latin (`content_rules._fold_mixed_script`).
+
+  Pure Cyrillic or Greek words, and words written wholly in look-alikes, are not folded. IDN labels are still not extracted.
+- **Navigation forms:** a separator (`:`, `-`, `–`, `—`, `→`, `->`, `»`, `|`) may follow the navigation words (`visit`, `open`, `go to`, `log in`, `sign in`, `访问`, `打开`, `登录`, `登陆`). Any other word in between does not count: `Source: example.org` and `Log in here: example.org` are not addresses.
+- **The displayed host:** it is what the label is read as. The comparison, the tracked-sales check and the message use that one value.
+- **Matching backwards:** the approved forms are matched backwards from each address on the reversed label. Forms of any length (`Sign - - … - in:`) are read, and a label takes linear time.
+
+**Pass criteria** were fixed and approved by the owner before measuring (F3-1 to F3-10). Inputs:
+
+- the reviewer's probes;
+- 55 synthetic cases, including two multi-link cases and four brand-behind-tracker cases;
+- 44 label → host pairs;
+- G1–G5 of the F1/F2 measurement;
+- two `.eml` groups added because G1–G5 hold almost no link labels (3 of 59,881 records yield a label host):
+  - **G6:** 1,297 phishing_pot messages, phishing. 67 of them yield a label host.
+  - **G7:** 247 hard_ham messages, legitimate, from 2003. 68 of them yield a label host.
+
+G6 and G7 were used in earlier development, so they only show side effects.
+
+**Results** (measured commit `5fa3ba0` against `main` `19781558`; same adapter and model; network guard, 0 attempts; 61,578 analyses, 0 failures):
+
+- **Probes:** the 6 downgraded probes are High again with the mismatch finding, and no other probe is lower.
+- **Synthetic cases:** all 55 meet their assertions:
+  - finding parameters equal exactly;
+  - in the multi-link cases, the finding names the mismatched link's label;
+  - the three disguised brands behind a tracker are `phishing`, and the marketing control is `advertising`, as on `main`;
+  - each finding traces to a (label, target) pair of its call, and its message is the rendering of its parameters.
+- **All 44 label pairs** match character for character.
+- **Public groups:** 0 of 61,425 records changed level, rule codes, floor, indicators or mail type.
+  - Legitimate groups G2, G4 and G7: no record moved from non-alert to alert.
+  - Model calls and the text rules' returned text are identical.
+- **Timing and import order** are unit tests, not part of the full comparison:
+  - every 50,000-character label shape tested takes under 0.04 s (9 to 15 s on `main`);
+  - both import orders read the same.
+
+**The first commit, `24c8fd5`, passed the same frozen criteria but was not accepted.** A follow-up review found two problems outside the frozen inputs:
+
+- **The look-back:** an eight-word look-back lost `Sign` in `Sign - - - - - - - - in: example.org`, so the link-rule floor fell from High to Safe.
+- **Timing:** a 50,000-character label without spaces took over 4 seconds.
+
+Both commits give byte-identical per-item results on the frozen inputs. The fix is shown instead by:
+
+- a test of the backward reading against the forward search, at every position of 2,000 seeded random texts;
+- 11 planted code defects, each failing its named test (including the look-back and a forward search per address);
+- an independent check of 229,067 positions with 0 differences.
+
+**Limits.**
+
+- `Log in here: example.org`, `Visit us at example.org` and similar forms are not read.
+- A word written wholly in look-alike letters (`сосо.org`) and IDN labels are not read.
+- Modern legitimate HTML mail is not covered.
+
 ### Candidate phishing groups, version 2 (2026-10-21)
 
 `website/tools/phishing_candidate_groups_v2.py` implements the
