@@ -276,6 +276,63 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Compatibility forms and accents in the rule-matching copy (2026-10-23)
+
+**Finding.** A security review reproduced locally:
+
+- **The bypass:** writing one word of a request in compatibility forms stopped the request rules. Fullwidth `ｃｏｄｅ`, mathematical bold `𝐜𝐨𝐝𝐞` and a single such letter all worked, and so did a combining mark (`c̈ode`).
+- **The effect:** "reply with the one-time verification code" fell from High to Low, in 10 of the reviewer's 98 probe runs.
+- **Controls with no effect:** zero-width characters and Cyrillic look-alikes were already handled.
+
+**Change.**
+
+- **The match copy:** `_text_rule_findings` matches its keyword categories and its credential, callback, subsidy and sensitive-request rules against `_rule_match_text(analysis_text)`. That copy applies, in order:
+  1. NFKC;
+  2. the look-alike fold again;
+  3. accent removal for a word, only when what is left is exactly one of 40 listed words.
+- **What a word is:** a letter followed by letters and combining marks. Digits, underscores, spaces and punctuation end it.
+- **What does not change:** the returned `analysis_text` and `full_orig`, the model input and the displayed text. A callback number found only in the copy is quoted as written.
+
+**Pass criteria** were fixed and approved by the owner before measuring (F1-1 to F1-10, I1 to I5, C1 to C4). Inputs:
+
+- the reviewer's 98 probe runs;
+- 14 new synthetic cases;
+- 18 input/output pairs for the copy;
+- five frozen public groups, all members run:
+  - G1: 101 PhishFuzzer phishing seeds;
+  - G2: 102 PhishFuzzer legitimate seeds;
+  - G3: 1,221 Nazario 2023–2025;
+  - G4: 28,562 legitimate rows of CEAS, Phishing_Email and phishnchips;
+  - G5: 29,895 phishing rows of CEAS, Phishing_Email and Nazario.csv.
+
+G4 and G5 are training data. Here they only show side effects.
+
+**Results** (commit `7673f8c` against `main` `19781558`; same adapter and model; network guard, 0 attempts):
+
+- **Probes:** the 10 downgraded probes are High again, with `content.sensitive_request.one_time_code`.
+  - No other probe is lower than on `main`. 5 password probes rose from Medium to High.
+  - Zero-width and Cyrillic controls keep their rule codes.
+- **Synthetic cases:** all 14 meet their expectations.
+  - The 8 negatives, which include French, German and Vietnamese accents, keep `main`'s rule codes and floor.
+  - All 18 pairs match character for character.
+- **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level.
+- **Model isolation:** identical for all 60,052 analyses:
+  - each model call's subject and view digests, internal probability and status;
+  - every `ml_status`;
+  - every digest of the returned `analysis_text` and `full_orig`.
+- **Planted defects:** without NFKC, pairs n12, n13 and n18 fail. Removing accents from every word fails n01, n02, n09, n11 and n15. The unit tests fail in both cases.
+
+**Limits.**
+
+- **Shown text (I5):** checked three ways:
+  - in the code, the copy only feeds rule results (codes, booleans and list keywords), except the callback number, which is quoted from the original;
+  - the returned texts are byte-identical;
+  - no displayed string appears only in a normalised copy of the input.
+
+  The last check supports the other two; it does not prove every fragment by itself.
+- **Accented disguises** of words outside the 40-word list still pass.
+- **The text model** still reads the original characters.
+
 ### Candidate phishing groups, version 2 (2026-10-21)
 
 `website/tools/phishing_candidate_groups_v2.py` implements the
