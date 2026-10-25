@@ -340,6 +340,130 @@ Both commits give byte-identical per-item results on the frozen inputs. The fix 
 - A word written wholly in look-alike letters (`сосо.org`) and IDN labels are not read.
 - Modern legitimate HTML mail is not covered.
 
+### Negation scope for sensitive requests (2026-10-24)
+
+**Finding.** A security review reproduced locally:
+
+- **The old rule:** `_sensitive_requests` exempted a request when any negation or attribution word appeared in the 120 characters of its clause.
+- **The effect:** "Do not worry, please reply with the one-time verification code" fell from High to Low. So did "We will not delay the setup, …" and "This is not a scam, …", in 6 of the reviewer's 98 probe runs.
+
+**Change.** A request is exempt only when the words right before it, in its clause, **end** with an exempting form. Only listed adverbs (`ever`, `directly`, `please`, `kindly`, `again`), set phrases (", under any circumstances,", "— even if asked —") or Chinese fillers (随意, 轻易, 向任何人, …) may follow it.
+
+- **The exempting forms:**
+  - a negation (`never`, `do not`, `请勿`, `千万别`);
+  - an attribution (`if anyone asks you to`, `scammers may ask you to`, `Our bank will never ask you to`, `骗子要求你`);
+  - a negated subject (`No one will ask you to`, `没有人会要求你`).
+- **Clauses:** they end at `.!?;` and line breaks, and in Chinese also at `。！？；`. Commas do not end a clause.
+
+The forms and words were fixed in a file and approved by the owner before measuring. A review of the first commit then found two regressions; the fixes are additions to the approved list:
+
+- **`别`:** it also matched the end of `分别` (separately), so `请分别回复验证码` lost the rule `main` applies. `别` now counts only at the start of a phrase or after 请、你、您、们、可、也、都、就 or 先. A second review accepted these nine characters as this round's addition.
+- **The look-back:** a 300-character window cut the negation off when allowed adverbs ran longer ("Never directly … directly send your password").
+  - The clause is now read whole. A backward walk skips any number of allowed adverbs, phrases and fillers, then the longest form (12 words, 9 characters).
+  - Time stays linear: at most 70 ms on inputs of up to 180,000 characters.
+
+**Pass criteria** were fixed and approved by the owner before measuring (F2-1 to F2-6, I1 to I5, C1 to C4). Inputs:
+
+- the reviewer's 98 probe runs;
+- 59 paired F2 synthetic cases;
+- five frozen public groups, all members run:
+  - G1: 101 PhishFuzzer phishing seeds;
+  - G2: 102 PhishFuzzer legitimate seeds;
+  - G3: 1,221 Nazario 2023–2025;
+  - G4: 28,562 legitimate rows of CEAS, Phishing_Email and phishnchips;
+  - G5: 29,895 phishing rows of CEAS, Phishing_Email and Nazario.csv.
+
+G4 and G5 are training data. Here they only show side effects.
+
+**Results** (commit `997ee55` against `main` `19781558`; same adapter and model; network guard, 0 attempts):
+
+- **Probes:** the 6 downgraded probes are High again with `content.sensitive_request.one_time_code`. No other probe is lower, and the two context controls stay High.
+- **Synthetic cases:** all 59 F2 cases meet their expectations:
+  - an unrelated negation, a true negation, and set phrases between the two;
+  - an attribution that governs the request, including negated subjects;
+  - an attribution elsewhere in the sentence.
+
+  Every case has a control.
+- **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level. Model isolation is identical for all 60,052 analyses.
+- **What the frozen inputs miss:** they do not reach the two regressions. `997ee55` gives byte-identical per-item results to the first commit, so the regressions are shown by unit tests, planted defects and 24 supplementary cases.
+  - **Supplementary cases, kept outside the frozen set:**
+    - each of the nine characters before `别`, a bare `别`, and `别` after a comma;
+    - `分别`, `特别` and `大家别`;
+    - 38 and 5,000 allowed adverbs;
+    - the longest forms;
+    - a disallowed word between the negation and the request.
+  - **Results:** on `997ee55` all 24 give the expected result. On `main`, 7 do: `main` has no bare `别` negation, and it exempts negations of another action.
+- **Planted defects:** six, each failing the cases named for it:
+  - restoring the old rule;
+  - an attribution anywhere in the clause;
+  - no negated-subject forms (`f2-d-en-4`, `f2-d-en-5`);
+  - the 300-character window;
+  - a bare `别`;
+  - shorter longest forms.
+
+**Limits.**
+
+- **Two exemptions remain, both as on `main`:** `不要` inside `要不要` (`你要不要把验证码发给我`) and a bare `not` ("Why not reply with your code?").
+- **`别` after other words** is not a negation: `大家别把验证码发给我` is still flagged, as on `main`.
+- **Not covered:** English patterns read only English forms, and Chinese patterns only Chinese ones.
+
+### Compatibility forms and accents in the rule-matching copy (2026-10-23)
+
+**Finding.** A security review reproduced locally:
+
+- **The bypass:** writing one word of a request in compatibility forms stopped the request rules. Fullwidth `ｃｏｄｅ`, mathematical bold `𝐜𝐨𝐝𝐞` and a single such letter all worked, and so did a combining mark (`c̈ode`).
+- **The effect:** "reply with the one-time verification code" fell from High to Low, in 10 of the reviewer's 98 probe runs.
+- **Controls with no effect:** zero-width characters and Cyrillic look-alikes were already handled.
+
+**Change.**
+
+- **The match copy:** `_text_rule_findings` matches its keyword categories and its credential, callback, subsidy and sensitive-request rules against `_rule_match_text(analysis_text)`. That copy applies, in order:
+  1. NFKC;
+  2. the look-alike fold again;
+  3. accent removal for a word, only when what is left is exactly one of 40 listed words.
+- **What a word is:** a letter followed by letters and combining marks. Digits, underscores, spaces and punctuation end it.
+- **What does not change:** the returned `analysis_text` and `full_orig`, the model input and the displayed text. A callback number found only in the copy is quoted as written.
+
+**Pass criteria** were fixed and approved by the owner before measuring (F1-1 to F1-10, I1 to I5, C1 to C4). Inputs:
+
+- the reviewer's 98 probe runs;
+- 14 new synthetic cases;
+- 18 input/output pairs for the copy;
+- five frozen public groups, all members run:
+  - G1: 101 PhishFuzzer phishing seeds;
+  - G2: 102 PhishFuzzer legitimate seeds;
+  - G3: 1,221 Nazario 2023–2025;
+  - G4: 28,562 legitimate rows of CEAS, Phishing_Email and phishnchips;
+  - G5: 29,895 phishing rows of CEAS, Phishing_Email and Nazario.csv.
+
+G4 and G5 are training data. Here they only show side effects.
+
+**Results** (commit `7673f8c` against `main` `19781558`; same adapter and model; network guard, 0 attempts):
+
+- **Probes:** the 10 downgraded probes are High again, with `content.sensitive_request.one_time_code`.
+  - No other probe is lower than on `main`. 5 password probes rose from Medium to High.
+  - Zero-width and Cyrillic controls keep their rule codes.
+- **Synthetic cases:** all 14 meet their expectations.
+  - The 8 negatives, which include French, German and Vietnamese accents, keep `main`'s rule codes and floor.
+  - All 18 pairs match character for character.
+- **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level.
+- **Model isolation:** identical for all 60,052 analyses:
+  - each model call's subject and view digests, internal probability and status;
+  - every `ml_status`;
+  - every digest of the returned `analysis_text` and `full_orig`.
+- **Planted defects:** without NFKC, pairs n12, n13 and n18 fail. Removing accents from every word fails n01, n02, n09, n11 and n15. The unit tests fail in both cases.
+
+**Limits.**
+
+- **Shown text (I5):** checked three ways:
+  - in the code, the copy only feeds rule results (codes, booleans and list keywords), except the callback number, which is quoted from the original;
+  - the returned texts are byte-identical;
+  - no displayed string appears only in a normalised copy of the input.
+
+  The last check supports the other two; it does not prove every fragment by itself.
+- **Accented disguises** of words outside the 40-word list still pass.
+- **The text model** still reads the original characters.
+
 ### Candidate phishing groups, version 2 (2026-10-21)
 
 `website/tools/phishing_candidate_groups_v2.py` implements the
