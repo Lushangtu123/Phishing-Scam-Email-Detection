@@ -22,6 +22,56 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-24 00:18 PT] — A negation exempts a sensitive request only when it governs it (F2)
+
+### Why
+- **A reported bypass, reproduced locally.** A security review (Codex and DeepSeek) found that `_sensitive_requests` exempted a request whenever any negation or attribution word appeared in the 120 characters of its clause. "Do not worry, please reply with the one-time verification code" therefore fell from High to Low. The same happened with "We will not delay the setup, …" and "This is not a scam, …": 6 of the reviewer's 98 probe runs (3 openings × pasted and `.eml`). The fix follows pass criteria the owner approved before any measurement (r3, 2026-10-23).
+- **A follow-up review of the first commit (`1dd65f3`) found two regressions**, fixed here:
+  - **`别`:** it matched the end of `分别`, so `请分别回复验证码` lost the rule that `main` applies.
+  - **The look-back:** a 300-character window cut a negation off when allowed adverbs ran longer.
+
+### Files changed
+- `website/content_rules.py`: a request is exempt only when the words right before it, in its clause, **end** with an exempting form. Only listed adverbs, set phrases or fillers may follow that form.
+  - **Exempting forms:** a negation ("never", "请勿"), an attribution ("if anyone asks you to", "骗子要求你"), or a negated subject ("No one will ask you to", "没有人会要求你").
+  - **Allowed in between:** "Do not, under any circumstances, send", "请勿向任何人提供".
+  - **Clauses:** they end at `.!?;` and line breaks, and in Chinese also at `。！？；`. Commas do not end a clause, and the whole clause is read.
+  - **`别`:** it counts only at the start of a phrase or after 请、你、您、们、可、也、都、就 or 先. A follow-up review (Codex, 2026-10-24) accepted these nine characters as this round's addition to the approved list.
+  - The old `_SENSITIVE_REQUEST_NEGATION` is removed.
+- `website/tests/test_sensitive_requests.py`: 6 tests. They cover:
+  - 52 paired cases;
+  - the `分别` and long-adverb regressions;
+  - each of the nine characters before `别`, `特别`, and `大家别` (still a request, as on `main`);
+  - negations of another action ("Never delay, send your password");
+  - the longest forms;
+  - four long inputs under 1 second;
+  - 3 end-to-end High results.
+- `docs/evaluation.md`: "Negation scope for sensitive requests (2026-10-24)".
+
+### Effect
+- **Fixed acceptance run against `main` `19781558`.** Commit `997ee55`, same adapter and model `a0a503a0…`, network guard with 0 attempts. Inputs: 60,052 analyses (98 probes, 73 synthetic cases, and five frozen public groups of 59,881 records). All approved criteria pass:
+  - **The 6 downgraded probes are High again** with `content.sensitive_request.one_time_code`. No other probe is lower.
+  - **Synthetic cases:** all 59 F2 cases meet their expectations.
+  - **Public groups:** 0 of 59,881 records changed rule codes, indicators, floor or level.
+  - **Model isolation:** every model call and every returned text digest is identical.
+- **The frozen inputs do not reach the two regressions.** `997ee55` gives byte-identical per-item results to `1dd65f3`. The regressions are covered by the new unit tests and planted defects instead.
+- **Supplementary cases:** 24 cases, kept outside the frozen set, cover the review's checks:
+  - the nine characters, a bare `别`, and `别` after a comma;
+  - `分别`, `特别` and `大家别`;
+  - 38 and 5,000 allowed adverbs;
+  - the longest forms;
+  - a disallowed word between the negation and the request.
+
+  On `997ee55` all 24 give the expected result. On `main`, 7 do.
+- **Planted defects (6):** each fails the cases named for it:
+  - restoring the old rule;
+  - an attribution anywhere in the clause;
+  - no negated-subject forms;
+  - the 300-character window;
+  - a bare `别`;
+  - shorter longest forms.
+- **Speed:** at most 70 ms on adversarial inputs of up to 180,000 characters.
+- **Checks:** unit tests 1,499 (15 skipped), compileall, ruff, Node 532.
+
 ## [2026-10-23 23:52 PT] — Rules read compatibility forms and disguising accents as plain words (F1)
 
 ### Why
