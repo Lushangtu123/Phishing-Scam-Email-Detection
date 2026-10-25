@@ -1396,6 +1396,65 @@ def _sensitive_requests(text: str) -> list[str]:
     return found
 
 
+# Words the rules read without their accents ("pässword", "cöde"). Any other accented word keeps
+# them: "résumé" and "café" are not disguises.
+_RULE_MATCH_UNACCENTED = frozenset({
+    'password', 'passwords', 'passcode', 'passcodes', 'code', 'codes', 'otp', 'otps', 'pin', 'pins',
+    'verification', 'authentication', 'security', 'seed', 'phrase', 'recovery', 'backup', 'key', 'keys',
+    'gift', 'card', 'cards', 'login', 'signin', 'sign', 'onetime', 'one', 'time', 'digit', 'sms', 'text',
+    'reply', 'send', 'share', 'provide', 'give', 'tell', 'read', 'forward', 'email',
+})
+
+
+def _unaccented_rule_word(word: str) -> str:
+    """word without its combining marks when that leaves exactly one of _RULE_MATCH_UNACCENTED."""
+    decomposed = unicodedata.normalize('NFD', word)
+    stripped = ''.join(character for character in decomposed if unicodedata.category(character) != 'Mn')
+    if (len(stripped) < len(decomposed) and stripped.isascii() and stripped.isalpha()
+            and stripped.lower() in _RULE_MATCH_UNACCENTED):
+        return stripped
+    return word
+
+
+def _rule_match_text(text: str) -> str:
+    """The copy of the analysis text that the rules match: compatibility forms read as plain letters
+    ("ｃｏｄｅ", "𝐜𝐨𝐝𝐞"), look-alike letters read as Latin again, and the words of
+    _RULE_MATCH_UNACCENTED read without their accents. A word is a letter followed by letters and
+    combining marks; digits, underscores, spaces and punctuation end it."""
+    text = _fold_mixed_script(unicodedata.normalize('NFKC', text))
+    if text.isascii():
+        return text
+    parts, start = [], None
+    for index, character in enumerate(text):
+        category = unicodedata.category(character)
+        if category[0] == 'L' or (start is not None and category == 'Mn'):
+            if start is None:
+                start = index
+            continue
+        if start is not None:
+            parts.append(_unaccented_rule_word(text[start:index]))
+            start = None
+        parts.append(character)
+    if start is not None:
+        parts.append(_unaccented_rule_word(text[start:]))
+    return ''.join(parts)
+
+
+def _original_fragment(text: str, fragment: str) -> str:
+    """The part of text that NFKC reads as fragment (a number the rules found in the match copy),
+    so a finding quotes the message as written; fragment itself when no part does."""
+    if fragment in text:
+        return fragment
+    readings = [unicodedata.normalize('NFKC', character) for character in text]
+    starts = [index for index, reading in enumerate(readings) for _ in reading]
+    at = ''.join(readings).find(fragment)
+    if at < 0:
+        return fragment
+    end = at + len(fragment)
+    span = text[starts[at]:starts[end] if end < len(starts) else len(text)]
+    return span if unicodedata.normalize('NFKC', span) == fragment else fragment
+
+
 def _text_rule_findings(full_orig: str) -> dict:
     """Keyword categories and text checks for one reading of the message text."""
     # Look-alike letters inside Latin words are read as Latin: every rule below sees "password".
@@ -1403,7 +1462,10 @@ def _text_rule_findings(full_orig: str) -> dict:
     if mixed_words:
         full_orig = _fold_mixed_script(full_orig)
     analysis_text = _strip_invisible_format_controls(full_orig)
-    full_lower = analysis_text.lower()
+    # The keyword and request rules read a copy without compatibility forms or disguising accents;
+    # analysis_text and full_orig, which callers read and show, stay as written.
+    match_text = _rule_match_text(analysis_text)
+    full_lower = match_text.lower()
     categories, score, floor = [], 0, 'safe'
     presentation = 0  # the score's points from _PRESENTATION_CUES
     for cat_key, cat_info in CONTENT_RULES.items():
@@ -1426,25 +1488,26 @@ def _text_rule_findings(full_orig: str) -> dict:
             })
 
     requests = []
-    if _has_pressured_credential_request(analysis_text):
+    if _has_pressured_credential_request(match_text):
         score += 4
         floor = 'high'
         requests.append(indicator('high', 'content.pressured_credential_request'))
 
     # Requests to hand over one-time codes, secrets, gift cards, crypto or remote
     # access: one strong signal however many kinds appear, each kind listed.
-    callback_number = _callback_request(analysis_text, _OFFICIAL_SERVICE_NUMBERS)
+    callback_number = _callback_request(match_text, _OFFICIAL_SERVICE_NUMBERS)
     if callback_number:
         score += 4
         floor = 'high'
-        requests.append(indicator('high', 'content.callback_request', number=callback_number))
+        requests.append(indicator('high', 'content.callback_request',
+                                  number=_original_fragment(analysis_text, callback_number)))
 
-    if _subsidy_lure(analysis_text):
+    if _subsidy_lure(match_text):
         score += 4
         floor = 'high'
         requests.append(indicator('high', 'content.subsidy_lure'))
 
-    sensitive_requests = _sensitive_requests(analysis_text)
+    sensitive_requests = _sensitive_requests(match_text)
     if sensitive_requests:
         score += 4
         floor = 'high'

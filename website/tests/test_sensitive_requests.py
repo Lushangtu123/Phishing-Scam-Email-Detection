@@ -236,6 +236,92 @@ class NegationScopeTests(unittest.TestCase):
                 self.assertIn(result['risk_level'], {'high', 'critical'})
 
 
+# (input, what the rules read). Compatibility forms become plain letters; only the words of
+# _RULE_MATCH_UNACCENTED lose their accents, whole words only, keeping their case.
+RULE_MATCH_CASES = [
+    ('résumé', 'résumé'),
+    ('naïve café über', 'naïve café über'),
+    ('pässword', 'password'),
+    ('pässword', 'password'),
+    ('Pässword', 'Password'),
+    ('PÄSSWORD', 'PASSWORD'),
+    ('cöde', 'code'),
+    ('cödes', 'codes'),
+    ('cödex', 'cödex'),
+    ('pässwords123', 'passwords123'),
+    ('übercode', 'übercode'),
+    ('ｐａｓｓｗｏｒｄ', 'password'),
+    ('\U0001d41c\U0001d428\U0001d41d\U0001d41e', 'code'),
+    ('code', 'code'),
+    ('ещё', 'ещё'),
+    ('验证码', '验证码'),
+    ('pin pïn PÌN', 'pin pin PIN'),
+    ('Ｓｅｎｄ ｍｅ ｔｈｅ ｃöｄｅ', 'Send me the code'),
+]
+
+# A request whose key word is written in compatibility forms or with an accent.
+DISGUISED_REQUESTS = {
+    'Please reply with the one-time verification ｃｏｄｅ from the sign-in message.': 'one_time_code',
+    'Please reply with the one-time verification cｏde from the sign-in message.': 'one_time_code',
+    'Please reply with the one-time verification \U0001d41c\U0001d428\U0001d41d\U0001d41e from the sign-in message.':
+        'one_time_code',
+    'Please reply with the one-time verification c\U0001d428de from the sign-in message.': 'one_time_code',
+    'Please reply with the one-time verification c̈ode from the sign-in message.': 'one_time_code',
+    'Please reply with your pässword so I can finish the setup today.': 'password_pin',
+    'Send me the six digit verification cöde you just received.': 'one_time_code',
+    'Please share the one-time ｐａｓｓｃｏｄｅ from the text message with our agent.': 'one_time_code',
+}
+
+# Reminders in compatibility forms, and accented words that are not disguises.
+UNDISGUISED_TEXTS = [
+    'Our staff will never ask you to reply with your ＰＩＮ or one-time ｃｏｄｅ.',
+    '请登录ＡＢＣ账户查看订单，验证码请勿告知他人。',
+    'ＩＤとパスワードを再設定しました。心当たりがない場合はサポートへご連絡ください。',
+    'Le résumé de la réunion est prêt. Merci de vérifier le café et le menu naïf.',
+    'Über das Treffen: Bitte bringen Sie Ihre Unterlagen für die Prüfung mit.',
+    'Tiếng Việt: cuộc họp sẽ diễn ra vào thứ Hai, vui lòng đến đúng giờ.',
+    'Please send your résumé and a cover letter to the hiring team by Friday.',
+]
+
+
+class RuleMatchTextTests(unittest.TestCase):
+    def test_the_match_copy_reads_compatibility_forms_and_folds_only_listed_words(self):
+        for text, expected in RULE_MATCH_CASES:
+            with self.subTest(text=text):
+                self.assertEqual(content_rules._rule_match_text(text), expected)
+
+    def test_disguised_requests_are_flagged_like_plain_ones(self):
+        for text, kind in DISGUISED_REQUESTS.items():
+            with self.subTest(text=text):
+                codes = [item['code'] for item in content_rules._text_rule_findings(text)['requests']]
+                self.assertIn(f'content.sensitive_request.{kind}', codes)
+
+    def test_reminders_and_ordinary_accents_are_not_requests(self):
+        for text in UNDISGUISED_TEXTS:
+            with self.subTest(text=text):
+                self.assertFalse([item for item in content_rules._text_rule_findings(text)['requests']
+                                  if item['code'].startswith('content.sensitive_request.')])
+
+    def test_callers_still_read_and_show_the_text_as_written(self):
+        text = 'Please reply with the verification ｃｏｄｅ and your pässword.'
+        rules = content_rules._text_rule_findings(text)
+        self.assertEqual((rules['analysis_text'], rules['full_orig']), (text, text))
+        body = ('You have been charged $349.99. If this wasn\'t you, call our billing team at '
+                '１ (８７７) ５５５-０１２３ to cancel the renewal.')
+        item = next(item for item in content_rules._text_rule_findings(body)['requests']
+                    if item['code'] == 'content.callback_request')
+        self.assertEqual(item['params']['number'], '１ (８７７) ５５５-０１２３')
+
+    def test_a_disguised_code_request_scores_high_end_to_end(self):
+        body = ('Please reply with the one-time verification ｃｏｄｅ from the sign-in message '
+                'so I can finish the scheduled setup.')
+        result = json.loads(asyncio.run(app.analyze_content_endpoint(
+            app.ContentRequest(subject='Project update', body=body))).body)
+        self.assertIn('content.sensitive_request.one_time_code',
+                      [item.get('code') for item in result['extra_indicators']])
+        self.assertIn(result['risk_level'], {'high', 'critical'})
+
+
 CALLBACK_CASES = [
     ('If you do not authorized this charge, you have 24 hours. To cancel and receive an immediate refund of your '
      'transaction, please contact our Customer Care on : +1 (818) 284-4559.', True),
