@@ -31,7 +31,10 @@ the manual `body` is read:
 - `"text"`: as plain text, the way a text box holds it. Tags, comments and entities are
   ordinary characters: text inside a literal `<style>` or `<script>` is read, `&amp;` stays
   `&amp;`, and an `<a href>` in the text is not a link with a label. A case saves such a body
-  literally, also for the optional external opinion.
+  literally, also for the optional external opinion. The text model alone scores a copy
+  without link annotations: each `<http://…>`, `<https://…>` or `<mailto:…>` (any letter case,
+  no whitespace inside, closed by `>`) becomes one space, as the `"html"` reading, the only
+  reading before this field, dropped them as tags. The rules and link checks still read them.
 - `"html"`: as an HTML document. Hidden elements are not visible text and entities are
   decoded. This is also the reading when the field is absent, the behaviour from before the
   field, so existing clients are unchanged. A client that sends pasted or typed text should
