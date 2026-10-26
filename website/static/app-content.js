@@ -336,7 +336,8 @@ function clearContent() {
 }
 
 function buildContentPayload(subject, body, rawEmail) {
-  const payload = rawEmail ? { raw_email: rawEmail } : { subject, body, raw_email: '' };
+  // A text box holds plain text, so the body is read as text, never as an HTML document.
+  const payload = rawEmail ? { raw_email: rawEmail } : { subject, body, raw_email: '', body_format: 'text' };
   return _requestedAnswer ? { ...payload, requested: _requestedAnswer } : payload;
 }
 
@@ -398,7 +399,7 @@ async function runContentAnalysis() {
       const mailbox = mailboxChoice();
       const answers = { ...(payload.eml_base64 && mailbox ? { mailbox } : {}),
         ...(_requestedAnswer ? { requested: _requestedAnswer } : {}) };
-      data = await postJSON('/api/analyze-visual', { ...payload, ...answers }, request);
+      data = await postJSON('/api/analyze-visual', { ...payload, ...answers, body_format: 'text' }, request);
     } else {
       data = _rawEmailSource
         ? await postRequest('/api/analyze-eml' + emlQuery(), _rawEmailSource, 'message/rfc822', request)

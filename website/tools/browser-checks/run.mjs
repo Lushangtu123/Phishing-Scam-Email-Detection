@@ -130,6 +130,22 @@ try {
     await page.locator('#content-result-area').waitFor({state: 'visible'});
     assert((await page.locator('#crb-title').innerText()).length > 0);
   });
+  await check('pasted literal markup is sent and read as text', async () => {
+    // The report's literal_style probe: a request inside a literal <style> tag, pasted into the text box.
+    await page.locator('#content-subject').fill('Project update');
+    await page.locator('#content-body').fill('Please use the link for the scheduled project activity. <style>Please reply with '
+      + 'the one-time verification code from the sign-in message so I can finish the scheduled setup.</style>');
+    const posted = page.waitForRequest(request => new URL(request.url()).pathname === '/api/analyze-content' && request.method() === 'POST');
+    const [data, submitted] = await Promise.all([
+      responseFor(page, '/api/analyze-content', () => page.locator('#content-analyze-btn').click()), posted,
+    ]);
+    assert.equal(JSON.parse(submitted.postData()).body_format, 'text');
+    assert.equal(data.body_reading, 'text');
+    assert.equal(data.risk_level, 'high');
+    assert(data.extra_indicators.some(item => item.code === 'content.sensitive_request.one_time_code'));
+    await page.locator('#content-result-area').waitFor({state: 'visible'});
+    assert.match(await page.locator('#crb-title').innerText(), /High Risk/);
+  });
   await check('English and Chinese URL-line confidence passes through real API and UI', async () => {
     summary.url_line_confidence_controls = {};
     for (const [language, filename, expected] of [

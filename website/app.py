@@ -1791,6 +1791,9 @@ class ContentRequest(BaseModel):
     raw_email: str = Field(default="", max_length=60_000)
     # The reader's answer to "Did you do this yourself?" for a model-driven notice of their own action.
     requested: Literal['', 'yes', 'no'] = ''
+    # How the manual body is read: "text" as pasted into a text box, "html" as an HTML document. Absent is
+    # "html", the reading from before this field. An original message is read by its MIME types instead.
+    body_format: Literal['text', 'html'] = 'html'
 
 
 def fuse_content_risk(
@@ -2194,7 +2197,18 @@ def _ensure_image_warnings(result: dict) -> None:
             result['extra_indicators'].append(indicator('info', code))
 
 
-async def _apply_content_model(result: dict, model_view: dict):
+# A plain-text part writes a link as "<https://...>": its target, not text a reader sees. The HTML
+# reading dropped these as tags, so for a body declared text the model scores a copy without them;
+# the rules, link analysis and saved text still read them (A1).
+_LINK_ANNOTATION = re.compile(r'<(?:[Hh][Tt][Tt][Pp][Ss]?://|[Mm][Aa][Ii][Ll][Tt][Oo]:)[^\s<>]+>')
+
+
+def _without_link_annotations(text: str) -> str:
+    """The text with each link annotation replaced by one space, then normalised as model views are."""
+    return re.sub(r'\s+', ' ', _LINK_ANNOTATION.sub(' ', text)).strip()
+
+
+async def _apply_content_model(result: dict, model_view: dict, *, without_link_annotations: bool = False):
     """Score the views the rules could not rule out with the text model, when one is loaded.
     Returns the model's probability and threshold for the fusion, whether the rendering is
     still uncertain, and the rendering warnings that every scored view resolved."""
@@ -2214,10 +2228,11 @@ async def _apply_content_model(result: dict, model_view: dict):
         if bodies:
             texts = list(dict.fromkeys([*bodies, *(text for body in bodies for view in view_readings.get(body, ())
                                                    for text in view.values())]))
+            model_texts = [_without_link_annotations(text) for text in texts] if without_link_annotations else texts
             predictions = dict(zip(texts, await _run_analysis(
                 lambda pipeline, subject, texts: [
                     predict_content(pipeline, subject, text, canonical_text=True) for text in texts],
-                _content_pipeline, model_view['subject'], texts)))
+                _content_pipeline, model_view['subject'], model_texts)))
             # Presentation cues give way only to a model that reads every view and rendering
             # as legitimate; one reading at the threshold keeps them in the rule score.
             if any(prediction['_phishing_probability'] is not None and prediction['_phishing_probability'] >= threshold
@@ -2417,11 +2432,12 @@ async def _analyze_content_within_budget(
 ):
     subject, body, structure, raw_message = await _resolve_content_input(
         request, structure, plain_text=plain_text, allow_empty=allow_empty, raw_message=raw_message)
+    text_body = plain_text or request.body_format == 'text'
 
     # 1. Rule-based heuristic scan (explainable categories + extra indicators)
     model_view = {}
     result = await _run_analysis(analyze_email_content, subject, body, content_parts=(structure['content_parts'] if structure else
-                                       [{'content_type': 'text/plain', 'content': body}] if plain_text else None),
+                                       [{'content_type': 'text/plain', 'content': body}] if text_body else None),
                                    _model_view=model_view, sender=structure['from'] if structure else '',
                                    recipients=[address for name in ('To', 'Cc') for value in
                                                (structure['header_candidates'][name] if structure else ())
@@ -2430,6 +2446,8 @@ async def _analyze_content_within_budget(
         result['analysis_warnings'].append(_MIME_ALTERNATIVE_LIMIT_WARNING)
     remote_image_dominant = model_view['remote_image_dominant']
     result["input_mode"] = "raw-email" if structure else "subject-body"
+    # The reading actually used: an original message by its MIME types, whatever body_format said.
+    result["body_reading"] = "mime" if structure else "text" if text_body else "html"
     result["structure_score"] = structure["structure_score"] if structure else 0
     if structure:
         _add_structure_evidence(result, structure)
@@ -2441,7 +2459,8 @@ async def _analyze_content_within_budget(
 
     # 2. Optional ML text classifier (TF-IDF + selected linear model)
     ml_probability, ml_threshold, rendering_uncertain, resolved_warnings = await _apply_content_model(
-        result, model_view)
+        result, model_view,
+        without_link_annotations=request.body_format == 'text' and structure is None and not plain_text)
     _fuse_content_result(result, ml_probability, ml_threshold, raw_message)
 
     verified_sender = _apply_verified_sender(result, structure, request)
@@ -2502,7 +2521,8 @@ async def _analyze_visual(payload, structure=None, *, observe_sender_history=Tru
     if not (raw or payload.subject.strip() or payload.body.strip() or payload.observations or payload.warnings):
         raise HTTPException(400, 'Image evidence or an email is required')
     base = json.loads((await _analyze_content(
-        ContentRequest(subject=payload.subject, body=payload.body, requested=payload.requested), structure,
+        ContentRequest(subject=payload.subject, body=payload.body, requested=payload.requested,
+                       body_format=payload.body_format), structure,
         observe_sender_history=observe_sender_history, history_workspace=history_workspace, allow_empty=True,
     )).body)
     findings = []
@@ -2746,11 +2766,13 @@ async def _analyze_case(payload, raw, *, history_workspace: str | None = None):
     source = {'subject': structure['subject'] if structure else payload.subject.strip(),
               'body': structure['body'] if structure else payload.body.strip(),
               'input_mode': analysis['input_mode']}
+    # A manual body is kept as it was read: literally when declared text, else as an HTML document's text.
+    manual_type = 'text/plain' if payload.body_format == 'text' else 'text/html'
     if visual:
         # Analyze the original message above, but retain text rather than embedded
         # image bytes. Plain MIME parts remain literal text, including angle brackets.
         parts = structure['content_parts'] if structure else [
-            {'content_type': 'text/html', 'content': source['body']}]
+            {'content_type': manual_type, 'content': source['body']}]
         source['body'] = '\n'.join(_mask_inline_data_payloads(
             _visible_content_text(part['content']) if part['content_type'] == 'text/html'
             else part['content']) for part in parts)
@@ -2762,7 +2784,7 @@ async def _analyze_case(payload, raw, *, history_workspace: str | None = None):
     # Preserve MIME text/plain literally for later optional semantic analysis.
     # Saved legacy raw-email bodies mix HTML/plain and cannot be re-parsed safely.
     semantic_parts = structure['content_parts'] if structure else [
-        {'content_type': 'text/html', 'content': payload.body}]
+        {'content_type': manual_type, 'content': payload.body}]
     source['auxiliary_text'] = '\n'.join(
         _mask_inline_data_payloads(_visible_content_text(part['content'])
                                   if part['content_type'] == 'text/html' else part['content'])

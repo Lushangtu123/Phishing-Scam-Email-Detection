@@ -15,7 +15,7 @@
   <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
   <script src="/static/compat.js?v=1"></script>
   <script src="/static/theme-init.js?v=1"></script>
-  <script src="/static/lang-init.js?v=78"></script>
+  <script src="/static/lang-init.js?v=79"></script>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/static/style.css?v=72" />
 </head>
@@ -536,13 +536,14 @@
           <label class="content-label" for="content-body" data-i18n="content.body.label">Email Body</label>
           <textarea
             id="content-body"
-            aria-describedby="raw-email-status"
+            aria-describedby="content-body-format-hint raw-email-status"
             class="content-body-textarea"
             rows="9"
             placeholder="Paste the full email body text here…"
             data-i18n-attr="placeholder:content.body.placeholder"
             spellcheck="false"
           ></textarea>
+          <p id="content-body-format-hint" class="raw-email-status" data-i18n="content.body.formatHint">This field is analyzed as plain text. HTML tags are not interpreted. Upload an .eml file to analyze the original email and its HTML links.</p>
         </div>
         <p class="raw-email-status content-privacy-notice">
           <span data-i18n="content.privacy">Content is processed on this server. Ordinary analysis does not retain the
@@ -1178,7 +1179,7 @@
 <!-- Deferred: the scripts run in this order once the markup is parsed, before DOMContentLoaded, so
      the first paint does not wait for them. i18n.js runs first and every later script uses it; a
      Chinese page stays hidden (lang-init.js) until it is translated. -->
-<script defer src="/static/i18n.js?v=151"></script>
+<script defer src="/static/i18n.js?v=153"></script>
 <script defer src="/static/vision.js?v=12"></script>
 <script defer src="/static/file-intake.js?v=3"></script>
 <script defer src="/static/confirm-dialog.js?v=3"></script>
@@ -1191,7 +1192,7 @@
 <script defer src="/static/app-config.js?v=4"></script>
 <script defer src="/static/app-sender.js?v=7"></script>
 <script defer src="/static/app-verify.js?v=4"></script>
-<script defer src="/static/app-content.js?v=8"></script>
+<script defer src="/static/app-content.js?v=9"></script>
 <script defer src="/static/app-content-render.js?v=13"></script>
 <script defer src="/static/app-sms.js?v=4"></script>
 <script defer src="/static/app-reports.js?v=6"></script>

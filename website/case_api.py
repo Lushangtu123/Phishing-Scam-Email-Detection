@@ -89,6 +89,8 @@ class CaseInput(BaseModel):
     subject: str = Field(default='', max_length=500)
     body: str = Field(default='', max_length=50000)
     raw_email: str = Field(default='', max_length=60000)
+    # As ContentRequest.body_format: the case page sends "text"; absent is "html".
+    body_format: Literal['text', 'html'] = 'html'
 
 
 class CaseReview(BaseModel):
@@ -374,7 +376,12 @@ def make_case_router(analyze, *, visible_text, mask_inline_data):
             key = str(UUID(key))
         except ValueError:
             raise HTTPException(422, 'A UUID Idempotency-Key header is required') from None
-        content = b'eml\0' + raw if raw is not None else b'json\0' + json.dumps(payload.model_dump(), sort_keys=True).encode()
+        fields = payload.model_dump()
+        # "html" is what a request without body_format means, so it keeps the digest from before the field:
+        # a retry sent across a deployment still matches its first attempt.
+        if fields.get('body_format') == 'html':
+            del fields['body_format']
+        content = b'eml\0' + raw if raw is not None else b'json\0' + json.dumps(fields, sort_keys=True).encode()
         digest = hashlib.sha256(content).hexdigest()
         store, actor = access
         prior = await call(store.existing, actor, key, digest)

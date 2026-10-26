@@ -122,8 +122,13 @@ uploaded email, and analysis waits while a selected file is still being read.
 complete message represented as Unicode text. For original files, use
 `POST /api/analyze-eml` with the unchanged bytes and `Content-Type: message/rfc822`
 (or `application/octet-stream`). API-only clients can use this byte-preserving endpoint. The browser uses the visual submission route described below.
-The manual `subject` field is always literal text; HTML parsing applies only to
-the manual body. A MIME subject is likewise treated as literal text.
+The manual `subject` field is always literal text. The manual body is read as its
+`body_format` declares ([API](api.md#reading-a-manual-body)): as text, which the website
+sends for its text boxes, or as HTML, the reading of a request without the field. A MIME
+subject is likewise treated as literal text. For a body read as text, the text model scores a
+copy in which each `<http://…>`, `<https://…>` or `<mailto:…>` link annotation is one space,
+as the HTML reading dropped them as tags; rules and link analysis read the body as pasted.
+MIME parts, OCR and QR text are not changed.
 
 Phrase checks keep the `n't` ending of English negative contractions together,
 including straight and curly apostrophes: `You won't` does not match the

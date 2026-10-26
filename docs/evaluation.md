@@ -276,6 +276,148 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### Link annotations left out of the model's copy of a text body (A1, 2026-10-26)
+
+**Why.** Reading a pasted body as text (F4, below) lost 11 phishing alerts in G6t. In every one, only the model's
+probability fell, because the model now saw the `<https://…>` link annotations that the HTML reading had dropped as
+tags. The owner did not accept the 11.
+
+**Change.** For a manual body declared `text`, and only there, the text model scores a copy in which each
+`<http://…>`, `<https://…>` or `<mailto:…>` annotation is one space: any letter case, no whitespace inside, closed by
+`>`. Everything else reads the body as pasted: the rules, link analysis, the subject and the saved case text. MIME
+parts, OCR and QR text, the `html` reading and requests without the field are unchanged.
+
+**Pass criteria** (A1-1 to A1-13) were approved by the owner before measuring. Hard limits are set against `main`,
+group by group; every class change against uncompensated F4 goes to owner review. The inputs are those of F4 plus:
+
+- **77 synthetic cases:**
+  - 24 cases with annotation forms that are removed and 42 with forms that are left alone, half in phishing and half
+    in legitimate wording;
+  - 7 boundary cases (several annotations, adjacent text, nesting, unclosed, empty address, HTML source, length);
+  - 4 scope cases.
+- **New public groups.** Each record's pasted visible text was kept once across all groups. N1 and N2 records were
+  also excluded if they matched the model's Nazario training rows by sender, minute and subject, or by text family,
+  under rules fixed before the build.
+
+  | Group | Source | Label | Records |
+  |---|---|---|---|
+  | P-new | phishing_pot messages not used before | phishing | 52 |
+  | N1 | Nazario phishing mailboxes, 2015–2022 | phishing | 422 |
+  | N2 | Nazario `private-phishing4` mailbox | phishing | 2,932 |
+  | L1 | Monthly archive exports of python-list and python-announce-list, 2025-06 to 2026-09 | legitimate | 839 |
+  | L2 | SpamAssassin `easy_ham_2` | legitimate | 1,387 |
+
+  Two L1 messages were excluded because the evaluator's visible-text reader fails on them.
+
+Nine runs were made under the network guard: `main` `3b512cd` without the field; F4 `c09f922` without the field and
+as text; A1 `1583d1c` without the field, as html and as text; and a repeat of the probes and cases on each build.
+
+**First report: not passed** (A1-3, 1,544 records). The html run's `.eml` records (G6, G7) differed from `main` in
+the whole response.
+
+- **Cause: the acceptance adapter, not the detector.** The runs without the field read an `.eml` through the
+  evaluator's `analyze_record`, which adds an evaluator-only `_evaluation` key. The runs with the field called the
+  analysis directly, without that key.
+- **Proof:** with the key added, all 1,544 responses equal `main`; it was the only key that differed.
+- **A second fault, also in the tools:** the A1-11 probability statistics read the wrong field.
+
+The owner approved a tool revision with tests and planted defects. All nine runs were repeated with it, and the
+first report stays on record.
+
+**Second report: no failure, with 14 records for owner review, all now decided.**
+
+- **The rerun:** every record equals the first run except for the two intended tool changes.
+- **The 11 G6t messages** alert again, each with exactly `main`'s probability. This is a regression check on a
+  development set, not evidence that A1 works in general.
+- **Against `main`:**
+  - no phishing record in any gated group lost its alert;
+  - no legitimate record in a plain subset or whole group gained one;
+  - every class change from `main` also appears with F4's text reading. Against F4, A1 changes the class of only
+    the 11 and `pot-sample-11989` (below).
+- **Inputs:** every in-scope model call scored exactly the expected text without annotations, and every other call
+  was unchanged: 66,860 in-scope calls in the text run and 97 in the runs without the field.
+- **Synthetic cases:** all 77 meet their assertions, and F4's own criteria still pass on A1.
+- **Owner decisions:**
+  - The two legitimate markup records already accepted as known false positives under F4 stay accepted, for these
+    two inputs only. A1 scores them exactly as F4 does.
+  - The 11 restored alerts are accepted.
+  - `pot-sample-11989` (phishing) is accepted as a known missed alert for this one input. F4 alerted at 37.9%, just
+    over the 37.36% threshold; A1 scores 30.6%, as `main` does. `main` also misses it.
+- **Risk level:** against F4, 15 records in G6t and G3 keep their class but move up one level: 14 from high to
+  critical and 1 from medium to high.
+
+**Limits.** P-ext (P-new, N1 and N2) holds 396 records with an annotation, and L1 holds 108. These counts only meet
+the approved minimum amount of evidence; no false-alarm or detection rate is claimed from them, and they do not
+stand for enterprise mail. A1 restores `main`'s model behaviour on annotated text, including `main`'s mistakes. A
+legitimate Dutch newsletter in the synthetic set returns to `main`'s false alarm, and short texts left without words
+are not scored.
+
+### A pasted body read as text (2026-10-25)
+
+**Finding.** A security review reproduced locally:
+
+- **The bypass:** a one-time-code request inside a literal `<style>` or `<script>` in a pasted body was Safe.
+- **The same text in a `text/plain` `.eml`:** High.
+- **The cause:** the page's body box holds plain text, but the server read every manual body as an HTML document, so the request was hidden.
+
+**Change.** Requests declare `body_format` (`text` or `html`; absent is `html`, the old reading). Both pages send
+`text`. An original message is read by its MIME types whatever the field says. Every result reports `body_reading`
+(`text`, `html` or `mime`). A case saves a `text` body literally, for its analysis and for the external opinion.
+
+**Pass criteria** were fixed and approved by the owner before measuring (F4-1 to F4-10). The inputs:
+
+- the reviewer's 49 probes, run both pasted and as `.eml` (98 detections);
+- 37 synthetic cases and 40 case-workspace entries;
+- G1–G7;
+- G6t and G7t: the visible text that `pasted()` gives for each G6 and G7 message.
+  - **G6t:** 1,051 messages after within-group duplicates.
+  - **G7t:** 247 messages.
+
+Each input was run three ways: without the field, with `html`, and with `text`. The measured commit is `c09f922`,
+compared with `main` `3b512cd`. The adapter and model were the same, and the network guard recorded 0 attempts.
+The baseline and the three candidate runs made 248,297 analyses with 0 failures. A repeat of 179 baseline items
+matched it item for item.
+
+**Results: not passed as written.**
+
+- **Passing:**
+  - **The two literal-markup probes** are High with a High floor and the one-time-code finding when read as text.
+  - **The 37 synthetic cases and the 40 case entries** meet every assertion.
+  - **The case workspace** keeps a `text` body literally in its saved text and in the prepared opinion input. Default
+    and `html` cases save exactly what `main` saved.
+  - **Without the field:** 62,821 detections equal `main` in the whole response (without `body_reading`), the model
+    calls and the rules' returned text: 98 probe detections and all 62,723 corpus records. The synthetic cases sent
+    without the field or with `html` also equal `main`.
+  - **With `html`:** all 61,265 detections equal `main` the same way.
+  - **With `text`, the plain subsets of G1, G2, G4 and G5:** 0 of 58,552 records changed class.
+- **Failing:** in G6t, 11 of 1,051 phishing messages that alerted on `main` no longer alert with `text`, against a
+  required 0. Alerts went from 956 to 947.
+  - **What changed:** in all 11 the rule codes and the floor are unchanged. Only the model's probability fell below
+    the threshold.
+  - **Why:** each message's visible text writes links in angle brackets (`<https://…>`), as mailers' plain-text
+    parts do.
+    - Read as HTML, these were taken as tags and dropped. Nothing else in the model's input differed: word for
+      word and in order, it was the text reading without them.
+    - Read as text, the model sees them. With the annotations removed, the text reading gives the `main`
+      probability back exactly, in all 11.
+  - **How widespread:** of the 1,051 G6t messages,
+    - 213 write links as `<http(s)://…>`;
+    - 6 more write them only as `<mailto:…>`;
+    - 2 contain `<a href=…>`.
+  - **Which inputs changed:** 230 messages scored a different model input: all 213, the 6, the 2 and 9 others. All
+    13 that changed class write `<http(s)://…>`.
+  - **Records that moved the other way:**
+    - G6t: 2 messages now alert.
+    - G3: 1 more alert.
+    - G7t: 2 fewer false alarms.
+- **Pending review:**
+  - one legitimate record each in the markup subsets of G2 and G4 now alerts;
+  - 6 HTML-built probe controls lose their request finding when their HTML source is read as text.
+
+**Limits.** HTML source pasted into a text box is read literally: its anchors are not parsed, and its hidden script
+or style text counts as visible. A client that sends no `body_format` keeps the old reading. These groups are
+development sets: G6t and G7t were derived from groups used before, and G4 and G5 are the model's training data.
+
 ### Link labels read as the address they present (2026-10-24)
 
 **Finding.** A security review reproduced locally:

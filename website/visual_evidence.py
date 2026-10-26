@@ -64,6 +64,8 @@ class VisualRequest(BaseModel):
     mailbox: Literal['', 'gmail', 'outlook'] = ''
     # The reader's answer to "Did you do this yourself?" for a model-driven notice of their own action.
     requested: Literal['', 'yes', 'no'] = ''
+    # How subject and body above are read, as ContentRequest.body_format; ignored with eml_base64.
+    body_format: Literal['text', 'html'] = 'html'
 
     def eml_bytes(self):
         if not self.eml_base64:

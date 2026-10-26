@@ -1303,6 +1303,51 @@ test('content payload includes an uploaded raw email', () => {
   assert.equal(payload.raw_email, 'From: sender@example.com\n\nHello');
 });
 
+test('the manual body is sent to be read as text; an uploaded raw email carries no reading', () => {
+  const { context } = loadFrontend();
+  const manual = context.buildContentPayload('Project update', 'Hello <style>a request</style>', '');
+  assert.equal(manual.body_format, 'text');
+  assert.equal(manual.body, 'Hello <style>a request</style>');
+  assert.equal('body_format' in context.buildContentPayload('', '', 'From: sender@example.com\n\nHello'), false);
+});
+
+test('manual analysis declares the text reading in the request it sends', async () => {
+  const requests = [];
+  const { context, elements } = loadFrontend({ fetch: async (url, options) => {
+    requests.push({ url, body: JSON.parse(options.body) });
+    return response(contentResult('Text result'));
+  } });
+  context.setupInputEvents();
+  elements.get('content-subject').value = 'Project update';
+  elements.get('content-body').value = 'Please use the link. <style>Please reply with the code.</style>';
+  await context.runContentAnalysis();
+  assert.equal(requests.at(-1).url, '/api/analyze-content');
+  assert.equal(requests.at(-1).body.body_format, 'text');
+  assert.equal(requests.at(-1).body.body, 'Please use the link. <style>Please reply with the code.</style>');
+});
+
+test('the file request declares the text reading and carries no text box content', async () => {
+  let submitted;
+  const { context, elements } = loadFrontend({ fetch: async (url, options) => {
+    submitted = { url, body: JSON.parse(options.body) };
+    return response(contentResult('File result'));
+  } });
+  context.setupInputEvents();
+  elements.get('content-subject').value = 'Typed subject';
+  elements.get('content-body').value = 'Typed body';
+  const bytes = new Uint8Array([72, 105]);
+  await elements.get('raw-email-file').listeners.change({ target: { files: [{
+    name: 'mail.eml', size: bytes.length,
+    arrayBuffer: async () => bytes.buffer,
+    text: async () => { throw new Error('Must not decode original bytes'); },
+  }] } });
+  await context.runContentAnalysis();
+  assert.equal(submitted?.url, '/api/analyze-visual');
+  assert.equal(submitted.body.body_format, 'text');
+  assert.equal('subject' in submitted.body, false);
+  assert.equal('body' in submitted.body, false);
+});
+
 test('attacker-controlled indicator text is HTML escaped before rendering', () => {
   const { context } = loadFrontend();
 
