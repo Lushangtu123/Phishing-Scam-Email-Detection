@@ -320,10 +320,16 @@ matched it item for item.
     the threshold.
   - **Why:** each message's visible text writes links in angle brackets (`<https://…>`), as mailers' plain-text
     parts do.
-    - Read as HTML, these were taken as tags and dropped, sometimes with the text after them.
-    - Read as text, the model sees them.
-  - **How widespread:** 219 of the 1,051 G6t messages carry such links. 230 G6t messages scored a different model
-    input, 219 of them among those 219.
+    - Read as HTML, these were taken as tags and dropped. Nothing else in the model's input differed: word for
+      word and in order, it was the text reading without them.
+    - Read as text, the model sees them. With the annotations removed, the text reading gives the `main`
+      probability back exactly, in all 11.
+  - **How widespread:** of the 1,051 G6t messages,
+    - 213 write links as `<http(s)://…>`;
+    - 6 more write them only as `<mailto:…>`;
+    - 2 contain `<a href=…>`.
+  - **Which inputs changed:** 230 messages scored a different model input: all 213, the 6, the 2 and 9 others. All
+    13 that changed class write `<http(s)://…>`.
   - **Records that moved the other way:**
     - G6t: 2 messages now alert.
     - G3: 1 more alert.
