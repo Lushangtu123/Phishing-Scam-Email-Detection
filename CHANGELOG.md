@@ -22,6 +22,51 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-25 18:12 PT] — A pasted body is read as text when the request says so (F4; acceptance not passed)
+
+### Why
+- **A reported bypass, reproduced locally.** A one-time-code request inside a literal `<style>` or `<script>` in a pasted body was Safe; the same text in a `text/plain` `.eml` was High. The page's body box holds plain text, but the server read every manual body as an HTML document.
+- The owner approved the reading semantics (option A) and then the pass criteria (F4 r3) before any measurement. The case workspace is included, by the owner's decision.
+
+### Files changed
+- `website/app.py`:
+  - `ContentRequest.body_format`: `text` or `html`; absent is `html`; anything else is a 422.
+  - `text` reads the manual body as one `text/plain` part, the path OCR text already used.
+  - Every content result reports `body_reading`: `text`, `html`, or `mime` for an original message.
+  - The screenshot request passes the field on.
+  - A case saves a `text` body literally, both in `auxiliary_text` and as an image case's body.
+- `website/visual_evidence.py`: `VisualRequest.body_format`.
+- `website/case_api.py`: `CaseInput.body_format`. A request without the field, or with `html`, keeps its old idempotency digest.
+- **Both pages** send `text` for their text boxes and file requests:
+  - `website/static/app-content.js`, `website/static/cases.js`;
+  - a hint under each body box, in English and Chinese: `index.html`, `cases.html`, `i18n.js`, `i18n-zh.js`;
+  - asset versions bumped.
+- **Tests:**
+  - `website/tests/test_body_format.py` (new, 16 tests);
+  - `website/static/app.test.mjs` (3 tests) and `website/static/cases.test.mjs` (1 test);
+  - one more real-browser check in `website/tools/browser-checks/`.
+- **Visual tests:** the two content fixtures send the field and echo `body_reading`. Six baselines were re-rendered (see Effect).
+- `docs/api.md`, `docs/detection-design.md`, `docs/evaluation.md`.
+
+### Effect
+- **Measurement:** commit `c09f922` against `main` `3b512cd`, 248,297 analyses, 0 failures, network guard 0 attempts.
+- **Without the field or with `html`:** 62,821 detections and 61,265 detections equal `main` in the whole response, the model calls and the rules' text. This includes all 62,723 corpus records.
+- **Read as text:**
+  - the two literal-markup probes are High with a High floor;
+  - all 37 synthetic cases and 40 case-workspace entries pass;
+  - 0 of 58,552 plain records in G1, G2, G4 and G5 changed class.
+- **Not passed:** in G6t (visible text of 1,051 phishing_pot messages), 11 messages that alerted on `main` no longer alert as text. The approved limit is 0.
+  - Alerts went from 956 to 947; rules and floors are unchanged, and only the model's probability fell.
+  - All 11 write links as `<https://…>`, which the old HTML reading dropped as tags.
+  - Elsewhere, G7t has 2 fewer false alarms and G3 1 more alert.
+- **Pending review:**
+  - one legitimate record each in the G2 and G4 markup subsets now alerts;
+  - 6 HTML-built probe controls lose their request finding as text.
+- **Visual baselines:** 6 of 17 images were re-rendered: the 5 content results and the open mobile menu.
+  - The hint line moves the result down by a fraction of a pixel.
+  - Every pixel matches the old image within one row at a per-channel tolerance of 48, except 8 and 14 pixels at the ML badge.
+- **Not merged or deployed;** the result awaits the owner's decision.
+
 ## [2026-10-24 20:50 PT] — A link's label is read as the address it presents (F3)
 
 ### Why

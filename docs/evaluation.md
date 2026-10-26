@@ -276,6 +276,66 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### A pasted body read as text (2026-10-25)
+
+**Finding.** A security review reproduced locally:
+
+- **The bypass:** a one-time-code request inside a literal `<style>` or `<script>` in a pasted body was Safe.
+- **The same text in a `text/plain` `.eml`:** High.
+- **The cause:** the page's body box holds plain text, but the server read every manual body as an HTML document, so the request was hidden.
+
+**Change.** Requests declare `body_format` (`text` or `html`; absent is `html`, the old reading). Both pages send
+`text`. An original message is read by its MIME types whatever the field says. Every result reports `body_reading`
+(`text`, `html` or `mime`). A case saves a `text` body literally, for its analysis and for the external opinion.
+
+**Pass criteria** were fixed and approved by the owner before measuring (F4-1 to F4-10). The inputs:
+
+- the reviewer's 49 probes, run both pasted and as `.eml` (98 detections);
+- 37 synthetic cases and 40 case-workspace entries;
+- G1–G7;
+- G6t and G7t: the visible text that `pasted()` gives for each G6 and G7 message.
+  - **G6t:** 1,051 messages after within-group duplicates.
+  - **G7t:** 247 messages.
+
+Each input was run three ways: without the field, with `html`, and with `text`. The measured commit is `c09f922`,
+compared with `main` `3b512cd`. The adapter and model were the same, and the network guard recorded 0 attempts.
+The baseline and the three candidate runs made 248,297 analyses with 0 failures. A repeat of 179 baseline items
+matched it item for item.
+
+**Results: not passed as written.**
+
+- **Passing:**
+  - **The two literal-markup probes** are High with a High floor and the one-time-code finding when read as text.
+  - **The 37 synthetic cases and the 40 case entries** meet every assertion.
+  - **The case workspace** keeps a `text` body literally in its saved text and in the prepared opinion input. Default
+    and `html` cases save exactly what `main` saved.
+  - **Without the field:** 62,821 detections equal `main` in the whole response (without `body_reading`), the model
+    calls and the rules' returned text: 98 probe detections and all 62,723 corpus records. The synthetic cases sent
+    without the field or with `html` also equal `main`.
+  - **With `html`:** all 61,265 detections equal `main` the same way.
+  - **With `text`, the plain subsets of G1, G2, G4 and G5:** 0 of 58,552 records changed class.
+- **Failing:** in G6t, 11 of 1,051 phishing messages that alerted on `main` no longer alert with `text`, against a
+  required 0. Alerts went from 956 to 947.
+  - **What changed:** in all 11 the rule codes and the floor are unchanged. Only the model's probability fell below
+    the threshold.
+  - **Why:** each message's visible text writes links in angle brackets (`<https://…>`), as mailers' plain-text
+    parts do.
+    - Read as HTML, these were taken as tags and dropped, sometimes with the text after them.
+    - Read as text, the model sees them.
+  - **How widespread:** 219 of the 1,051 G6t messages carry such links. 230 G6t messages scored a different model
+    input, 219 of them among those 219.
+  - **Records that moved the other way:**
+    - G6t: 2 messages now alert.
+    - G3: 1 more alert.
+    - G7t: 2 fewer false alarms.
+- **Pending review:**
+  - one legitimate record each in the markup subsets of G2 and G4 now alerts;
+  - 6 HTML-built probe controls lose their request finding when their HTML source is read as text.
+
+**Limits.** HTML source pasted into a text box is read literally: its anchors are not parsed, and its hidden script
+or style text counts as visible. A client that sends no `body_format` keeps the old reading. These groups are
+development sets: G6t and G7t were derived from groups used before, and G4 and G5 are the model's training data.
+
 ### Link labels read as the address they present (2026-10-24)
 
 **Finding.** A security review reproduced locally:
