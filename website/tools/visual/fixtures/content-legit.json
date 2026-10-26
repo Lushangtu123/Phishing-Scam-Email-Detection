@@ -4,7 +4,8 @@
  "request": {
   "subject": "Your monthly digest from TechBlog – May 2026",
   "body": "Hi Sarah,\n\nThanks for subscribing to the TechBlog monthly newsletter. Here's a roundup of what's new this month:\n\n• The latest in AI and machine learning research\n• Upcoming community events and webinars\n• Product updates and release notes\n\nWe hope you find this content helpful. If you have feedback, feel free to contact us at hello@techblog.com.\n\nYou are receiving this email because you subscribed at techblog.com.\nIf you no longer wish to receive these emails, please click unsubscribe below or update your preferences.\n\nPrivacy Policy | Terms of Service\n© 2026 TechBlog, All Rights Reserved.\nSent from TechBlog, 123 Main St, San Francisco, CA 94101",
-  "raw_email": ""
+  "raw_email": "",
+  "body_format": "text"
  },
  "status": 200,
  "body": {
@@ -43,6 +44,7 @@
   "has_shortener": false,
   "risk_floor": "safe",
   "input_mode": "subject-body",
+  "body_reading": "text",
   "structure_score": 0,
   "ml_status": "available",
   "ml_phishing_probability": 0.5,

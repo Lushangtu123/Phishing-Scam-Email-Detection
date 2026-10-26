@@ -4,7 +4,8 @@
  "request": {
   "subject": "URGENT: Your P@yP@l account has been SUSPENDED!!!",
   "body": "Dear valued customer,\n\nWe have detected UNAUTHORIZED ACCESS on your P@yP@l account. Your account has been SUSPENDED due to suspicious activity. Failure to act will result in PERMANENT TERMINATION and legal action.\n\nURGENT ACTION REQUIRED: You must verify your identity within 24 hours!\n\nClick here: http://192.168.1.1/paypal-verify-now\nClick here to confirm: http://bit.ly/verify-account-now\n\nPlease enter your username, password, credit card number, date of birth, social security number, and bank account number to restore access.\n\nDO NOT share this email. DELETE after reading. Keep this CONFIDENTIAL.\n\nP@yP@l Security Department",
-  "raw_email": ""
+  "raw_email": "",
+  "body_format": "text"
  },
  "status": 200,
  "body": {
@@ -149,6 +150,7 @@
   "has_shortener": true,
   "risk_floor": "high",
   "input_mode": "subject-body",
+  "body_reading": "text",
   "structure_score": 0,
   "ml_status": "available",
   "ml_phishing_probability": 100,
