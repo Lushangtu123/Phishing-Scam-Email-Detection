@@ -6,7 +6,7 @@ pages and vendored module workers. It uses no API response mocks, personal mail,
 cloud credentials or remote uploads. Its temporary SQLite database is deleted and
 both servers and the browser are stopped in `finally`.
 
-The seventeen checks cover sender analysis, manual message analysis, English and Chinese
+The eighteen checks cover sender analysis, manual message analysis, pasted literal markup read as text, English and Chinese
 image URL-line confidence displayed through the real API/UI, image upload,
 local-only original-image preview beside the OCR result,
 worker cancellation followed by a successful retry, EML embedded-image extraction,

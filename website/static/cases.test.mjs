@@ -789,6 +789,21 @@ test('Jev panel explains unavailable configuration and refreshes without losing 
   assert(!ui.calls.some(call => call.url.endsWith('/auxiliary')));
 });
 
+test('case text and screenshot requests declare the text reading', async () => {
+  const ui = setup(standard);
+  await ui.login(); ui.el('subject').value = 'Synthetic'; ui.el('body').value = 'Hello <style>a request</style>';
+  await ui.fire('create-form', 'submit');
+  const text = ui.calls.find(call => call.options.method === 'POST' && call.url === '/api/cases');
+  assert.deepEqual(JSON.parse(text.options.body), {subject: 'Synthetic', body: 'Hello <style>a request</style>', body_format: 'text'});
+  const vui = setup(standard, {cancel(){}, render(){}, async recognize(){ return {observations: [], warnings: []}; }});
+  await vui.login();
+  const file = {name: 'clipboard.png', type: 'image/png', size: 100};
+  vui.el('case-file-dropzone').listeners.drop({preventDefault(){}, stopPropagation(){}, dataTransfer: {files: [file], types: ['Files']}});
+  await vui.fire('create-form', 'submit');
+  const visual = vui.calls.find(call => call.options.method === 'POST' && call.url === '/api/cases/visual');
+  assert.deepEqual(JSON.parse(visual.options.body), {observations: [], warnings: [], body_format: 'text'});
+});
+
 test('dropped and pasted case files use existing recognition and require explicit submission',async()=>{
   for(const kind of ['drop','paste']){
     let recognized;

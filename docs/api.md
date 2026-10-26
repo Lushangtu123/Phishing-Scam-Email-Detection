@@ -22,6 +22,28 @@ requests) that is plainly another kind of file — a program, image, PDF, archiv
 Outlook `.msg` by its leading bytes, or with a NUL byte among its headers — is refused
 with 415 and is not analyzed. A malformed but textual message is still analyzed.
 
+## Reading a manual body
+
+`POST /api/analyze-content`, `POST /api/analyze-visual`, `POST /api/cases` and
+`POST /api/cases/visual` take an optional `body_format`, `"text"` or `"html"`, that says how
+the manual `body` is read:
+
+- `"text"`: as plain text, the way a text box holds it. Tags, comments and entities are
+  ordinary characters: text inside a literal `<style>` or `<script>` is read, `&amp;` stays
+  `&amp;`, and an `<a href>` in the text is not a link with a label. A case saves such a body
+  literally, also for the optional external opinion.
+- `"html"`: as an HTML document. Hidden elements are not visible text and entities are
+  decoded. This is also the reading when the field is absent, the behaviour from before the
+  field, so existing clients are unchanged. A client that sends pasted or typed text should
+  send `"text"`; the website does for both of its text boxes.
+
+Any other value, including `null`, is refused with 422. With an original message
+(`raw_email`, `eml_base64`, or `POST /api/analyze-eml`), each MIME part is read by its declared
+type and `body_format` is ignored. The manual `subject` is always literal text.
+
+Every content result reports the reading it used in `body_reading`: `"text"`, `"html"`, or
+`"mime"` for an original message, never a copy of an ignored field.
+
 ## Text messages
 
 `POST /api/analyze-sms` takes JSON `{"sender": "...", "text": "..."}`: `sender` at most

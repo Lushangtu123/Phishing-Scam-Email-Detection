@@ -802,9 +802,10 @@
         const snapshot = inputVersion, file = $('eml').files[0];
         if (file && (!file.size || file.size > 2 * 1024 * 1024)) throw failure('cases.error.fileSize');
         if (file && !window.PhishGuardVision) throw failure('cases.error.visionUnavailable');
-        const payload = file ? await window.PhishGuardVision.recognize(file, message => {
+        // The text boxes hold plain text: the server reads the body as text, never as an HTML document.
+        const payload = {...(file ? await window.PhishGuardVision.recognize(file, message => {
           if (current === epoch && snapshot === inputVersion) $('vision-progress').textContent = message;
-        }, $('case-ocr-language').value || 'eng') : {subject: $('subject').value, body: $('body').value};
+        }, $('case-ocr-language').value || 'eng') : {subject: $('subject').value, body: $('body').value}), body_format: 'text'};
         const body = JSON.stringify(payload);
         if (current !== epoch) return;
         if (snapshot !== inputVersion) throw failure('cases.error.inputChanged');

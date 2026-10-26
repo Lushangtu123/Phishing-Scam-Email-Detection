@@ -323,6 +323,7 @@ window.PhishGuardI18n = (() => {
     'content.subject.placeholder': 'e.g. URGENT: Your account has been suspended',
     'content.body.label': 'Email Body',
     'content.body.placeholder': 'Paste the full email body text here…',
+    'content.body.formatHint': 'This field is analyzed as plain text. HTML tags are not interpreted. Upload an .eml file to analyze the original email and its HTML links.',
     'content.privacy': 'Content is processed on this server. Ordinary analysis does not retain the message body or attachment content. A report is saved only if you submit one; original input is included only with your explicit consent. Public analysis does not read or record sender history; a pseudonymous sender observation is kept only when a signed-in analyst saves a case, in that case workspace. Remove unrelated personal content before submitting an email. The Recent checks list keeps only verdicts and scores in this browser. Where domain-age lookups are enabled, the registrable domains of the sender and of up to five links (never paths or message text) are sent to the registry’s public RDAP service to look up their registration dates.',
     'content.hint.submit': '<kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> to analyze',
     'content.cancelScan': 'Cancel scan',
@@ -1146,6 +1147,7 @@ window.PhishGuardI18n = (() => {
     'cases.capacity.warning.feedback.near': 'Feedback storage is nearing capacity.',
     'cases.compose.body': 'Email body',
     'cases.compose.bodyPlaceholder': 'Paste the message you want to investigate',
+    'cases.compose.bodyFormatHint': 'This field is analyzed as plain text. HTML tags are not interpreted. Upload an .eml file to analyze the original email and its HTML links.',
     'cases.compose.cancelScan': 'Cancel scan',
     'cases.compose.close': 'Close new case form',
     'cases.compose.dropHint': 'Drop a screenshot or email here, or click this area and paste a screenshot (Ctrl / ⌘ + V). One file, up to 2 MiB.',
@@ -1420,7 +1422,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=75'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=76'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
