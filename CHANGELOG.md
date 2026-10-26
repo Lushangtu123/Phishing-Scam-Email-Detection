@@ -22,6 +22,48 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-26 13:50 PT] — The model scores a text body without its link annotations (A1, on top of F4)
+
+### Why
+- **F4 lost 11 phishing alerts in G6t.** Reading a pasted body as text showed the model `<https://…>` link
+  annotations that the HTML reading had dropped as tags. Only the model's probability fell; the rules were unchanged.
+  The owner did not accept the 11.
+- The owner approved the pass criteria (A1-1 to A1-13), the new data and the tool revisions before each measurement.
+
+### Files changed
+- `website/app.py`: for a manual body declared `text` only, `_apply_content_model` gives the model a copy in which
+  each `<http://…>`, `<https://…>` or `<mailto:…>` annotation is one space. The pattern is `_LINK_ANNOTATION`.
+  Predictions stay keyed by the view text. Rules, link analysis, the subject, saved texts, MIME parts, OCR/QR text
+  and the `html` reading are unchanged.
+- `website/tests/test_link_annotations.py` (new, 9 tests):
+  - each of the 15 approved boundaries, with exactly one model call;
+  - the rules still read the link; the subject, `html` and default readings, original messages, OCR and QR text
+    are unchanged;
+  - a case workspace saves the annotation;
+  - a 50,000-character address takes under 0.1 s.
+- `docs/api.md`, `docs/detection-design.md`, `docs/evaluation.md`.
+
+### Effect
+- **Measurement:** commit `1583d1c` against `main` `3b512cd` and F4 `c09f922`. Each of the nine runs has 0 failures
+  and 0 network attempts.
+- **The first report was not passed** (A1-3, 1,544 `.eml` records). The cause was the acceptance adapter: two entry
+  paths, one of which adds an evaluator-only key. The owner approved a tool revision, all nine runs were repeated,
+  and the first report stays on record.
+- **The second report has no failure.** Its 14 review records are decided by the owner:
+  - the 11 G6t alerts are back, each with exactly `main`'s probability;
+  - the two known false positives from F4 stay accepted for those two inputs only;
+  - `pot-sample-11989` is accepted as a known missed alert: F4 caught it at 37.9%, and A1 scores it 30.6%, as `main`
+    does.
+- **Against `main`:** no phishing record in a gated group lost its alert, and no legitimate record in a plain
+  subset or whole group gained one.
+- **Inputs:** 66,860 in-scope model calls in the text run scored exactly the expected text; every out-of-scope call
+  was unchanged.
+- **Code planted defects:** 15 of 15 caught.
+- **Limits:**
+  - L1 has 108 annotated legitimate messages and P-ext 396 annotated phishing messages. These only meet the approved
+    minimum amount of evidence; no false-alarm or detection rate is claimed.
+  - A1 restores `main`'s model behaviour on such text, including `main`'s mistakes.
+
 ## [2026-10-25 18:12 PT] — A pasted body is read as text when the request says so (F4; acceptance not passed)
 
 ### Why

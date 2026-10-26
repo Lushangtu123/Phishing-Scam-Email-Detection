@@ -2197,7 +2197,18 @@ def _ensure_image_warnings(result: dict) -> None:
             result['extra_indicators'].append(indicator('info', code))
 
 
-async def _apply_content_model(result: dict, model_view: dict):
+# A plain-text part writes a link as "<https://...>": its target, not text a reader sees. The HTML
+# reading dropped these as tags, so for a body declared text the model scores a copy without them;
+# the rules, link analysis and saved text still read them (A1).
+_LINK_ANNOTATION = re.compile(r'<(?:[Hh][Tt][Tt][Pp][Ss]?://|[Mm][Aa][Ii][Ll][Tt][Oo]:)[^\s<>]+>')
+
+
+def _without_link_annotations(text: str) -> str:
+    """The text with each link annotation replaced by one space, then normalised as model views are."""
+    return re.sub(r'\s+', ' ', _LINK_ANNOTATION.sub(' ', text)).strip()
+
+
+async def _apply_content_model(result: dict, model_view: dict, *, without_link_annotations: bool = False):
     """Score the views the rules could not rule out with the text model, when one is loaded.
     Returns the model's probability and threshold for the fusion, whether the rendering is
     still uncertain, and the rendering warnings that every scored view resolved."""
@@ -2217,10 +2228,11 @@ async def _apply_content_model(result: dict, model_view: dict):
         if bodies:
             texts = list(dict.fromkeys([*bodies, *(text for body in bodies for view in view_readings.get(body, ())
                                                    for text in view.values())]))
+            model_texts = [_without_link_annotations(text) for text in texts] if without_link_annotations else texts
             predictions = dict(zip(texts, await _run_analysis(
                 lambda pipeline, subject, texts: [
                     predict_content(pipeline, subject, text, canonical_text=True) for text in texts],
-                _content_pipeline, model_view['subject'], texts)))
+                _content_pipeline, model_view['subject'], model_texts)))
             # Presentation cues give way only to a model that reads every view and rendering
             # as legitimate; one reading at the threshold keeps them in the rule score.
             if any(prediction['_phishing_probability'] is not None and prediction['_phishing_probability'] >= threshold
@@ -2447,7 +2459,8 @@ async def _analyze_content_within_budget(
 
     # 2. Optional ML text classifier (TF-IDF + selected linear model)
     ml_probability, ml_threshold, rendering_uncertain, resolved_warnings = await _apply_content_model(
-        result, model_view)
+        result, model_view,
+        without_link_annotations=request.body_format == 'text' and structure is None and not plain_text)
     _fuse_content_result(result, ml_probability, ml_threshold, raw_message)
 
     verified_sender = _apply_verified_sender(result, structure, request)
