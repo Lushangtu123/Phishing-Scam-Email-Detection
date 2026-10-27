@@ -46,7 +46,8 @@ function invalidateContent() {
 
 // The receiving service writes its own check as the topmost Authentication-Results
 // header. This only suggests a choice: an .eml received as an attachment can carry a
-// forged top header, so the reader must confirm where the file came from.
+// forged top header, so the reader must confirm where the file came from, and even then
+// the check can only raise the risk.
 let _rawMailboxDetected = '';
 // The reader's answers that change how a result is read: whether an .eml with a known
 // service's check at the top was downloaded from that service, and whether a model-driven
@@ -84,8 +85,9 @@ function refreshMailboxHint({ answerFirst = false } = {}) {
 }
 
 // An .eml topped by Gmail's or Outlook.com's own check is asked about before it is
-// analyzed: the answer decides whether that check is trusted. A forwarded attachment can
-// carry a forged one, so the answer is never assumed.
+// analyzed: the answer decides whether that check is read. A forwarded attachment can
+// carry a forged one, so the answer is never assumed, and a pass read this way never
+// lowers the risk.
 function mailboxQuestionPending() {
   return !!MAILBOX_SERVICE_NAMES[_rawMailboxDetected] && !_mailboxAnswered && mailboxChoice() === ''
     && !document.getElementById('content-mailbox-options').hidden;
@@ -111,14 +113,6 @@ function resetContentAnswers() {
   _mailboxAnswered = false;
   _analyzeAfterMailboxAnswer = false;
   _requestedAnswer = '';
-}
-
-function chooseDetectedMailbox() {
-  if (!_rawMailboxDetected) return;
-  document.getElementById('content-mailbox').value = _rawMailboxDetected;
-  _mailboxAnswered = true;
-  invalidateContent();
-  refreshMailboxHint();
 }
 
 // The mailbox choice applies only to an .eml file; images and pasted text have no
@@ -185,10 +179,6 @@ function setupInputEvents() {
   document.getElementById('content-mailbox-decline').addEventListener('click', () => answerMailboxQuestion(false));
   document.getElementById('content-requested-yes').addEventListener('click', () => answerRequested('yes'));
   document.getElementById('content-requested-no').addEventListener('click', () => answerRequested('no'));
-  document.getElementById('content-accuracy-rerun').addEventListener('click', () => {
-    chooseDetectedMailbox();
-    runContentAnalysis();
-  });
   document.getElementById('content-accuracy-guide').addEventListener('click', () => {
     const guide = document.getElementById('content-eml-guide');
     guide.open = true;

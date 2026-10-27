@@ -26,6 +26,9 @@ sys.path.insert(0, str(WEBSITE_DIR))
 
 import email_structure as es  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
+
 
 GMAIL_PASS = ('Authentication-Results: mx.google.com;\r\n'
               '       dkim=pass header.i=@{domain} header.s=s1;\r\n'
@@ -38,7 +41,8 @@ def received(sender, name, subject, body='Your verification code is 482913. It e
     domain = sender.rpartition('@')[2]
     raw = (GMAIL_PASS.format(domain=domain) + f'From: {name} <{sender}>\r\nTo: user@example.com\r\n'
            f'Subject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}\r\n')
-    return es.analyze_raw_email(raw.encode(), mailbox_provider='gmail')
+    data = raw.encode()
+    return es.analyze_raw_email(data, mailbox_provider='gmail', arc_result=sealed_answer(data))
 
 
 # The Chinese batches' default message.

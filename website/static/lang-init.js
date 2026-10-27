@@ -20,7 +20,7 @@
   var script = null;
   try {
     script = document.createElement('script');
-    script.src = '/static/i18n-zh.js?v=76';
+    script.src = '/static/i18n-zh.js?v=78';
     script.setAttribute('data-i18n-dictionary', 'zh');
     // It gates the first paint of a Chinese page, so fetch it early.
     script.fetchPriority = 'high';

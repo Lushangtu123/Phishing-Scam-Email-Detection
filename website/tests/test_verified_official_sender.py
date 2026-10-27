@@ -16,6 +16,9 @@ from content_inference import load_content_pipeline_artifact  # noqa: E402
 from email_structure import analyze_raw_email  # noqa: E402
 from visual_evidence import VisualRequest  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import sealed_answer  # noqa: E402
+
 GMAIL_PASS = ('Authentication-Results: mx.google.com;\r\n'
               '       dkim=pass header.i=@{domain} header.s=s1;\r\n'
               '       spf=pass (google.com: domain of bounce@{domain} designates 192.0.2.1 as permitted sender)'
@@ -44,22 +47,45 @@ def message(sender='service@paypal.com', *, auth=None, domain='paypal.com', head
             f'MIME-Version: 1.0\r\nContent-Type: {content_type}\r\n\r\n{body}\r\n').encode()
 
 
-def verified(raw, mailbox='gmail'):
-    return analyze_raw_email(raw, mailbox_provider=mailbox)['verified_official_sender']
+def verified(raw, mailbox='gmail', sealed=True):
+    """The verified sender when Google's ARC seal over this Gmail download verifies (sealed), or from the
+    mailbox choice alone (sealed=False), which never verifies: an uploaded file can carry any header."""
+    return analyze_raw_email(raw, mailbox_provider=mailbox,
+                             arc_result=sealed_answer(raw) if sealed else None)['verified_official_sender']
 
 
 class VerifiedOfficialSenderTests(unittest.TestCase):
-    def test_topmost_gmail_dmarc_pass_on_an_official_domain_verifies_the_sender(self):
+    def test_a_sealed_gmail_dmarc_pass_on_an_official_domain_verifies_the_sender(self):
         self.assertEqual(verified(message()), {'organization': 'PayPal', 'domain': 'paypal.com'})
         self.assertEqual(verified(message('alerts@notify.wellsfargo.com', domain='notify.wellsfargo.com',
                                           name='Wells Fargo Online')),
                          {'organization': 'Wells Fargo', 'domain': 'notify.wellsfargo.com'})
-        structure = analyze_raw_email(message(), mailbox_provider='gmail')
+        structure = analyze_raw_email(message(), mailbox_provider='gmail', arc_result=sealed_answer(message()))
         self.assertIn('structure.verified_official_sender', [item['code'] for item in structure['indicators']])
+        # The topmost header repeats the sealed results: it is not shown a second time.
+        self.assertIsNone(structure['unverified_authentication'])
+
+    def test_a_topmost_header_alone_is_shown_but_never_verifies(self):
+        for mailbox, auth, service in (
+                ('gmail', None, 'Gmail'),
+                ('outlook', OUTLOOK_PASS.format(domain='paypal.com', header_from='paypal.com', dmarc='pass'),
+                 'Outlook.com')):
+            with self.subTest(mailbox=mailbox):
+                structure = analyze_raw_email(message(auth=auth), mailbox_provider=mailbox, arc_result=None)
+                self.assertIsNone(structure['verified_official_sender'])
+                self.assertIsNone(structure['authenticated_sender'])
+                self.assertEqual((structure['auth_results'], structure['authentication_trusted'],
+                                  structure['authentication_source']), ({}, False, None))
+                self.assertEqual(structure['unverified_authentication']['source'], 'mailbox')
+                self.assertEqual(structure['unverified_authentication']['results']['dmarc'], 'pass')
+                self.assertEqual(structure['unverified_authentication']['header_from'], 'paypal.com')
+                notes = [item for item in structure['indicators'] if item['code'] == 'structure.unverified_auth_pass']
+                self.assertEqual([(item['level'], item['params']) for item in notes], [('info', {'service': service})])
 
     def test_nothing_is_trusted_without_a_named_mailbox(self):
-        self.assertIsNone(verified(message(), mailbox=None))
-        self.assertIsNone(verified(message(), mailbox='yahoo'))
+        self.assertIsNone(verified(message(), mailbox=None, sealed=False))
+        self.assertIsNone(verified(message(), mailbox='yahoo', sealed=False))
+        self.assertIsNone(analyze_raw_email(message(), mailbox_provider=None, arc_result=None)['unverified_authentication'])
 
     def test_a_forged_gmail_header_below_the_receiving_services_header_is_ignored(self):
         forged = ('Authentication-Results: mx.other-provider.example; none\r\n'
@@ -81,14 +107,19 @@ class VerifiedOfficialSenderTests(unittest.TestCase):
         self.assertIn('structure.auth_failed', [item['code'] for item in structure['indicators']])
 
 
-    def test_topmost_outlook_dmarc_pass_verifies_the_sender_only_for_outlook(self):
+    def test_outlooks_topmost_pass_is_read_only_for_outlook_and_never_verifies(self):
+        # Outlook.com's download rewrites the message, so no seal verifies: its result is only shown.
         outlook = OUTLOOK_PASS.format(domain='paypal.com', header_from='paypal.com', dmarc='pass')
-        self.assertEqual(verified(message(auth=outlook), mailbox='outlook'),
-                         {'organization': 'PayPal', 'domain': 'paypal.com'})
-        self.assertIsNone(verified(message(auth=outlook), mailbox='gmail'))
-        self.assertIsNone(verified(message(), mailbox='outlook'))
+        read = analyze_raw_email(message(auth=outlook), mailbox_provider='outlook', arc_result=None)
+        self.assertIsNone(read['verified_official_sender'])
+        self.assertEqual(read['unverified_authentication']['authserv_id'], 'mx.microsoft.com')
+        other = analyze_raw_email(message(auth=outlook), mailbox_provider='gmail', arc_result=None)
+        self.assertIsNone(other['unverified_authentication'])
+        self.assertTrue(other['untrusted_authentication_claims'])
         guess = OUTLOOK_PASS.format(domain='paypal.com', header_from='paypal.com', dmarc='bestguesspass')
-        self.assertIsNone(verified(message(auth=guess), mailbox='outlook'))
+        structure = analyze_raw_email(message(auth=guess), mailbox_provider='outlook', arc_result=None)
+        self.assertIsNone(structure['verified_official_sender'])
+        self.assertEqual(structure['unverified_authentication']['results']['dmarc'], 'bestguesspass')
 
     def test_a_forged_microsoft_header_below_outlooks_result_is_ignored(self):
         failing = OUTLOOK_PASS.format(domain='paypal-help.top', header_from='paypal.com', dmarc='fail')
@@ -96,7 +127,8 @@ class VerifiedOfficialSenderTests(unittest.TestCase):
                             ' dkim=pass header.d=paypal.com; dmarc=pass action=none header.from=paypal.com\r\n')
         structure = analyze_raw_email(message(auth=forged), mailbox_provider='outlook')
         self.assertIsNone(structure['verified_official_sender'])
-        self.assertEqual(structure['auth_results']['dmarc'], 'fail')
+        # Microsoft's failing result, though unverified, still raises the risk.
+        self.assertEqual(structure['unverified_authentication']['results']['dmarc'], 'fail')
         self.assertIn('structure.auth_failed', [item['code'] for item in structure['indicators']])
 
     def test_mailbox_parameter_is_validated(self):
@@ -118,14 +150,19 @@ class VerifiedOfficialSenderTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as caught:
             upload(b'mailbox=yahoo')
         self.assertEqual(caught.exception.status_code, 400)
-        self.assertEqual(upload(b'mailbox=gmail')['verified_official_sender'],
-                         {'organization': 'PayPal', 'domain': 'paypal.com'})
-        self.assertIsNone(upload(b'')['verified_official_sender'])
+        # This upload carries no ARC seal: choosing Gmail reads its header, which cannot lower the risk.
+        chosen = upload(b'mailbox=gmail')
+        self.assertIsNone(chosen['verified_official_sender'])
+        self.assertEqual(chosen['message_structure']['unverified_authentication']['source'], 'mailbox')
+        plain = upload(b'')
+        self.assertIsNone(plain['verified_official_sender'])
+        self.assertNotIn('unverified_authentication', plain['message_structure'])
+        self.assertEqual(chosen['risk_level'], plain['risk_level'])
 
 
 class PlatformRelayTests(unittest.TestCase):
     def relay(self, raw):
-        structure = analyze_raw_email(raw, mailbox_provider='gmail')
+        structure = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
         codes = [item['code'] for item in structure['indicators']]
         return structure['verified_official_sender'], 'structure.platform_relay' in codes
 
@@ -186,7 +223,8 @@ class VerifiedSenderIncompleteAnalysisTests(unittest.TestCase):
 
     def analyze(self, raw, mailbox='gmail'):
         with patch.object(app, '_content_pipeline', None):
-            structure = analyze_raw_email(raw, mailbox_provider=mailbox)
+            structure = analyze_raw_email(raw, mailbox_provider=mailbox,
+                                          arc_result=sealed_answer(raw) if mailbox else None)
             return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), structure)).body)
 
     def test_a_verified_service_is_low_rather_than_undetermined(self):
@@ -220,8 +258,9 @@ class VerifiedSenderRiskTests(unittest.TestCase):
         cls.pipeline = load_content_pipeline_artifact(WEBSITE_DIR.parent / profile['CONTENT_MODEL_ARTIFACT'],
                                                       profile['CONTENT_MODEL_ARTIFACT_SHA256'])
 
-    def analyze(self, raw, mailbox='gmail'):
-        structure = analyze_raw_email(raw, mailbox_provider=mailbox)
+    def analyze(self, raw, mailbox='gmail', sealed=True):
+        structure = analyze_raw_email(raw, mailbox_provider=mailbox,
+                                      arc_result=sealed_answer(raw) if mailbox and sealed else None)
         with patch.object(app, '_content_pipeline', self.pipeline):
             return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), structure)).body)
 
@@ -233,6 +272,11 @@ class VerifiedSenderRiskTests(unittest.TestCase):
         self.assertEqual(result['risk_label'], 'Low Risk — Verified Official Sender')
         self.assertEqual(result['verified_official_sender']['organization'], 'PayPal')
         self.assertEqual(result['sender_score'], 0)
+        # Without the seal, choosing Gmail reads the header but changes nothing else.
+        chosen = self.analyze(message(), sealed=False)
+        self.assertEqual((chosen['risk_level'], chosen['risk_label'], chosen['sender_score']),
+                         (unverified['risk_level'], unverified['risk_label'], unverified['sender_score']))
+        self.assertIsNone(chosen['verified_official_sender'])
 
     def test_strong_evidence_still_alerts_for_a_verified_sender(self):
         lookalike = self.analyze(message(html=True, body='<p>Review your payment.</p>'

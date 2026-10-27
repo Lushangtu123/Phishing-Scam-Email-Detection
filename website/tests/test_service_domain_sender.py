@@ -6,6 +6,8 @@ WEBSITE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(WEBSITE_DIR))
 
 from email_structure import analyze_raw_email  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
 from test_authenticated_sender import GMAIL_AUTH, upload  # noqa: E402
 
 
@@ -17,7 +19,8 @@ def message(sender='account-security-noreply@alerts.spotify.com', name='Spotify'
 
 
 def service_domain(raw, mailbox=None):
-    return analyze_raw_email(raw, mailbox_provider=mailbox)['service_domain_sender']
+    return analyze_raw_email(raw, mailbox_provider=mailbox,
+                             arc_result=sealed_answer(raw) if mailbox else None)['service_domain_sender']
 
 
 def sender_findings(result):
@@ -45,7 +48,8 @@ class ServiceDomainStructureTests(unittest.TestCase):
 
     def test_a_verified_sender_is_not_also_a_service_domain_sender(self):
         passed = GMAIL_AUTH.format(domain='alerts.spotify.com', dkim='alerts.spotify.com')
-        structure = analyze_raw_email(message(auth=passed), mailbox_provider='gmail')
+        raw = message(auth=passed)
+        structure = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
         self.assertIsNotNone(structure['verified_official_sender'])
         self.assertIsNone(structure['service_domain_sender'])
 

@@ -1,5 +1,6 @@
-"""ARC (RFC 8617): trusting a mailbox service's sealed checks without a mailbox choice."""
+"""ARC (RFC 8617): trusting a mailbox service's sealed checks, the only authentication that can lower the risk."""
 import asyncio
+import dataclasses
 import json
 import sys
 import threading
@@ -73,9 +74,13 @@ class ArcSealedResultsTests(unittest.TestCase):
         self.assertIsNone(es.arc_sealed_results(sealed, dnsfunc=self.dns))
         self.assertIsNone(self.analyze(sealed)['authentication_source'])
 
-    def test_a_chosen_mailbox_keeps_its_own_path(self):
+    def test_a_direct_caller_naming_a_mailbox_looks_nothing_up_and_verifies_nothing(self):
+        # Without the caller's ARC answer, a named mailbox keeps the old rule of no lookup here (offline
+        # evaluators); its header is only shown. The web app always passes its own answer.
         structure = self.analyze(self.seal(message()), mailbox='gmail')
-        self.assertEqual(structure['authentication_source'], 'mailbox')
+        self.assertIsNone(structure['authentication_source'])
+        self.assertIsNone(structure['verified_official_sender'])
+        self.assertEqual(structure['unverified_authentication']['authserv_id'], 'mx.google.com')
         self.assertEqual(self.lookups, [])
 
     def test_a_sealed_message_inside_an_attachment_is_not_trusted(self):
@@ -117,11 +122,14 @@ class ArcSealedResultsTests(unittest.TestCase):
             structure = asyncio.run(app._parse_raw_email(self.seal(message()).replace(b'482913', b'000000')))
         self.assertIsNone(structure['authentication_source'])
 
-    def test_a_mailbox_choice_needs_no_early_arc_check(self):
+    def test_a_mailbox_choice_is_checked_by_arc_first_too(self):
         with patch.object(es, '_arc_dns_txt', self.dns):
             structure = asyncio.run(app._parse_raw_email(self.seal(message()), mailbox_provider='gmail'))
-        self.assertEqual(structure['authentication_source'], 'mailbox')
-        self.assertEqual(self.lookups, [])
+        self.assertEqual(structure['authentication_source'], 'arc')
+        self.assertEqual(structure['verified_official_sender'], {'organization': 'Dropbox', 'domain': 'dropbox.com'})
+        # Gmail's own header repeats the sealed results: shown once, through the seal.
+        self.assertIsNone(structure['unverified_authentication'])
+        self.assertTrue(self.lookups)
 
     def test_a_slow_chain_stops_waiting_at_its_deadline(self):
         def slow(name, timeout=5):
@@ -133,6 +141,87 @@ class ArcSealedResultsTests(unittest.TestCase):
             structure = asyncio.run(app._parse_raw_email(self.seal(message())))
         self.assertIsNone(structure['authentication_source'])
         self.assertLess(time.perf_counter() - start, 2.0)
+
+
+
+STAMP = (b'Authentication-Results: mx.google.com; arc=pass; dkim=pass header.d=dropbox.com; '
+         b'spf=pass smtp.mailfrom=dropbox.com; dmarc=pass header.from=dropbox.com\r\n')
+
+
+class NewEntryArcLimitTests(unittest.TestCase):
+    """K11-K14: a chosen mailbox or a configured ID now also has its ARC verified first, under the same limits."""
+    ENTRIES = (('mailbox', 'gmail', frozenset()), ('configured ID', None, frozenset({'mx.example.org'})))
+
+    @classmethod
+    def setUpClass(cls):
+        cls.private_key, cls.txt_record = make_key()
+
+    def setUp(self):
+        self.lookups = []
+        es._ARC_KEY_CACHE.clear()
+
+    def dns(self, name, timeout=5):
+        self.lookups.append(name)
+        return self.txt_record
+
+    def chain(self, count, domain=b'google.com'):
+        """count ARC sets over message(), each receiver writing one arc=pass stamp; dkimpy verifies them all."""
+        raw = message()
+        for instance in range(1, count + 1):
+            if instance > 1:
+                raw = STAMP + raw.replace(STAMP, b'')
+            raw = b''.join(dkim.arc_sign(raw, b'arc-%d' % instance, domain, self.private_key, b'mx.google.com')) + raw
+        return raw
+
+    def parse(self, raw, mailbox, ids, dnsfunc=None):
+        with patch.object(es, '_arc_dns_txt', dnsfunc or self.dns), \
+                patch.object(app, 'SETTINGS', dataclasses.replace(app.SETTINGS, trusted_authserv_ids=ids)):
+            return asyncio.run(app._parse_raw_email(raw, mailbox_provider=mailbox))
+
+    def test_k11_another_sealer_is_never_looked_up(self):
+        for label, mailbox, ids in self.ENTRIES:
+            with self.subTest(entry=label):
+                self.lookups.clear()
+                structure = self.parse(self.chain(1, domain=b'evil.example'), mailbox, ids)
+                self.assertIsNone(structure['authentication_source'])
+                self.assertEqual(self.lookups, [])
+
+    def test_k12_slow_dns_stops_at_the_deadline(self):
+        def slow(name, timeout=5):
+            time.sleep(min(timeout, 0.4))
+            return None
+        for label, mailbox, ids in self.ENTRIES:
+            with self.subTest(entry=label):
+                start = time.perf_counter()
+                with patch.object(app, '_ARC_VERIFY_SECONDS', 0.2), patch.object(es, '_ARC_VERIFY_SECONDS', 0.2):
+                    structure = self.parse(self.chain(1), mailbox, ids, dnsfunc=slow)
+                self.assertIsNone(structure['authentication_source'])
+                self.assertLess(time.perf_counter() - start, 2.0)
+
+    def test_k13_busy_verification_threads_mean_no_trust_without_waiting(self):
+        for label, mailbox, ids in self.ENTRIES:
+            with self.subTest(entry=label):
+                self.lookups.clear()
+                start = time.perf_counter()
+                with patch.object(es._arc_pool, 'submit', return_value=None):
+                    structure = self.parse(self.chain(1), mailbox, ids)
+                self.assertIsNone(structure['authentication_source'])
+                self.assertLess(time.perf_counter() - start, 0.5)
+                self.assertEqual(self.lookups, [])
+
+    def test_k14_the_eleventh_lookup_is_refused(self):
+        six = self.chain(6)
+        self.assertEqual(dkim.arc_verify(six, dnsfunc=lambda name, timeout=5: self.txt_record)[0], dkim.CV_Pass)
+        for label, mailbox, ids in self.ENTRIES:
+            with self.subTest(entry=label):
+                self.lookups.clear()
+                es._ARC_KEY_CACHE.clear()
+                self.assertIsNone(self.parse(six, mailbox, ids)['authentication_source'])
+                self.assertEqual(len(self.lookups), es._ARC_MAX_LOOKUPS)
+                # Five sets need ten lookups: within the limit, the same chain is trusted.
+                self.lookups.clear()
+                self.assertEqual(self.parse(self.chain(5), mailbox, ids)['authentication_source'], 'arc')
+                self.assertEqual(len(self.lookups), es._ARC_MAX_LOOKUPS)
 
 
 if __name__ == '__main__':

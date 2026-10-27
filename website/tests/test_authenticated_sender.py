@@ -9,6 +9,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 
 import app  # noqa: E402
 from email_structure import _dkim_pass_domains, analyze_raw_email, display_name_matches_domain  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
 
 GMAIL_AUTH = ('Authentication-Results: mx.google.com;\r\n'
               '       dkim=pass header.i=@{dkim} header.s=s1 header.b=abc;\r\n'
@@ -26,10 +28,11 @@ def message(sender='confirm@account.acmecloud.com', name='Acme Cloud', *, dkim=N
 
 
 def authenticated(raw, mailbox='gmail'):
-    return analyze_raw_email(raw, mailbox_provider=mailbox)['authenticated_sender']
+    return analyze_raw_email(raw, mailbox_provider=mailbox,
+                             arc_result=sealed_answer(raw) if mailbox else None)['authenticated_sender']
 
 
-def upload(raw, query=b'mailbox=gmail'):
+def upload(raw, query=b'mailbox=gmail', sealed=True):
     chunks = iter([raw])
 
     async def receive():
@@ -37,7 +40,9 @@ def upload(raw, query=b'mailbox=gmail'):
         return {'type': 'http.request', 'body': chunk or b'', 'more_body': chunk is not None}
     request = app.Request({'type': 'http', 'query_string': query,
                            'headers': [(b'content-type', b'message/rfc822')]}, receive)
-    return json.loads(asyncio.run(app.analyze_eml_endpoint(request)).body)
+    # As a Gmail download whose ARC seal verifies: the only authentication that can relax the sender.
+    with arc_verified(app, raw if sealed else None):
+        return json.loads(asyncio.run(app.analyze_eml_endpoint(request)).body)
 
 
 class DisplayNameMatchTests(unittest.TestCase):
@@ -100,10 +105,12 @@ class AuthenticatedSenderScoringTests(unittest.TestCase):
         self.assertIsNone(result['verified_official_sender'])
 
     def test_without_a_mailbox_or_a_matching_name_the_findings_still_count(self):
-        for raw, query in ((message(), b''), (message(name='IT Support'), b'mailbox=gmail'),
-                           (message(dkim='sendgrid.net'), b'mailbox=gmail')):
-            with self.subTest(query=query):
-                result = upload(raw, query)
+        # Without ARC, choosing Gmail only reads the file's header: the address findings still count.
+        for raw, query, sealed in ((message(), b'', False), (message(), b'mailbox=gmail', False),
+                                   (message(name='IT Support'), b'mailbox=gmail', True),
+                                   (message(dkim='sendgrid.net'), b'mailbox=gmail', True)):
+            with self.subTest(query=query, sealed=sealed):
+                result = upload(raw, query, sealed)
                 self.assertEqual(result['sender_analysis']['verdict'], 'high')
                 self.assertNotIn('sender.authenticated_domain', self.sender_findings(result))
 

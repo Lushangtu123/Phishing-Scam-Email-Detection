@@ -287,17 +287,14 @@ window.PhishGuardI18n = (() => {
     'content.verify.channel': "{organization}: don’t use this email’s links, buttons or phone numbers. Open the official app, or type {website} into your browser yourself.",
     'content.verify.phone': "Official customer service: {numbers}",
     'content.verify.source': "Source: {organization} official page",
-    'content.mailbox.detected': 'This file carries {service}’s own sender check at the top. Did you download it from {service} yourself?',
-    'content.mailbox.use': 'Yes, use {service}’s check',
-    'content.mailbox.answerFirst': 'Answer this first: it decides whether {service}’s check can be trusted.',
+    'content.mailbox.detected': 'This file carries {service}’s own sender check at the top. Did you download it from {service} yourself? Then that check is read: a failure raises the risk; a pass is shown but cannot lower it.',
+    'content.mailbox.use': 'Yes, read {service}’s check',
+    'content.mailbox.answerFirst': 'Answer this first: it decides whether {service}’s check is read.',
     'content.mailbox.decline': 'No, or not sure',
     'content.tip.title': "A more reliable result",
-    'content.tip.upload': "Upload the original email (.eml) and choose where you downloaded it (Gmail or Outlook.com). The check can then use your mail service’s own sender verification, which pasted text and screenshots lose. Genuine account and service emails are then far less often flagged.",
-    'content.tip.choose': "This file carries {service}’s own sender check. If you downloaded it from {service} yourself, analyze it again with “Downloaded from: {service}”.",
-    'content.tip.uploadModel': "This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails. Upload the original email (.eml) and choose where you downloaded it (Gmail or Outlook.com): the check can then use your mail service’s own sender verification, which pasted text and screenshots lose, and is much more accurate.",
-    'content.tip.chooseModel': "This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails. This file carries {service}’s own sender check. If you downloaded it from {service} yourself, analyze it again with “Downloaded from: {service}” for a much more accurate result.",
+    'content.tip.upload': 'Upload the original email (.eml): its links, attachments and sender headers can then be checked, which pasted text and screenshots lose.',
+    'content.tip.uploadModel': 'This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails. Upload the original email (.eml): its links, attachments and sender headers can then be checked, which pasted text and screenshots lose.',
     'content.tip.modelEml': "This alert comes mainly from the text model, which often misjudges genuine modern account and notification emails; no strong independent rule, sender or link evidence supports it. Check the sender address and links yourself before acting.",
-    'content.tip.rerun': "Choose {service} and analyze again",
     'content.tip.guide': "How to get the original .eml",
     'content.remedy.title': "If you already clicked, replied or entered something",
     'content.remedy.clicked': "Only opened the link, entered nothing: close the page, and check whether the browser downloaded a file; do not open it.",
@@ -306,10 +303,10 @@ window.PhishGuardI18n = (() => {
     'content.remedy.malware': "Opened an attachment, ran a program or installed remote-control software: disconnect from the internet, uninstall the remote-control software and run a full security scan. Changing passwords alone is not enough; change important passwords from another, clean device.",
     'content.remedy.money': "Sent money or gift cards: contact your bank or payment provider immediately, then report it to the police (in the US, also reportfraud.ftc.gov).",
     'content.mailbox.label': "Downloaded from",
-    'content.mailbox.unknown': "Other mailbox or not sure (authentication not trusted)",
+    'content.mailbox.unknown': 'Other mailbox or not sure (the file’s own check is not read)',
     'content.mailbox.gmail': "Gmail (original message downloaded from Gmail)",
     'content.mailbox.outlook': "Outlook.com (original message downloaded from Outlook on the web)",
-    'content.mailbox.help': "Choose Gmail or Outlook.com only for an original message you downloaded from that service (Gmail: ⋮ → Download message; Outlook on the web: ⋯ → Download). The result then trusts that service’s own SPF/DKIM/DMARC check, and a verified official sender is not raised above low risk by wording alone. Choosing a service for mail it did not deliver can make a forged check look trusted.",
+    'content.mailbox.help': 'Choose Gmail or Outlook.com only for an original message you downloaded from that service (Gmail: ⋮ → Download message; Outlook on the web: ⋯ → Download). That service’s SPF/DKIM/DMARC result in the file is then read: a failure raises the risk, but a pass is only shown and cannot lower it, because an uploaded file can carry a forged check. Gmail’s sealed check (ARC) is verified with Google’s key whatever you choose, and only it can lower the risk.',
     'content.ocr.label': 'Image text language (OCR)',
     'content.ocr.eng': 'English',
     'content.ocr.chi': '简体中文 · Simplified Chinese',
@@ -970,7 +967,8 @@ window.PhishGuardI18n = (() => {
     'server.structure.originating_ip_drop': "The X-Originating-IP header, which the sender can write, names {ip}, in a network that Spamhaus lists as run by spammers or criminals ({listing}, DROP list of {date}).",
     'server.structure.recipient_domain_display': "The sender's display name shows your own domain ({domain}), but the message comes from another domain. Attackers pose as your organization's mail or IT team this way.",
     'server.structure.routing_mismatch': '{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.',
-    'server.structure.arc_sealed_results': 'No mailbox was chosen, but the sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.',
+    'server.structure.unverified_auth_pass': 'This file says {service}’s sender check passed. An uploaded file cannot prove that this header came from that service, so it does not lower the risk.',
+    'server.structure.arc_sealed_results': 'The sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.',
     'server.structure.auth_failed': 'Message authentication failed: {mechanisms}.',
     'server.structure.auth_partial_failure': 'One authentication mechanism failed: {mechanisms}.',
     'server.structure.dangerous_attachment': 'Potentially dangerous attachment: {filename}.',
@@ -1422,7 +1420,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=76'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=78'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.
