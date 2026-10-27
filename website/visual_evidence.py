@@ -60,7 +60,8 @@ class VisualRequest(BaseModel):
     observations: list[VisualObservation] = Field(default_factory=list, max_length=4)
     warnings: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=8)
     enhancement: VisualEnhancement | None = None
-    # Mailbox the .eml was downloaded from; only then is its topmost authentication header trusted.
+    # Mailbox the .eml was downloaded from; only then is its topmost authentication header read (unverified:
+    # it can raise the risk, never lower it).
     mailbox: Literal['', 'gmail', 'outlook'] = ''
     # The reader's answer to "Did you do this yourself?" for a model-driven notice of their own action.
     requested: Literal['', 'yes', 'no'] = ''
