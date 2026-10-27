@@ -1951,7 +1951,8 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     # The mailbox choice or a configured ID names which header to read (U below), but every
     # header of an uploaded file, the topmost too, is written by whoever made the file. So U
     # can only raise the risk; only ARC (P), checked against the sealing service's key, can
-    # lower it. A U that repeats P exactly is P's own header and is not shown twice.
+    # lower it. A U whose shown fields repeat P's is not shown twice; that does not make the header
+    # itself signed, and trust and any lowering still come only from P.
     claimed: dict[str, str] = {}
     claimed_id = claimed_header = ""
     untrusted_authentication_claims = []
