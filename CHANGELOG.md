@@ -68,8 +68,9 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - **Planted defects:** 19 of 19 code defects caught.
 - **Repository checks:** 1,555 Python tests pass (15 skipped), 536 frontend tests pass, and compileall and
   ruff pass. All 17 screenshots are unchanged.
-- **Cost (accepted by the owner):** genuine official mail downloaded without a seal that verifies, such as
-  Outlook.com downloads, is no longer lowered by authentication.
+- **Cost (accepted by the owner):** genuine official mail downloaded without a seal that verifies is no longer
+  lowered by authentication. Outlook.com downloads are likely affected: none of the owner's 40 (2026-10-01)
+  verified; this round tested only a simulated download.
 - **No longer current:** the README's 3% for the owner's genuine mail with the mailbox chosen predates this
   change and has not been re-measured.
 

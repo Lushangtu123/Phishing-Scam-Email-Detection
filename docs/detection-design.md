@@ -310,8 +310,10 @@ Raw input enables these checks:
     the address findings or lowers the level. A header whose shown fields repeat ARC's
     sealed results is not shown twice; that does not make it signed. Failures from the
     header and from ARC are each kept, and neither source's pass cancels the other's
-    failure. Outlook.com's "Download as EML" rewrites the message, so its seals do not
-    verify: Outlook.com downloads are no longer lowered by authentication, a known cost.
+    failure. A download whose seal does not verify is no longer lowered by
+    authentication, a known cost. Outlook.com's downloads are likely such: in 40 of the
+    owner's (2026-10-01), no signature or seal verified after "Download as EML"; this
+    has not been re-checked since.
   - **The page.** When an uploaded `.eml` is topped by Gmail's or Outlook.com's own
     check, the page asks whether the reader downloaded it from that service, without
     making the choice. An alerting or undetermined result on pasted text or a

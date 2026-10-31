@@ -319,9 +319,11 @@ before measuring.
 
 **Limits and cost.**
 
-- Genuine official mail downloaded without a seal that verifies is no longer lowered by authentication.
-  Outlook.com's downloads are among them: the download rewrites the message, so its seal does not verify. A
-  simulated Outlook download shows this mechanism; it does not give a rate. The owner accepted this cost.
+- Genuine official mail downloaded without a seal that verifies is no longer lowered by authentication. If
+  Outlook.com's "Download as EML" still rewrites the message, its downloads are among them. In the owner's 40
+  Outlook.com downloads (2026-10-01, below), all 58 DKIM signatures failed on the body hash and neither of the
+  2 Microsoft seals verified. This round checked no real download: a simulated Outlook download shows the
+  mechanism and gives no rate. The owner accepted this cost.
 - Whether real Gmail downloads carry a seal that verifies is not checked offline.
 - The README cohort of the owner's 92 genuine emails (3% alerts with the mailbox chosen) was measured before
   this change and has not been re-measured.
