@@ -12,6 +12,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 import app  # noqa: E402
 import html_visibility  # noqa: E402
 from email_structure import analyze_raw_email  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
 
 SCAM = ('Your subscription renewal of $499 is complete. If you did not authorize this charge, '
         'call 1-888-555-0199 immediately.')
@@ -63,7 +65,7 @@ class RenderingReviewTests(unittest.TestCase):
 
 class SenderReviewTests(unittest.TestCase):
     def verified(self, raw):
-        return analyze_raw_email(raw, mailbox_provider='gmail')['verified_official_sender']
+        return analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))['verified_official_sender']
 
     def test_invoices_and_money_requests_from_payment_platforms_are_relays(self):
         for subject in ('Invoice from Billing department', 'You have a new money request',
@@ -95,10 +97,11 @@ class SenderReviewTests(unittest.TestCase):
                 self.assertIsNone(self.verified(raw))
 
     def test_a_display_name_claiming_another_organization_does_not_relax_the_address(self):
-        structure = analyze_raw_email(message('confirm@githubdocuments.com', 'GitHub', 'Confirm', 'Hello.'),
-                                      mailbox_provider='gmail')
+        raw = message('confirm@githubdocuments.com', 'GitHub', 'Confirm', 'Hello.')
+        structure = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
         self.assertFalse(structure['authenticated_sender']['display_name_matches'])
-        own = analyze_raw_email(message('confirm@acmedocs.com', 'Acme Docs', 'Confirm', 'Hello.'), mailbox_provider='gmail')
+        raw = message('confirm@acmedocs.com', 'Acme Docs', 'Confirm', 'Hello.')
+        own = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
         self.assertTrue(own['authenticated_sender']['display_name_matches'])
 
     def test_a_services_image_only_mail_stays_undetermined(self):
@@ -106,7 +109,7 @@ class SenderReviewTests(unittest.TestCase):
         raw = message('no-reply@dropbox.com', 'Dropbox', 'Your weekly summary', html, content_type='text/html')
         with patch.object(app, '_content_pipeline', None):
             result = json.loads(asyncio.run(app._analyze_content(
-                app.ContentRequest(), analyze_raw_email(raw, mailbox_provider='gmail'))).body)
+                app.ContentRequest(), analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw)))).body)
         self.assertEqual(result['risk_level'], 'unknown')
 
 

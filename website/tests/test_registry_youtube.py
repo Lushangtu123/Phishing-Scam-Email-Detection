@@ -14,6 +14,9 @@ sys.path.insert(0, str(WEBSITE_DIR))
 import app  # noqa: E402
 import email_structure as es  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
+
 GMAIL_PASS = ('Authentication-Results: mx.google.com;\r\n'
               '       dkim=pass header.i=@{domain} header.s=s1;\r\n'
               '       spf=pass (google.com: domain of bounce@{domain} designates 192.0.2.1 as permitted sender)'
@@ -33,7 +36,8 @@ def message(sender, *, name='YouTube', auth='', body=SUSPENDED, subject='Your Yo
 def analyze(raw, mailbox=None):
     with patch.object(app, '_content_pipeline', None):
         return json.loads(asyncio.run(app._analyze_content(
-            app.ContentRequest(), es.analyze_raw_email(raw, mailbox_provider=mailbox), observe_sender_history=False)).body)
+            app.ContentRequest(), es.analyze_raw_email(raw, mailbox_provider=mailbox, arc_result=sealed_answer(raw) if mailbox else None),
+            observe_sender_history=False)).body)
 
 
 class YouTubeRegistryTests(unittest.TestCase):

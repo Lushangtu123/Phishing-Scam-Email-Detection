@@ -22,6 +22,58 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-10-26 23:30 PT] — An uploaded file's authentication header can raise the risk, never lower it
+
+### Why
+- **A security review, reproduced with synthetic messages.** Choosing the mailbox (Gmail, Outlook.com) made an
+  uploaded `.eml`'s topmost `Authentication-Results` header trusted. A crafted file with a forged pass for an
+  official domain turned model-led phishing into "Low Risk — Verified Official Sender".
+- **Configured `TRUSTED_AUTHSERV_IDS`:** the same header trust ignored position. The production profile
+  configures none.
+- The owner approved the fix and its pass criteria (AH-1 to AH-10, amended for one notice's wording) before
+  measuring, and accepted the cost below.
+
+### Files changed
+- `website/email_structure.py`:
+  - the selected header becomes `unverified_authentication`: its failure raises, its pass never lowers;
+  - only ARC's results verify or authenticate a sender, and only when no source shows a failure;
+  - direct callers that pass no ARC answer keep the old lookup rule, so offline tools make no new lookups.
+- `website/app.py`:
+  - ARC is verified before the analysis for every upload, a chosen mailbox included;
+  - `unverified_authentication` is output only when present, and counts as message structure.
+- **Wording:**
+  - new notice `structure.unverified_auth_pass`;
+  - the ARC notice no longer says "No mailbox was chosen";
+  - the service-domain notice no longer suggests choosing the mailbox.
+
+  In `website/data/server_messages.json`, `i18n.js` and `i18n-zh.js`.
+- **The page** (`index.html`, `app-content.js`, `app-content-render.js`):
+  - the mailbox question and help explain that a pass cannot lower the risk;
+  - the "Choose … and analyze again" button and the "more accurate" tips are gone;
+  - asset versions bumped.
+- **Tests:**
+  - `website/tests/test_unproven_authentication.py` (new, 11);
+  - ARC limits for the new entries (K11–K14) in `test_arc_sealed_results.py`;
+  - 13 test files that used a mailbox header as the trusted source now pass ARC's verified answer
+    (`tests/sealed_answer.py`);
+  - two frontend tests rewritten.
+- **Docs:** `docs/detection-design.md`, `docs/api.md`, `docs/deployment.md`, `docs/evaluation.md`, `README.md`.
+
+### Effect
+- **Measurement:** commit `922d9dc` against `main` `6d62380`, network guard 0 attempts. Every gated criterion
+  passed.
+- **The synthetic attack:** with a forged pass and Gmail or Outlook chosen, 3 of 5 synthetic texts now stay
+  High instead of "Low Risk — Verified Official Sender". Texts with a rule floor stay Critical.
+- **Public corpora read without a mailbox:** all 68,612 items unchanged.
+- **Planted defects:** 19 of 19 code defects caught.
+- **Repository checks:** 1,555 Python tests pass (15 skipped), 536 frontend tests pass, and compileall and
+  ruff pass. All 17 screenshots are unchanged.
+- **Cost (accepted by the owner):** genuine official mail downloaded without a seal that verifies is no longer
+  lowered by authentication. Outlook.com downloads are likely affected: none of the owner's 40 (2026-10-01)
+  verified; this round tested only a simulated download.
+- **No longer current:** the README's 3% for the owner's genuine mail with the mailbox chosen predates this
+  change and has not been re-measured.
+
 ## [2026-10-26 13:50 PT] — The model scores a text body without its link annotations (A1, on top of F4)
 
 ### Why

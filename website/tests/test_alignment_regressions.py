@@ -8,6 +8,8 @@ sys.path.insert(0, str(WEBSITE_DIR))
 import app  # noqa: E402
 import link_analysis  # noqa: E402
 from email_structure import analyze_raw_email  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
 
 AUTH = ('Authentication-Results: mx.google.com;\r\n'
         '       dkim=pass header.i=@{dkim} header.s=s1;\r\n'
@@ -24,11 +26,11 @@ def message(sender, name, header_from, dkim):
 class DmarcOrganizationalHeaderFromTests(unittest.TestCase):
     def test_gmail_reporting_the_organizational_domain_still_aligns(self):
         # Gmail reported header.from=spotify.com for no-reply@alerts.spotify.com.
-        structure = analyze_raw_email(message('no-reply@alerts.spotify.com', 'Spotify', 'spotify.com', 'spotify.com'),
-                                      mailbox_provider='gmail')
+        raw = message('no-reply@alerts.spotify.com', 'Spotify', 'spotify.com', 'spotify.com')
+        structure = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
         self.assertEqual(structure['authenticated_sender']['domain'], 'alerts.spotify.com')
-        official = analyze_raw_email(message('noreply@notify.github.com', 'GitHub', 'github.com', 'github.com'),
-                                     mailbox_provider='gmail')
+        raw = message('noreply@notify.github.com', 'GitHub', 'github.com', 'github.com')
+        official = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
         self.assertEqual(official['verified_official_sender'], {'organization': 'GitHub', 'domain': 'notify.github.com'})
 
     def test_another_domain_or_a_child_domain_does_not_align(self):
@@ -36,8 +38,8 @@ class DmarcOrganizationalHeaderFromTests(unittest.TestCase):
                                     ('no-reply@spotify.com', 'alerts.spotify.com'),
                                     ('no-reply@spotify.com.evil.example', 'spotify.com')):
             with self.subTest(sender=sender, header_from=header_from):
-                structure = analyze_raw_email(message(sender, 'Spotify', header_from, header_from),
-                                              mailbox_provider='gmail')
+                raw = message(sender, 'Spotify', header_from, header_from)
+                structure = analyze_raw_email(raw, mailbox_provider='gmail', arc_result=sealed_answer(raw))
                 self.assertIsNone(structure['authenticated_sender'])
                 self.assertIsNone(structure['verified_official_sender'])
 

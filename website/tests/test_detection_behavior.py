@@ -1756,7 +1756,7 @@ Review the attached notice.
         self.assertEqual(structure["structure_score"], 0)
         self.assertTrue(structure["untrusted_authentication_claims"])
 
-    def test_configured_authentication_service_results_are_honored(self):
+    def test_configured_authentication_service_failures_still_raise(self):
         raw_email = """From: Support <notice@example.com>
 Subject: Security notice
 Authentication-Results: mx.receiver.example; spf=fail; dkim=fail; dmarc=fail
@@ -1769,11 +1769,15 @@ Review the attached notice.
             trusted_authserv_ids={"mx.receiver.example"},
         )
 
+        # A configured ID only names the header to read; an uploaded file proves nothing, so
+        # its results are unverified: the failure raises the risk, nothing is trusted.
         self.assertFalse(structure["authentication_trusted"])
+        self.assertEqual(structure["auth_results"], {})
         self.assertEqual(
-            structure["auth_results"],
+            structure["unverified_authentication"]["results"],
             {"spf": "fail", "dkim": "fail", "dmarc": "fail"},
         )
+        self.assertEqual(structure["unverified_authentication"]["source"], "server")
         self.assertGreaterEqual(structure["structure_score"], 6)
         self.assertEqual(structure["untrusted_authentication_claims"], [])
 
@@ -1844,7 +1848,10 @@ Here is this week's project update.
         )
 
         self.assertEqual(structure["structure_score"], 0)
-        self.assertTrue(structure["authentication_trusted"])
+        # The header is read as before (its own DMARC pass keeps its SPF failure from raising)
+        # but, unverified, it is not trusted.
+        self.assertFalse(structure["authentication_trusted"])
+        self.assertEqual(structure["unverified_authentication"]["results"]["dmarc"], "pass")
 
     def test_archive_and_macro_attachments_are_flagged(self):
         samples = (

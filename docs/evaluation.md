@@ -276,6 +276,59 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### An uploaded file's authentication header no longer lowers the risk (2026-10-26)
+
+**Finding.** A security review, reproduced with synthetic messages:
+
+- **The weakness:** choosing the mailbox (Gmail, Outlook.com) made the topmost `Authentication-Results`
+  header of an uploaded `.eml` count as trusted. Every header of an uploaded file, the topmost too, can be
+  written by whoever made the file.
+- **The effect:** a crafted `.eml` with a forged pass for `paypal.com` turned three of five model-led synthetic
+  texts from High into "Low Risk — Verified Official Sender" once the reader chose Gmail. The page asked about the
+  mailbox, and on an alert it offered "choose … and analyze again".
+- **With a configured `TRUSTED_AUTHSERV_IDS`:** a forged lower header could outweigh the real top one. The
+  production profile configures none.
+
+**Change.** That header is now unverified (`message_structure.unverified_authentication`).
+- Its failure still raises the risk.
+- Its pass is only shown: it no longer verifies a sender, relaxes the address findings or lowers the level.
+- Only ARC, verified with Google's key, can lower the risk, and only when no source shows a failure. The web
+  app verifies ARC first for every upload, a chosen mailbox included.
+- The page no longer offers choosing a mailbox as the way to a more accurate result.
+
+**Pass criteria** (AH-1 to AH-10, and an amendment for the ARC notice's wording) were approved by the owner
+before measuring.
+- **Synthetic inputs:** 170 messages (34 scenarios × 5 bodies). They include Google-style ARC seals made with
+  a test key and checked against a stand-in DNS. Each was also run as a "no-trust twin": the same bytes with
+  no mailbox and no configured ID.
+- **Public corpora:** read without a mailbox, as in production.
+- **Measurement:** commit `922d9dc` against `main` `6d62380`. The network guard recorded 0 attempts.
+
+**Results: passed.**
+
+- **An unproven pass lowers nothing.** In 9 scenarios × 5 bodies, the result equals the twin's apart from the
+  shown header and one info note.
+- **An unproven failure raises as before.** 4 scenarios.
+- **The proven path is kept.** A Gmail-like download with a valid seal is verified with or without the mailbox
+  choice. When the seal and the file's header conflict, the High floor stays and nothing is lowered.
+- **Without a mailbox, nothing changes.** All 68,612 corpus items equal `main` in the whole response, the model
+  and rule calls and the class.
+- **The synthetic attack, before and after:** those three texts stay High, as with no mailbox chosen.
+  The two texts with a rule floor stay Critical.
+- **Planted defects:** 19 of 19 code defects caught, and 23 of 23 defects in the measuring tools.
+
+**Limits and cost.**
+
+- Genuine official mail downloaded without a seal that verifies is no longer lowered by authentication. If
+  Outlook.com's "Download as EML" still rewrites the message, its downloads are among them. In the owner's 40
+  Outlook.com downloads (2026-10-01, below), all 58 DKIM signatures failed on the body hash and neither of the
+  2 Microsoft seals verified. This round checked no real download: a simulated Outlook download shows the
+  mechanism and gives no rate. The owner accepted this cost.
+- Whether real Gmail downloads carry a seal that verifies is not checked offline.
+- The README cohort of the owner's 92 genuine emails (3% alerts with the mailbox chosen) was measured before
+  this change and has not been re-measured.
+- ARC itself (a replayed genuine message, unsigned headers added after sealing) is to be reviewed separately.
+
 ### Link annotations left out of the model's copy of a text body (A1, 2026-10-26)
 
 **Why.** Reading a pasted body as text (F4, below) lost 11 phishing alerts in G6t. In every one, only the model's

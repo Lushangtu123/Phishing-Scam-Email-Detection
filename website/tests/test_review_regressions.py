@@ -23,7 +23,9 @@ class HeaderAmbiguityTests(unittest.TestCase):
                 with self.subTest(tail=tail):
                     result = self.analyze('From: alice@gmail.com\nAuthentication-Results: mx.example.com; '
                                           + tail + '\n\nHello')
-                    self.assertEqual(result['message_structure']['auth_results']['dmarc'], 'fail')
+                    # A configured ID's header is unverified: shown, and its failure still raises.
+                    self.assertEqual(result['message_structure']['unverified_authentication']['results']['dmarc'],
+                                     'fail')
                     self.assertIn(result['risk_level'], ('high', 'critical'))
             result = self.analyze('From: alice@gmail.com\nAuthentication-Results: mx.example.com; '
                                   'dmarc=pass reason="old dmarc=fail"\n\nHello')

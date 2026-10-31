@@ -285,35 +285,47 @@ outer result incomplete. This does not unpack archives or execute attachments.
 
 Raw input enables these checks:
 
-- SPF, DKIM, and DMARC results from explicitly trusted authentication servers.
-  The page nudges readers toward this path. When an uploaded `.eml` is topped by
-  Gmail's or Outlook.com's own check, a hint under "Downloaded from" suggests
-  that choice without making it, since a received `.eml` attachment can carry a
-  forged top header. An alerting or undetermined result shows "A more reliable
-  result": for pasted text or screenshots, a pointer to the original `.eml` and
-  the download guide; for an `.eml` with a recognized service but no choice, a
-  "Choose … and analyze again" button. When the alert rests mainly on the text
-  model (`fusion_basis` `model_only` or `model_led`; in an original email a
-  `model_only` result is a Low note, not an alert), the tip says so first: the
-  model often misjudges genuine modern account and notification mail. On an
-  `.eml` with nothing left to choose it still shows, asking the reader to check
-  the sender and links. The tip never changes the verdict or score.
-  An uploaded `.eml` can also name the mailbox it was downloaded from: Gmail
-  (`mx.google.com`) or Outlook.com (`mx.microsoft.com`). Only the topmost `Authentication-Results` header is then trusted, and
-  only if that service wrote it; headers below it, which a sender can add, are
-  ignored. Without a mailbox choice, an ARC chain (RFC 8617) can stand in for it:
-  when every ARC seal and message signature in the message comes from Google
-  (`d=google.com`) and the chain verifies against Google's published DNS keys, the
-  sealed `ARC-Authentication-Results` from `mx.google.com` are trusted, and the result
-  says so (`structure.arc_sealed_results`, `authentication_source: "arc"`). The seal
-  covers the message as Gmail received it, so it cannot be forged into a forwarded
-  attachment, and any change to the signed headers or body breaks it. Keys are
-  looked up with a 2-second timeout and cached for an hour. Seals from any other
-  domain are never looked up, since that DNS query would tell the message's author
-  it was analyzed. Messages attached inside another message are never trusted this
-  way. Outlook.com's "Download as EML" rewrites the message, so its seals do not
-  verify and choosing the mailbox remains necessary there. Verification uses
-  `dkimpy` and `authres`. A trusted DMARC pass for the single From domain, when that domain is
+- SPF, DKIM, and DMARC results. Every header of an uploaded file, the topmost too, is
+  written by whoever made the file, so where a result comes from decides what it can do.
+  - **ARC (proven).** When every ARC seal and message signature in the message comes
+    from Google (`d=google.com`) and the chain verifies against Google's published DNS
+    keys, the sealed `ARC-Authentication-Results` from `mx.google.com` are trusted, and
+    the result says so (`structure.arc_sealed_results`, `authentication_source: "arc"`).
+    The seal covers the message as Gmail received it, and any change to the signed
+    headers or body breaks it. The web app verifies ARC before the analysis for every
+    upload, whether or not a mailbox is chosen. Keys are looked up with a 2-second
+    timeout, at most ten lookups and four seconds per message, and cached for an hour.
+    Seals from any other domain are never looked up, since that DNS query would tell the
+    message's author it was analyzed. Messages attached inside another message are never
+    trusted this way. Verification uses `dkimpy` and `authres`. Only ARC's results can
+    lower the risk (below), and only when no source shows a failure.
+  - **The chosen mailbox or a configured ID (unverified).** An uploaded `.eml` can name
+    the mailbox it was downloaded from: Gmail (`mx.google.com`) or Outlook.com
+    (`mx.microsoft.com`). Only the topmost `Authentication-Results` header is then read,
+    and only if it names that service; headers below it, which a sender can add, stay
+    untrusted claims. `TRUSTED_AUTHSERV_IDS` names a header the same way. Such a header
+    is `message_structure.unverified_authentication`. Its failure raises the risk as
+    before (`structure.auth_failed`, `structure.auth_partial_failure`), but its pass is
+    only shown (`structure.unverified_auth_pass`): it never verifies a sender, relaxes
+    the address findings or lowers the level. A header whose shown fields repeat ARC's
+    sealed results is not shown twice; that does not make it signed. Failures from the
+    header and from ARC are each kept, and neither source's pass cancels the other's
+    failure. A download whose seal does not verify is no longer lowered by
+    authentication, a known cost. Outlook.com's downloads are likely such: in 40 of the
+    owner's (2026-10-01), no signature or seal verified after "Download as EML"; this
+    has not been re-checked since.
+  - **The page.** When an uploaded `.eml` is topped by Gmail's or Outlook.com's own
+    check, the page asks whether the reader downloaded it from that service, without
+    making the choice. An alerting or undetermined result on pasted text or a
+    screenshot shows "A more reliable result": a pointer to the original `.eml` and the
+    download guide. When the alert rests mainly on the text model (`fusion_basis`
+    `model_only` or `model_led`; in an original email a `model_only` result is a Low
+    note, not an alert), the tip says so first: the model often misjudges genuine modern
+    account and notification mail; on an `.eml` it asks the reader to check the sender
+    and links. Choosing a mailbox is never offered as a remedy, and the tip never
+    changes the verdict or score.
+
+  An ARC-verified DMARC pass for the single From domain, when that domain is
   an organization's own sending domain in the official-brand registries, marks a
   **verified official sender**. Consumer mailbox domains such as qq.com, icloud.com
   or gmail.com never qualify. A `header.from` equal to the From domain's
@@ -365,8 +377,8 @@ Raw input enables these checks:
     Changes to either registry follow the [review checklist](official-registry.md);
     `test_registry_evidence.py` lists the official domains whose evidence is not yet
     recorded (79 on 2026-10-05) and fails if an unsourced domain is added.
-- **authenticated senders** that are not in the registries. With a mailbox named,
-  the From domain needs a trusted, aligned DMARC pass and a passing DKIM signature
+- **authenticated senders** that are not in the registries. With ARC verified,
+  the From domain needs a sealed, aligned DMARC pass and a passing DKIM signature
   from the same organizational domain. It must not be a consumer mailbox domain
   (including mail.ru, Yandex and GMX). Every From display name must also name that
   organization: "Dropbox" from `txn.dropbox.com` qualifies. Generic names such as
@@ -382,12 +394,12 @@ Raw input enables these checks:
     brand substrings, lookalikes, TLDs. So are links, content, attachments and
     the model. Authentication proves who sent the message, not that they are
     trustworthy.
-  - Without a trusted DMARC result (no mailbox chosen), the same address-shape
+  - Without an ARC-verified DMARC result, the same address-shape
     findings are also relaxed when From is on a `sender_only` service's own
     domain, such as `no-reply@alerts.spotify.com`, and there is no decisive
     authentication failure or platform-relay sign. A spoof of that address looks
     exactly the same, so address shape cannot tell them apart; the result says the
-    sender is not proven and suggests choosing the mailbox. Payment and
+    sender is not proven. Payment and
     large-platform brands are not relaxed.
 - protected-brand display-name and Unicode/IDN domain impersonation; display
   names use word boundaries to avoid matching ordinary names such as Appleton

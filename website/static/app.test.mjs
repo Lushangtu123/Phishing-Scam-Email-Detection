@@ -2229,7 +2229,7 @@ test('an .eml topped by Gmail\'s own check suggests the mailbox choice without m
   assert.equal(elements.get('content-mailbox-hint').hidden, true);
 });
 
-test('an alerting result suggests the original .eml, or rerunning with the detected mailbox', async () => {
+test('an alerting result suggests the original .eml and never offers a mailbox rerun', async () => {
   const requests = [];
   const alerting = { ...contentResult('Alert'), risk_level: 'high' };
   const { context, elements } = loadFrontend({ fetch: async (url, options) => {
@@ -2241,8 +2241,9 @@ test('an alerting result suggests the original .eml, or rerunning with the detec
   await context.runContentAnalysis();
   assert.equal(elements.get('content-accuracy-tip').hidden, false);
   assert.match(elements.get('content-accuracy-tip-text').textContent, /original email \(\.eml\)/);
+  assert.doesNotMatch(elements.get('content-accuracy-tip-text').textContent, /Gmail|Outlook|accurate|less often/);
   assert.equal(elements.get('content-accuracy-guide').hidden, false);
-  assert.equal(elements.get('content-accuracy-rerun').hidden, true);
+  assert.equal(elements.has('content-accuracy-rerun'), false);
 
   const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
     + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
@@ -2252,17 +2253,14 @@ test('an alerting result suggests the original .eml, or rerunning with the detec
   await context.runContentAnalysis();
   assert.equal(requests.length, sent);
   assert.equal(elements.get('content-mailbox-hint').hidden, false);
-  assert.match(elements.get('content-mailbox-hint-text').textContent, /Did you download it from Outlook\.com yourself\? Answer this first/);
+  assert.match(elements.get('content-mailbox-hint-text').textContent,
+    /Did you download it from Outlook\.com yourself\? .*a pass is shown but cannot lower it\. Answer this first/);
   await elements.get('content-mailbox-decline').listeners.click();
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(requests.at(-1).url, '/api/analyze-visual');
   assert.equal(requests.at(-1).body.mailbox, undefined);
   assert.equal(elements.get('content-mailbox-hint').hidden, true);
-  assert.equal(elements.get('content-accuracy-rerun').hidden, false);
-  assert.match(elements.get('content-accuracy-rerun').textContent, /Outlook\.com/);
-  await elements.get('content-accuracy-rerun').listeners.click();
-  await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(requests.at(-1).body.mailbox, 'outlook');
+  // A corroborated alert on an .eml: nothing to suggest, and no rerun with the mailbox.
   assert.equal(elements.get('content-accuracy-tip').hidden, true);
 });
 
@@ -2277,10 +2275,11 @@ test('a model-driven alert says the text model raised it, without changing the v
   const pasted = elements.get('content-accuracy-tip-text').textContent;
   assert.match(pasted, /^This alert comes mainly from the text model/);
   assert.match(pasted, /original email \(\.eml\)/);
+  assert.doesNotMatch(pasted, /Gmail|Outlook|accurate/);
   assert.equal(elements.get('content-accuracy-guide').hidden, false);
   assert.equal(elements.get('crb-title').textContent, 'Medium Risk — Model Signal Needs Review');
 
-  // An .eml topped by Outlook.com's check: the rerun offer, with the model reason.
+  // An .eml topped by Outlook.com's check, not chosen: the model reason, and no mailbox remedy.
   result = { ...result, risk_level: 'high', risk_label: 'High Risk — Model Signal Needs Review', fusion_basis: 'model_led' };
   const raw = emlBytes('Authentication-Results: mx.microsoft.com 1; dmarc=pass header.from=example.com\r\n'
     + 'From: a@example.com\r\nSubject: Hi\r\n\r\nBody');
@@ -2288,19 +2287,13 @@ test('a model-driven alert says the text model raised it, without changing the v
   await context.runContentAnalysis();
   await elements.get('content-mailbox-decline').listeners.click();
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.match(elements.get('content-accuracy-tip-text').textContent, /^This alert comes mainly from the text model.*Outlook\.com/);
-  assert.equal(elements.get('content-accuracy-rerun').hidden, false);
-
-  // With the mailbox chosen there is nothing more to choose; the reason stays.
-  await elements.get('content-accuracy-rerun').listeners.click();
-  await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(elements.get('content-accuracy-tip').hidden, false);
   assert.match(elements.get('content-accuracy-tip-text').textContent,
     /^This alert comes mainly from the text model.*Check the sender address and links yourself/);
-  assert.equal(elements.get('content-accuracy-rerun').hidden, true);
+  assert.doesNotMatch(elements.get('content-accuracy-tip-text').textContent, /Outlook/);
   assert.equal(elements.get('content-accuracy-guide').hidden, true);
 
-  // Corroborated alerts on a chosen mailbox keep no tip, as before.
+  // Corroborated alerts on an .eml keep no tip, as before.
   result = { ...result, risk_label: 'High Risk — Likely Phishing', fusion_basis: 'corroborated' };
   await context.runContentAnalysis();
   assert.equal(elements.get('content-accuracy-tip').hidden, true);

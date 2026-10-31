@@ -146,11 +146,22 @@ Example raw-message request:
 }
 ```
 
+Authentication results in a raw message have three places in `message_structure`:
+
+- `auth_results`: only results proven by ARC (a chain sealed and verified for Google). Then
+  `authentication_source` is `"arc"`, `authentication_results_trusted` is true, and
+  `authentication_trusted` says whether DMARC passed. Only these can lower the risk.
+- `unverified_authentication`: the header named by the chosen mailbox (`mailbox`) or by
+  `TRUSTED_AUTHSERV_IDS`, as `{"source": "mailbox" | "server", "authserv_id", "results",
+  "header_from"}`. An uploaded file can carry any header, so its failure raises the risk and
+  its pass never lowers it. The field is left out when there is no such header, or when its
+  shown fields repeat ARC's results.
+- `untrusted_authentication_claims`: every other header's claims, returned for inspection;
+  they never change the risk.
+
 Keep `TRUSTED_AUTHSERV_IDS` empty unless you know which receiving mail system
-created the uploaded message's authentication results. The upstream receiver
-must remove attacker-supplied copies of its own authentication-service ID before
-adding its result. Untrusted header claims are returned for inspection but
-cannot increase or suppress risk.
+created the uploaded message's authentication results: a configured ID only names which
+header to read, with the same unverified effect as a chosen mailbox.
 Authentication-result extraction separates semicolon-delimited method clauses
 from nested comments and quoted explanation strings. Text such as `dmarc=pass`
 inside a comment or `reason` cannot overwrite a real `dmarc=fail` result. Common

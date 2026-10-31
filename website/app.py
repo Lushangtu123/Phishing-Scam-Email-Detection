@@ -105,7 +105,6 @@ from email_structure import (
     analyze_raw_email,
     not_an_email,
     start_arc_verification,
-    VERIFY_ARC,
     _ARC_VERIFY_SECONDS,
 )
 from sender_features import (
@@ -176,23 +175,20 @@ _analysis_pool = BoundedExecutor(workers=ANALYSIS_WORKERS, thread_name_prefix='a
 
 
 async def _parse_raw_email(raw, *, mailbox_provider: str | None = None) -> dict:
-    """analyze_raw_email for a request. Without a mailbox or a trusted Authentication-Results
-    ID, its ARC chain is what may authenticate it: that is verified first, on the ARC threads,
-    while the request waits on the event loop, so slow DNS cannot hold an analysis worker.
-    Otherwise ARC may not be needed and is verified, only if it is, during the analysis.
+    """analyze_raw_email for a request. Its ARC chain is the only authentication that can lower
+    the risk, whatever mailbox or IDs name a header, so it is always verified first, on the ARC
+    threads, while the request waits on the event loop: slow DNS cannot hold an analysis worker.
     An upload that is plainly another kind of file is refused (415) rather than read as mail."""
     kind = not_an_email(raw)
     if kind is not None:
         raise HTTPException(status_code=415, detail=f'This file is not an email message; it looks like {kind}. '
                                                     'Upload the original .eml file.')
-    arc = VERIFY_ARC
-    if mailbox_provider is None and not SETTINGS.trusted_authserv_ids:
-        future, arc = start_arc_verification(raw), None
-        if future is not None:
-            try:
-                arc = await asyncio.wait_for(asyncio.wrap_future(future), _ARC_VERIFY_SECONDS + 1.0)
-            except Exception:  # out of time: no trust
-                arc = None
+    future, arc = start_arc_verification(raw), None
+    if future is not None:
+        try:
+            arc = await asyncio.wait_for(asyncio.wrap_future(future), _ARC_VERIFY_SECONDS + 1.0)
+        except Exception:  # out of time: no trust
+            arc = None
     return await _run_analysis(analyze_raw_email, raw, trusted_authserv_ids=SETTINGS.trusted_authserv_ids,
                                mailbox_provider=mailbox_provider, arc_result=arc)
 
@@ -1999,6 +1995,7 @@ async def _resolve_content_input(request: ContentRequest, structure: dict | None
     has_structure = structure and (
         structure["attachments"] or structure["from"] or structure["reply_to"]
         or structure["return_path"] or structure["auth_results"]
+        or structure.get("unverified_authentication")
         or structure["untrusted_authentication_claims"]
         or structure["parse_warnings"]
     )
@@ -2020,6 +2017,9 @@ def _add_structure_evidence(result: dict, structure: dict) -> None:
             "sending_server",
         )
     }
+    # What the chosen mailbox's or a configured ID's header says, unverified; absent when there is none.
+    if structure.get("unverified_authentication"):
+        result["message_structure"]["unverified_authentication"] = structure["unverified_authentication"]
     if _FLOOR_RANK[structure["risk_floor"]] > _FLOOR_RANK[result["risk_floor"]]:
         result["risk_floor"] = structure["risk_floor"]
 

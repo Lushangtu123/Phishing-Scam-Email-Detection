@@ -13,6 +13,9 @@ import app  # noqa: E402
 import html_visibility  # noqa: E402
 import email_structure as es  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sealed_answer import arc_verified, sealed_answer  # noqa: E402,F401
+
 FIRST, SECOND = 'Your subscription renewal of $499 is complete. If you did not authorize this charge,', \
     'call 1-888-555-0199 immediately.'
 PADDING = 'Please review the project notes before our meeting tomorrow. ' * 30
@@ -26,7 +29,8 @@ def analyze(body, subject='Invoice problem - call support'):
 def raw_result(raw, mailbox='gmail'):
     with patch.object(app, '_content_pipeline', None):
         return json.loads(asyncio.run(app._analyze_content(
-            app.ContentRequest(), es.analyze_raw_email(raw, mailbox_provider=mailbox))).body)
+            app.ContentRequest(), es.analyze_raw_email(raw, mailbox_provider=mailbox,
+                                                       arc_result=sealed_answer(raw) if mailbox else None))).body)
 
 
 class InlineStyleInheritanceTests(unittest.TestCase):
@@ -110,7 +114,8 @@ class DisplayNameNormalizationTests(unittest.TestCase):
             raw = (auth + f'From: {name} <confirm@githubdocuments.com>\r\nTo: user@example.net\r\n'
                    'Subject: Welcome\r\n\r\nContinue at https://records.example.org/\r\n').encode()
             with self.subTest(name=name):
-                self.assertFalse(es.analyze_raw_email(raw, mailbox_provider='gmail')['authenticated_sender']
+                self.assertFalse(es.analyze_raw_email(raw, mailbox_provider='gmail',
+                                                      arc_result=sealed_answer(raw))['authenticated_sender']
                                  ['display_name_matches'])
 
 

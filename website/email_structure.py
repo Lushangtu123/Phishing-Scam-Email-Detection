@@ -157,8 +157,9 @@ _CONSUMER_MAILBOX_DOMAINS = frozenset({
     "laposte.net", "orange.fr", "libero.it", "seznam.cz", "wp.pl", "o2.pl", "interia.pl",
 })
 # Per-upload mailbox choice: the receiving service's authserv-id. Only the topmost
-# Authentication-Results header is trusted, because the receiving service prepends it
-# above anything the sender wrote.
+# Authentication-Results header is read, because the receiving service prepends it above
+# anything the sender wrote; but an uploaded file can be written by anyone, so what it
+# says can raise the risk and never lower it (see _analyze_message).
 # Outlook.com writes "mx.microsoft.com 1" above its ARC headers; the lower
 # X-MS-Exchange-Authentication-Results header is Microsoft's outbound relay, not the check.
 MAILBOX_AUTHSERV_IDS = {"gmail": "mx.google.com", "outlook": "mx.microsoft.com"}
@@ -1459,9 +1460,9 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
     return "\n".join(plain_parts), "\n".join(html_parts), attachments, parse_warnings, content_parts
 
 
-# ARC (RFC 8617). When no mailbox is named, a valid ARC chain whose newest set a mailbox
-# service sealed shows that service received this exact message and recorded its own
-# checks in the sealed ARC-Authentication-Results. The seal is verified against the
+# ARC (RFC 8617). A valid ARC chain whose newest set a mailbox service sealed shows that
+# service received this exact message and recorded its own checks in the sealed
+# ARC-Authentication-Results; it is the only authentication that can lower the risk. The seal is verified against the
 # service's public key in DNS, so it cannot be forged into a forwarded attachment, and
 # any change to the signed headers or body breaks it. Seal domain -> its authserv-id.
 # Outlook.com's "Download as EML" rewrites the message, so its seals do not verify.
@@ -1634,8 +1635,9 @@ def analyze_raw_email(
     """Return normalized content plus authentication, identity, and attachment signals.
 
     mailbox_provider names the service the user downloaded this message from
-    (MAILBOX_AUTHSERV_IDS). Then only the topmost Authentication-Results header is
-    trusted, and only when that service wrote it; server-configured IDs are ignored.
+    (MAILBOX_AUTHSERV_IDS). Then only the topmost Authentication-Results header is read,
+    and only when it names that service; server-configured IDs are ignored. What it says
+    is unverified_authentication: a failure raises the risk, a pass never lowers it.
     arc_result is arc_sealed_results' answer when the caller has already verified the ARC
     chain (start_arc_verification); by default it is verified here, if it is needed.
     """
@@ -1946,9 +1948,13 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         for value in (trusted_authserv_ids or set())
         if value.strip()
     }
-    auth_results: dict[str, str] = {}
-    dmarc_header_from = ""
-    dkim_pass_domains: set[str] = set()
+    # The mailbox choice or a configured ID names which header to read (U below), but every
+    # header of an uploaded file, the topmost too, is written by whoever made the file. So U
+    # can only raise the risk; only ARC (P), checked against the sealing service's key, can
+    # lower it. A U whose shown fields repeat P's is not shown twice; that does not make the header
+    # itself signed, and trust and any lowering still come only from P.
+    claimed: dict[str, str] = {}
+    claimed_id = claimed_header = ""
     untrusted_authentication_claims = []
     mailbox_authserv_id = MAILBOX_AUTHSERV_IDS.get(mailbox_provider or "")
     if mailbox_authserv_id:
@@ -1957,7 +1963,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         authserv_id, claimed_results, auth_complete = _authentication_results(str(auth_header))
         # With a named mailbox, a header below the topmost one was written by someone
         # else (often the sender), whatever service it claims to be.
-        trusted_header = authserv_id in trusted_ids and not (mailbox_authserv_id and position)
+        selected = authserv_id in trusted_ids and not (mailbox_authserv_id and position)
         if not auth_complete:
             warning = message_text('warning.auth_results_incomplete')
             if warning not in parse_warnings:
@@ -1965,54 +1971,83 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 indicators.append(indicator('info', 'warning.auth_results_incomplete'))
             # Incomplete claims cannot confer a trusted pass.
             claimed_results = {key: value for key, value in claimed_results.items() if value != 'pass'}
-        if claimed_results and trusted_header and not auth_results:
-            auth_results = claimed_results
-            dmarc_header_from = _dmarc_header_from(str(auth_header))
-            dkim_pass_domains = _dkim_pass_domains(str(auth_header))
+        if claimed_results and selected and not claimed:
+            claimed, claimed_id, claimed_header = claimed_results, authserv_id, str(auth_header)
         elif claimed_results:
             untrusted_authentication_claims.append({
                 "authserv_id": authserv_id,
                 "results": claimed_results,
             })
-    authentication_source = ("mailbox" if mailbox_authserv_id else "server") if auth_results else None
-    if not auth_results and not mailbox_authserv_id and raw_email is not None:
-        arc = arc_sealed_results(raw_email) if arc_result is VERIFY_ARC else arc_result
+    auth_results: dict[str, str] = {}
+    dmarc_header_from = ""
+    dkim_pass_domains: set[str] = set()
+    authentication_source = sealed_id = None
+    if raw_email is not None:
+        if arc_result is VERIFY_ARC:
+            # A caller that did not verify ARC itself looks keys up here only where it always
+            # did (no mailbox named, no header selected), so an offline evaluator reading a
+            # recorded mailbox makes no new lookup. The web app verifies first, for every
+            # upload (app._parse_raw_email), and passes its answer.
+            arc = arc_sealed_results(raw_email) if not claimed and not mailbox_authserv_id else None
+        else:
+            arc = arc_result
         if arc:
             sealed_by, sealed_value = arc
-            authserv_id, claimed_results, auth_complete = _authentication_results(sealed_value)
-            if claimed_results and auth_complete:
-                auth_results = claimed_results
+            sealed_id, sealed_results, sealed_complete = _authentication_results(sealed_value)
+            if sealed_results and sealed_complete:
+                auth_results = sealed_results
                 dmarc_header_from = _dmarc_header_from(sealed_value)
                 dkim_pass_domains = _dkim_pass_domains(sealed_value)
                 authentication_source = "arc"
                 # The service's own header now counts through its seal, not as a claim.
                 untrusted_authentication_claims = [claim for claim in untrusted_authentication_claims
-                                                   if claim["authserv_id"] != authserv_id]
+                                                   if claim["authserv_id"] != sealed_id]
                 indicators.append(indicator('info', 'structure.arc_sealed_results', domain=sealed_by))
-    failures = {
-        mechanism for mechanism, result in auth_results.items()
-        if result in _AUTH_FAILURES
-    }
-    dmarc_passes = auth_results.get("dmarc") == "pass"
-    decisive_failure = (
-        auth_results.get("dmarc") in _AUTH_FAILURES
-        or {"spf", "dkim"}.issubset(failures)
-    )
-    if decisive_failure and not dmarc_passes:
+
+    def read(results):
+        failed = {mechanism for mechanism, result in results.items() if result in _AUTH_FAILURES}
+        return failed, results.get("dmarc") == "pass", (results.get("dmarc") in _AUTH_FAILURES
+                                                        or {"spf", "dkim"}.issubset(failed))
+
+    # Each source is read as a single trusted result was before; neither's pass cancels the
+    # other's failure, so a failure keeps its points and floor whatever the other says.
+    claimed_failed, claimed_passes, claimed_decisive = read(claimed)
+    failures, dmarc_passes, sealed_decisive = read(auth_results)
+    raising, decisive_raise = set(), False
+    for failed, passes, decisive in ((claimed_failed, claimed_passes, claimed_decisive),
+                                     (failures, dmarc_passes, sealed_decisive)):
+        if failed and not passes:
+            raising |= failed
+            decisive_raise = decisive_raise or decisive
+    if decisive_raise:
         score += 6
         risk_floor = "high"
         indicators.append(indicator('high', 'structure.auth_failed',
-                                    mechanisms=", ".join(sorted(failures)).upper()))
-    elif failures and not dmarc_passes:
+                                    mechanisms=", ".join(sorted(raising)).upper()))
+    elif raising:
         score += 2
         indicators.append(indicator('medium', 'structure.auth_partial_failure',
-                                    mechanisms=", ".join(sorted(failures)).upper()))
+                                    mechanisms=", ".join(sorted(raising)).upper()))
+    decisive_failure = claimed_decisive or sealed_decisive
+    # Only ARC's pass lowers the risk, and only when no source shows a failure.
+    downgrade_blocked = decisive_failure or bool(claimed_failed and not claimed_passes)
+    unverified_authentication = None
+    if claimed:
+        claimed_from = _dmarc_header_from(claimed_header)
+        if not (authentication_source == "arc" and claimed_id == sealed_id and claimed == auth_results
+                and claimed_from == dmarc_header_from):
+            unverified_authentication = {"source": "mailbox" if mailbox_authserv_id else "server",
+                                         "authserv_id": claimed_id, "results": claimed, "header_from": claimed_from}
+            if "pass" in claimed.values():
+                service = {MAILBOX_AUTHSERV_IDS["gmail"]: "Gmail",
+                           MAILBOX_AUTHSERV_IDS["outlook"]: "Outlook.com"}.get(claimed_id, claimed_id)
+                indicators.append(indicator('info', 'structure.unverified_auth_pass', service=service))
 
     # A trusted DMARC pass for the single From domain, which is an organization's own
     # sending domain, verifies the sender. It says nothing about links or requests,
     # which are still scored.
     verified_official_sender = None
-    if dmarc_passes and not decisive_failure and len(from_domains) == 1:
+    if dmarc_passes and not downgrade_blocked and len(from_domains) == 1:
         from_domain = next(iter(from_domains))
         if _dmarc_aligned(from_domain, dmarc_header_from):
             organization = _official_sender(from_domain)
@@ -2032,7 +2067,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     # DMARC pass is authenticated: its address naming is the owner's choice. This is
     # not official: it only says who sent the message, not that they are trustworthy.
     authenticated_sender = None
-    if dmarc_passes and not decisive_failure and len(from_domains) == 1:
+    if dmarc_passes and not downgrade_blocked and len(from_domains) == 1:
         from_domain = next(iter(from_domains))
         organization_domain = organizational_domain(from_domain)
         if (_dmarc_aligned(from_domain, dmarc_header_from)
@@ -2124,6 +2159,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "bulk_mail": _bulk_mail(message),
         "authentication_results_trusted": bool(auth_results),
         "authentication_source": authentication_source,
+        "unverified_authentication": unverified_authentication,
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,
         "parse_warnings": parse_warnings,

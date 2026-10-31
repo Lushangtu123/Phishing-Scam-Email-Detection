@@ -73,6 +73,10 @@ Measured with the full serving pipeline on 2026-10-04 and 10-05, before this bra
 | Nazario phishing, 2015–25 (3,466) | 3,445 (99.4%) |
 | PhishFuzzer recent phishing seeds (103) | 88 (85%) |
 
+- The "chosen" row no longer describes the current behaviour. Since 2026-10-26, choosing the mailbox only
+  reads the file's own authentication header: a failure raises the risk, but a pass no longer lowers it,
+  because an uploaded file can carry a forged one. Only a verified ARC seal, such as Gmail's, can lower it.
+  This cohort has not been re-measured.
 - Most false alerts come from the text model. It was trained on public corpora whose
   genuine mail is mostly from 2002–2008, and it transfers poorly to corpora it has not
   seen ([leave-one-source-out](docs/evaluation.md#4-leave-one-source-out-model-evaluation)).

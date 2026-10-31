@@ -41,7 +41,7 @@
   "sender.list_rewritten": "Sender domain was rewritten by a mailing list (.invalid suffix); the original domain was scored.",
   "content.rendering_views_agree": "Parts of this HTML may be hidden or shown only in some mail apps (Outlook-only blocks, style rules). Each version was scored and all lead to the same result, so the result stands.",
   "sender.authenticated_domain": "The mailbox service verified that {domain} sent this message (DMARC and DKIM); how its addresses are named (role words, subdomains, random-looking names) is shown but not scored. Links, content and lookalike checks still apply.",
-  "sender.service_domain": "The address is on {organization}'s own domain ({domain}), so how it is named (role words, subdomains, random-looking names) is shown but not scored. This does not prove the service sent it: choose the mailbox (Gmail or Outlook) the message was downloaded from to check its authentication. Links, content and lookalike checks still apply.",
+  "sender.service_domain": "The address is on {organization}'s own domain ({domain}), so how it is named (role words, subdomains, random-looking names) is shown but not scored. This does not prove the service sent it. Links, content and lookalike checks still apply.",
 
   "content.hidden_text_padding": "Large hidden text block accompanies an image-dominant linked message; the visible message differs substantially from its hidden text. Review the image and destination manually.",
   "content.password_form": "Embedded HTML form contains a password field; inspect the submission destination before entering credentials.",
@@ -119,7 +119,8 @@
   "structure.originating_ip_drop": "The X-Originating-IP header, which the sender can write, names {ip}, in a network that Spamhaus lists as run by spammers or criminals ({listing}, DROP list of {date}).",
   "structure.recipient_domain_display": "The sender's display name shows your own domain ({domain}), but the message comes from another domain. Attackers pose as your organization's mail or IT team this way.",
   "structure.routing_mismatch": "{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.",
-  "structure.arc_sealed_results": "No mailbox was chosen, but the sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.",
+  "structure.unverified_auth_pass": "This file says {service}’s sender check passed. An uploaded file cannot prove that this header came from that service, so it does not lower the risk.",
+  "structure.arc_sealed_results": "The sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.",
   "structure.auth_failed": "Message authentication failed: {mechanisms}.",
   "structure.auth_partial_failure": "One authentication mechanism failed: {mechanisms}.",
   "structure.dangerous_attachment": "Potentially dangerous attachment: {filename}.",
