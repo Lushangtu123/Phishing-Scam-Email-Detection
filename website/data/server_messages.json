@@ -121,6 +121,8 @@
   "structure.routing_mismatch": "{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.",
   "structure.unverified_auth_pass": "This file says {service}’s sender check passed. An uploaded file cannot prove that this header came from that service, so it does not lower the risk.",
   "structure.arc_sealed_results": "The sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.",
+  "structure.arc_headers_unsigned": "The sealed record (ARC) does not cover the {headers} header read here, so its checks do not lower the risk.",
+  "structure.arc_headers_unmatched": "The message's headers read differently to the seal check and to this analysis, so the sealed checks do not lower the risk.",
   "structure.auth_failed": "Message authentication failed: {mechanisms}.",
   "structure.auth_partial_failure": "One authentication mechanism failed: {mechanisms}.",
   "structure.dangerous_attachment": "Potentially dangerous attachment: {filename}.",

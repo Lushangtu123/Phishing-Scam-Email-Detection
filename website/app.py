@@ -2020,6 +2020,9 @@ def _add_structure_evidence(result: dict, structure: dict) -> None:
     # What the chosen mailbox's or a configured ID's header says, unverified; absent when there is none.
     if structure.get("unverified_authentication"):
         result["message_structure"]["unverified_authentication"] = structure["unverified_authentication"]
+    # Why a verified ARC seal may not lower the risk; absent when it may, or when there is none.
+    if structure.get("arc_downgrade_blocked_by"):
+        result["message_structure"]["arc_downgrade_blocked_by"] = structure["arc_downgrade_blocked_by"]
     if _FLOOR_RANK[structure["risk_floor"]] > _FLOOR_RANK[result["risk_floor"]]:
         result["risk_floor"] = structure["risk_floor"]
 

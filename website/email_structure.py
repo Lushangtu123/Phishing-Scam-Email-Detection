@@ -24,6 +24,7 @@ import codecs
 from contextlib import contextmanager
 from contextvars import ContextVar
 from itertools import product
+from typing import NamedTuple
 
 import tldextract
 
@@ -1461,8 +1462,9 @@ def _message_text(message, *, unicode_source: bool = False) -> tuple[str, str, l
 
 
 # ARC (RFC 8617). A valid ARC chain whose newest set a mailbox service sealed shows that
-# service received this exact message and recorded its own checks in the sealed
-# ARC-Authentication-Results; it is the only authentication that can lower the risk. The seal is verified against the
+# service received this message, as far as the set signed it, and recorded its own checks in the sealed
+# ARC-Authentication-Results; it is the only authentication that can lower the risk, and only when the
+# headers read here are the ones it signed (_arc_downgrade_block). The seal is verified against the
 # service's public key in DNS, so it cannot be forged into a forwarded attachment, and
 # any change to the signed headers or body breaks it. Seal domain -> its authserv-id.
 # Outlook.com's "Download as EML" rewrites the message, so its seals do not verify.
@@ -1515,6 +1517,29 @@ def _arc_sealers(data: bytes) -> set[str] | None:
         return sealers
     except Exception:  # missing library, malformed headers or tags: nothing to look up
         return None
+
+
+# The headers a reader is shown and the analysis reads as who sent the message, to whom and about what.
+_ARC_DECISION_HEADERS = (("from", "From"), ("to", "To"), ("cc", "Cc"), ("subject", "Subject"),
+                         ("reply-to", "Reply-To"))
+# Defects that mean Python's parser ended or began the header block where the seal check did not.
+_HEADER_BLOCK_DEFECTS = {"MissingHeaderBodySeparatorDefect", "MisplacedEnvelopeHeaderDefect",
+                         "FirstHeaderLineIsContinuationDefect"}
+
+
+def _arc_downgrade_block(message, view) -> dict | None:
+    """None when a verified seal may lower the risk: the header block this analysis parsed is, header for header,
+    the one the seal check read (same names and values in the same order, no defect at its ends, nothing another
+    parser could split differently), and every From, To, Cc, Subject and Reply-To in it is an instance the newest
+    seal signed. Otherwise why not: {"reason": "unmatched" | "unsigned", "headers": [...]}. Counting the
+    headers is not enough: a lone CR can give each parser one Subject, a different one."""
+    read = tuple((name.lower(), _header_value(value)) for name, value in message.raw_items())
+    if (view is None or not view.clean or read != view.headers
+            or {type(defect).__name__ for defect in message.defects} & _HEADER_BLOCK_DEFECTS):
+        return {"reason": "unmatched", "headers": []}
+    unsigned = [label for name, label in _ARC_DECISION_HEADERS
+                if any(entry[0] == name and index not in view.signed for index, entry in enumerate(view.headers))]
+    return {"reason": "unsigned", "headers": unsigned} if unsigned else None
 
 
 def _guarded_arc_dns(dnsfunc, deadline: float):
@@ -1583,9 +1608,68 @@ def start_arc_verification(raw_email: str | bytes, dnsfunc=None):
     return _arc_pool.submit(_verified_arc_results, data, dnsfunc or _arc_dns_txt)
 
 
-def _verified_arc_results(data: bytes, dnsfunc) -> tuple[str, str] | None:
+class SealView(NamedTuple):
+    """The header block as the seal check read it: each header's lowercased name and its value without line
+    breaks or leading blanks, in order; the positions the newest ARC-Message-Signature signed; and whether the
+    block is free of what another parser could split differently (a CR not followed by LF, an mbox "From " line,
+    which the seal check skips)."""
+    headers: tuple
+    signed: frozenset
+    clean: bool
+
+
+class SealedResults(NamedTuple):
+    """arc_result: the sealing domain, its sealed Authentication-Results value, and the SealView of the message
+    it verified (None when it cannot be read, so nothing it says may lower the risk)."""
+    domain: str
+    value: str
+    view: SealView | None
+
+
+def _header_value(value) -> bytes:
+    """A header value as the seal view compares it: bytes, line breaks removed, leading blanks dropped."""
+    if not isinstance(value, bytes):
+        value = str(value).encode("utf-8", "surrogateescape")
+    return re.sub(rb"[\r\n]", b"", value).lstrip(b" \t")
+
+
+def _seal_view(data: bytes, signed_names) -> SealView | None:
+    """The SealView of data when signed_names is the newest ARC-Message-Signature's h= list: the verifier's own
+    parser reads the block and its own rule picks the instances (each name from the bottom up, and one more
+    From, as dkimpy checks for an added From)."""
+    try:
+        import dkim
+        headers, _body = dkim.rfc822_parse(data)
+    except Exception:  # a block the seal check cannot read
+        return None
+    include = [name.strip().lower() for name in signed_names if name.strip()]
+    if b"from" in include:
+        include.append(b"from")
+    entries = [[name.lower(), value] for name, value in headers]
+    chosen = {id(entry) for entry in dkim.select_headers(entries, include)}
+    lines = []
+    for line in re.split(rb"\r?\n", data):
+        if not line:
+            break
+        lines.append(line)
+    clean = not any(b"\r" in line or line.startswith(b"From ") for line in lines)
+    return SealView(tuple((name.decode("ascii", "replace"), _header_value(value)) for name, value in entries),
+                    frozenset(index for index, entry in enumerate(entries) if id(entry) in chosen), clean)
+
+
+def _newest_signed_names(data: bytes) -> list[bytes]:
+    """The h= list of the ARC-Message-Signature with the highest instance."""
+    import dkim
+    from dkim.util import parse_tag_value
+    signatures = [parse_tag_value(value) for name, value in dkim.rfc822_parse(data)[0]
+                  if name.lower() == b"arc-message-signature"]
+    newest = max(signatures, key=lambda tags: int(tags[b"i"]))
+    return re.split(rb"\s*:\s*", newest[b"h"])
+
+
+def _verified_arc_results(data: bytes, dnsfunc) -> SealedResults | None:
     """On an ARC thread: the chain verified within _ARC_VERIFY_SECONDS, and the newest set's
-    sealed results if a known service sealed them."""
+    sealed results if a known service sealed them, with the view of what that set signed."""
     try:
         import dkim
         guarded = _guarded_arc_dns(dnsfunc, time.monotonic() + _ARC_VERIFY_SECONDS)
@@ -1604,10 +1688,14 @@ def _verified_arc_results(data: bytes, dnsfunc) -> tuple[str, str] | None:
     authserv_id = _authentication_results(value)[0]
     if ARC_SEALERS.get(domain) != authserv_id:
         return None
-    return domain, value
+    try:
+        view = _seal_view(data, _newest_signed_names(data))
+    except Exception:  # the signed list cannot be read: the results may raise the risk, never lower it
+        view = None
+    return SealedResults(domain, value, view)
 
 
-def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> tuple[str, str] | None:
+def arc_sealed_results(raw_email: str | bytes, dnsfunc=None) -> SealedResults | None:
     """(sealing domain, sealed Authentication-Results value) when the ARC chain is valid and
     its newest set was sealed by a known mailbox service; otherwise None. Waits in the
     calling thread: the web app verifies before analysis instead (arc_result)."""
@@ -1981,7 +2069,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
     auth_results: dict[str, str] = {}
     dmarc_header_from = ""
     dkim_pass_domains: set[str] = set()
-    authentication_source = sealed_id = None
+    authentication_source = sealed_id = arc_blocked = None
     if raw_email is not None:
         if arc_result is VERIFY_ARC:
             # A caller that did not verify ARC itself looks keys up here only where it always
@@ -1992,7 +2080,7 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         else:
             arc = arc_result
         if arc:
-            sealed_by, sealed_value = arc
+            sealed_by, sealed_value = arc[0], arc[1]
             sealed_id, sealed_results, sealed_complete = _authentication_results(sealed_value)
             if sealed_results and sealed_complete:
                 auth_results = sealed_results
@@ -2003,6 +2091,15 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                 untrusted_authentication_claims = [claim for claim in untrusted_authentication_claims
                                                    if claim["authserv_id"] != sealed_id]
                 indicators.append(indicator('info', 'structure.arc_sealed_results', domain=sealed_by))
+                # The seal vouches only for the header instances it signed: its results may still raise
+                # the risk, but lower it only when every From, To, Cc, Subject and Reply-To read here is
+                # one of them, in a header block both parsers read alike.
+                arc_blocked = _arc_downgrade_block(message, arc[2] if len(arc) > 2 else None)
+                if arc_blocked and arc_blocked["reason"] == "unsigned":
+                    indicators.append(indicator('info', 'structure.arc_headers_unsigned',
+                                                headers=', '.join(arc_blocked["headers"])))
+                elif arc_blocked:
+                    indicators.append(indicator('info', 'structure.arc_headers_unmatched'))
 
     def read(results):
         failed = {mechanism for mechanism, result in results.items() if result in _AUTH_FAILURES}
@@ -2030,7 +2127,8 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
                                     mechanisms=", ".join(sorted(raising)).upper()))
     decisive_failure = claimed_decisive or sealed_decisive
     # Only ARC's pass lowers the risk, and only when no source shows a failure.
-    downgrade_blocked = decisive_failure or bool(claimed_failed and not claimed_passes)
+    downgrade_blocked = (decisive_failure or bool(claimed_failed and not claimed_passes)
+                         or arc_blocked is not None)
     unverified_authentication = None
     if claimed:
         claimed_from = _dmarc_header_from(claimed_header)
@@ -2159,6 +2257,8 @@ def _analyze_message(message, *, unicode_source, trusted_authserv_ids, depth, bu
         "bulk_mail": _bulk_mail(message),
         "authentication_results_trusted": bool(auth_results),
         "authentication_source": authentication_source,
+        "arc_downgrade_allowed": (arc_blocked is None) if authentication_source == "arc" else None,
+        "arc_downgrade_blocked_by": arc_blocked,
         "unverified_authentication": unverified_authentication,
         "untrusted_authentication_claims": untrusted_authentication_claims,
         "attachments": attachments,

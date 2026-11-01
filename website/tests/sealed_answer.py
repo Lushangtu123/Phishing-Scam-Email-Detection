@@ -1,13 +1,20 @@
 """A verified ARC answer for tests, in the form app._parse_raw_email passes to analyze_raw_email (arc_result) once
-Google's seal verifies: Gmail seals the results it wrote as the message's topmost Authentication-Results header.
+Google's seal verifies: Gmail seals the results it wrote as the message's topmost Authentication-Results header,
+and signs each From, To, Cc, Subject and Reply-To the message has (once), as the view below records.
 Only for Gmail-style headers; Outlook.com downloads have no seal that verifies."""
 from email import message_from_bytes, policy
 
+import email_structure as es
 
-def sealed_answer(raw: bytes) -> tuple[str, str] | None:
+
+def sealed_answer(raw: bytes) -> es.SealedResults | None:
     """None for a message without a Gmail result to seal."""
     headers = message_from_bytes(raw, policy=policy.default).get_all('Authentication-Results')
-    return ('google.com', ' '.join(str(headers[0]).split())) if headers else None
+    if not headers:
+        return None
+    data = raw if isinstance(raw, bytes) else raw.encode('utf-8', 'surrogateescape')
+    view = es._seal_view(data, [b'from', b'to', b'cc', b'subject', b'reply-to'])
+    return es.SealedResults('google.com', ' '.join(str(headers[0]).split()), view)
 
 
 def arc_verified(app_module, raw: bytes | None):
