@@ -2308,12 +2308,15 @@ def _fuse_content_result(result: dict, ml_probability, ml_threshold: float, raw_
 
 
 def _apply_verified_sender(result: dict, structure: dict | None, request: ContentRequest) -> dict | None:
-    """Keep a verified official sender's mail at Low unless strong evidence alerts, and list
-    where to verify independently. Returns the verified sender, if any."""
-    # A verified official sender (trusted DMARC pass on the organization's own domain)
-    # cannot be raised above Low by the text model or weak rules alone. Evidence that
-    # sets a Medium or higher floor (links, attachments, requests for codes) still
-    # alerts, and a very high rule score keeps Critical.
+    """Record a verified official sender, note when its message's content still alerts, and
+    list where to verify independently. Returns the verified sender, if any."""
+    # Authentication says who sent the message, not that what it asks is safe (RFC 8617
+    # section 9.3; ARC review E2). A verified official sender (trusted DMARC pass on the
+    # organization's own domain) already relaxes the checks of the sender address itself,
+    # but a text-model or weak-rule alert on its content stands, with a note saying so.
+    # A model-only signal stays the note "Low Risk — Text Model Signal Only", as for any
+    # original message: gift-card or crypto wording no rule covers stays Low (accepted
+    # residual risk, docs/evaluation.md).
     verified_sender = structure.get('verified_official_sender') if structure else None
     result['verified_official_sender'] = verified_sender
     # Where to verify independently: organizations named by the verified sender, the
@@ -2323,10 +2326,9 @@ def _apply_verified_sender(result: dict, structure: dict | None, request: Conten
     result['official_channels'] = _official_channels(
         [*from_names, structure['subject'] if structure else request.subject],
         first=verified_sender['organization'] if verified_sender else None)
-    if verified_sender and result['risk_floor'] in {'safe', 'low'} and (
-            result['risk_level'] in {'medium', 'high'} or result.get('fusion_basis') == 'model_only'):
-        result['risk_level'] = 'low'
-        result['risk_label'] = 'Low Risk — Verified Official Sender'
+    if verified_sender and result['risk_floor'] in {'safe', 'low'} and result['risk_level'] in {'medium', 'high'}:
+        result['extra_indicators'].append(indicator('info', 'content.verified_sender_content_alert',
+                                                    organization=verified_sender['organization']))
     return verified_sender
 
 

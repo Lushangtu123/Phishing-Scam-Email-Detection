@@ -247,6 +247,51 @@ class VerifiedSenderIncompleteAnalysisTests(unittest.TestCase):
                 self.assertEqual(self.analyze(raw, mailbox)['risk_level'], 'unknown')
 
 
+class VerifiedSenderStepTests(unittest.TestCase):
+    """The verified-sender step on its own: it records the sender and never lowers the content's result."""
+    STRUCTURE = {'verified_official_sender': {'organization': 'PayPal', 'domain': 'paypal.com'},
+                 'header_candidates': {'From': ['PayPal <service@paypal.com>']}, 'subject': 'Receipt for your payment'}
+    NOTE = 'content.verified_sender_content_alert'
+
+    def step(self, structure=STRUCTURE, **fields):
+        result = {'risk_level': 'high', 'risk_label': 'High Risk — Model Signal Needs Review', 'risk_floor': 'safe',
+                  'fusion_basis': 'model_led', 'extra_indicators': [{'level': 'low', 'msg': 'earlier'}], **fields}
+        returned = app._apply_verified_sender(result, structure, app.ContentRequest())
+        self.assertEqual(returned, structure['verified_official_sender'] if structure else None)
+        return result
+
+    def test_a_model_or_weak_rule_alert_stands_and_is_noted_once_at_the_end(self):
+        for level, label in (('high', 'High Risk — Model Signal Needs Review'), ('medium', 'Medium Risk')):
+            with self.subTest(level=level):
+                result = self.step(risk_level=level, risk_label=label)
+                self.assertEqual((result['risk_level'], result['risk_label']), (level, label))
+                self.assertEqual(result['extra_indicators'][0], {'level': 'low', 'msg': 'earlier'})
+                self.assertEqual(result['extra_indicators'][1:], [{
+                    'level': 'info', 'code': self.NOTE, 'params': {'organization': 'PayPal'},
+                    'msg': 'The sender is verified as PayPal, but authentication does not check what the message '
+                           'asks you to do. Contact PayPal only through its own app or website.'}])
+                self.assertEqual(result['official_channels'][0]['organization'], 'PayPal')
+
+    def test_a_model_only_note_keeps_its_own_label_without_the_note(self):
+        # Accepted residual risk: wording only the model flags stays Low on a verified sender's mail.
+        result = self.step(risk_level='low', risk_label='Low Risk — Text Model Signal Only', fusion_basis='model_only')
+        self.assertEqual((result['risk_level'], result['risk_label']), ('low', 'Low Risk — Text Model Signal Only'))
+        self.assertEqual(len(result['extra_indicators']), 1)
+
+    def test_no_note_without_a_verified_sender_a_strong_floor_or_an_alert(self):
+        unverified = {**self.STRUCTURE, 'verified_official_sender': None}
+        for structure, fields in ((unverified, {}), (self.STRUCTURE, {'risk_floor': 'medium'}),
+                                  (self.STRUCTURE, {'risk_level': 'critical', 'risk_label': 'Critical Risk'}),
+                                  (self.STRUCTURE, {'risk_level': 'safe', 'risk_label': 'Safe'}),
+                                  (self.STRUCTURE, {'risk_level': 'low', 'risk_label': 'Low Risk'})):
+            with self.subTest(structure=bool(structure['verified_official_sender']), **fields):
+                result = self.step(structure, **fields)
+                self.assertEqual((result['risk_level'], result['risk_label']),
+                                 (fields.get('risk_level', 'high'),
+                                  fields.get('risk_label', 'High Risk — Model Signal Needs Review')))
+                self.assertEqual(len(result['extra_indicators']), 1)
+
+
 class VerifiedSenderRiskTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -264,14 +309,18 @@ class VerifiedSenderRiskTests(unittest.TestCase):
         with patch.object(app, '_content_pipeline', self.pipeline):
             return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), structure)).body)
 
-    def test_model_led_alert_on_a_verified_official_receipt_becomes_low(self):
+    def test_model_led_alert_on_a_verified_official_receipt_stands_with_a_note(self):
+        # Authentication says who sent the message, not that its content is safe (ARC review E2).
         unverified = self.analyze(message(), mailbox=None)
         self.assertIn(unverified['risk_level'], {'medium', 'high'})
         result = self.analyze(message())
-        self.assertEqual(result['risk_level'], 'low')
-        self.assertEqual(result['risk_label'], 'Low Risk — Verified Official Sender')
+        self.assertEqual((result['risk_level'], result['risk_label']), (unverified['risk_level'], unverified['risk_label']))
         self.assertEqual(result['verified_official_sender']['organization'], 'PayPal')
         self.assertEqual(result['sender_score'], 0)
+        notes = [item for item in result['extra_indicators'] if item.get('code') == 'content.verified_sender_content_alert']
+        self.assertEqual([(item['level'], item['params']) for item in notes], [('info', {'organization': 'PayPal'})])
+        self.assertNotIn('content.verified_sender_content_alert',
+                         [item.get('code') for item in unverified['extra_indicators']])
         # Without the seal, choosing Gmail reads the header but changes nothing else.
         chosen = self.analyze(message(), sealed=False)
         self.assertEqual((chosen['risk_level'], chosen['risk_label'], chosen['sender_score']),
