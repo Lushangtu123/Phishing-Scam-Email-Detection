@@ -270,13 +270,21 @@ class VerifiedSenderStepTests(unittest.TestCase):
                     'level': 'info', 'code': self.NOTE, 'params': {'organization': 'PayPal'},
                     'msg': 'The sender is verified as PayPal, but authentication does not check what the message '
                            'asks you to do. Contact PayPal only through its own app or website.'}])
-                self.assertEqual(result['official_channels'][0]['organization'], 'PayPal')
+                self.assertEqual([channel['organization'] for channel in result['official_channels']][:1], ['PayPal'])
 
     def test_a_model_only_note_keeps_its_own_label_without_the_note(self):
         # Accepted residual risk: wording only the model flags stays Low on a verified sender's mail.
         result = self.step(risk_level='low', risk_label='Low Risk — Text Model Signal Only', fusion_basis='model_only')
         self.assertEqual((result['risk_level'], result['risk_label']), ('low', 'Low Risk — Text Model Signal Only'))
         self.assertEqual(len(result['extra_indicators']), 1)
+
+    def test_a_payment_brands_model_only_note_still_abstains_when_the_text_is_unsure(self):
+        # The note is not the verified Low: on a view that could not be read it stays undetermined.
+        result = {'risk_level': 'low', 'risk_label': 'Low Risk — Text Model Signal Only', 'risk_floor': 'safe',
+                  'fusion_basis': 'model_only', 'analysis_warnings': ['unread view'], 'ml_status': 'available',
+                  'combined_phishing_score': 80.0}
+        app._apply_abstention(result, set(), True, False, self.STRUCTURE['verified_official_sender'])
+        self.assertEqual((result['risk_level'], result['combined_phishing_score']), ('unknown', None))
 
     def test_no_note_without_a_verified_sender_a_strong_floor_or_an_alert(self):
         unverified = {**self.STRUCTURE, 'verified_official_sender': None}
@@ -303,11 +311,40 @@ class VerifiedSenderRiskTests(unittest.TestCase):
         cls.pipeline = load_content_pipeline_artifact(WEBSITE_DIR.parent / profile['CONTENT_MODEL_ARTIFACT'],
                                                       profile['CONTENT_MODEL_ARTIFACT_SHA256'])
 
-    def analyze(self, raw, mailbox='gmail', sealed=True):
+    def analyze(self, raw, mailbox='gmail', sealed=True, requested=''):
         structure = analyze_raw_email(raw, mailbox_provider=mailbox,
                                       arc_result=sealed_answer(raw) if mailbox and sealed else None)
         with patch.object(app, '_content_pipeline', self.pipeline):
-            return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), structure)).body)
+            return json.loads(asyncio.run(app._analyze_content(app.ContentRequest(requested=requested), structure)).body)
+
+    @staticmethod
+    def notes(result):
+        return [item['code'] for item in result['extra_indicators']
+                if item['code'].startswith(('content.verified_sender', 'content.requested', 'content.unrequested'))]
+
+    def test_the_reader_is_asked_about_a_verified_senders_account_notice(self):
+        # The alert stands, so the question about the reader's own action applies as it does to any sender.
+        raw = message(subject='New sign-in to your account',
+                      body='New sign-in to your PayPal account from a new device. If this was you, no action is needed. '
+                           'If not, review your account activity.')
+        asked = self.analyze(raw)
+        self.assertEqual((asked['risk_level'], asked['requested_question']), ('high', True))
+        self.assertEqual(self.notes(asked), ['content.verified_sender_content_alert'])
+        confirmed = self.analyze(raw, requested='yes')
+        self.assertEqual((confirmed['risk_level'], confirmed['risk_label'], confirmed['requested_question']),
+                         ('low', 'Low Risk — Confirmed as Your Own Action', False))
+        self.assertEqual(self.notes(confirmed), ['content.verified_sender_content_alert', 'content.requested_notice'])
+        denied = self.analyze(raw, requested='no')
+        self.assertEqual(denied['risk_level'], 'high')
+        self.assertEqual(self.notes(denied), ['content.verified_sender_content_alert', 'content.unrequested_notice'])
+
+    def test_the_mail_type_follows_the_alert_that_stands(self):
+        raw = message(body='Thank you for your order. Your order confirmation: you paid $12,450.00 USD to Apple Store. '
+                           'View the details in your account.')
+        result = self.analyze(raw)
+        self.assertEqual(result['risk_level'], 'high')
+        self.assertEqual(result['mail_type'], {'type': 'phishing', 'tactics': ['payment']})
+        self.assertEqual(result['mail_type'], self.analyze(raw, mailbox=None)['mail_type'])
 
     def test_model_led_alert_on_a_verified_official_receipt_stands_with_a_note(self):
         # Authentication says who sent the message, not that its content is safe (ARC review E2).
