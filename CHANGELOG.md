@@ -22,6 +22,27 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-11-01 11:56 PT] — Supplementary measurement of E2: rule floors and relays unchanged
+
+### Why
+- The first E2 report failed E2-3 on one case built without a real floor (the lookalike-link rule protects five
+  brands; the case used Wells Fargo). A review asked for that failure to be handled formally before any merge
+  decision, not by waiting for other gates.
+
+### Files changed
+- `docs/evaluation.md` — the second report beside the first, and what its evidence is.
+
+### Effect
+- **Second report: pass.** 13 new synthetic controls, approved and frozen before running: 6 lookalike links on
+  protected brands, 4 other floors, 3 relays on three different bases. A rule preflight on main (text model off)
+  confirmed each was what it was built to be. All 114 records class C; the E2 candidate equals E1 byte for byte
+  with no note; each run equals its repeat; corpus runs reused after pinned checks. Tools: 24 self-tests, 29 of 29
+  planted defects caught.
+- The first report's **fail** stands. A post-hoc check (not counted) shows the failing case's E2 output is exactly
+  its class-A expectation.
+- Still required before E2 can be merged: #94 merged first, the cost measurement on the owner's mail (only with
+  the owner's permission), and the owner's decision.
+
 ## [2026-11-01 10:46 PT] — A verified sender no longer lowers an alert on the message's content
 
 ### Why

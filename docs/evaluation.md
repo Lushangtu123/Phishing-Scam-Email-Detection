@@ -318,6 +318,24 @@ Neither the generator's self-check nor the baseline's adequacy check confirmed t
 the owner decided to record the failure as a case-construction error and continue. Planted defects that put the
 note on, or change, a record with a Medium floor or a Critical result are caught by unit tests.
 
+**Supplementary measurement (second report).** After review, supplementary criteria were fixed and approved
+before anything ran; the first report and its fail stand beside the second. 13 new synthetic controls, sealed with
+a new key, verified as official senders on main:
+
+- six lookalike links on the protected brands (PayPal, Microsoft, Amazon, Apple; one an IDN host);
+- four other floors (a code and password request, a callback with charge wording, a link whose text names another
+  address, an HTML attachment with a password form);
+- three relays, each on a different basis (a share subject alone, an external Reply-To, a registered relay
+  address).
+
+Before freezing, a preflight on main with the text model off recorded only verification, floor and relay basis,
+so these are synthetic controls checked by a rule preflight, not unseen evidence. Result: **pass**. All 114
+records were class C, the E2 candidate equalled E1 byte for byte with no note, E2-1 and E2-2 held, main and E1
+showed every planned floor and relay, and each run equalled its repeat. The public-corpus runs were reused after
+checking their commit, sources, model, profile and pinned item files. A post-hoc check (not counted) confirmed
+that the failing case's E2 output is exactly its class-A expectation: the reference response plus the note. The
+supplementary tools passed 24 self-tests and caught 29 of 29 planted tool defects.
+
 Of the 510 records, 178 changed, all in the 39 sealed cases with a verified official sender: the 27 class A
 records went from verified Low to High with the note, and the 151 class B records kept Low and went back to "Low
 Risk — Text Model Signal Only". The first attempt at the planted defects caught 17 of 18: with the test
