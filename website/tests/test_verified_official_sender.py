@@ -278,6 +278,17 @@ class VerifiedSenderStepTests(unittest.TestCase):
         self.assertEqual((result['risk_level'], result['risk_label']), ('low', 'Low Risk — Text Model Signal Only'))
         self.assertEqual(len(result['extra_indicators']), 1)
 
+    def test_a_verified_senders_address_is_shown_but_not_scored(self):
+        # "bank" in citibank.com is a domain keyword that authentication alone does not relax.
+        raw = message('alerts@citibank.com', domain='citibank.com', name='Citi')
+        with patch.object(app, '_content_pipeline', None):
+            result = json.loads(asyncio.run(app._analyze_content(app.ContentRequest(), analyze_raw_email(
+                raw, mailbox_provider='gmail', arc_result=sealed_answer(raw)))).body)
+        self.assertEqual(result['verified_official_sender']['organization'], 'Citi')
+        self.assertEqual(result['sender_score'], 0)
+        self.assertIn('sender.domain_keywords', [item['code'] for item in result['sender_analysis']['risk_indicators']])
+        self.assertNotIn('sender.domain_keywords', [item['code'] for item in result['extra_indicators']])
+
     def test_a_payment_brands_model_only_note_still_abstains_when_the_text_is_unsure(self):
         # The note is not the verified Low: on a view that could not be read it stays undetermined.
         result = {'risk_level': 'low', 'risk_label': 'Low Risk — Text Model Signal Only', 'risk_floor': 'safe',
