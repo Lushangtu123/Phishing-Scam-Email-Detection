@@ -310,7 +310,8 @@ or High to Low), B (it had only relabelled a model-only note) or C (it changed n
 
 The comparator's verdict is therefore **fail**, and it stands. All 12 failing items come from one case built to
 carry a lookalike-link floor. Its link (a Wells Fargo-named host on another domain) raises only
-`link.sensitive_host` at Low and sets no floor, so main and E1 lowered that alert like any other class A record,
+`link.sensitive_host` at Low and sets no floor, because the lookalike rule protects five other brands only, so main
+and E1 lowered that alert like any other class A record,
 and this change restores it to High with the note. The five cases with a real floor (a PIN or code request, a
 callback with charge wording, a link whose text names another address, a dangerous attachment) are unchanged.
 Neither the generator's self-check nor the baseline's adequacy check confirmed that each floor case had a floor;
@@ -330,7 +331,8 @@ authentication does not relax (citibank.com) was added.
   or path ii (model-only, unchanged), needs the owner's mail and is measured only with the owner's permission.
 - The review's four uncovered wordings (a callback without charge wording, gift cards, a changed payment account,
   sending BTC) are rule gaps whatever the sender; new rules need new data, not those cases. So is the failing
-  case's link: a brand's name inside another host (six forms tried on pasted text) sets no floor.
+  case's link: the lookalike-link floor protects five brands only (Apple, Amazon, Google, Microsoft, PayPal), so
+  another registered brand's name, such as Wells Fargo, inside another host sets no floor.
 
 ### A Gmail seal lowers the risk only for the headers it signed (ARC review E1, 2026-11-01)
 
