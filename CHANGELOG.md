@@ -22,6 +22,44 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-11-01 10:46 PT] — A verified sender no longer lowers an alert on the message's content
+
+### Why
+- **ARC review E2, reproduced with synthetic messages.** Authentication says who sent a message, not that what it
+  asks is safe (RFC 8617 section 9.3). A verified official sender turned every text-model or weak-rule alert with
+  a Low floor into "Low Risk — Verified Official Sender": a genuine account's mail asking for a callback without
+  charge wording (model 98.0), announcing a changed payment account (88.1) or a general reminder (98.3) read Low.
+- The owner approved option E2-L and its pass criteria (E2-1 to E2-6) before measuring, and accepted its residual
+  risk (below).
+
+### Files changed
+- `website/app.py` — `_apply_verified_sender` no longer changes the level or label. An alert at Medium or High
+  with a Safe or Low floor stands, with an info note `content.verified_sender_content_alert` (no points,
+  parameter `organization`); sender-address findings are still set aside and the official channels still listed.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the note in English
+  and Chinese; asset versions bumped (i18n.js 163, i18n-zh.js 81, lang-init.js 84).
+- `website/tools/evidence_attribution.py` — the new code in its list.
+- `website/tests/test_server_messages.py` — a field may appear once only in templates `describe()` parses back
+  (warning., safety., prefix.); the note names the organization twice (the owner's decision).
+- `website/tests/test_verified_official_sender.py` — the step on its own (notice, position, model-only note,
+  strong floors, abstention), the reader's answer, the mail type, and a verified address shown but not scored.
+- `docs/detection-design.md`, `docs/evaluation.md`, `README.md` — the rule, the measurement and its limits.
+
+### Effect
+- **Acceptance (84-case set and tools fixed and reviewed beforehand; expected results from a counterfactual run
+  of the E1 candidate):** the verdict is **fail**. E2-1, E2-2 and the public corpus (68,612 items and a 257-item
+  repeat, byte-identical) pass; 18 of 18 planted code defects are caught by assertions. E2-3 fails on 12 items,
+  all from one case meant to carry a lookalike-link floor: its link set no floor, so main and E1 had lowered it
+  and this change restores it to High. The five cases with a real floor are unchanged. The owner recorded this as
+  a case-construction error and continued.
+- Of 510 records, 178 changed, all with a verified official sender: 27 alerts went from verified Low back to High
+  with the note, and 151 model-only notes kept Low with their own label, "Low Risk — Text Model Signal Only".
+- A verified sender's account notice is now asked "did you do this yourself?" like any other.
+- **Repository checks:** 1,579 Python tests pass (15 skipped), 536 frontend tests pass, compileall and ruff pass.
+- **Residual risk, accepted:** gift-card or crypto wording that only the text model flags stays Low on a verified
+  official sender's mail. **Not measured:** the cost on genuine mail; it needs the owner's mail and is measured
+  only with the owner's permission, before this change is merged.
+
 ## [2026-11-01 01:34 PT] — A Gmail seal lowers the risk only for the headers it signed
 
 ### Why

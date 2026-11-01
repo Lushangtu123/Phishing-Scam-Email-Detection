@@ -53,8 +53,11 @@ flowchart LR
   Only"). With weak rule evidence beside it, it raises the message to High for review.
 - A request or lure found only in text that styles may hide is marked as such and alerts
   at Medium; the model never scores hidden text.
-- A trusted DMARC pass from a registered official domain keeps text-model and weak-rule
-  alerts at Low. Strong findings, such as a request for a code, still alert.
+- A trusted DMARC pass from a registered official domain sets the sender-address findings
+  aside. Since 2026-11-01 it no longer lowers an alert on what the message asks: such an
+  alert stands, with a note that authentication does not check the request. A text-model
+  signal alone stays the "Text Model Signal Only" note, so gift-card or crypto wording no
+  rule covers stays Low on a verified sender's mail (an accepted residual risk).
 - When part of a message cannot be read (uncertain styles, images, attachments), the
   result says so, and often reads **Analysis Incomplete** rather than Safe.
 
@@ -76,7 +79,7 @@ Measured with the full serving pipeline on 2026-10-04 and 10-05, before this bra
 - The "chosen" row no longer describes the current behaviour. Since 2026-10-26, choosing the mailbox only
   reads the file's own authentication header: a failure raises the risk, but a pass no longer lowers it,
   because an uploaded file can carry a forged one. Only a verified ARC seal, such as Gmail's, can lower it,
-  and since 2026-11-01 only for the headers the seal signed.
+  and since 2026-11-01 only for the headers the seal signed, and no longer for an alert on the content.
   This cohort has not been re-measured.
 - Most false alerts come from the text model. It was trained on public corpora whose
   genuine mail is mostly from 2002–2008, and it transfers poorly to corpora it has not

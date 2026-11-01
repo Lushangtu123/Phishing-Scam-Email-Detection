@@ -341,10 +341,20 @@ Raw input enables these checks:
   organizational domain also counts: Gmail reports `header.from=spotify.com` for
   `no-reply@alerts.spotify.com` when the policy comes from the parent domain.
   - Address-shape sender heuristics are then not scored.
-  - The text model or weak rules alone cannot raise the message above
+  - Authentication says who sent the message, not that what it asks is safe (RFC 8617
+    section 9.3). Since 2026-11-01 (ARC review E2) a text-model or weak-rule alert on its
+    content stands, as for any sender, with an info note
+    (`content.verified_sender_content_alert`, no points): the sender is verified, but
+    authentication does not check what the message asks, so contact the organization only
+    through its own app or website. The reader's answer to "did you do this yourself?"
+    then applies as it does to any account notice. Before, such an alert became
     "Low Risk — Verified Official Sender".
+  - A text-model signal with no other evidence stays the note "Low Risk — Text Model
+    Signal Only", as on any original message. This is an accepted residual risk:
+    gift-card or crypto wording that no rule covers stays Low on a verified official
+    sender's mail (undetermined when the message cannot all be read).
   - Lookalike links, dangerous attachments, requests for codes, and other evidence
-    that sets a Medium or higher floor still alert.
+    that sets a Medium or higher floor still alert, with no note.
   - The DMARC result and its `header.from` are read from the same clause, after
     comments are removed, as ordered `key=value` properties: a value is consumed
     whole, so `reason=header.from=x` is a reason, never an identity. Conflicting
