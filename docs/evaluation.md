@@ -276,6 +276,60 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### A Gmail seal lowers the risk only for the headers it signed (ARC review E1, 2026-11-01)
+
+**Finding.** A review of ARC, reproduced with synthetic messages sealed with a throwaway key as Gmail would seal
+them (d=google.com, a stand-in DNS answer):
+
+- **The weakness:** a verified seal made the whole file count as the official sender's. A Subject added above a
+  genuine seal kept the seal valid (Gmail's public seals sign Subject once, so the verifier reads the original),
+  and the analysis read both subjects; a callback number or a lookalike domain in the added subject came out as
+  "Low Risk — Verified Official Sender" on all four entry paths. A lone CR in an unsigned header goes further:
+  dkimpy and Python's parser then read different header blocks, so Python reads an injected From, To, Subject
+  and body start while the seal still verifies, with no duplicate-header warning. That variant was shown to keep
+  the verified sender; it was not shown to reach a Low result.
+- **Before the fix:** in the review's 52 cases, prepending a Subject turned two texts that the model flags into
+  "Low Risk — Verified Official Sender" (High without the seal).
+
+**The fix.** The seal check also returns the header block as it read it and the positions its newest set signed.
+The sealed results still count, and their failures still raise the risk, but they lower it only when the header
+block parsed here equals that view header for header (same names and values, no lone CR or mbox "From " line,
+no structural defect at its ends) and every From, To, Cc, Subject and Reply-To is a signed instance. Otherwise
+an info notice says why and `message_structure.arc_downgrade_blocked_by` names the reason.
+
+**Measurement.** Criteria, tools and an 84-case acceptance set (new senders, new texts, new changes, a new key)
+were fixed and reviewed before the change was written; the review's cases were used only while developing.
+
+| Criterion | Result |
+|---|---|
+| A sealed pass that may not lower equals the same file without the seal (E1-1a) | pass |
+| Sealed decisive and partial failures still raise (E1-1b, E1-1c) | pass |
+| Fully signed messages unchanged (E1-2) | pass, 215 records |
+| Header blocks read differently are not lowered (E1-3) | pass |
+| The newest of two Google seals decides (E1-4) | pass |
+| DNS lookups unchanged (E1-5) | pass |
+| Public corpus unchanged: 68,612 items and a 257-item repeat (E1-6) | pass |
+| Planted code defects caught by an assertion (E1-7) | 20 of 20 |
+
+Of the 510 acceptance records, 27 changed, all of them the sealed variant of the 18 cases with an unsigned or
+mismatched header. Before the change 15 of those 27 named a verified official sender and 24 an authenticated
+sender; after it, none do. Most of these synthetic texts are not flagged by the model, so their level stayed Low;
+the one that main had lowered from High now stays High.
+
+**Limits.**
+
+- Content-Type and Content-Transfer-Encoding are not part of the check: Gmail's public seals do not sign them, so
+  changing them after sealing can still change how the body is read. Whether that can be used was not shown.
+- Gmail's current signed-header list was not checked on real downloads; the review relied on 11 public examples
+  from 2018–2021. If Gmail leaves out a header that a message has, that message is no longer lowered (a cost
+  whose size is unknown).
+- A header block whose first line is a continuation cannot be read by dkimpy, so its seal never verifies; it is
+  not evidence that a verified seal was blocked.
+- Two planted defects change no decision on any message (the direction in which instances are picked, and
+  Python's structural defects, which the view's own check already covers); unit tests of those functions catch them.
+- Verified official senders still lower model alerts on content their mail genuinely carries (review E2); that
+  is a separate change.
+
 ### An uploaded file's authentication header no longer lowers the risk (2026-10-26)
 
 **Finding.** A security review, reproduced with synthetic messages:

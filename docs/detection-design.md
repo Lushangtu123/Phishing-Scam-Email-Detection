@@ -291,8 +291,17 @@ Raw input enables these checks:
     from Google (`d=google.com`) and the chain verifies against Google's published DNS
     keys, the sealed `ARC-Authentication-Results` from `mx.google.com` are trusted, and
     the result says so (`structure.arc_sealed_results`, `authentication_source: "arc"`).
-    The seal covers the message as Gmail received it, and any change to the signed
-    headers or body breaks it. The web app verifies ARC before the analysis for every
+    The seal covers what its newest set signed when Gmail received the message (the body
+    and the headers listed in its `h=`), and any change to those breaks it. It vouches for
+    nothing else: its results lower the risk only when the header block this analysis
+    parsed is, header for header, the one the seal check read, and every From, To, Cc,
+    Subject and Reply-To in it is an instance the newest set signed. A header added above
+    the seal, one that was there but not signed, or a block the two parsers read
+    differently (a lone CR) keeps the results for failures, which still raise the risk,
+    but stops them lowering it (`structure.arc_headers_unsigned`,
+    `structure.arc_headers_unmatched`, `arc_downgrade_blocked_by`). Content-Type and
+    Content-Transfer-Encoding are not part of this check: Gmail's public seals do not sign
+    them, so changing them after sealing is a known gap. The web app verifies ARC before the analysis for every
     upload, whether or not a mailbox is chosen. Keys are looked up with a 2-second
     timeout, at most ten lookups and four seconds per message, and cached for an hour.
     Seals from any other domain are never looked up, since that DNS query would tell the
