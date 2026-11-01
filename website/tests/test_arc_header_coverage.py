@@ -201,6 +201,18 @@ class SealViewContract(unittest.TestCase):
         Parsed.defects = []
         self.assertIsNone(es._arc_downgrade_block(Parsed, view))
 
+    def test_the_same_names_with_another_value_mean_unmatched(self):
+        """Header for header, not names counted: equal names with one different value is another header block."""
+        view = es._seal_view(b'From: a@example.org\r\nSubject: Receipt\r\n\r\nbody\r\n', [b'from', b'subject'])
+
+        class Parsed:
+            defects = []
+
+            @staticmethod
+            def raw_items():
+                return [('From', 'a@example.org'), ('Subject', 'Call +1 888 555 0199')]
+        self.assertEqual(es._arc_downgrade_block(Parsed, view), {'reason': 'unmatched', 'headers': []})
+
     def test_an_answer_without_a_view_never_lowers(self):
         raw = message()
         structure = es.analyze_raw_email(raw, arc_result=('google.com', results().split(': ', 1)[1].strip()))
