@@ -22,6 +22,39 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-11-01 01:34 PT] — A Gmail seal lowers the risk only for the headers it signed
+
+### Why
+- **ARC review E1, reproduced with synthetic messages.** A verified Gmail seal made the whole uploaded file count
+  as the official sender's. A Subject added above a genuine seal kept it valid, and a callback number or a
+  lookalike domain in that subject came out as "Low Risk — Verified Official Sender". A lone CR in an unsigned
+  header let Python's parser read an injected From, To and Subject while dkimpy still verified the original ones.
+
+### Files changed
+- `website/email_structure.py` — the ARC check also returns a `SealView` (the header block as the verifier read
+  it, the positions its newest ARC-Message-Signature signed, whether the block has a lone CR or an mbox "From "
+  line); `_arc_downgrade_block` allows the verified or authenticated sender only when the parsed header block
+  equals it header for header and every From, To, Cc, Subject and Reply-To is signed. The sealed results still
+  count, and their failures still raise the risk. New fields `arc_downgrade_allowed`, `arc_downgrade_blocked_by`.
+- `website/app.py` — `message_structure.arc_downgrade_blocked_by` when a seal may not lower.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — two info notices,
+  `structure.arc_headers_unsigned` and `structure.arc_headers_unmatched`; asset versions bumped.
+- `website/tests/test_arc_header_coverage.py` — 17 tests with real seals (throwaway key, stand-in DNS);
+  `website/tests/sealed_answer.py` — tests' sealed answers carry the same view.
+- `docs/detection-design.md`, `docs/api.md`, `docs/evaluation.md`, `README.md` — the rule, the field, the
+  measurement and its limits.
+
+### Effect
+- **Acceptance (criteria, tools and an 84-case set fixed and reviewed beforehand; new senders, texts and key):**
+  every criterion passes. Of 510 records, 27 changed, all sealed variants of the 18 cases with an unsigned or
+  mismatched header: 15 named a verified official sender and 24 an authenticated sender before, none after.
+  215 fully signed records are unchanged; sealed failures still raise; DNS lookups unchanged; the public corpus
+  (68,612 items and a 257-item repeat) is byte-identical. 20 of 20 planted code defects are caught by assertions.
+- **Repository checks:** 1,571 Python tests pass (15 skipped), 536 frontend tests pass, compileall and ruff pass.
+- **Limits:** Content-Type and Content-Transfer-Encoding are not checked (Gmail's public seals do not sign them);
+  Gmail's current signed-header list was not checked on real downloads; verified official senders still lower
+  model alerts on content their mail carries (review E2, a separate change).
+
 ## [2026-10-26 23:30 PT] — An uploaded file's authentication header can raise the risk, never lower it
 
 ### Why

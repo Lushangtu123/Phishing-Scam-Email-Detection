@@ -150,7 +150,12 @@ Authentication results in a raw message have three places in `message_structure`
 
 - `auth_results`: only results proven by ARC (a chain sealed and verified for Google). Then
   `authentication_source` is `"arc"`, `authentication_results_trusted` is true, and
-  `authentication_trusted` says whether DMARC passed. Only these can lower the risk.
+  `authentication_trusted` says whether DMARC passed. Only these can lower the risk, and only
+  for the header instances the seal signed: when a From, To, Cc, Subject or Reply-To read
+  here was not signed by the newest ARC set, or the header block reads differently to the
+  seal check, `arc_downgrade_blocked_by` says so (`{"reason": "unsigned", "headers":
+  ["Subject"]}` or `{"reason": "unmatched", "headers": []}`) and nothing is lowered. The
+  field is left out otherwise.
 - `unverified_authentication`: the header named by the chosen mailbox (`mailbox`) or by
   `TRUSTED_AUTHSERV_IDS`, as `{"source": "mailbox" | "server", "authserv_id", "results",
   "header_from"}`. An uploaded file can carry any header, so its failure raises the risk and

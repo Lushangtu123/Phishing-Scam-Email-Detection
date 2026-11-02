@@ -969,6 +969,8 @@ window.PhishGuardI18n = (() => {
     'server.structure.routing_mismatch': '{header} domain ({domain}) differs from From domain candidates ({from_domains}). Routing differs; this alone does not establish impersonation.',
     'server.structure.unverified_auth_pass': 'This file says {service}’s sender check passed. An uploaded file cannot prove that this header came from that service, so it does not lower the risk.',
     'server.structure.arc_sealed_results': 'The sealed authentication record from {domain} (ARC) was verified with its published key, so its checks of this message were used.',
+    'server.structure.arc_headers_unsigned': 'The sealed record (ARC) does not cover the {headers} header read here, so its checks do not lower the risk.',
+    'server.structure.arc_headers_unmatched': "The message's headers read differently to the seal check and to this analysis, so the sealed checks do not lower the risk.",
     'server.structure.auth_failed': 'Message authentication failed: {mechanisms}.',
     'server.structure.auth_partial_failure': 'One authentication mechanism failed: {mechanisms}.',
     'server.structure.dangerous_attachment': 'Potentially dangerous attachment: {filename}.',
@@ -1420,7 +1422,7 @@ window.PhishGuardI18n = (() => {
   // Other languages' strings are separate files, fetched only for a visitor
   // who uses that language. lang-init.js requests the same URL in <head> for a
   // Chinese page; the asset-version check keeps both ?v= in step.
-  const SOURCES = {zh: '/static/i18n-zh.js?v=79'};
+  const SOURCES = {zh: '/static/i18n-zh.js?v=80'};
   const DICTIONARY = {en};
   const warned = new Set();
   // Callbacks waiting for a language's file, by language code.

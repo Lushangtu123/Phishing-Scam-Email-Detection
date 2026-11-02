@@ -950,6 +950,8 @@
   'server.structure.routing_mismatch': '{header} 域名（{domain}）与 From 域名候选（{from_domains}）不一致。路由信息不同；仅凭这一点不能认定为冒充。',
   'server.structure.unverified_auth_pass': '文件中写有 {service} 的发件人检查结果，显示为通过。上传的文件无法证明这行头出自该服务，所以它不会降低风险。',
   'server.structure.arc_sealed_results': '已用公开密钥核实了 {domain} 封存的验证记录（ARC 签名），因此采用了它对这封邮件的检查结果。',
+  'server.structure.arc_headers_unsigned': '封存的验证记录（ARC）没有签名这里读取的 {headers} 头，所以它的检查不会降低风险。',
+  'server.structure.arc_headers_unmatched': '封存检查与本次分析对这封邮件头部的读法不同，所以封存的检查不会降低风险。',
   'server.structure.auth_failed': '邮件身份验证失败：{mechanisms}。',
   'server.structure.auth_partial_failure': '有一项身份验证机制失败：{mechanisms}。',
   'server.structure.dangerous_attachment': '潜在危险附件：{filename}。',

@@ -75,7 +75,8 @@ Measured with the full serving pipeline on 2026-10-04 and 10-05, before this bra
 
 - The "chosen" row no longer describes the current behaviour. Since 2026-10-26, choosing the mailbox only
   reads the file's own authentication header: a failure raises the risk, but a pass no longer lowers it,
-  because an uploaded file can carry a forged one. Only a verified ARC seal, such as Gmail's, can lower it.
+  because an uploaded file can carry a forged one. Only a verified ARC seal, such as Gmail's, can lower it,
+  and since 2026-11-01 only for the headers the seal signed.
   This cohort has not been re-measured.
 - Most false alerts come from the text model. It was trained on public corpora whose
   genuine mail is mostly from 2002–2008, and it transfers poorly to corpora it has not
