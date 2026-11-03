@@ -364,8 +364,9 @@ before anything was read; no pass line was set, and the owner decides.
 - **Path i:** 7 more alerts, all verified-Low messages that are now High: 7 of the 42 messages from verified
   official senders (16.7%, 95% 8.3–30.6%). 5 of the 7 now ask whether the reader did it themselves; a "yes"
   makes them Low with a reminder.
-- **Path ii:** none of the verified senders' messages is a model-only note, so option E2-LO would change nothing
-  here. This is a current count, not a counterfactual measurement.
+- **Path ii:** measured, 0 of the verified senders' messages is a model-only note. E2-LO was not run. That it
+  would change none of these messages is an inference from the code (it changes only model-only notes), not a
+  measurement.
 - Gmail's newest seal signed Content-Transfer-Encoding in 12 of the 46 and Content-Type in none (question Q-E1a,
   kept for a later decision).
 

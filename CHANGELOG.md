@@ -39,7 +39,8 @@ Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - **Results:** alerts rise from 18 (22.8%) with E1 to 25 (31.6%) with E2. All 7 new alerts were verified-Low
   messages now at High: 7 of the 42 from verified official senders (16.7%, 95% 8.3–30.6%). 5 of the 7 now ask
   whether the reader did it themselves.
-- **Other counts:** no verified sender's message is a model-only note, so E2-LO would change none here.
+- **Other counts:** measured, no verified sender's message is a model-only note. E2-LO was not run; that it would
+  change none here is inferred from the code, not measured.
   E1's header gate blocked none of the 46 verified seals. Gmail's newest seal signed Content-Transfer-Encoding in
   12 of 46 and Content-Type in none.
 - **Limits:** one mailbox, 79 messages, wide intervals; replayed keys, not live lookup timeouts.
