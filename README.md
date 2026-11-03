@@ -80,7 +80,9 @@ Measured with the full serving pipeline on 2026-10-04 and 10-05, before this bra
   reads the file's own authentication header: a failure raises the risk, but a pass no longer lowers it,
   because an uploaded file can carry a forged one. Only a verified ARC seal, such as Gmail's, can lower it,
   and since 2026-11-01 only for the headers the seal signed, and no longer for an alert on the content.
-  This cohort has not been re-measured.
+  The "chosen" row has not been re-measured. On 2026-11-02 the 79 downloads within the size limit, uploaded
+  without choosing a mailbox, gave 18 alerts when a verified sender still lowered content alerts, and 25 once it
+  no longer did ([evaluation log](docs/evaluation.md)).
 - Most false alerts come from the text model. It was trained on public corpora whose
   genuine mail is mostly from 2002–2008, and it transfers poorly to corpora it has not
   seen ([leave-one-source-out](docs/evaluation.md#4-leave-one-source-out-model-evaluation)).

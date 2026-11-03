@@ -22,6 +22,28 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-11-02 22:17 PT] — Cost of E2 measured on the owner's genuine downloads
+
+### Why
+- Before E2 can be merged, the owner asked to know its cost on genuine mail. The owner approved the plan before
+  any mail was read: counts only, no pass line, the owner decides.
+
+### Files changed
+- `docs/evaluation.md` — the cost under the E2 section; the earlier "not measured" limit replaced.
+- `README.md` — the downloads cohort note.
+
+### Effect
+- **Cohort and runs:** 79 of the owner's 92 genuine downloads were within the size limit and uploaded without
+  choosing a mailbox. Google's two ARC keys were looked up once and replayed under the network guard. E1 and E2
+  ran twice each, identically. Scripts were reviewed and frozen first.
+- **Results:** alerts rise from 18 (22.8%) with E1 to 25 (31.6%) with E2. All 7 new alerts were verified-Low
+  messages now at High: 7 of the 42 from verified official senders (16.7%, 95% 8.3–30.6%). 5 of the 7 now ask
+  whether the reader did it themselves.
+- **Other counts:** no verified sender's message is a model-only note, so E2-LO would change none here.
+  E1's header gate blocked none of the 46 verified seals. Gmail's newest seal signed Content-Transfer-Encoding in
+  12 of 46 and Content-Type in none.
+- **Limits:** one mailbox, 79 messages, wide intervals; replayed keys, not live lookup timeouts.
+
 ## [2026-11-01 11:56 PT] — Supplementary measurement of E2: rule floors and relays unchanged
 
 ### Why

@@ -342,11 +342,37 @@ Risk — Text Model Signal Only". The first attempt at the planted defects caugh
 message's address, authentication alone already zeroed the sender score, so a test with a domain keyword that
 authentication does not relax (citibank.com) was added.
 
+**Cost on the owner's genuine downloads (2026-11-02).** Measured with the owner's permission, to a plan approved
+before anything was read; no pass line was set, and the owner decides.
+
+- **Method:**
+  - Cohort: the owner's 92 genuine downloads (52 Gmail, 40 Outlook.com). 13 are over the 60,000-byte `.eml` limit,
+    so 79 were uploaded by both builds, without choosing a mailbox.
+  - DNS: Google's ARC keys were looked up once (2 key names, both answered) and replayed in every run under the
+    network guard.
+  - Builds: E1 (the live code) and this change ran twice each, and each pair of runs was identical. Scripts were
+    reviewed and frozen first.
+  - Output: counts only.
+- **ARC:** 46 of the 79 carried a verified Gmail seal, and 42 of those named a verified official sender. E1's
+  header-coverage gate blocked none of the 46: every From, To, Cc, Subject and Reply-To was a signed instance.
+
+| Of the 79 | Alert | Undetermined | Not an alert |
+|---|---:|---:|---:|
+| E1 (live) | 18 (22.8%, 95% 14.9–33.2%) | 7 | 54 |
+| This change (E2) | 25 (31.6%, 95% 22.4–42.5%) | 7 | 47 |
+
+- **Path i:** 7 more alerts, all verified-Low messages that are now High: 7 of the 42 messages from verified
+  official senders (16.7%, 95% 8.3–30.6%). 5 of the 7 now ask whether the reader did it themselves; a "yes"
+  makes them Low with a reminder.
+- **Path ii:** none of the verified senders' messages is a model-only note, so option E2-LO would change nothing
+  here. This is a current count, not a counterfactual measurement.
+- Gmail's newest seal signed Content-Transfer-Encoding in 12 of the 46 and Content-Type in none (question Q-E1a,
+  kept for a later decision).
+
 **Limits.**
 
-- The cost on genuine mail is not measured. Before this change, on the owner's 52 Gmail downloads (2026-10-01),
-  trusting ARC moved alerts from 16 to 0; how many of those this change brings back, through path i (model-led)
-  or path ii (model-only, unchanged), needs the owner's mail and is measured only with the owner's permission.
+- The cost above comes from one person's mailbox, 79 messages, with wide intervals. Replaying the keys shows the
+  result when they can be fetched, not live lookup timeouts. Outlook.com downloads carry no Google seal.
 - The review's four uncovered wordings (a callback without charge wording, gift cards, a changed payment account,
   sending BTC) are rule gaps whatever the sender; new rules need new data, not those cases. So is the failing
   case's link: the lookalike-link floor protects five brands only (Apple, Amazon, Google, Microsoft, PayPal), so
