@@ -73,7 +73,10 @@ class RegistryTests(unittest.TestCase):
                 # Only {field} placeholders: no other braces, format specs or conversions.
                 self.assertNotIn('{', sm._FIELD.sub('', template))
                 self.assertNotIn('}', sm._FIELD.sub('', template))
-                self.assertEqual(len(sm.fields(template)), len(set(sm.fields(template))))
+                # describe() parses these back with one named group per field, so a field
+                # may appear once; other notices may repeat one (an organization's name).
+                if code.startswith(sm._DESCRIBABLE):
+                    self.assertEqual(len(sm.fields(template)), len(set(sm.fields(template))))
                 self.assertEqual(template, template.strip())
                 if code.startswith('prefix.'):
                     self.assertEqual(sm.fields(template)[-1], 'text')

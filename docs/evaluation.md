@@ -276,6 +276,109 @@ label, historical-period, inspection and independence limitations. Removing a
 misleading keyword signal does not establish an overall accuracy improvement
 or real-mail release acceptance.
 
+### A verified sender no longer lowers an alert on the content (ARC review E2, 2026-11-01)
+
+**Finding.** Authentication says who sent a message, not that what it asks is safe (RFC 8617 section 9.3). A
+verified official sender (a sealed, trusted DMARC pass on a registered official domain) turned every text-model
+or weak-rule alert with a Low floor into "Low Risk — Verified Official Sender". In the review's synthetic cases a
+genuine account's mail asking for a callback without charge wording (model 98.0), announcing a changed payment
+account (88.1) or a general reminder (98.3) read Low; so did the E1 cases' added subjects.
+
+**The fix (option E2-L, the owner's choice).** The verified-sender step no longer changes the level or label.
+Such an alert stands, with an info note (`content.verified_sender_content_alert`, no points) that the sender is
+verified but authentication does not check its request, and the official channels to use. The reader's answer to
+"did you do this yourself?" then applies as for any sender. The sender-address findings are still set aside, and
+a registered service's own mail that cannot all be read still reads verified Low rather than undetermined.
+
+**Residual risk, accepted.** A text-model signal with nothing else stays the note "Low Risk — Text Model Signal
+Only", as on any original message (the 2026-10-05 choice). Gift-card (model 98.3) or crypto (97.3) wording that
+no rule covers therefore stays Low on a verified official sender's mail, or undetermined when the message cannot
+all be read. Option E2-LO would have made those Medium, at an unmeasured cost in genuine official mail.
+
+**Measurement.** The 84-case acceptance set and tools fixed for the ARC review were used; the expected results
+came from a counterfactual run of the E1 candidate (`81f053a`) with only the lowering undone, so later steps
+(the reader's answer, the undetermined check) ran as served. Each record is class A (the step had lowered Medium
+or High to Low), B (it had only relabelled a model-only note) or C (it changed nothing).
+
+| Criterion | Result |
+|---|---|
+| Equal to the counterfactual run; class A carries the note once, at the step's position (E2-1) | pass |
+| Against E1, only the fields each class may change differ (E2-2) | pass |
+| Records with a rule floor unchanged, no note (E2-3) | **fail**, 12 items from one case (below) |
+| Public corpus unchanged: 68,612 items and a 257-item repeat (E2-4) | pass |
+| Planted code defects caught by an assertion (E2-5) | 18 of 18 |
+
+The comparator's verdict is therefore **fail**, and it stands. All 12 failing items come from one case built to
+carry a lookalike-link floor. Its link (a Wells Fargo-named host on another domain) raises only
+`link.sensitive_host` at Low and sets no floor, because the lookalike rule protects five other brands only, so main
+and E1 lowered that alert like any other class A record,
+and this change restores it to High with the note. The five cases with a real floor (a PIN or code request, a
+callback with charge wording, a link whose text names another address, a dangerous attachment) are unchanged.
+Neither the generator's self-check nor the baseline's adequacy check confirmed that each floor case had a floor;
+the owner decided to record the failure as a case-construction error and continue. Planted defects that put the
+note on, or change, a record with a Medium floor or a Critical result are caught by unit tests.
+
+**Supplementary measurement (second report).** After review, supplementary criteria were fixed and approved
+before anything ran; the first report and its fail stand beside the second. 13 new synthetic controls, sealed with
+a new key, verified as official senders on main:
+
+- six lookalike links on the protected brands (PayPal, Microsoft, Amazon, Apple; one an IDN host);
+- four other floors (a code and password request, a callback with charge wording, a link whose text names another
+  address, an HTML attachment with a password form);
+- three relays, each on a different basis (a share subject alone, an external Reply-To, a registered relay
+  address).
+
+Before freezing, a preflight on main with the text model off recorded only verification, floor and relay basis,
+so these are synthetic controls checked by a rule preflight, not unseen evidence. Result: **pass**. All 114
+records were class C, the E2 candidate equalled E1 byte for byte with no note, E2-1 and E2-2 held, main and E1
+showed every planned floor and relay, and each run equalled its repeat. The public-corpus runs were reused after
+checking their commit, sources, model, profile and pinned item files. A post-hoc check (not counted) confirmed
+that the failing case's E2 output is exactly its class-A expectation: the reference response plus the note. The
+supplementary tools passed 24 self-tests and caught 29 of 29 planted tool defects.
+
+Of the 510 records, 178 changed, all in the 39 sealed cases with a verified official sender: the 27 class A
+records went from verified Low to High with the note, and the 151 class B records kept Low and went back to "Low
+Risk — Text Model Signal Only". The first attempt at the planted defects caught 17 of 18: with the test
+message's address, authentication alone already zeroed the sender score, so a test with a domain keyword that
+authentication does not relax (citibank.com) was added.
+
+**Cost on the owner's genuine downloads (2026-11-02).** Measured with the owner's permission, to a plan approved
+before anything was read; no pass line was set, and the owner decides.
+
+- **Method:**
+  - Cohort: the owner's 92 genuine downloads (52 Gmail, 40 Outlook.com). 13 are over the 60,000-byte `.eml` limit,
+    so 79 were uploaded by both builds, without choosing a mailbox.
+  - DNS: Google's ARC keys were looked up once (2 key names, both answered) and replayed in every run under the
+    network guard.
+  - Builds: E1 (the live code) and this change ran twice each, and each pair of runs was identical. Scripts were
+    reviewed and frozen first.
+  - Output: counts only.
+- **ARC:** 46 of the 79 carried a verified Gmail seal, and 42 of those named a verified official sender. E1's
+  header-coverage gate blocked none of the 46: every From, To, Cc, Subject and Reply-To was a signed instance.
+
+| Of the 79 | Alert | Undetermined | Not an alert |
+|---|---:|---:|---:|
+| E1 (live) | 18 (22.8%, 95% 14.9–33.2%) | 7 | 54 |
+| This change (E2) | 25 (31.6%, 95% 22.4–42.5%) | 7 | 47 |
+
+- **Path i:** 7 more alerts, all verified-Low messages that are now High: 7 of the 42 messages from verified
+  official senders (16.7%, 95% 8.3–30.6%). 5 of the 7 now ask whether the reader did it themselves; a "yes"
+  makes them Low with a reminder.
+- **Path ii:** measured, 0 of the verified senders' messages is a model-only note. E2-LO was not run. That it
+  would change none of these messages is an inference from the code (it changes only model-only notes), not a
+  measurement.
+- Gmail's newest seal signed Content-Transfer-Encoding in 12 of the 46 and Content-Type in none (question Q-E1a,
+  kept for a later decision).
+
+**Limits.**
+
+- The cost above comes from one person's mailbox, 79 messages, with wide intervals. Replaying the keys shows the
+  result when they can be fetched, not live lookup timeouts. Outlook.com downloads carry no Google seal.
+- The review's four uncovered wordings (a callback without charge wording, gift cards, a changed payment account,
+  sending BTC) are rule gaps whatever the sender; new rules need new data, not those cases. So is the failing
+  case's link: the lookalike-link floor protects five brands only (Apple, Amazon, Google, Microsoft, PayPal), so
+  another registered brand's name, such as Wells Fargo, inside another host sets no floor.
+
 ### A Gmail seal lowers the risk only for the headers it signed (ARC review E1, 2026-11-01)
 
 **Finding.** A review of ARC, reproduced with synthetic messages sealed with a throwaway key as Gmail would seal

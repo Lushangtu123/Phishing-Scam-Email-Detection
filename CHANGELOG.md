@@ -22,6 +22,88 @@ Older entries are archived by month in [docs/changelog/](docs/changelog/): [Sept
 
 Format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [2026-11-02 22:17 PT] — Cost of E2 measured on the owner's genuine downloads
+
+### Why
+- Before E2 can be merged, the owner asked to know its cost on genuine mail. The owner approved the plan before
+  any mail was read: counts only, no pass line, the owner decides.
+
+### Files changed
+- `docs/evaluation.md` — the cost under the E2 section; the earlier "not measured" limit replaced.
+- `README.md` — the downloads cohort note.
+
+### Effect
+- **Cohort and runs:** 79 of the owner's 92 genuine downloads were within the size limit and uploaded without
+  choosing a mailbox. Google's two ARC keys were looked up once and replayed under the network guard. E1 and E2
+  ran twice each, identically. Scripts were reviewed and frozen first.
+- **Results:** alerts rise from 18 (22.8%) with E1 to 25 (31.6%) with E2. All 7 new alerts were verified-Low
+  messages now at High: 7 of the 42 from verified official senders (16.7%, 95% 8.3–30.6%). 5 of the 7 now ask
+  whether the reader did it themselves.
+- **Other counts:** measured, no verified sender's message is a model-only note. E2-LO was not run; that it would
+  change none here is inferred from the code, not measured.
+  E1's header gate blocked none of the 46 verified seals. Gmail's newest seal signed Content-Transfer-Encoding in
+  12 of 46 and Content-Type in none.
+- **Limits:** one mailbox, 79 messages, wide intervals; replayed keys, not live lookup timeouts.
+
+## [2026-11-01 11:56 PT] — Supplementary measurement of E2: rule floors and relays unchanged
+
+### Why
+- The first E2 report failed E2-3 on one case built without a real floor (the lookalike-link rule protects five
+  brands; the case used Wells Fargo). A review asked for that failure to be handled formally before any merge
+  decision, not by waiting for other gates.
+
+### Files changed
+- `docs/evaluation.md` — the second report beside the first, and what its evidence is.
+
+### Effect
+- **Second report: pass.** 13 new synthetic controls, approved and frozen before running: 6 lookalike links on
+  protected brands, 4 other floors, 3 relays on three different bases. A rule preflight on main (text model off)
+  confirmed each was what it was built to be. All 114 records class C; the E2 candidate equals E1 byte for byte
+  with no note; each run equals its repeat; corpus runs reused after pinned checks. Tools: 24 self-tests, 29 of 29
+  planted defects caught.
+- The first report's **fail** stands. A post-hoc check (not counted) shows the failing case's E2 output is exactly
+  its class-A expectation.
+- Still required before E2 can be merged: #94 merged first, the cost measurement on the owner's mail (only with
+  the owner's permission), and the owner's decision.
+
+## [2026-11-01 10:46 PT] — A verified sender no longer lowers an alert on the message's content
+
+### Why
+- **ARC review E2, reproduced with synthetic messages.** Authentication says who sent a message, not that what it
+  asks is safe (RFC 8617 section 9.3). A verified official sender turned every text-model or weak-rule alert with
+  a Low floor into "Low Risk — Verified Official Sender": a genuine account's mail asking for a callback without
+  charge wording (model 98.0), announcing a changed payment account (88.1) or a general reminder (98.3) read Low.
+- The owner approved option E2-L and its pass criteria (E2-1 to E2-6) before measuring, and accepted its residual
+  risk (below).
+
+### Files changed
+- `website/app.py` — `_apply_verified_sender` no longer changes the level or label. An alert at Medium or High
+  with a Safe or Low floor stands, with an info note `content.verified_sender_content_alert` (no points,
+  parameter `organization`); sender-address findings are still set aside and the official channels still listed.
+- `website/data/server_messages.json`, `website/static/i18n.js`, `website/static/i18n-zh.js` — the note in English
+  and Chinese; asset versions bumped (i18n.js 163, i18n-zh.js 81, lang-init.js 84).
+- `website/tools/evidence_attribution.py` — the new code in its list.
+- `website/tests/test_server_messages.py` — a field may appear once only in templates `describe()` parses back
+  (warning., safety., prefix.); the note names the organization twice (the owner's decision).
+- `website/tests/test_verified_official_sender.py` — the step on its own (notice, position, model-only note,
+  strong floors, abstention), the reader's answer, the mail type, and a verified address shown but not scored.
+- `docs/detection-design.md`, `docs/evaluation.md`, `README.md` — the rule, the measurement and its limits.
+
+### Effect
+- **Acceptance (84-case set and tools fixed and reviewed beforehand; expected results from a counterfactual run
+  of the E1 candidate):** the verdict is **fail**. E2-1, E2-2 and the public corpus (68,612 items and a 257-item
+  repeat, byte-identical) pass; 18 of 18 planted code defects are caught by assertions. E2-3 fails on 12 items,
+  all from one case meant to carry a lookalike-link floor: its link set no floor, so main and E1 had lowered it
+  and this change restores it to High. The five cases with a real floor are unchanged. The owner recorded this as
+  a case-construction error and continued.
+- Of 510 records, 178 changed, all with a verified official sender: 27 alerts went from verified Low back to High
+  with the note, and 151 model-only notes kept Low with their own label, "Low Risk — Text Model Signal Only".
+- A verified sender's account notice is now asked "did you do this yourself?" like any other.
+- **Repository checks:** 1,579 Python tests pass (15 skipped), 536 frontend tests pass, compileall and ruff pass.
+- **Residual risk, accepted:** gift-card or crypto wording that only the text model flags stays Low on a verified
+  official sender's mail. **Not measured:** the cost on genuine mail; it needs the owner's mail and is measured
+  only with the owner's permission, before this change is merged.
+
 ## [2026-11-01 01:34 PT] — A Gmail seal lowers the risk only for the headers it signed
 
 ### Why
